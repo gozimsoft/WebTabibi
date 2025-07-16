@@ -1,9 +1,12 @@
 <?php
 header("Content-Type: application/json");
-require_once("config.php");
+require_once("../controllers.php");
+
 
 $data = json_decode(file_get_contents("php://input"), true);
 
+ 
+// التحقق من وجود البيانات
 $username = $data["username"] ?? "";
 $password = $data["password"] ?? "";
 
@@ -14,7 +17,7 @@ $password = $data["password"] ?? "";
     ]);
     exit;
 }
- 
+
  echo CheckLogin($username, $password);
 
- 
+

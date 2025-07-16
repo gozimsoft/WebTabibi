@@ -3,12 +3,15 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require 'PHPMailer/SMTP.php';
-require 'PHPMailer/PHPMailer.php'; 
+require 'PHPMailer/PHPMailer.php';
 require 'PHPMailer/Exception.php';
 
-function sendMail($to, $subject, $body) {
+
+function sendMail($to, $subject, $body)
+{
     $mail = new PHPMailer(true);
     try {
+
         // إعدادات SMTP
         $mail->isSMTP();
         $mail->Host = 'smtp.gmail.com';         // خادم Gmail SMTP
@@ -19,7 +22,7 @@ function sendMail($to, $subject, $body) {
         $mail->Port = 587;
 
         // إعدادات المرسل والمستقبل
-        $mail->setFrom('your@gmail.com', 'Your Name');
+        $mail->setFrom('stellarsoftpro@gmail.com', 'stellarsoft');
         $mail->addAddress($to);
 
         // محتوى الرسالة
