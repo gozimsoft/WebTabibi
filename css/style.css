@@ -1,0 +1,83 @@
+/* css/style.css */
+body {
+  margin: 0;
+  height: 100vh;
+  background: linear-gradient(-45deg, 
+  rgba(173, 255, 47, 0.3),   /* Light green-yellow */
+  rgba(144, 238, 144, 0.3),  /* Light green */
+  rgba(173, 216, 230, 0.3),  /* Light blue */
+  rgba(221, 160, 221, 0.3)   /* Light purple */
+);
+
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.bg-teal {
+  background-color: #08A6A0 !important;
+}
+
+
+.card-img {
+  height: 300px;
+  object-fit: cover;
+  opacity: 0.6;
+}
+
+.card-img-overlay {
+  text-align: center;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #08A6A0 !important;
+}
+
+.feature-card {
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  transition: 0.3s ease;
+}
+
+.feature-card:hover {
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+.col-md-4 {
+    height: 300px;
+}
+.text-teal{
+    color: #08A6A0;
+}
+.btn.rounded-circle {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.animated-bg::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background-image: url('img/reminder.png');
+      background-repeat: repeat;
+      animation: floatBackground 60s linear infinite;
+      opacity: 0.05;
+    }
+    @keyframes floatBackground {
+      from { background-position: 0 0; }
+      to { background-position: 1000px 1000px; }
+    }
