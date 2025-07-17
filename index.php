@@ -33,7 +33,7 @@
             <a class="nav-link text-white active" aria-current="page" href="#">Services</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link text-white"  href="login.html" >Login</a>
+            <a class="nav-link text-white" href="/login.php">Login</a>
           </li>
         </ul>
       </div>
@@ -70,7 +70,8 @@
             <p class="card-text">Scan the QR code to install Tabibi on your phone.</p>
             <img src="img/qr.png" alt="QR Code Tabibi" class="img-fluid" style="max-width: 150px; margin-bottom: 10px;">
             <br>
-            <a href="#" class="btn btn-success">Open in Store</a>
+          
+            <a href="#" class="button button1">Open in Store</a>
           </div>
         </div>
       </div>
