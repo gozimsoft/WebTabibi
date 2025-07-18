@@ -27,13 +27,13 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item">
-            <a class="nav-link text-white active" aria-current="page" href="#">Home</a>
+            <a class="nav-link text-white active" aria-current="page" href="#">+(213)660333343</a>
           </li>
            <li class="nav-item">
-            <a class="nav-link text-white active" aria-current="page" href="#">Services</a>
+            <a class="nav-link text-white active" aria-current="page" href="#">+(213)657111543</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link text-white" href="/login.php">Login</a>
+            <a class="nav-link text-white" href="/login.php">contact@tabibi.dz</a>
           </li>
         </ul>
       </div>
