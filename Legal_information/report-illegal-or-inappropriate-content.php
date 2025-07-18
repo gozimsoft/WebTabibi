@@ -1,4 +1,4 @@
-Hello world<?php
+<?php
 // index.php
 ?>
 <!DOCTYPE html>
