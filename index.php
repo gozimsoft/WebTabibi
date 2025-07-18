@@ -46,7 +46,7 @@
       <div class="col-md-8">
         <div class="card feature-card shadow-lg text-white position-relative overflow-hidden">
           <img src="img/CardBG.png" class="card-img" alt="Medical background">
-          <div class="card-img-overlay d-flex flex-column justify-content-center align-items-center">
+          <!--  <div class="card-img-overlay d-flex flex-column justify-content-center align-items-center">
             <h5 class="card-title mb-4">Trouvez votre rendez-vous médical</h5>
             <form class="row g-3 justify-content-center w-100 px-3">
               <div class="col-md-5">
@@ -59,7 +59,7 @@
                 <button type="submit" class="btn btn-light w-100">Rechercher</button>
               </div>
             </form>
-          </div>
+          </div> -->
         </div>
       </div>
       <!-- QR Code Card -->
