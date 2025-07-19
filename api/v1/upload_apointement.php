@@ -1,18 +1,6 @@
 <?php
 header("Content-Type: application/json");
 require_once("config.php");
-require_once("auth.php");
-
-// التحقق من التوكن
-$headers = getallheaders();
-$authHeader = $headers['Authorization'] ?? '';
-$token = str_replace('Bearer ', '', $authHeader);
-
-$session = validateToken($token);
-if (!$session) {
-    echo json_encode(['status' => 'fail', 'message' => 'Invalid token']);
-    exit;
-}
 
 $data = json_decode(file_get_contents("php://input"), true);
 
