@@ -27,13 +27,13 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item">
-            <a class="nav-link text-white active" aria-current="page" href="#">Home</a>
+            <a class="nav-link text-white active" aria-current="page" href="#">+(213)660333343</a>
           </li>
            <li class="nav-item">
-            <a class="nav-link text-white active" aria-current="page" href="#">Services</a>
+            <a class="nav-link text-white active" aria-current="page" href="#">+(213)657111543</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link text-white"  href="login.html" >Login</a>
+            <a class="nav-link text-white" href="/login.php">contact@tabibi.dz</a>
           </li>
         </ul>
       </div>
@@ -46,7 +46,7 @@
       <div class="col-md-8">
         <div class="card feature-card shadow-lg text-white position-relative overflow-hidden">
           <img src="img/CardBG.png" class="card-img" alt="Medical background">
-          <div class="card-img-overlay d-flex flex-column justify-content-center align-items-center">
+          <!--  <div class="card-img-overlay d-flex flex-column justify-content-center align-items-center">
             <h5 class="card-title mb-4">Trouvez votre rendez-vous médical</h5>
             <form class="row g-3 justify-content-center w-100 px-3">
               <div class="col-md-5">
@@ -59,7 +59,7 @@
                 <button type="submit" class="btn btn-light w-100">Rechercher</button>
               </div>
             </form>
-          </div>
+          </div> -->
         </div>
       </div>
       <!-- QR Code Card -->
@@ -70,7 +70,8 @@
             <p class="card-text">Scan the QR code to install Tabibi on your phone.</p>
             <img src="img/qr.png" alt="QR Code Tabibi" class="img-fluid" style="max-width: 150px; margin-bottom: 10px;">
             <br>
-            <a href="#" class="btn btn-success">Open in Store</a>
+          
+            <a href="#" class="button button1">Open in Store</a>
           </div>
         </div>
       </div>
