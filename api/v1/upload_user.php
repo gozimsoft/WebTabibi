@@ -30,24 +30,33 @@ if ($stmt->fetchColumn() > 0) {
     exit;
 }
 
+if ($id === ''){
+      echo json_encode([
+        "status" => "fail",
+        "message" => "ID is Empty"    ]);
+    exit;  
+}
+
 // إضافة الحساب
-$insert = $pdo->prepare("INSERT INTO Users (ID, Username, Password, UserType) VALUES (:id, :username, :password, :usertype)");
-$success = $insert->execute([
+$update = $pdo->prepare("update Users set  Username = :username
+                                and Password = :password and UserType = :usertype 
+                                where ID = :id  ");
+$success = $update->execute([
     ":id" => $id,
     ":username" => $username,
-    ":password" =>xorEncrypt( $password),
+    ":password" => xorEncrypt($password) ,
     ":usertype" => $userType
 ]);
 
 if ($success) {
     echo json_encode([
         "status" => "success",
-        "message" => "Account created"
+        "message" => "Account update"
     ]);
 } else {
     echo json_encode([
         "status" => "fail",
-        "message" => "Failed to create account"
+        "message" => "Failed to update account"
     ]);
 }
 

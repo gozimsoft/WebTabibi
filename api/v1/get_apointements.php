@@ -1,23 +1,11 @@
 <?php
 header("Content-Type: application/json");
 require_once("config.php");
-require_once("auth.php");
-
-// التحقق من التوكن
-$headers = getallheaders();
-$authHeader = $headers['Authorization'] ?? '';
-$token = str_replace('Bearer ', '', $authHeader);
-
-$session = validateToken($token);
-if (!$session) {
-    echo json_encode(['status' => 'fail', 'message' => 'Invalid token']);
-    exit;
-}
 
 
-$doctor_id = $session['doctor_id'] ?? '';
-
- 
+// ✅ استقبال البيانات من JSON
+$data = json_decode(file_get_contents("php://input"), true);
+$doctor_id = $data['Doctor_id'] ?? '';
 
 
 $stmt = $pdo->prepare("
@@ -26,8 +14,9 @@ $stmt = $pdo->prepare("
         Apointements.Note,
         Apointements.Reason_id,
         Apointements.AppointementDate,
+        Apointements.Doctor_id,
         Patients.Fullname,
-        Patients.Phone
+        Patients.Phone        
     FROM Apointements
     LEFT JOIN Patients ON Patients.ID = Apointements.Patient_id
     WHERE Apointements.Doctor_id = :doctor_id

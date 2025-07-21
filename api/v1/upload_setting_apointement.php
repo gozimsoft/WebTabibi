@@ -36,8 +36,7 @@ $daytime_end = (string)($data['daytime_end'] ?? '16:00:00');
 $week_begin_day = (int)($data['week_begin_day'] ?? 0);
 $working_days = (string)($data['working_days'] ?? '0000000');
 $count_days = (int)($data['count_days'] ?? 0);
-$is_registered = (int)($data['IsRegistered'] ?? 0); 
-
+$is_registered = isset($data['IsRegistered']) && filter_var($data['IsRegistered'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
 try {
     // --- 4. التحقق من وجود سجل سابق للطبيب ---
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM DoctorsSettingApointements WHERE Doctor_id = :doctor_id");
