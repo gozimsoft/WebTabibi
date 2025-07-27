@@ -3,6 +3,7 @@ header("Content-Type: application/json");
 
 require_once("../config.php");
 require_once("../auth.php");
+require_once("../controllers.php");
 
 // ✅ قراءة التوكن من الهيدر
 $headers = getallheaders();
@@ -24,7 +25,7 @@ if (!$session) {
 
 $data = json_decode(file_get_contents("php://input"), true);
 $ID = $data['ID'] ?? '';
-$Patient_id = $session['patient_id'];
+$Patient_id = $data['Patient_id'];
 $Reason_id = $data['Reason_id'] ?? '';
 $Clinic_ID = $data['Clinic_ID'] ?? '';
 $Doctor_ID = $data['Doctor_ID'] ?? '';
@@ -68,6 +69,7 @@ if (!$row) {
     $stmt->execute([':Patient_id' => $Patient_id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $email = $row['Email'];
+    
     echo json_encode(['status' => 'success', 'email' => $email, 'message' => 'Apointement saved']);
 } else {
     echo json_encode(['status' => 'fail', 'message' => 'Duplicate appointment']);
