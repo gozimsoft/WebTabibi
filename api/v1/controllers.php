@@ -86,6 +86,37 @@ function CheckLogin(string $username, string $password): string
     }
 }
 
+function SendMailContact($from_email,$from_name, $subject, $body): bool
+{
+    $mail = new PHPMailer(true);
+    try {
+        // إعدادات SMTP
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';         // خادم Gmail SMTP
+        $mail->SMTPAuth = true;
+        $mail->Username = 'stellarsoftpro@gmail.com';     // بريد Gmail
+        $mail->Password = 'equi uawa usrl wpor';  // كلمة مرور التطبيق
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // أو 'tls'
+        $mail->Port = 587;
+
+        // إعدادات المرسل والمستقبل
+        $mail->setFrom($from_email , $from_name);
+        $mail->addAddress('gozimsoft@gmail.com');
+
+        // محتوى الرسالة
+        $mail->isHTML(false); // أو true لو أردت HTML
+        $mail->Subject = $subject;
+        $mail->Body = $body;
+
+        // إرسال
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("Mailer Error: " . $mail->ErrorInfo);
+        return false;
+    }
+}
+
 function SendMail($to, $subject, $body): bool
 {
     $mail = new PHPMailer(true);

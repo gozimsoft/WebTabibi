@@ -1,9 +1,0 @@
-Array
-(
-    [id] => 946582AF-A2AD-43D4-B339-E33A493C935E
-    [doctor_id] => BD1A9992-6D75-40BD-A62F-D4B5E8C14966
-    [appointement_date] => 2025-07-13 08:20:00
-    [reason_id] => 18140C61-8887-480A-8F71-3B1DB1294AA1
-    [patient_id] => 99614A5B-AB96-4459-B1A0-E96DB7F2AE79
-    [note] => gggggggg
-)
