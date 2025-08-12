@@ -1,4 +1,4 @@
-name: Deploy to Bluehost
+name: Deploy to Octenium
 
 on:
   push:
@@ -6,17 +6,21 @@ on:
       - main
 
 jobs:
-  ftp-deploy:
+  web-deploy:
+    name: Deploy website
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.ftp.tabibi.dz }}
-          username: ${{ secrets.tabibi@tabibi.dz }}
-          password: ${{ secrets.tabibi@2025 }}
-          local-dir: .
-          server-dir: public_html/
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v4
+
+    - name: Deploy with rsync
+      uses: easingthemes/ssh-deploy@main
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        ARGS: "-avz --delete"
+        SOURCE: "./"
+        REMOTE_HOST: ${{ secrets.OCTENIUM_HOST }}
+        REMOTE_USER: ${{ secrets.OCTENIUM_USERNAME }}
+        TARGET: ${{ secrets.OCTENIUM_TARGET_DIR }}
+
