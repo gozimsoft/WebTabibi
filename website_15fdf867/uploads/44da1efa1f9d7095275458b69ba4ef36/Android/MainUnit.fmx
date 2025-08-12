@@ -1,0 +1,56 @@
+
+object FrmMain: TFrmMain
+  Left = 0
+  Top = 0
+  Caption = 'Main'
+  ClientHeight = 531
+  ClientWidth = 453
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object ScrollBox1: TScrollBox
+    Align = Client
+    Size.Width = 453.000000000000000000
+    Size.Height = 531.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    Viewport.Width = 453.000000000000000000
+    Viewport.Height = 531.000000000000000000    
+    
+	object BtnCredits: TButton
+      Align = Top
+      Margins.Left = 3.000000000000000000
+      Margins.Top = 3.000000000000000000
+      Margins.Right = 3.000000000000000000
+      Margins.Bottom = 3.000000000000000000
+      Position.X = 3.000000000000000000
+      Position.Y = 3.000000000000000000
+      Size.Width = 395.000000000000000000
+      Size.Height = 65.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Credits'
+	  OnClick = BtnCreditsClick
+	end
+ 
+
+	object BtnClients: TButton
+      Align = Top
+      Margins.Left = 3.000000000000000000
+      Margins.Top = 3.000000000000000000
+      Margins.Right = 3.000000000000000000
+      Margins.Bottom = 3.000000000000000000
+      Position.X = 3.000000000000000000
+      Position.Y = 3.000000000000000000
+      Size.Width = 395.000000000000000000
+      Size.Height = 65.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Clients'
+	  OnClick = BtnClientsClick
+	end
+ 
+
+  end
+end
+
+
