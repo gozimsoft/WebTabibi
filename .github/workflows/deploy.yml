@@ -1,51 +1,22 @@
-name: Deploy to Octenium
+name: Deploy via FTP
 
 on:
   push:
     branches:
-      - main   # غيّرها لو تنشر من master أو dev
-
-concurrency:
-  group: octenium-deploy
-  cancel-in-progress: true
+      - main  # أو الفرع الذي تريد رفعه
 
 jobs:
-  web-deploy:
-    name: Deploy website
+  ftp-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      # (اختياري) اختبار الاتصال قبل الرفع
-      - name: Test SSH connection
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.OCTENIUM_HOST }}
-          username: ${{ secrets.OCTENIUM_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.OCTENIUM_PORT || 22 }}
-          script: |
-            echo "Connected as $(whoami)"
-            mkdir -p "${{ secrets.OCTENIUM_TARGET_DIR }}"
-            ls -la "${{ secrets.OCTENIUM_TARGET_DIR }}" || true
-
-      - name: Deploy with rsync
-        uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          REMOTE_HOST: ${{ secrets.OCTENIUM_HOST }}
-          REMOTE_USER: ${{ secrets.OCTENIUM_USERNAME }}
-          REMOTE_PORT: ${{ secrets.OCTENIUM_PORT || 22 }}
-          SOURCE: "./"
-          TARGET: ${{ secrets.OCTENIUM_TARGET_DIR }}
-          # -a: archive, -z: compress, -v: verbose, --delete: مزامنة حذف
-          # استثناءات شائعة (عدّلها حسب مشروعك)
-          ARGS: "-azv --delete --exclude='.git*' --exclude='.github*' --exclude='node_modules/*' --exclude='.env*' --exclude='*.log'"
-          # قبل الرفع: تأكد من وجود المسار
-          SCRIPT_BEFORE: |
-            mkdir -p "${{ secrets.OCTENIUM_TARGET_DIR }}"
-          # بعد الرفع: (اختياري) أي أوامر تريدها
-          SCRIPT_AFTER: |
-            echo "Deployed at $(date)"
+    - name: FTP Deploy
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_HOST }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./   # مجلد المشروع المحلي
+        server-dir: /public_html/  # مسار الملفات في الاستضافة
