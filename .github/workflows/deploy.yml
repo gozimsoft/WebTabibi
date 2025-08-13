@@ -1,22 +1,53 @@
-name: Deploy via FTP
+name: Deploy via FTP (Optimized)
 
 on:
   push:
     branches:
-      - main  # أو الفرع الذي تريد رفعه
+      - main  # غيّرها حسب فرعك
 
 jobs:
   ftp-deploy:
     runs-on: ubuntu-latest
     steps:
+    # 1️⃣ جلب المشروع من GitHub
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: FTP Deploy
+    # 2️⃣ استرجاع التخزين المؤقت لرفع أسرع
+    - name: Restore FTP cache
+      uses: actions/cache@v3
+      with:
+        path: .ftp-deploy-sync-state.json
+        key: ${{ runner.os }}-ftp-sync-${{ github.ref }}
+        restore-keys: |
+          ${{ runner.os }}-ftp-sync-
+
+    # 3️⃣ تنفيذ الرفع عبر FTP مع تحسينات السرعة
+    - name: FTP Deploy (Sync Mode)
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_HOST }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./   # مجلد المشروع المحلي
-        server-dir: /public_html/  # مسار الملفات في الاستضافة
+        local-dir: ./                # مجلد المشروع
+        server-dir: /public_html/    # المسار على الاستضافة
+        method: sync                 # رفع الملفات المعدلة فقط
+        dangerous-clean-slate: false # لا تحذف ملفات السيرفر
+        exclude: |                   # استثناء الملفات الغير مهمة
+          **/.git*
+          **/.github*
+          **/node_modules/**
+          **/vendor/**
+          **/*.md
+          **/*.log
+          **/tmp/**
+          **/cache/**
+          **/uploads/temp/**
+          **/.env
+
+    # 4️⃣ حفظ حالة المزامنة للاستخدام في الرفع القادم
+    - name: Save FTP cache
+      uses: actions/cache@v3
+      with:
+        path: .ftp-deploy-sync-state.json
+        key: ${{ runner.os }}-ftp-sync-${{ github.ref }}
