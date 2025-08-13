@@ -3,7 +3,11 @@ name: Deploy to Octenium
 on:
   push:
     branches:
-      - main
+      - main   # غيّرها لو تنشر من master أو dev
+
+concurrency:
+  group: octenium-deploy
+  cancel-in-progress: true
 
 jobs:
   web-deploy:
@@ -11,16 +15,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout the repository
-      uses: actions/checkout@v4
+      - name: Checkout the repository
+        uses: actions/checkout@v4
 
-    - name: Deploy with rsync
-      uses: easingthemes/ssh-deploy@main
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        ARGS: "-avz --delete"
-        SOURCE: "./"
-        REMOTE_HOST: ${{ secrets.OCTENIUM_HOST }}
-        REMOTE_USER: ${{ secrets.OCTENIUM_USERNAME }}
-        TARGET: ${{ secrets.OCTENIUM_TARGET_DIR }}
+      # (اختياري) اختبار الاتصال قبل الرفع
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCTENIUM_HOST }}
+          username: ${{ secrets.OCTENIUM_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.OCTENIUM_PORT || 22 }}
+          script: |
+            echo "Connected as $(whoami)"
+            mkdir -p "${{ secrets.OCTENIUM_TARGET_DIR }}"
+            ls -la "${{ secrets.OCTENIUM_TARGET_DIR }}" || true
 
+      - name: Deploy with rsync
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_HOST: ${{ secrets.OCTENIUM_HOST }}
+          REMOTE_USER: ${{ secrets.OCTENIUM_USERNAME }}
+          REMOTE_PORT: ${{ secrets.OCTENIUM_PORT || 22 }}
+          SOURCE: "./"
+          TARGET: ${{ secrets.OCTENIUM_TARGET_DIR }}
+          # -a: archive, -z: compress, -v: verbose, --delete: مزامنة حذف
+          # استثناءات شائعة (عدّلها حسب مشروعك)
+          ARGS: "-azv --delete --exclude='.git*' --exclude='.github*' --exclude='node_modules/*' --exclude='.env*' --exclude='*.log'"
+          # قبل الرفع: تأكد من وجود المسار
+          SCRIPT_BEFORE: |
+            mkdir -p "${{ secrets.OCTENIUM_TARGET_DIR }}"
+          # بعد الرفع: (اختياري) أي أوامر تريدها
+          SCRIPT_AFTER: |
+            echo "Deployed at $(date)"
