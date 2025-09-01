@@ -1,6 +1,6 @@
 <?php
 // ملف: config.php
-
+ 
 $host = '50.6.156.112';
 $db   = 'vrtctpmy_DBTabibi';
 $user = 'vrtctpmy_TabibAdmin'; // غيّره إذا كنت تستخدم اسم مستخدم آخر
