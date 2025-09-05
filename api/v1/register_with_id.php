@@ -24,37 +24,36 @@ $stmt->execute([":id" => $user_id]);
 if ($stmt->fetchColumn() > 0) {
     echo json_encode([
         "success" => false,
-        "message" => "Missing required fields"
+        "message" => "User already exists"
     ]);
     exit;
 }
 
 // إضافة الحساب
-$insert = $pdo->prepare("INSERT INTO Users (ID, Username, Password, UserType) VALUES (:id, :username, :password, :usertype)");
-$success = $insert->execute([
+$insertUser = $pdo->prepare("INSERT INTO Users (ID, Username, Password, UserType) VALUES (:id, :username, :password, :usertype)");
+$userSuccess = $insertUser->execute([
     ":id" => $user_id,
     ":username" =>  generateUUIDv4()  ,
     ":password" => generateUUIDv4()  ,
     ":usertype" => $userType
 ]);
 
-// إضافة الحساب
-$insert = $pdo->prepare("INSERT INTO Doctors (ID, FullName) VALUES (:id, :FullName )");
-$success = $insert->execute([
-    ":id" => $user_id,
+// إضافة حساب الطبيب
+$insertDoctor = $pdo->prepare("INSERT INTO Doctors (ID,User_id, FullName) VALUES (:id, :User_id, :FullName )");
+$doctorSuccess = $insertDoctor->execute([
+    ":id" => $doctor_id,
+    ":User_id" => $user_id,
     ":FullName" => 'Name unknown'
 ]);
 
-
-
-if ($success) {
+if ($userSuccess && $doctorSuccess) {
     echo json_encode([
-        "status" => "success",
+        "success" => true,
         "message" => "Account created"
     ]);
 } else {
     echo json_encode([
-        "status" => "fail",
+        "success" => false,
         "message" => "Failed to create account"
     ]);
 }
