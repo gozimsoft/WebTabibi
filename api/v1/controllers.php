@@ -31,7 +31,45 @@ function xorDecrypt($encoded)
     return $output;
 }
 
+ 
+function CheckLoginWithID(string $id): string
+{
+    global $pdo; // تأكد من وجود $pdo في config.php
 
+    $sql = "
+        SELECT 
+            Users.ID                                  
+        FROM Users        
+        INNER JOIN Doctors ON Doctors.User_id = Users.ID
+        WHERE 
+            Users.ID = :id
+            and Users.UserType = 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ":id" => $id        
+    ]);
+    if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        // توليد التوكن
+        $token = bin2hex(random_bytes(32)); // 64 حرفًا        
+        $insert = $pdo->prepare("INSERT INTO sessions (user_id, token) VALUES (:user_id, :token)");
+        $insert->execute([
+            ":user_id" => $row["ID"],
+            ":token" => $token
+        ]);
+        return json_encode([
+            "success" => true,
+            "message" => "Login successful",
+            "token" => $token           
+        ]);
+    } else {
+        return json_encode([
+            "success" => false,
+            "message" => "unavailable"
+        ]);
+    }
+}
 function CheckLogin(string $username, string $password): string
 {
     global $pdo; // تأكد من وجود $pdo في config.php
