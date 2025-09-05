@@ -32,7 +32,7 @@ jobs:
         local-dir: ./                # مجلد المشروع
         server-dir: ./    # المسار على الاستضافة
         method: sync                 # رفع الملفات المعدلة فقط
-        dangerous-clean-slate: true # لا تحذف ملفات السيرفر
+        dangerous-clean-slate: false # لا تحذف ملفات السيرفر
         exclude: |                   # استثناء الملفات الغير مهمة
           **/.git*
           **/.github*
