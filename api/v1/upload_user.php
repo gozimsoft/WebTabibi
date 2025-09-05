@@ -10,6 +10,7 @@ $username = $data["username"] ?? '';
 $password = $data["password"] ?? '';
 $userType = $data["userType"] ?? 1;
 
+
 // تحقق من البيانات
 if (empty($id) || empty($username) || empty($password)) {
     echo json_encode([
@@ -18,7 +19,7 @@ if (empty($id) || empty($username) || empty($password)) {
     ]);
     exit;
 }
-
+/*
 // تحقق إن كان المستخدم موجود
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM Users WHERE ID = :id");
 $stmt->execute([":id" => $id]);
@@ -29,17 +30,18 @@ if ($stmt->fetchColumn() > 0) {
     ]);
     exit;
 }
+*/
 
 if ($id === ''){
       echo json_encode([
         "status" => "fail",
-        "message" => "ID is Empty"    ]);
+        "message" => "ID is Empty" ]);
     exit;  
 }
 
-// إضافة الحساب
+//
 $update = $pdo->prepare("update Users set  Username = :username
-                                and Password = :password and UserType = :usertype 
+                                , Password = :password , UserType = :usertype 
                                 where ID = :id  ");
 $success = $update->execute([
     ":id" => $id,

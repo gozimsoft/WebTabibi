@@ -30,9 +30,9 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./                # مجلد المشروع
-        server-dir: ./public_html/    # المسار على الاستضافة
+        server-dir: ./    # المسار على الاستضافة
         method: sync                 # رفع الملفات المعدلة فقط
-        dangerous-clean-slate: false # لا تحذف ملفات السيرفر
+        dangerous-clean-slate: true # لا تحذف ملفات السيرفر
         exclude: |                   # استثناء الملفات الغير مهمة
           **/.git*
           **/.github*

@@ -1,5 +1,0 @@
-Win : 
-1-LibraryGS    --> Included with the program
-2-devexpress   --> https://www.devexpress.com/products/vcl/
-3-unidac           --> https://www.devart.com/unidac/
-

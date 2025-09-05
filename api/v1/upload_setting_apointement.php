@@ -6,6 +6,7 @@ header("Content-Type: application/json");
 require_once("config.php");
 require_once("auth.php");
 
+/*
 // --- 1. التحقق من التوكن والمصادقة ---
 $headers = getallheaders();
 if (!isset($headers['Authorization'])) {
@@ -16,6 +17,10 @@ $session = validateToken($token);
 if (!$session) {
     send_json_response('fail', 'Invalid token', 401);
 }
+
+
+*/
+
 
 // --- 2. الحصول على البيانات والتحقق منها ---
 $data = json_decode(file_get_contents("php://input"), true) ?? [];

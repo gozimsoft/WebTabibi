@@ -10,7 +10,6 @@ require 'PHPMailer/Exception.php';
 require_once("config.php");
 
 
-
 function xorEncrypt($text)
 {
     $key = 5; // ثابت
@@ -181,5 +180,12 @@ function CheckEmail(string $email): bool
 
 }
 
-
+function generateUUIDv4() {
+    $data = random_bytes(16);
+    // ضبط النسخة (Version 4)
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+    // ضبط الـ variant
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
 ?>
