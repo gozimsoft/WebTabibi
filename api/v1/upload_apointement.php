@@ -10,7 +10,9 @@ $doctor_id = $data['doctor_id'] ?? '';
 $reason_id = $data['reason_id'] ?? '';
 $phone = $data['phone'] ?? '';
 $note = $data['note'] ?? '';
+$PatientName = $data['PatientName'] ?? '';
 $appointement_date = $data['appointement_date'] ?? null;
+
 
 if (empty($id) || empty($phone)) {
     echo json_encode(['status' => 'fail', 'message' => 'Missing ID or phone']);
@@ -23,27 +25,27 @@ $stmt->execute([':phone' => $phone]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$row) {
-    echo json_encode(['status' => 'fail', 'message' => 'Patient not found']);
-    exit;
+   $patient_id = $row['ID'];
 }
-
-$patient_id = $row['ID'];
-
+ 
 $sql = "INSERT INTO Apointements (
-        ID, Doctor_id,  Reason_id,Patient_id,  AppointementDate, Note
+        ID, Doctor_id,  Reason_id,Patient_id,  AppointementDate, Note,PatientName
     ) VALUES (
-        :id, :doctor_id, :reason_id, :patient_id, :appointement_date, :note
+        :id, :doctor_id, :reason_id, :patient_id, :appointement_date, :note,:PatientName
     )";
  
 $stmt = $pdo->prepare($sql);
 $stmt->execute([
     ':id' => $id,
     ':doctor_id' => $doctor_id,
-   ':appointement_date' => $appointement_date,
-   ':reason_id' => $reason_id,
+    ':appointement_date' => $appointement_date,
+    ':reason_id' => $reason_id,
     ':patient_id' => $patient_id,
-    ':note' => $note
+    ':note' => $note,
+    ':PatientName' => $PatientName
+    
 ]);
 
 echo json_encode(['status' => 'success', 'message' => 'Apointement saved']);
+
 ?>

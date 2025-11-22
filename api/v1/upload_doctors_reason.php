@@ -2,7 +2,7 @@
 header("Content-Type: application/json");
 require_once("config.php");
 require_once("auth.php");
- 
+require_once("controllers.php");
 /*
 // تحقق من التوكن
 $headers = getallheaders();
@@ -37,12 +37,11 @@ foreach ($items as $item) {
     if (!isset($item['id'], $item['reason_id']))
         continue;
     $stmt->execute([
-        $item['id'],
+        generateUUIDv4(),
         $item['reason_id'],
         $doctor_id
     ]);
 }
-
 
 echo json_encode(['status' => 'success', 'message' => 'Doctors Reasons uploaded']);
 

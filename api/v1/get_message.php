@@ -17,9 +17,7 @@ if (!$session) {
 $data = json_decode(file_get_contents("php://input"), true);
 $MessageThread_id = $data["message_thread_id"] ?? '';
 
-
 $doctor_id = $session['doctor_id'] ?? '';
-
 
 $stmt = $pdo->prepare("
     SELECT 

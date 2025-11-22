@@ -2,6 +2,7 @@
 header("Content-Type: application/json");
 require_once("config.php");
 require_once("auth.php");
+require_once("controllers.php");
 /*
 // تحقق من التوكن
 $headers = getallheaders();
@@ -26,7 +27,6 @@ if (empty($doctor_id)) {
     exit;
 }
 
-
 // حذف القديم
 
 $pdo->prepare("DELETE FROM DoctorsOffHours WHERE Doctor_id = ?")->execute([$doctor_id]);
@@ -36,7 +36,7 @@ $stmt = $pdo->prepare("INSERT INTO DoctorsOffHours (ID, Day, TimeBegin, TimeEnd,
 
 foreach ($items as $item) {
     $stmt->execute([
-        $item['id'],
+        generateUUIDv4(),
         $item['day'],
         $item['time_begin'],
         $item['time_end'],

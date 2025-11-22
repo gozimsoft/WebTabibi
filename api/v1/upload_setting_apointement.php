@@ -5,6 +5,7 @@ declare(strict_types=1);
 header("Content-Type: application/json");
 require_once("config.php");
 require_once("auth.php");
+require_once("controllers.php");
 
 /*
 // --- 1. التحقق من التوكن والمصادقة ---
@@ -17,8 +18,6 @@ $session = validateToken($token);
 if (!$session) {
     send_json_response('fail', 'Invalid token', 401);
 }
-
-
 */
 
 
@@ -26,28 +25,27 @@ if (!$session) {
 $data = json_decode(file_get_contents("php://input"), true) ?? [];
 
 // التحقق من وجود البيانات الأساسية (id و doctor_id)
-if (empty($data['id']) || empty($data['doctor_id'])) {
-    send_json_response('fail', 'id and doctor_id are required', 400);
+if (  empty($data['sdfg'])) {
+    send_json_response('fail', 'doctor_id is required', 400);
 }
 
 // --- 3. تجهيز البيانات بالأنواع الصحيحة ---
 // **تصحيح حاسم:** التعامل مع ID و Doctor_id كنصوص (string) وليس أرقام (int)
-$id = (string)$data['id'];
+$id = generateUUIDv4()  ;
 $doctor_id = (string)$data['doctor_id'];   
-
-$time_scale = (int)($data['time_scale'] ?? 30);
+$time_scale = (int)($data['time_scale'] ?? 10);
 $daytime_start = (string)($data['daytime_start'] ?? '08:00:00');
 $daytime_end = (string)($data['daytime_end'] ?? '16:00:00');
 $week_begin_day = (int)($data['week_begin_day'] ?? 0);
 $working_days = (string)($data['working_days'] ?? '0000000');
-$count_days = (int)($data['count_days'] ?? 0);
+$count_days = (int)($data['count_days'] ?? 1);
 $is_registered = isset($data['IsRegistered']) && filter_var($data['IsRegistered'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+
 try {
     // --- 4. التحقق من وجود سجل سابق للطبيب ---
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM DoctorsSettingApointements WHERE Doctor_id = :doctor_id");
     $stmt->execute([':doctor_id' => $doctor_id]);
     $exists = $stmt->fetchColumn() > 0;
-
     // --- 5. تجهيز وتنفيذ الاستعلام المناسب (UPDATE أو INSERT) ---
     if ($exists) {
         // جملة UPDATE تبقى كما هي، تستهدف السجل عبر Doctor_id
@@ -110,4 +108,5 @@ function send_json_response(string $status, string $message, int $http_code = 20
     echo json_encode(['status' => $status, 'message' => $message]);
     exit;
 }
+
 ?>
