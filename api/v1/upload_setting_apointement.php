@@ -25,7 +25,7 @@ if (!$session) {
 $data = json_decode(file_get_contents("php://input"), true) ?? [];
 
 // التحقق من وجود البيانات الأساسية (id و doctor_id)
-if (  empty($data['sdfg'])) {
+if (  empty($data['doctor_id'])) {
     send_json_response('fail', 'doctor_id is required', 400);
 }
 
