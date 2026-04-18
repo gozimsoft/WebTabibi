@@ -63,6 +63,27 @@ class PatientController {
         Response::success(null, 'Profil mis à jour avec succès');
     }
 
+    // GET /api/patients/family
+    public static function getFamilyMembers(): void {
+        $session = AuthMiddleware::authenticate();
+        $pdo     = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $patient = $stmt->fetch();
+        if (!$patient) { Response::success([]); return; }
+
+        $stmt = $pdo->prepare("
+            SELECT p.ID, p.FullName, p.Phone, p.Email, p.Gender, p.BirthDate
+            FROM PatientsProches pp
+            JOIN Patients p ON p.ID = pp.Proche_id
+            WHERE pp.Patient_id = ?
+        ");
+        $stmt->execute([$patient['ID']]);
+        $family = $stmt->fetchAll();
+        Response::success($family);
+    }
+
     // GET /api/patients/appointments
     public static function getAppointments(): void {
         $session = AuthMiddleware::patientOnly();

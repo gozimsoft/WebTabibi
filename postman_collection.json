@@ -1,0 +1,376 @@
+{
+  "info": {
+    "name": "Tabibi API",
+    "description": "نظام حجز المواعيد الطبية — Tabibi Doctor Booking System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://tabibi.dz/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "🔑 Auth",
+      "item": [
+        {
+          "name": "Register Patient",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"email\": \"test@example.com\",\n  \"fullname\": \"Test User\",\n  \"phone\": \"0600000000\",\n  \"gender\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const d = pm.response.json(); if(d.data?.token) pm.collectionVariables.set('token', d.data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"Kaioran\",\n  \"password\": \"FJHajf552:\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/logout",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 Search",
+      "item": [
+        {
+          "name": "Get Specialties",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/specialties"
+          }
+        },
+        {
+          "name": "Get Wilayas",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/wilayas"
+          }
+        },
+        {
+          "name": "Search Clinics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/clinics?q=dentist&page=1&limit=10",
+              "query": [
+                {
+                  "key": "q",
+                  "value": "dentist"
+                },
+                {
+                  "key": "specialty",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search by Specialty (Dental)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/clinics?specialty=da1953a6-5b58-11f0-9c01-525400088b55"
+          }
+        },
+        {
+          "name": "Get Clinic Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/clinics/058A1CA1-9818-4B14-A4C0-84A327D52DA3"
+          }
+        },
+        {
+          "name": "Get Doctor at Clinic",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/clinics/058A1CA1-9818-4B14-A4C0-84A327D52DA3/doctors/548831BF-8EEE-49A0-A5B7-537F033E8F40",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📅 Appointments",
+      "item": [
+        {
+          "name": "Get Available Slots",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/appointments/available-slots?clinics_doctor_id=ea49ae02-ee22-4e7f-97b8-d2a8289e93aa&date=2026-05-01",
+              "query": [
+                {
+                  "key": "clinics_doctor_id",
+                  "value": "ea49ae02-ee22-4e7f-97b8-d2a8289e93aa"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-05-01"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Book Appointment",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/appointments",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clinics_doctor_id\": \"ea49ae02-ee22-4e7f-97b8-d2a8289e93aa\",\n  \"doctors_reason_id\": \"1b2a977a-33e2-4c9e-94bc-4462956a04f5\",\n  \"date\": \"2026-05-01\",\n  \"time\": \"09:00\",\n  \"note\": \"Première consultation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Appointments",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/patients/appointments",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Cancel Appointment",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/appointments/APPOINTMENT-ID-HERE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Patient",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/patients/profile",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/patients/profile",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"FullName\": \"Khaled Randji\",\n  \"Phone\": \"0660123456\",\n  \"BloodType\": \"O+\",\n  \"Address\": \"Alger Centre\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 Chat",
+      "item": [
+        {
+          "name": "Get Threads",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/chat/threads",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Thread",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat/threads",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctor_id\": \"548831BF-8EEE-49A0-A5B7-537F033E8F40\",\n  \"subject\": \"Question générale\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat/threads/THREAD-ID/messages",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Bonjour Docteur, j'ai une question...\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⭐ Ratings",
+      "item": [
+        {
+          "name": "Add Rating",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/ratings",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctor_id\": \"490C5FAC-0B92-4E0B-9A31-947B5186E413\",\n  \"rating\": 5,\n  \"comment\": \"Excellent médecin, très professionnel!\",\n  \"hide_patient\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Doctor Ratings",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/ratings/doctor/490C5FAC-0B92-4E0B-9A31-947B5186E413"
+          }
+        }
+      ]
+    }
+  ]
+}
