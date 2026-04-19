@@ -1,58 +1,71 @@
 // src/api/client.js
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BASE = (() => {
+  if (typeof window === "undefined") return "https://tabibi.dz/api";
 
-const getToken = () => localStorage.getItem('tabibi_token');
-
-async function request(method, path, body = null, auth = true) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (auth) {
-    const token = getToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+  const { hostname, port, protocol, origin } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (port === "5173") return "http://localhost:8000/api";
+    return `${origin}/api`;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.message || 'Erreur');
-  return data.data ?? data;
+  return "https://tabibi.dz/api";
+})();
+
+const getToken = () => localStorage.getItem("tabibi_token");
+
+async function req(method, path, body, auth = true) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && getToken()) headers["Authorization"] = `Bearer ${getToken()}`;
+  try {
+    const r = await fetch(`${BASE}${path}`, {
+      method, headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.message || (method === "GET" ? "Error loading data" : "Action failed"));
+    return d.data ?? d;
+  } catch (e) {
+    if (e instanceof TypeError) throw new Error("Network error: cannot reach server");
+    throw e;
+  }
 }
 
-// Auth
 export const api = {
   auth: {
-    register: (body) => request('POST', '/auth/register', body, false),
-    login: (body) => request('POST', '/auth/login', body, false),
-    logout: () => request('POST', '/auth/logout'),
-    me: () => request('GET', '/auth/me'),
+    register: b => req("POST", "/auth/register", b, false),
+    login: b => req("POST", "/auth/login", b, false),
+    logout: () => req("POST", "/auth/logout"),
+    me: () => req("GET", "/auth/me"),
   },
   patient: {
-    getProfile: () => request('GET', '/patients/profile'),
-    updateProfile: (body) => request('PUT', '/patients/profile', body),
-    getAppointments: () => request('GET', '/patients/appointments'),
+    profile: () => req("GET", "/patients/profile"),
+    update: b => req("PUT", "/patients/profile", b),
+    appointments: () => req("GET", "/patients/appointments"),
+    family: () => req("GET", "/patients/family"),
   },
   clinics: {
-    search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
-    getOne: (id) => request('GET', `/clinics/${id}`),
-    getDoctorAtClinic: (cId, dId) => request('GET', `/clinics/${cId}/doctors/${dId}`),
+    search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
+    one: id => req("GET", `/clinics/${id}`),
+    doctor: (c, d) => req("GET", `/clinics/${c}/doctors/${d}`),
   },
-  specialties: () => request('GET', '/specialties'),
-  wilayas: () => request('GET', '/wilayas'),
+  specialties: () => req("GET", "/specialties"),
   appointments: {
-    getSlots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
-    book: (body) => request('POST', '/appointments', body),
-    getOne: (id) => request('GET', `/appointments/${id}`),
-    cancel: (id) => request('DELETE', `/appointments/${id}`),
+    slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, false),
+    book: b => req("POST", "/appointments", b),
+    cancel: id => req("DELETE", `/appointments/${id}`),
+  },
+  verify: {
+    send: b => req("POST", "/verify/send", b),
+    confirm: b => req("POST", "/verify/confirm", b),
+    status: () => req("GET", "/verify/status"),
   },
   chat: {
-    getThreads: () => request('GET', '/chat/threads'),
-    createThread: (body) => request('POST', '/chat/threads', body),
-    getMessages: (threadId) => request('GET', `/chat/threads/${threadId}`),
-    sendMessage: (threadId, body) => request('POST', `/chat/threads/${threadId}/messages`, body),
+    threads: () => req("GET", "/chat/threads"),
+    create: b => req("POST", "/chat/threads", b),
+    messages: id => req("GET", `/chat/threads/${id}`),
+    send: (id, b) => req("POST", `/chat/threads/${id}/messages`, b),
   },
   ratings: {
-    add: (body) => request('POST', '/ratings', body),
-    getForDoctor: (id) => request('GET', `/ratings/doctor/${id}`),
+    add: b => req("POST", "/ratings", b),
+    doctor: id => req("GET", `/ratings/doctor/${id}`),
   },
 };
