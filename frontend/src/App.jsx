@@ -4,8 +4,8 @@
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from "react";
 
-//const BASE = "https://tabibi.dz/api";
-const BASE = "http://localhost:8000/api";
+const BASE = "https://tabibi.dz/api";
+// const BASE = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -164,18 +164,18 @@ const Stars = ({ rating = 0, interactive, onChange, size = 18 }) => (
 const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
   if (photo) {
     return (
-      <img 
-        src={`data:image/jpeg;base64,${photo}`} 
-        alt="Doctor" 
-        style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }} 
+      <img
+        src={`data:image/jpeg;base64,${photo}`}
+        alt="Doctor"
+        style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }}
       />
     );
   }
   return (
-    <div style={{ 
-      width: size, height: size, borderRadius, 
-      background: "linear-gradient(135deg,#ecfeff,#cffafe)", 
-      display: "flex", alignItems: "center", justifyContent: "center", 
+    <div style={{
+      width: size, height: size, borderRadius,
+      background: "linear-gradient(135deg,#ecfeff,#cffafe)",
+      display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: size * 0.45, flexShrink: 0, ...style
     }}>👨‍⚕️</div>
   );
