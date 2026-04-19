@@ -97,6 +97,24 @@ $stmtUser = $pdo->prepare("SELECT COUNT(*) FROM Users WHERE ID = :id");
 $stmtUser->execute([":id" => $user_id]);
 $userExists = $stmtUser->fetchColumn() > 0;
 
+    if (!$userExists) {
+        $stmtU = $pdo->prepare("
+            Select ID From Users
+            WHERE Username = :username
+        ");
+          $stmtU->execute([":username" => $username]);
+          $is_double_username = $stmtU->fetchColumn() > 0;
+          if ($is_double_username){
+              echo json_encode([
+                                "status"  => "fail",    
+                                "message" => "Username_already_exists"
+                                ]);
+              exit;    
+          } 
+    } ;
+   
+
+
 $stmtDoc = $pdo->prepare("SELECT COUNT(*) FROM Doctors WHERE ID = :id");
 $stmtDoc->execute([":id" => $doctor_id]);
 $doctorExists = $stmtDoc->fetchColumn() > 0;
@@ -184,6 +202,7 @@ try {
                 :fix, :postcode, :longitude, :latitude
             )
         ");
+
     } else {
         $stmtD = $pdo->prepare("
             UPDATE Doctors SET
@@ -261,6 +280,9 @@ try {
                 :clinic_activity, :cliniccoordinates, :clinic_latitude, :clinic_longitude, :clinic_postcode,:clinic_typeclinic  
             )
         ");
+
+
+
     } else {
         // تحديث بيانات العيادة الموجودة
         $stmtC = $pdo->prepare("
