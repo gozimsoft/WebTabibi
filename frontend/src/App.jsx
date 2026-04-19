@@ -161,6 +161,26 @@ const Stars = ({ rating = 0, interactive, onChange, size = 18 }) => (
   </div>
 );
 
+const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
+  if (photo) {
+    return (
+      <img 
+        src={`data:image/jpeg;base64,${photo}`} 
+        alt="Doctor" 
+        style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }} 
+      />
+    );
+  }
+  return (
+    <div style={{ 
+      width: size, height: size, borderRadius, 
+      background: "linear-gradient(135deg,#ecfeff,#cffafe)", 
+      display: "flex", alignItems: "center", justifyContent: "center", 
+      fontSize: size * 0.45, flexShrink: 0, ...style
+    }}>👨‍⚕️</div>
+  );
+};
+
 const Badge = ({ children, color = "#0891b2" }) => (
   <span style={{ background: color + "15", color, border: `1px solid ${color}30`, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{children}</span>
 );
@@ -615,7 +635,7 @@ function SearchPage({ navigate, qs }) {
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; }}
               >
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 10, background: "linear-gradient(135deg,#ecfeff,#cffafe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>👨‍⚕️</div>
+                  <DoctorImage photo={r.PhotoProfile} size={48} borderRadius={10} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 15, color: "#0c4a6e", marginBottom: 4 }}>{r.DoctorName}</div>
                     <Badge color="#0891b2">{r.SpecialtyAr}</Badge>
@@ -699,7 +719,7 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
       {/* Doctor header */}
       <Card style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-          <div style={{ width: 90, height: 90, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, color: "#fff", flexShrink: 0 }}>👨‍⚕️</div>
+          <DoctorImage photo={data.PhotoProfile} size={90} borderRadius={16} style={{ fontSize: 38 }} />
           <div style={{ flex: 1, minWidth: 180 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
               <Badge color="#0891b2">{data.SpecialtyAr || data.SpecialtyFr}</Badge>
@@ -1060,7 +1080,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
       borderRadius: 16, padding: "16px 22px", marginBottom: 24,
       display: "flex", alignItems: "center", gap: 14, color: "#fff"
     }}>
-      <div style={{ width: 50, height: 50, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>👨‍⚕️</div>
+      <DoctorImage photo={doctor.PhotoProfile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 0.3 }}>{doctor.FullName}</div>
         <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{doctor.SpecialtyAr || doctor.SpecialtyFr}</div>
@@ -1468,10 +1488,7 @@ function AppointmentsPage({ navigate }) {
             return (
               <Card key={a.ID} style={{ padding: "16px 20px" }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-                  <div style={{
-                    width: 46, height: 46, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
-                    background: isPast ? "#f3f4f6" : "linear-gradient(135deg,#ecfeff,#cffafe)"
-                  }}>{isPast ? "📁" : "📅"}</div>
+                  <DoctorImage photo={a.PhotoProfile} size={46} borderRadius={10} style={{ background: isPast ? "#f3f4f6" : undefined }} />
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
                       <div>

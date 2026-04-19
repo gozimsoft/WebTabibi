@@ -248,7 +248,7 @@ try {
         $stmtPhoto->bindParam(':photo', $blob, PDO::PARAM_LOB);
         $stmtPhoto->execute();
     }
-
+ 
     // ══════════════════════════════════════════════════════════════════════════
     //  4) العيادة  (Clinics)
     // ══════════════════════════════════════════════════════════════════════════
@@ -464,7 +464,7 @@ try {
 
     // ── تأكيد المعاملة ───────────────────────────────────────────────────────
     $pdo->commit();
-
+ 
     // حفظ شعار العيادة بعد commit (BLOB)
     if (!empty($logoBase64)) {
         $logoBlob = base64_decode($logoBase64);
@@ -473,7 +473,7 @@ try {
         $stmtLogo->bindParam(':logo', $logoBlob, PDO::PARAM_LOB);
         $stmtLogo->execute();
     }
-
+ 
     $action = (!$userExists && !$doctorExists) ? "created" :
               (!$doctorExists ? "user updated, doctor created" : "updated");
 

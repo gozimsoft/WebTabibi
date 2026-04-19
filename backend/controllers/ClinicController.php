@@ -57,7 +57,7 @@ class ClinicController {
                 c.ID as ClinicId, c.ClinicName, c.Address as ClinicAddress,
                 c.Phone as ClinicPhone, c.Email as ClinicEmail,
                 c.Latitude, c.Longitude, c.Emergency, c.TypeClinic,
-                d.ID as DoctorId, d.FullName as DoctorName,
+                d.ID as DoctorId, d.FullName as DoctorName, d.PhotoProfile,
                 d.Experience, d.Pricing, d.SpeakingLanguage,
                 d.Degrees, d.AcademyTitles,
                 s.ID as SpecialtyId, s.NameFr as SpecialtyFr, s.NameAr as SpecialtyAr,
@@ -77,6 +77,12 @@ class ClinicController {
         ");
         $stmt->execute($params);
         $results = $stmt->fetchAll();
+
+        foreach ($results as &$r) {
+            if (!empty($r['PhotoProfile'])) {
+                $r['PhotoProfile'] = base64_encode($r['PhotoProfile']);
+            }
+        }
 
         Response::success([
             'items'       => $results,
@@ -113,6 +119,12 @@ class ClinicController {
         if (!empty($clinic['DoctorsList'])) {
             foreach (explode(';;', $clinic['DoctorsList']) as $row) {
                 [$did, $dname, $sfr, $sar, $cdid, $sid] = explode('|', $row);
+                
+                // Fetch photo separately (or we could have joined but this is safer for BLOBs)
+                $pStmt = $pdo->prepare("SELECT PhotoProfile FROM Doctors WHERE ID = ?");
+                $pStmt->execute([$did]);
+                $photo = $pStmt->fetchColumn();
+                
                 $doctors[] = [
                     'DoctorId'          => $did,
                     'DoctorName'        => $dname,
@@ -120,6 +132,7 @@ class ClinicController {
                     'SpecialtyAr'       => $sar,
                     'ClinicsDoctor_id'  => $cdid,
                     'SpecialtyId'       => $sid,
+                    'PhotoProfile'      => $photo ? base64_encode($photo) : null
                 ];
             }
         }
@@ -154,7 +167,12 @@ class ClinicController {
         $doctor = $stmt->fetch();
 
         if (!$doctor) Response::notFound('Médecin non trouvé dans cette clinique');
-        unset($doctor['PhotoProfile']);
+        
+        if (!empty($doctor['PhotoProfile'])) {
+            $doctor['PhotoProfile'] = base64_encode($doctor['PhotoProfile']);
+        } else {
+            $doctor['PhotoProfile'] = null;
+        }
 
         // Doctor's reasons for this clinic
         $stmt2 = $pdo->prepare("

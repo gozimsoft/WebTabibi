@@ -99,7 +99,7 @@ class PatientController {
                 a.ID, a.AppointementDate, a.Note, a.PatientName,
                 a.ClinicsDoctor_id, a.DoctorsReason_id,
                 cd.Clinic_ID, cd.Doctor_ID, cd.specialtie_id,
-                d.FullName as DoctorName, d.Email as DoctorEmail,
+                d.FullName as DoctorName, d.Email as DoctorEmail, d.PhotoProfile,
                 c.ClinicName, c.Address as ClinicAddress,
                 dr.reason_name as ReasonName,
                 s.NameFr as SpecialtyFr, s.NameAr as SpecialtyAr
@@ -114,6 +114,12 @@ class PatientController {
         ");
         $stmt->execute([$patient['ID']]);
         $appointments = $stmt->fetchAll();
+
+        foreach ($appointments as &$a) {
+            if (!empty($a['PhotoProfile'])) {
+                $a['PhotoProfile'] = base64_encode($a['PhotoProfile']);
+            }
+        }
 
         Response::success($appointments);
     }
