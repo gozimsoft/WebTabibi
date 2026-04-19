@@ -49,12 +49,30 @@ class AppointmentController {
         $dayEnd      = self::extractTime($settings['DaytimeEnd']   ?? '', '17:00');
         $timeScale   = max(5, (int)($settings['TimeScale'] ?? 30));
         $workingDays = $settings['WorkingDays'] ?? '1111111';
+        $weekBegin   = (int)($settings['WeekBeginDay'] ?? 0); // 0=Mon...6=Sun
+        $countDays   = (int)($settings['CountDays'] ?? 30);
 
-        // 0=Sun…6=Sat
-        $dayOfWeek = (int)date('w', strtotime($date));
+        // Check if date is within CountDays range
+        $today = date('Y-m-d');
+        $maxDate = date('Y-m-d', strtotime("+$countDays days"));
+        if ($date < $today || $date > $maxDate) {
+            Response::success(['date' => $date, 'slots' => [], 'timescale' => $timeScale, 'message' => 'Date hors limite']);
+            return;
+        }
 
-        if (strlen($workingDays) >= 7 && ($workingDays[$dayOfWeek] ?? '1') === '0') {
+        // Standard date('w') gives 0=Sun...6=Sat
+        $w = (int)date('w', strtotime($date));
+        
+        // Map user's WeekBeginDay (0=Mon...6=Sun) to Standard (0=Sun...6=Sat)
+        // 0=Mon -> 1, 1=Tue -> 2, ..., 5=Sat -> 6, 6=Sun -> 0
+        $stdWBD = ($weekBegin + 1) % 7;
+        
+        // Calculate relative index in WorkingDays array
+        $relIndex = ($w - $stdWBD + 7) % 7;
+
+        if (strlen($workingDays) > $relIndex && $workingDays[$relIndex] === '0') {
             Response::success(['date' => $date, 'slots' => [], 'timescale' => $timeScale]);
+            return;
         }
 
         $slots = self::buildSlots($date, $dayStart, $dayEnd, $timeScale);
@@ -65,19 +83,51 @@ class AppointmentController {
         );
         $stmt->execute([$doctorId, $clinicId]);
         $offHours = $stmt->fetchAll();
-        $slots    = self::filterOffHours($slots, $date, $dayOfWeek, $offHours);
+        $slots    = self::filterOffHours($slots, $date, $relIndex, $offHours);
 
-        // Remove already-booked
-        $stmt = $pdo->prepare(
-            "SELECT AppointementDate FROM Apointements WHERE ClinicsDoctor_id = ? AND DATE(AppointementDate) = ?"
-        );
-        $stmt->execute([$cdId, $date]);
-        $booked      = $stmt->fetchAll();
-        $bookedTimes = array_map(fn($r) => substr($r['AppointementDate'], 11, 5), $booked);
+        // Remove already-booked (across ALL clinics for this doctor)
+        $stmt = $pdo->prepare("
+            SELECT AppointementDate 
+            FROM Apointements 
+            WHERE (ClinicsDoctor_id IN (SELECT ID FROM ClinicsDoctors WHERE Doctor_ID = ?) OR Doctor_id = ?)
+              AND DATE(AppointementDate) = ?
+              AND IsDelete = 0
+        ");
+        $stmt->execute([$doctorId, $doctorId, $date]);
+        $booked = $stmt->fetchAll();
+        
+        // Convert booked times to timestamps for easier comparison
+        $bookedTimestamps = [];
+        foreach ($booked as $r) {
+            $ts = strtotime($r['AppointementDate'] ?? '');
+            if ($ts) $bookedTimestamps[] = $ts;
+        }
 
-        $available = array_values(array_filter($slots, fn($s) => !in_array($s, $bookedTimes)));
+        $available = array_values(array_filter($slots, function($s) use ($date, $bookedTimestamps, $timeScale) {
+            $slotStart = strtotime(trim($date) . ' ' . trim($s) . ':00');
+            if (!$slotStart) return true; // Should not happen with valid inputs
+            
+            $slotEnd = $slotStart + ($timeScale * 60);
+            
+            foreach ($bookedTimestamps as $bt) {
+                // If an appointment falls within this slot's duration, the slot is unavailable
+                if ($bt >= $slotStart && $bt < $slotEnd) {
+                    return false;
+                }
+            }
+            return true;
+        }));
 
-        Response::success(['date' => $date, 'slots' => $available, 'timescale' => $timeScale]);
+        Response::success([
+            'date'      => $date,
+            'slots'     => $available,
+            'timescale' => $timeScale,
+            'debug'     => [
+                'total_slots' => count($slots),
+                'booked_found' => count($booked),
+                'available_count' => count($available)
+            ]
+        ]);
     }
 
     public static function book(): void {
@@ -140,21 +190,25 @@ class AppointmentController {
 
         $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
 
-        $stmt = $pdo->prepare(
-            "SELECT COUNT(*) FROM Apointements WHERE ClinicsDoctor_id = ? AND AppointementDate = ?"
-        );
-        $stmt->execute([$cdId, $appointmentDatetime]);
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM Apointements 
+            WHERE (ClinicsDoctor_id IN (SELECT ID FROM ClinicsDoctors WHERE Doctor_ID = ?) OR Doctor_id = ?)
+              AND AppointementDate = ?
+              AND IsDelete = 0
+        ");
+        $stmt->execute([$cd['Doctor_ID'], $cd['Doctor_ID'], $appointmentDatetime]);
         if ($stmt->fetchColumn() > 0)
-            Response::error('Ce créneau est déjà pris. Choisissez un autre horaire.', 409);
+            Response::error('هذا الوقت محجوز بالفعل لدى الطبيب. يرجى اختيار وقت آخر.', 409);
 
         $appointmentId = UUIDHelper::generate();
         $pdo->prepare(
-            "INSERT INTO Apointements (ID, AppointementDate, Note, PatientName, ClinicsDoctor_id, DoctorsReason_id, Patient_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO Apointements (ID, AppointementDate, Note, PatientName, ClinicsDoctor_id, DoctorsReason_id, Patient_id, Doctor_id, Source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'web')"
         )->execute([
             $appointmentId, $appointmentDatetime,
             $data['note'] ?? '', $patientName,
             $cdId, $reasonId, $patientId,
+            $cd['Doctor_ID']
         ]);
 
         $stmt = $pdo->prepare("SELECT FullName FROM Doctors WHERE ID = ? LIMIT 1");

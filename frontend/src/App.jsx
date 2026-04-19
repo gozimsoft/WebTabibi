@@ -4,7 +4,8 @@
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const BASE = "https://tabibi.dz/api";
+//const BASE = "https://tabibi.dz/api";
+const BASE = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -782,28 +783,72 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
       )}
 
       {/* SCHEDULE */}
-      {tab === "schedule" && data.Schedule && (
-        <Card>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 16px" }}>🗓 أيام وساعات العمل</h3>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            {["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"].map((d, i) => {
-              const wd = data.Schedule.WorkingDays || "1111011";
-              const works = (wd[i] ?? "1") === "1";
-              return (
-                <div key={i} style={{
-                  padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  background: works ? "#d1fae5" : "#f3f4f6", color: works ? "#065f46" : "#9ca3af",
-                  border: `1px solid ${works ? "#6ee7b7" : "#e5e7eb"}`
-                }}>{d}</div>
-              );
-            })}
+      {tab === "schedule" && (
+        data.Schedule ? (
+          <Card>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span>🗓️</span> أيام وساعات العمل
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+              {(() => {
+                const daysAr = ["الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
+                const weekBegin = parseInt(data.Schedule.WeekBeginDay || 0);
+                const workingDays = data.Schedule.WorkingDays || "1111111";
+
+                // Reorder days to start from weekBegin
+                const orderedDays = [];
+                for (let i = 0; i < 7; i++) {
+                  const idx = (weekBegin + i) % 7;
+                  orderedDays.push({
+                    name: daysAr[idx],
+                    works: workingDays[i] === "1"
+                  });
+                }
+
+                return orderedDays.map((d, i) => (
+                  <div key={i} style={{
+                    padding: "12px", borderRadius: 12, textAlign: "center",
+                    background: d.works ? "#ecfeff" : "#f9fafb",
+                    border: `1.5px solid ${d.works ? "#0891b2" : "#e5e7eb"}`,
+                    opacity: d.works ? 1 : 0.6,
+                    transition: "all 0.2s"
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: d.works ? "#0891b2" : "#9ca3af", marginBottom: 4 }}>{d.name}</div>
+                    <div style={{ fontSize: 11, color: d.works ? "#0e7490" : "#d1d5db" }}>{d.works ? "متاح للعمل" : "عطلة"}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div style={{ background: "#f8fafc", borderRadius: 12, padding: "16px", border: "1px dashed #cbd5e1" }}>
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>⏰</span>
+                  <span style={{ fontSize: 14, color: "#334155" }}>
+                    <strong>من:</strong> {(data.Schedule.DaytimeStart || "").match(/\d{2}:\d{2}/)?.[0] || "08:00"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>⌛</span>
+                  <span style={{ fontSize: 14, color: "#334155" }}>
+                    <strong>إلى:</strong> {(data.Schedule.DaytimeEnd || "").match(/\d{2}:\d{2}/)?.[0] || "17:00"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>⏱️</span>
+                  <span style={{ fontSize: 14, color: "#334155" }}>
+                    <strong>مدة الموعد:</strong> {data.Schedule.TimeScale} دقيقة
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>🗓️</div>
+            <h3 style={{ margin: "0 0 8px", color: "#0c4a6e" }}>لم يتم تحديد المواعيد بعد</h3>
+            <p style={{ margin: 0, fontSize: 14 }}>يرجى التواصل مع العيادة مباشرة أو المحاولة لاحقاً.</p>
           </div>
-          <div style={{ fontSize: 13, color: "#6b7280", display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <span>⏰ من: {(data.Schedule.DaytimeStart || "").match(/\d{2}:\d{2}/)?.[0] || "08:00"}</span>
-            <span>⏰ إلى: {(data.Schedule.DaytimeEnd || "").match(/\d{2}:\d{2}/)?.[0] || "17:00"}</span>
-            <span>🕐 مدة الموعد: {data.Schedule.TimeScale} دقيقة</span>
-          </div>
-        </Card>
+        )
       )}
 
       {/* RATINGS */}
@@ -860,6 +905,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
   const [slotsLoad, setSL] = useState(false);
   const [initLoad, setInitL] = useState(true);
   const [error, setError] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const { show, Toast } = useToast();
 
   useEffect(() => {
@@ -910,6 +956,51 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
 
   const minDate = new Date().toISOString().split("T")[0];
 
+  const getAvailableDates = () => {
+    const schedule = doctor?.Schedule || {};
+    const countDays = parseInt(schedule.CountDays || 30);
+    const weekBegin = parseInt(schedule.WeekBeginDay || 0); // 0=Mon...6=Sun
+    const workingDays = schedule.WorkingDays || "1111111";
+
+    const dates = [];
+    // Map user's WeekBeginDay to Standard (0=Sun...6=Sat)
+    const stdWBD = (weekBegin + 1) % 7;
+
+    for (let i = 0; i <= countDays; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const full = `${yyyy}-${mm}-${dd}`;
+
+      const w = d.getDay(); // 0=Sun...6=Sat
+      const relIndex = (w - stdWBD + 7) % 7;
+
+      if (workingDays[relIndex] === "1" || !schedule.WorkingDays) {
+        dates.push({
+          full: full,
+          day: d.getDate(),
+          month: d.toLocaleDateString("ar-DZ", { month: "short" }),
+          weekday: d.toLocaleDateString("ar-DZ", { weekday: "short" }),
+        });
+      }
+    }
+    return dates;
+  };
+
+  // Auto-select first date if none selected and step is 3
+  useEffect(() => {
+    if (step === 3 && !date) {
+      const avail = getAvailableDates();
+      if (avail.length > 0) {
+        setDate(avail[0].full);
+        fetchSlots(avail[0].full);
+      }
+    }
+  }, [step, doctor]);
+
   // ─── Error / Loading guards ─────────────────────────────────
   if (error) return (
     <div style={{ maxWidth: 600, margin: "60px auto", padding: 24, textAlign: "center" }}>
@@ -927,12 +1018,12 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
         <div key={s.n} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
           {i > 0 && (
             <div style={{
-              position: "absolute", top: 18, right: "50%", left: "-50%",
-              height: 3, zIndex: 0, transition: "background 0.4s",
-              background: step > s.n
-                ? "linear-gradient(90deg,#059669,#10b981)"
+              position: "absolute", top: 18, right: "-50%", left: "50%",
+              height: 3, zIndex: 0, transition: "all 0.4s",
+              background: (step > s.n || (step === 5 && s.n === 5))
+                ? "linear-gradient(to left, #059669, #10b981)"
                 : step === s.n
-                  ? "linear-gradient(90deg,#0891b2 60%,#e5e7eb 100%)"
+                  ? "linear-gradient(to left, #0891b2 60%, #e5e7eb 100%)"
                   : "#e5e7eb"
             }} />
           )}
@@ -941,15 +1032,15 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontWeight: 900, fontSize: step > s.n ? 16 : 14,
             transition: "all 0.35s",
-            background: step > s.n ? "linear-gradient(135deg,#059669,#10b981)"
+            background: (step > s.n || (step === 5 && s.n === 5)) ? "linear-gradient(135deg,#059669,#10b981)"
               : step === s.n ? "linear-gradient(135deg,#0891b2,#0e7490)"
                 : "#e5e7eb",
-            color: step >= s.n ? "#fff" : "#9ca3af",
+            color: (step >= s.n) ? "#fff" : "#9ca3af",
             boxShadow: step === s.n ? "0 4px 16px rgba(8,145,178,0.4)"
-              : step > s.n ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
+              : (step > s.n || (step === 5 && s.n === 5)) ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
             transform: step === s.n ? "scale(1.12)" : "scale(1)"
           }}>
-            {step > s.n ? "✓" : s.icon}
+            {(step > s.n) ? "✓" : s.icon}
           </div>
           <div style={{
             fontSize: 10, fontWeight: 700, marginTop: 6, whiteSpace: "nowrap",
@@ -1108,15 +1199,35 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>📅 اختيار الموعد</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>اختر التاريخ والوقت المناسب لك</p>
 
-          {/* Date picker */}
-          <div style={{ marginBottom: 22 }}>
-            <label style={{ display: "block", marginBottom: 8, fontWeight: 700, fontSize: 13, color: "#374151" }}>📅 التاريخ</label>
-            <input type="date" min={minDate} value={date}
-              onChange={e => { setDate(e.target.value); fetchSlots(e.target.value); }}
-              style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontSize: 14, boxSizing: "border-box", outline: "none", background: "#fafafa" }}
-              onFocus={e => e.target.style.borderColor = "#0891b2"}
-              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
-            />
+          {/* Date selection grid */}
+          <div style={{ marginBottom: 26 }}>
+            <label style={{ display: "block", marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#0c4a6e" }}>📅 الأيام المتاحة للحجز</label>
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10, scrollbarWidth: "none" }}>
+              {getAvailableDates().map(d => {
+                const sel = date === d.full;
+                return (
+                  <div key={d.full} onClick={() => { setDate(d.full); fetchSlots(d.full); }}
+                    style={{
+                      flexShrink: 0, width: 80, padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
+                      border: sel ? "2.5px solid #0891b2" : "1.5px solid #e5e7eb",
+                      background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
+                      transition: "all 0.2s",
+                      boxShadow: sel ? "0 4px 12px rgba(8,145,178,0.15)" : "none",
+                      transform: sel ? "translateY(-2px)" : "none"
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "#0891b2" : "#9ca3af", marginBottom: 4 }}>{d.weekday}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: sel ? "#0c4a6e" : "#374151" }}>{d.day}</div>
+                    <div style={{ fontSize: 11, color: sel ? "#0891b2" : "#9ca3af" }}>{d.month}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {getAvailableDates().length === 0 && (
+              <div style={{ padding: 20, textAlign: "center", background: "#fef2f2", borderRadius: 12, color: "#991b1b", fontSize: 13 }}>
+                ⚠️ لا توجد أيام عمل متاحة حالياً. يرجى مراجعة جدول عمل الطبيب.
+              </div>
+            )}
           </div>
 
           {/* Time slots grid */}
@@ -1205,9 +1316,23 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
             <span>سيتم إرسال تأكيد الموعد على بريدك الإلكتروني فور إتمام الحجز</span>
           </div>
 
+          <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "20px", marginBottom: 22 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 900, color: "#0c4a6e", marginTop: 0, marginBottom: 12 }}>📄 اتفاقية الخصوصية والموافقة</h3>
+            <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.6, maxHeight: 100, overflowY: "auto", paddingRight: 10, marginBottom: 15, textAlign: "justify" }}>
+              بإتمام هذا الحجز، فإنك توافق على أن يتم حفظ بياناتك الشخصية والطبية المقدمة في قاعدة بياناتنا بشكل آمن.
+              يتم استخدام هذه البيانات فقط لتسهيل عملية حجز المواعيد وتقديم الرعاية الصحية اللازمة من قبل الطبيب والعيادة المعنية.
+              نحن نلتزم بحماية خصوصيتك ولن يتم مشاركة بياناتك مع أي طرف ثالث غير مصرح له.
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                style={{ width: 18, height: 18, accentColor: "#0891b2", cursor: "pointer" }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: agreed ? "#0c4a6e" : "#64748b" }}>أوافق على الشروط والأحكام وسياسة الخصوصية</span>
+            </label>
+          </div>
+
           <div style={{ display: "flex", gap: 10 }}>
             <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>← رجوع</Btn>
-            <Btn onClick={confirmBook} loading={loading} style={{ flex: 2, justifyContent: "center", padding: 14, borderRadius: 10, fontSize: 15 }}>
+            <Btn onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center", padding: 14, borderRadius: 10, fontSize: 15 }}>
               🎉 تأكيد الحجز نهائيًا
             </Btn>
           </div>
