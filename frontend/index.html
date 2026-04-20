@@ -2,14 +2,35 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>" />
+    <link rel="icon" type="image/png" href="logo.png?v=3" />
+    <link rel="icon" type="image/png" href="favicon-32x32.png?v=3" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico?v=3" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="طبيبي - منصة حجز المواعيد الطبية في الجزائر" />
     <title>طبيبي — Tabibi | حجز المواعيد الطبية</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'Noto Kufi Arabic', 'Segoe UI', Tahoma, sans-serif; margin:0; }
+      :root {
+        --brand:        #0092a2;
+        --brand-dark:   #007585;
+        --brand-light:  #e6f7f9;
+        --border:       #0092a2;
+        --text-primary: #0c2340;
+        --text-secondary: #4b5563;
+        --text-muted:   #9ca3af;
+        --bg:           #e5e7e9;
+        --radius:       16px;
+        --radius-sm:    10px;
+        --radius-lg:    20px;
+        --radius-xl:    32px;
+      }
+      * { box-sizing: border-box; }
+      body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: var(--bg); background: var(--bg); }
+      *, input, button, select, textarea { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
   </head>
   <body>
