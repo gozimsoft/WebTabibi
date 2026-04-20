@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./components/LanguageSwitcher";
@@ -59,7 +59,6 @@ const api = {
   specialties: () => req("GET", "/specialties"),
   wilayas: () => req("GET", "/wilayas"),
   appointments: {
-
     slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, false),
     book: b => req("POST", "/appointments", b),
     cancel: id => req("DELETE", `/appointments/${id}`),
@@ -1300,10 +1299,12 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <Stars rating={Math.round(+(data.AvgRating || 0))} size={15} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(data.AvgRating || 0)).toFixed(1)}</span>
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>({data.RatingCount || 0} {t("reviews")})</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Stars rating={Math.round(+(data.AvgRating || 0))} size={15} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(data.AvgRating || 0)).toFixed(1)}</span>
+                  <span style={{ fontSize: 11, color: "#9ca3af" }}>({data.RatingCount || 0} {t("reviews")})</span>
+                </div>
               </div>
               {+data.Experience > 0 && <span style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}><Clock size={12} /> {data.Experience} {t("years_experience")}</span>}
               {+data.Pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 4 }}><CreditCard size={13} /> {data.Pricing} {t("currency")}</span>}
@@ -1311,7 +1312,12 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
             {user ? (
-              <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "11px 24px" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
+              <>
+                <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "11px 24px" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
+                <Btn variant="secondary" onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "9px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1" }}>
+                  <Users size={16} /> {t("book_for_relative")}
+                </Btn>
+              </>
             ) : (
               <Btn onClick={() => navigate("/login")}>{t("login_to_book")}</Btn>
             )}
@@ -1539,7 +1545,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
       if (reason) body.doctors_reason_id = reason.ID;
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
-      setStep(5);
+      setStep(6);
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
   };
@@ -1548,8 +1554,9 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
     { n: 1, label: t("step_patient"), icon: <User size={16} /> },
     { n: 2, label: t("step_reason"), icon: <Stethoscope size={16} /> },
     { n: 3, label: t("step_date"), icon: <Calendar size={16} /> },
-    { n: 4, label: t("step_confirm"), icon: <CheckCircle size={16} /> },
-    { n: 5, label: t("step_done"), icon: <Award size={16} /> },
+    { n: 4, label: t("step_instructions"), icon: <ClipboardList size={16} /> },
+    { n: 5, label: t("step_confirm"), icon: <CheckCircle size={16} /> },
+    { n: 6, label: t("step_done"), icon: <Award size={16} /> },
   ];
 
   const minDate = new Date().toISOString().split("T")[0];
@@ -1620,7 +1627,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
             <div style={{
               position: "absolute", top: 18, right: "-50%", left: "50%",
               height: 3, zIndex: 0, transition: "all 0.4s",
-              background: (step > s.n || (step === 5 && s.n === 5))
+              background: (step > s.n || (step === 6 && s.n === 6))
                 ? "linear-gradient(to left, #059669, #10b981)"
                 : step === s.n
                   ? "linear-gradient(to left, #0891b2 60%, var(--border) 100%)"
@@ -1632,12 +1639,12 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontWeight: 900, fontSize: step > s.n ? 16 : 14,
             transition: "all 0.35s",
-            background: (step > s.n || (step === 5 && s.n === 5)) ? "linear-gradient(135deg,#059669,#10b981)"
+            background: (step > s.n || (step === 6 && s.n === 6)) ? "linear-gradient(135deg,#059669,#10b981)"
               : step === s.n ? "linear-gradient(135deg,#0891b2,#0e7490)"
                 : "var(--border)",
             color: (step >= s.n) ? "#fff" : "#9ca3af",
             boxShadow: step === s.n ? "0 4px 16px rgba(8,145,178,0.4)"
-              : (step > s.n || (step === 5 && s.n === 5)) ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
+              : (step > s.n || (step === 6 && s.n === 6)) ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
             transform: step === s.n ? "scale(1.12)" : "scale(1)"
           }}>
             {(step > s.n) ? <Check size={18} /> : s.icon}
@@ -1654,7 +1661,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
   );
 
   // ─── Doctor mini header ─────────────────────────────────────
-  const DoctorBanner = () => step < 5 && (
+  const DoctorBanner = () => step < 6 && (
     <div style={{
       background: "linear-gradient(135deg,#0c4a6e,#0891b2,#06b6d4)",
       borderRadius: 16, padding: "16px 22px", marginBottom: 24,
@@ -1788,7 +1795,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn onClick={() => setStep(3)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
-              {reason ? t("next_date") : t("skip_date")}
+              {t("next")}
             </Btn>
           </div>
         </Card>
@@ -1874,14 +1881,45 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => { setStep(2); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn onClick={() => setStep(4)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
-              {t("next_confirm")}
+              {t("next")}
             </Btn>
           </div>
         </Card>
       )}
 
-      {/* ══════════ STEP 4 — Confirmation Summary ══════════ */}
+      {/* ══════════ STEP 4 — Instructions ══════════ */}
       {step === 4 && (
+        <Card style={{ padding: "26px 28px" }}>
+          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}>
+            <ClipboardList size={22} /> {t("step_instructions")}
+          </h2>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("instructions_desc")}</p>
+
+          <div style={{ background: "#f8fafc", borderRadius: 16, padding: "24px", border: "1px solid var(--border)", marginBottom: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <Info size={18} color="var(--brand)" /> {t("instructions_title")}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{i}</div>
+                  <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.5 }}>{t(`instruction_${i}`)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(5)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+              {t("next")}
+            </Btn>
+          </div>
+        </Card>
+      )}
+
+      {/* ══════════ STEP 5 — Confirmation Summary ══════════ */}
+      {step === 5 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("review_confirm")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("review_confirm_desc")}</p>
@@ -1894,7 +1932,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
               [<Stethoscope size={18} />, t("doctor"), doctor.FullName],
               [<Building size={18} />, t("specialty"), (i18n.language === 'ar' ? doctor.SpecialtyAr : doctor.SpecialtyFr) || "—"],
               [<User size={18} />, t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
-              [<Stethoscope size={18} />, t("step_reason"), reason?.reason_name || "—"],
+              [<Stethoscope size={18} />, t("step_reason"), (reason?.reason_name || reason?.Reason || reason?.Reasons || reason?.motif) || "—"],
               [<Calendar size={18} />, t("date"), date],
               [<Clock size={18} />, t("time"), selSlot],
               ...(+doctor.Pricing > 0 ? [[<CreditCard size={18} />, t("consultation_fee"), `${doctor.Pricing} ${t("currency")}`]] : []),
@@ -1930,7 +1968,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn variant="secondary" onClick={() => setStep(4)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center", padding: 14, borderRadius: 10, fontSize: 15 }}>
               <Award size={18} style={{ marginLeft: 8 }} /> {t("confirm_final")}
             </Btn>
@@ -1938,8 +1976,8 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
         </Card>
       )}
 
-      {/* ══════════ STEP 5 — Success ══════════ */}
-      {step === 5 && (
+      {/* ══════════ STEP 6 — Success ══════════ */}
+      {step === 6 && (
         <Card style={{ padding: "44px 28px", textAlign: "center" }}>
           {/* Animated success icon */}
           <div style={{
@@ -1973,7 +2011,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
             </div>
             {reason && (
               <div style={{ fontSize: 13, color: "#166534", display: "flex", alignItems: "center", gap: 8 }}>
-                <Stethoscope size={14} /><span><strong>{t("step_reason")}:</strong> {reason.reason_name}</span>
+                <Stethoscope size={14} /><span><strong>{t("step_reason")}:</strong> {reason?.reason_name || reason?.Reason || reason?.Reasons || reason?.motif}</span>
               </div>
             )}
           </div>
@@ -2078,7 +2116,7 @@ function AppointmentsPage({ navigate }) {
             const d = new Date(a.AppointementDate);
             return (
               <Card key={a.ID} style={{
-                padding: "10px 12px",
+                padding: 0,
                 display: "flex",
                 flexDirection: "column",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -2096,70 +2134,84 @@ function AppointmentsPage({ navigate }) {
                   e.currentTarget.style.boxShadow = "none";
                   e.currentTarget.style.borderColor = "var(--border)";
                 }}>
-                {/* Header: Photo on the right, Info on the left */}
-                <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 6 }}>
-                  <DoctorImage photo={a.PhotoProfile} size={135} borderRadius={20} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15, marginBottom: 2 }}>{a.DoctorName || t("doctor")}</div>
-                      <div>
-                        {isPast ?
-                          <Badge color="#94a3b8" style={{ padding: "3px 8px", fontSize: 10 }}>{t("past_badge")}</Badge> :
-                          <Badge color="#059669" style={{ padding: "3px 8px", fontSize: 10 }}>{t("upcoming_badge")}</Badge>
-                        }
+                {/* Appointment Info Band */}
+                <div style={{
+                  background: isPast ? "#94a3b8" : "linear-gradient(135deg, rgb(8, 145, 178), rgb(14, 116, 144))",
+                  padding: "10px 12px",
+                  borderBottom: "1px solid rgba(255,255,255,0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 800
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Calendar size={14} color="rgba(255,255,255,0.9)" />
+                    <span>{d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-FR", { weekday: 'short' })} {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                  </div>
+                  <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.2)" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Clock size={14} color="rgba(255,255,255,0.9)" />
+                    <span>{d.toLocaleTimeString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                </div>
+
+                <div style={{ padding: "12px" }}>
+                  {/* Header: Photo on the right, Info on the left */}
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+                    <DoctorImage photo={a.PhotoProfile} size={110} borderRadius={18} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 16, marginBottom: 2 }}>{a.DoctorName || t("doctor")}</div>
+                        <div>
+                          {isPast ?
+                            <Badge color="#94a3b8" style={{ padding: "3px 8px", fontSize: 10 }}>{t("past_badge")}</Badge> :
+                            <Badge color="#059669" style={{ padding: "3px 8px", fontSize: 10 }}>{t("upcoming_badge")}</Badge>
+                          }
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                      <Building size={12} color="var(--brand)" /> {a.ClinicName || "—"}
-                    </div>
-                    {a.ReasonName && (
-                      <div style={{ fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
-                        <Stethoscope size={12} color="var(--brand)" /> {a.ReasonName}
+                      <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <Building size={12} color="var(--brand)" /> {a.ClinicName || "—"}
                       </div>
+                      {(a.Reason || a.Reasons || a.reason_name || a.ReasonName || a.motif) && (
+                        <div style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, marginTop: 4, background: "#f0fdfa", padding: "4px 8px", borderRadius: 6, border: "1px solid #ccfbf1" }}>
+                          <Stethoscope size={13} color="var(--brand)" /> 
+                          <span style={{ fontWeight: 700 }}>{t("step_reason")}:</span> {
+                            typeof (a.Reason || a.Reasons || a.reason_name || a.ReasonName || a.motif) === 'object' 
+                            ? (a.Reason?.reason_name || a.Reason?.ReasonName || a.Reasons?.[0]?.reason_name || "—")
+                            : (a.Reason || a.Reasons || a.reason_name || a.ReasonName || a.motif)
+                          }
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    {!isPast && (
+                      <>
+                        <Btn variant="danger" onClick={() => cancel(a.ID)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                          <Trash2 size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("cancel_btn")}
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => navigate("/chat")} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                          <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
+                        </Btn>
+                      </>
+                    )}
+                    {isPast && (
+                      <>
+                        <Btn variant="secondary" onClick={() => navigate(`/clinic/${a.ClinicID}/doctor/${a.DoctorID}`)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                          {t("book_new")}
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => navigate("/chat")} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                          <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
+                        </Btn>
+                      </>
                     )}
                   </div>
                 </div>
-
-                {/* Divider */}
-                <div style={{ height: 1, background: "#f1f5f9", margin: "6px 0" }} />
-
-                {/* Time & Date Block */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f0f9ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Calendar size={16} color="#0891b2" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>{t("date")}</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#334155" }}>
-                        {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-FR", { weekday: 'short' })} {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f0f9ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Clock size={16} color="#0891b2" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>{t("time")}</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#334155" }}>
-                        {d.toLocaleTimeString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                {!isPast && (
-                  <Btn variant="danger" onClick={() => cancel(a.ID)} style={{ width: "100%", justifyContent: "center", padding: "6px", fontSize: 12, borderRadius: 8 }}>
-                    <Trash2 size={13} style={{ marginLeft: 6 }} /> {t("cancel_btn")}
-                  </Btn>
-                )}
-                {isPast && (
-                  <Btn variant="secondary" onClick={() => navigate(`/clinic/${a.ClinicID}/doctor/${a.DoctorID}`)} style={{ width: "100%", justifyContent: "center", padding: "6px", fontSize: 12, borderRadius: 8 }}>
-                    {t("book_new")}
-                  </Btn>
-                )}
               </Card>
             );
           })}
@@ -2408,9 +2460,136 @@ function LearnMorePage({ navigate }) {
   );
 }
 
+// ── PAGE: LAW 18-07 ──────────────────────────────────────────
+function Law1807Page({ navigate }) {
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === 'ar';
+
+  const sections = [
+    {
+      title: isAr ? "النطاق والأهداف" : "Portée et Objectifs",
+      icon: <Info size={20} />,
+      content: isAr 
+        ? "يطبّق القانون على معالجة البيانات ذات الطابع الشخصي التي تقوم بها جهات عمومية أو خاصة عندما تتم المعالجة على التراب الوطني أو عندما يكون مسؤول المعالجة مقيّداً في الجزائر، بما يصون الخصوصية والحريات الأساسية."
+        : "La loi s'applique au traitement des données à caractère personnel effectué par des entités publiques ou privées lorsque le traitement est effectué sur le territoire national ou lorsque le responsable du traitement est établi en Algérie."
+    },
+    {
+      title: isAr ? "مبادئ المعالجة" : "Principes du Traitement",
+      icon: <CheckCircle size={20} />,
+      content: isAr
+        ? "يجب جمع البيانات لأغراض محددة وصريحة ومشروعة، وعدم معالجتها بطريقة غير متوافقة مع تلك الأغراض. من المبادئ: المشروعية والنزاهة والشفافية وتحديد مدة الاحتفاظ والدقة والسلامة والسرية وتقليل البيانات."
+        : "Les données doivent être collectées pour des finalités déterminées, explicites et légitimes. Les principes incluent : la licéité, la loyauté, la transparence, la limitation de la durée de conservation, l'exactitude, l'intégrité et la confidentialité."
+    },
+    {
+      title: isAr ? "حقوق الأشخاص المعنيين" : "Droits des Personnes Concernées",
+      icon: <User size={20} />,
+      content: isAr
+        ? "يعترف القانون بحقوق منها الإعلام والاطلاع والتصحيح والمسح أو الاعتراض وفق الشروط المنصوص عليها. يجب أن تُمارس الطلبات وفق الآليات التي يحددها مسؤول المعالجة."
+        : "La loi reconnaît des droits tels que l'information, l'accès, la rectification, l'effacement ou l'opposition. Les demandes doivent être exercées selon les mécanismes définis par le responsable du traitement."
+    },
+    {
+      title: isAr ? "الأمن، التحويلات والجزاءات" : "Sécurité, Transferts et Sanctions",
+      icon: <AlertCircle size={20} />,
+      content: isAr
+        ? "على مسؤول المعالجة اتخاذ تدابير تقنية وتنظيمية ملائمة. تُنظّم عمليات نقل البيانات خارج التراب الوطني. قد تُوقَع جزاءات في حال مخالفة الالتزامات القانونية."
+        : "Le responsable du traitement doit prendre des mesures techniques et organisationnelles appropriées. Les transferts de données hors du territoire national sont réglementés. Des sanctions peuvent être appliquées en cas de violation."
+    }
+  ];
+
+  return (
+    <div style={{ maxWidth: 900, margin: "40px auto", padding: "0 24px" }}>
+      <button onClick={() => navigate("/privacy")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--brand)", fontWeight: 700, marginBottom: 24, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+        {isAr ? "← العودة إلى الخصوصية" : "← Retour à la confidentialité"}
+      </button>
+      
+      <div style={{ background: "linear-gradient(135deg, #0c4a6e, #0891b2)", borderRadius: 24, padding: "40px", color: "#fff", marginBottom: 32, boxShadow: "0 10px 30px rgba(8,145,178,0.15)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -20, right: -20, width: 150, height: 150, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ display: "inline-block", background: "rgba(255,255,255,0.15)", padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 800, marginBottom: 16, textTransform: "uppercase", letterSpacing: 1 }}>
+            {isAr ? "نص قانوني" : "Texte Légal"}
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 16, lineHeight: 1.3 }}>
+            {isAr ? "القانون 18-07 المتعلق بحماية الأشخاص الطبيعيين في معالجة البيانات ذات الطابع الشخصي" : "Loi 18-07 relative à la protection des personnes physiques dans le traitement des données à caractère personnel"}
+          </h1>
+          <p style={{ fontSize: 16, opacity: 0.9, fontWeight: 500 }}>
+            {isAr ? "ملخص منظم للإطلاع فقط — النص المعتمد هو ما ينشر في الجريدة الرسمية." : "Résumé organisé pour information uniquement — Le texte officiel est celui publié au Journal Officiel."}
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 20, marginBottom: 40 }}>
+        {sections.map((s, i) => (
+          <Card key={i} style={{ padding: "28px", display: "flex", gap: 20, alignItems: "flex-start", transition: "transform 0.2s" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {s.icon}
+            </div>
+            <div>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e", marginBottom: 10 }}>{s.title}</h3>
+              <p style={{ fontSize: 15, color: "#475569", lineHeight: 1.7, textAlign: "justify", margin: 0 }}>{s.content}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div style={{ background: "#fff", border: "1.5px dashed var(--border)", borderRadius: 20, padding: "30px", textAlign: "center" }}>
+        <h4 style={{ margin: "0 0 8px", color: "#0c4a6e", fontWeight: 800 }}>{isAr ? "للاطلاع على النص الرسمي والمراجع المحدثة:" : "Pour consulter le texte officiel et les références :"}</h4>
+        <div style={{ marginBottom: 20 }}>
+          <a href="https://anpdp.dz/ar/storage/2025/08/18-07-Edited.pdf" target="_blank" rel="noopener noreferrer" style={{ fontSize: 18, fontWeight: 900, color: "var(--brand)", textDecoration: "none" }}>
+            {isAr ? "الهيئة الوطنية لحماية البيانات ذات الطابع الشخصي (ANPDP)" : "Autorité Nationale de Protection des Données à Caractère Personnel (ANPDP)"}
+          </a>
+        </div>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+          <Btn onClick={() => window.open("https://anpdp.dz/ar/storage/2025/08/18-07-Edited.pdf", "_blank")} style={{ padding: "12px 30px", gap: 10 }}>
+            <FileText size={18} />
+            {isAr ? "عرض النص الكامل (PDF)" : "Voir le texte complet (PDF)"}
+          </Btn>
+          <a href="https://anpdp.dz/ar/storage/2025/08/18-07-Edited.pdf" download style={{ textDecoration: "none" }}>
+            <Btn variant="secondary" style={{ padding: "12px 30px", gap: 10 }}>
+              <Download size={18} />
+              {isAr ? "تحميل" : "Télécharger"}
+            </Btn>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE: PDF VIEWER ──────────────────────────────────────────
+function LawPDFViewerPage({ navigate }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <div style={{ maxWidth: 1000, margin: "40px auto", padding: "0 24px" }}>
+      <button onClick={() => navigate("/law-18-07")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--brand)", fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
+        {i18n.language === 'ar' ? "← العودة إلى ملخص القانون" : "← Retour au résumé de la loi"}
+      </button>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e" }}>{i18n.language === 'ar' ? "النص الكامل للقانون 18-07" : "Texte complet de la Loi 18-07"}</h1>
+      </div>
+      <Card style={{ padding: 0, height: "80vh", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#f8fafc" }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <FileText size={80} color="#cbd5e1" style={{ marginBottom: 20 }} />
+          <h2 style={{ color: "#64748b" }}>{i18n.language === 'ar' ? "عرض ملف PDF" : "Affichage du fichier PDF"}</h2>
+          <p style={{ color: "#94a3b8", maxWidth: 400, margin: "10px auto" }}>
+            {i18n.language === 'ar' 
+              ? "سيتم هنا دمج عارض PDF لعرض الجريدة الرسمية رقم 34 المؤرخة في 10 جوان 2018."
+              : "Un lecteur PDF sera intégré ici pour afficher le Journal Officiel n° 34 du 10 juin 2018."}
+          </p>
+          <div style={{ marginTop: 30 }}>
+             <Btn onClick={() => window.open("https://anpdp.dz/ar/storage/2025/08/18-07-Edited.pdf", "_blank")}>
+               {i18n.language === 'ar' ? "فتح في نافذة جديدة" : "Ouvrir dans une nouvelle fenêtre"}
+             </Btn>
+          </div>
+        </div>
+        {/* Placeholder for real PDF viewer: <iframe src="path/to/law.pdf" width="100%" height="100%" style={{ border: "none" }} /> */}
+      </Card>
+    </div>
+  );
+}
+
 // ── PAGE: PRIVACY POLICY ──────────────────────────────────────
 function PrivacyPolicyPage({ navigate }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const sections = [
     { title: t("privacy_section1_title"), content: t("privacy_section1_desc") },
     { title: t("privacy_section2_title"), content: t("privacy_section2_desc") },
@@ -2427,7 +2606,13 @@ function PrivacyPolicyPage({ navigate }) {
     <div style={{ maxWidth: 900, margin: "40px auto", padding: "0 24px" }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <h1 style={{ fontSize: 32, fontWeight: 900, color: "#0c4a6e", marginBottom: 12 }}>{t("privacy_policy_title")}</h1>
-        <p style={{ color: "#64748b" }}>{t("privacy_policy_subtitle") || "نحن نلتزم بحماية خصوصيتك وبياناتك الشخصية وفقاً للقوانين الجزائرية المعمول بها."}</p>
+        <p style={{ color: "#64748b" }}>
+          {i18n.language === 'ar' ? (
+            <>نحن نلتزم بحماية خصوصيتك وبياناتك الشخصية وفقاً للقانون <span onClick={() => navigate("/law-18-07")} style={{ color: "var(--brand)", cursor: "pointer", fontWeight: 700, textDecoration: "underline" }}>18-07</span> الجزائري.</>
+          ) : (
+            <>La protection de vos données personnelles est une priorité. Nous nous engageons à les traiter dans le respect de la <span onClick={() => navigate("/law-18-07")} style={{ color: "var(--brand)", cursor: "pointer", fontWeight: 700, textDecoration: "underline" }}>loi n° 18-07</span> relative à la protection des données à caractère personnel en Algérie.</>
+          )}
+        </p>
       </div>
       <Card style={{ padding: "40px" }}>
         {sections.map((s, i) => (
@@ -2891,6 +3076,10 @@ export default function App() {
         return <LearnMorePage navigate={navigate} />;
       case "/privacy":
         return <PrivacyPolicyPage navigate={navigate} />;
+      case "/law-18-07":
+        return <Law1807Page navigate={navigate} />;
+      case "/law-pdf":
+        return <LawPDFViewerPage navigate={navigate} />;
       case "/terms":
         return <TermsOfUsePage navigate={navigate} />;
       case "/appointments":
