@@ -1291,7 +1291,14 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
               {+data.Casnos === 1 && <Badge color="#0891b2"><Check size={12} style={{ marginLeft: 4 }} /> CASNOS</Badge>}
             </div>
             <h1 style={{ fontSize: 28, fontWeight: 900, color: "#0c4a6e", margin: "0 0 8px" }}>{data.FullName}</h1>
-            {data.BaladiyaName && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><MapPin size={13} /> {data.BaladiyaName}</div>}
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 6 }}>
+              <MapPin size={14} style={{ marginTop: 2, flexShrink: 0, color: "#0891b2" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {data.BaladiyaName && <div style={{ fontWeight: 600, color: "#374151" }}>{data.BaladiyaName}</div>}
+                {(data.Address || data.ClinicAddress) && <div>{data.Address || data.ClinicAddress}</div>}
+                {data.PostalCode && <div>{data.PostalCode}</div>}
+              </div>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <Stars rating={Math.round(+(data.AvgRating || 0))} size={15} />
@@ -1328,28 +1335,28 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
 
       {/* INFO */}
       {tab === "info" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {data.Presentation && (
-            <Card style={{ gridColumn: "1/-1", padding: "18px 20px" }}>
-              <h3 style={{ color: "#0c4a6e", margin: "0 0 10px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> {t("about_doctor")}</h3>
-              <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Presentation}</p>
-            </Card>
-          )}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
           {data.Education && (
-            <Card style={{ padding: "18px 20px" }}>
+            <Card style={{ flex: "1 1 250px", padding: "18px 20px" }}>
               <h3 style={{ color: "#0c4a6e", margin: "0 0 10px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Award size={18} /> {t("education")}</h3>
               <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Education}</p>
             </Card>
           )}
-          <Card style={{ padding: "18px 20px" }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 15 }}>📞 {t("contact_info")}</h3>
+          <Card style={{ flex: "1 1 250px", padding: "18px 20px" }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Phone size={18} /> {t("contact_info")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 13 }}>
               {data.Phone && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Phone size={14} /> <strong>{t("phone")}:</strong> {data.Phone}</div>}
               {data.Email && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Mail size={14} /> <strong>{t("email")}:</strong> {data.Email}</div>}
-              {data.SpeakingLanguage && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Languages size={14} /> <strong>{t("languages")}:</strong> {data.SpeakingLanguage}</div>}
-              {data.PayementMethods && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><CreditCard size={14} /> <strong>{t("payment")}:</strong> {data.PayementMethods}</div>}
+              {data.SpeakingLanguage && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Languages size={14} /> <strong>{t("languages")}</strong> {data.SpeakingLanguage}</div>}
+              {data.PayementMethods && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><CreditCard size={14} /> <strong>{t("payment")}</strong> {data.PayementMethods}</div>}
             </div>
           </Card>
+          {data.Presentation && (
+            <Card style={{ flex: "2 1 350px", padding: "18px 20px" }}>
+              <h3 style={{ color: "#0c4a6e", margin: "0 0 10px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> {t("about_doctor")}</h3>
+              <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Presentation}</p>
+            </Card>
+          )}
         </div>
       )}
 
@@ -1433,8 +1440,8 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
               <Calendar size={44} color="#cbd5e1" />
             </div>
-            <h3 style={{ margin: "0 0 8px", color: "#0c4a6e" }}>لم يتم تحديد المواعيد بعد</h3>
-            <p style={{ margin: 0, fontSize: 14 }}>يرجى التواصل مع العيادة مباشرة أو المحاولة لاحقاً.</p>
+            <h3 style={{ margin: "0 0 8px", color: "#0c4a6e" }}>{t("no_schedule_title")}</h3>
+            <p style={{ margin: 0, fontSize: 14 }}>{t("no_schedule_desc")}</p>
           </div>
         )
       )}
@@ -1446,7 +1453,7 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
             <Card style={{ marginBottom: 16, textAlign: "center", padding: "20px" }}>
               <div style={{ fontSize: 44, fontWeight: 900, color: "#0891b2" }}>{ratings.average}</div>
               <Stars rating={Math.round(ratings.average)} size={22} />
-              <div style={{ color: "#6b7280", marginTop: 6, fontSize: 13 }}>بناءً على {ratings.total} تقييم</div>
+              <div style={{ color: "#6b7280", marginTop: 6, fontSize: 13 }}>{t("based_on")} {ratings.total} {t("reviews")}</div>
             </Card>
           )}
           {user && (
@@ -1790,7 +1797,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
       {/* ══════════ STEP 3 — Date & Time ══════════ */}
       {step === 3 && (
         <Card style={{ padding: "26px 28px" }}>
-          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>📅 {t("step_date")}</h2>
+          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 8 }}><Calendar size={19} /> {t("step_date")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("select_date_time_desc") || "اختر التاريخ والوقت المناسب لك"}</p>
 
           {/* Date selection grid */}
@@ -1867,7 +1874,7 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => { setStep(2); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn onClick={() => setStep(4)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
-              {t("next_confirm") || "التالي → مراجعة التفاصيل"}
+              {t("next_confirm")}
             </Btn>
           </div>
         </Card>
@@ -2071,7 +2078,7 @@ function AppointmentsPage({ navigate }) {
             const d = new Date(a.AppointementDate);
             return (
               <Card key={a.ID} style={{
-                padding: "12px",
+                padding: "10px 12px",
                 display: "flex",
                 flexDirection: "column",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -2090,8 +2097,8 @@ function AppointmentsPage({ navigate }) {
                   e.currentTarget.style.borderColor = "var(--border)";
                 }}>
                 {/* Header: Photo on the right, Info on the left */}
-                <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
-                  <DoctorImage photo={a.PhotoProfile} size={120} borderRadius={20} />
+                <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 6 }}>
+                  <DoctorImage photo={a.PhotoProfile} size={135} borderRadius={20} />
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15, marginBottom: 2 }}>{a.DoctorName || t("doctor")}</div>
@@ -2114,10 +2121,10 @@ function AppointmentsPage({ navigate }) {
                 </div>
 
                 {/* Divider */}
-                <div style={{ height: 1, background: "#f1f5f9", margin: "10px 0" }} />
+                <div style={{ height: 1, background: "#f1f5f9", margin: "6px 0" }} />
 
                 {/* Time & Date Block */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f0f9ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Calendar size={16} color="#0891b2" />
@@ -2125,7 +2132,7 @@ function AppointmentsPage({ navigate }) {
                     <div>
                       <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>{t("date")}</div>
                       <div style={{ fontSize: 13, fontWeight: 800, color: "#334155" }}>
-                        {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-FR", { weekday: 'short' })} {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric" })}
                       </div>
                     </div>
                   </div>
@@ -2144,12 +2151,12 @@ function AppointmentsPage({ navigate }) {
 
                 {/* Actions */}
                 {!isPast && (
-                  <Btn variant="danger" onClick={() => cancel(a.ID)} style={{ width: "100%", justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                  <Btn variant="danger" onClick={() => cancel(a.ID)} style={{ width: "100%", justifyContent: "center", padding: "6px", fontSize: 12, borderRadius: 8 }}>
                     <Trash2 size={13} style={{ marginLeft: 6 }} /> {t("cancel_btn")}
                   </Btn>
                 )}
                 {isPast && (
-                  <Btn variant="secondary" onClick={() => navigate(`/clinic/${a.ClinicID}/doctor/${a.DoctorID}`)} style={{ width: "100%", justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                  <Btn variant="secondary" onClick={() => navigate(`/clinic/${a.ClinicID}/doctor/${a.DoctorID}`)} style={{ width: "100%", justifyContent: "center", padding: "6px", fontSize: 12, borderRadius: 8 }}>
                     {t("book_new")}
                   </Btn>
                 )}
@@ -2361,9 +2368,17 @@ function LearnMorePage({ navigate }) {
   const { t } = useTranslation();
   return (
     <div style={{ maxWidth: 1200, margin: "40px auto", padding: "0 24px" }}>
-      <div style={{ textAlign: "center", marginBottom: 50 }}>
-        <h1 style={{ fontSize: 34, fontWeight: 900, color: "#0c4a6e", marginBottom: 14 }}>{t("how_it_works_title")}</h1>
-        <p style={{ fontSize: 17, color: "#6b7280" }}>{t("how_it_works_subtitle")}</p>
+      <div style={{ marginBottom: 50 }}>
+        <h1 style={{ fontSize: 34, fontWeight: 900, color: "#0c4a6e", marginBottom: 24, textAlign: "center" }}>{t("about_tabibi_title")}</h1>
+        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "start", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <p style={{ fontSize: 17, color: "#6b7280", marginBottom: 16, lineHeight: 1.6 }}>{t("about_tabibi_desc1")}</p>
+          <p style={{ fontSize: 17, color: "#6b7280", margin: 0, lineHeight: 1.6 }}>{t("about_tabibi_desc2")}</p>
+        </div>
+      </div>
+
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <h2 style={{ fontSize: 28, fontWeight: 800, color: "#0c4a6e", marginBottom: 12 }}>{t("how_it_works_title")}</h2>
+        <p style={{ fontSize: 16, color: "#6b7280" }}>{t("how_it_works_subtitle")}</p>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 40, marginBottom: 60 }}>
@@ -2397,22 +2412,15 @@ function LearnMorePage({ navigate }) {
 function PrivacyPolicyPage({ navigate }) {
   const { t } = useTranslation();
   const sections = [
-    {
-      title: t("privacy_section1_title"),
-      content: t("privacy_section1_desc")
-    },
-    {
-      title: t("privacy_section2_title"),
-      content: t("privacy_section2_desc")
-    },
-    {
-      title: t("privacy_section3_title"),
-      content: t("privacy_section3_desc")
-    },
-    {
-      title: t("privacy_section4_title"),
-      content: t("privacy_section4_desc")
-    }
+    { title: t("privacy_section1_title"), content: t("privacy_section1_desc") },
+    { title: t("privacy_section2_title"), content: t("privacy_section2_desc") },
+    { title: t("privacy_section3_title"), content: t("privacy_section3_desc") },
+    { title: t("privacy_section4_title"), content: t("privacy_section4_desc") },
+    { title: t("privacy_section5_title"), content: t("privacy_section5_desc") },
+    { title: t("privacy_section6_title"), content: t("privacy_section6_desc") },
+    { title: t("privacy_section7_title"), content: t("privacy_section7_desc") },
+    { title: t("privacy_section8_title"), content: t("privacy_section8_desc") },
+    { title: t("privacy_section9_title"), content: t("privacy_section9_desc") }
   ];
 
   return (
@@ -2443,7 +2451,12 @@ function TermsOfUsePage({ navigate }) {
     { title: t("term1_title"), content: t("term1_desc") },
     { title: t("term2_title"), content: t("term2_desc") },
     { title: t("term3_title"), content: t("term3_desc") },
-    { title: t("term4_title"), content: t("term4_desc") }
+    { title: t("term4_title"), content: t("term4_desc") },
+    { title: t("term5_title"), content: t("term5_desc") },
+    { title: t("term6_title"), content: t("term6_desc") },
+    { title: t("term7_title"), content: t("term7_desc") },
+    { title: t("term8_title"), content: t("term8_desc") },
+    { title: t("term9_title"), content: t("term9_desc") }
   ];
 
   return (

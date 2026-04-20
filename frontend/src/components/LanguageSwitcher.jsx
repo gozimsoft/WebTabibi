@@ -21,13 +21,13 @@ export default function LanguageSwitcher() {
         style={{
           display: "flex", alignItems: "center", gap: 6,
           background: "#f3f4f6", border: "1px solid #e5e7eb",
-          borderRadius: 8, padding: "6px 10px", cursor: "pointer",
-          fontSize: 13, fontWeight: 600,
+          borderRadius: 8, padding: "8px 12px", cursor: "pointer",
+          fontSize: 16, fontWeight: 600,
         }}
       >
         <span>{current.flag}</span>
         <span style={{ display: "none" }}>{current.label}</span>
-        <span style={{ fontSize: 10 }}>▼</span>
+        <span style={{ fontSize: 12 }}>▼</span>
       </button>
       {open && (
         <div
