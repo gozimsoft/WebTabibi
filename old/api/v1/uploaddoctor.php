@@ -3,31 +3,7 @@ header("Content-Type: application/json");
 require_once("config.php");
 require_once("controllers.php");
 
-ini_set('memory_limit', '256M');
-ini_set('max_execution_time', '300');
-// Note: post_max_size and upload_max_filesize should be set in php.ini or .htaccess for the current request.
-// However, adding them here doesn't hurt.
-
-$input = file_get_contents("php://input");
-$data = json_decode($input, true);
-
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    echo json_encode([
-        "status" => "fail",
-        "message" => "JSON decode error: " . json_last_error_msg() . ". The input might be too large or malformed. Check post_max_size in php.ini"
-    ]);
-    exit;
-}
-
-if (empty($data)) {
-    http_response_code(400);
-    echo json_encode([
-        "status" => "fail",
-        "message" => "No data received. Ensure you are sending a valid JSON body."
-    ]);
-    exit;
-}
+$data = json_decode(file_get_contents("php://input"), true);
 
 // ── clinic ──────────────────────────────────────────────────────────────────
 $clinic_id          = $data['clinic_id']        ?? '';
