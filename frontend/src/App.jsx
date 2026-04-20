@@ -1950,8 +1950,10 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
             {t("success_msg")}{" "}
             <strong style={{ color: "#0c4a6e" }}>{doctor.FullName}</strong>
             <br />
-            📅 {t("day")} <strong style={{ color: "#0891b2" }}>{date}</strong> {t("at_time")}{" "}
-            <strong style={{ color: "#0891b2" }}>{selSlot}</strong>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, justifyContent: "center" }}>
+              <Calendar size={16} color="#6b7280" />
+              <span>{t("day")} <strong style={{ color: "#0891b2" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "#0891b2" }}>{selSlot}</strong></span>
+            </div>
           </p>
 
           {/* Mini summary badge */}
