@@ -917,7 +917,7 @@ function HomePage({ user, navigate }) {
                 desc: t("search_doctor_desc"),
                 icon: <Search size={26} />,
                 color: "#0891B2",
-                img: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=600"
+                img: `${import.meta.env.BASE_URL}SearchDoctor.png`
               },
               {
                 n: "02",
@@ -925,7 +925,7 @@ function HomePage({ user, navigate }) {
                 desc: t("book_instantly_desc"),
                 icon: <Calendar size={26} />,
                 color: "#0891B2",
-                img: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&q=80&w=600"
+                img: `${import.meta.env.BASE_URL}Calendar.png`
               },
               {
                 n: "03",
@@ -933,7 +933,7 @@ function HomePage({ user, navigate }) {
                 desc: t("attend_consult_desc"),
                 icon: <CheckCircle size={26} />,
                 color: "#0891B2",
-                img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&q=80&w=600"
+                img: `${import.meta.env.BASE_URL}consultation.png`
               },
             ].map((s, i) => (
               <div key={i} style={{
@@ -2062,10 +2062,50 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
               <Info size={18} color="var(--brand)" /> {t("instructions_title")}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[1, 2, 3].map(i => (
+              {(isMobile
+                ? (i18n.language === 'ar' ? [
+                  { title: "احضر قبل الموعد بـ 10 إلى 15 دقيقة" },
+                  { title: "أحضر مستنداتك الطبية + بطاقة الشفاء" },
+                  { title: "جهّز أدويتك والأعراض التي تعاني منها" },
+                  { title: "قم بالإلغاء مسبقاً إذا لم تتمكن من الحضور" },
+                  { title: "احترم تعليمات العيادة" },
+                  { title: "ارتدِ كمامة إذا طُلب منك ذلك" }
+                ] : [
+                  { title: "Arrivez 10 à 15 min à l’avance" },
+                  { title: "Apportez vos documents médicaux + carte CNAS/CASNOS" },
+                  { title: "Préparez vos médicaments et symptômes" },
+                  { title: "Annulez à l’avance si vous ne pouvez pas venir" },
+                  { title: "Respectez les consignes de la clinique" },
+                  { title: "Portez un masque si demandé" }
+                ])
+                : (i18n.language === 'ar' ? [
+                  { title: "احضر مبكراً", desc: "يرجى الحضور قبل 10 إلى 15 دقيقة من موعدك لتجنب أي تأخير." },
+                  { title: "أحضر مستنداتك الضرورية", desc: "يرجى إحضار بطاقة هويتك، بطاقة الشفاء (إن وجدت)، بالإضافة إلى فحوصاتك أو وصفاتك الطبية القديمة." },
+                  { title: "جهّز معلوماتك الطبية", desc: "قم بتدوين الأعراض والأدوية التي تتناولها حالياً لتسهيل الاستشارة." },
+                  { title: "احترم موعدك", desc: "في حال عدم قدرتك على الحضور، يرجى إلغاء أو تأجيل الموعد مسبقاً للسماح لمرضى آخرين بالاستفادة منه." },
+                  { title: "احترم قواعد العيادة", desc: "يرجى احترام الهدوء ونظافة المكان وتعليمات الطاقم الطبي." },
+                  { title: "النظافة والوقاية", desc: "حسب الوضع، قد يُطلب منك ارتداء كمامة أو الالتزام ببعض تدابير النظافة." },
+                  { title: "المرافقة", desc: "إذا لزم الأمر، يمكنك اصطحاب مرافق، مع الالتزام بقواعد المؤسسة." },
+                  { title: "الالتزام بالوقت", desc: "أي تأخير كبير قد يؤدي إلى تأجيل الموعد احتراماً للمرضى الآخرين." },
+                  { title: "التواصل مع العيادة", desc: "لأي استفسار، يمكنك التواصل مع العيادة مباشرة عبر تطبيق Tabibi." }
+                ] : [
+                  { title: "Présentez-vous à l’avance", desc: "Merci d’arriver 10 à 15 minutes avant l’heure de votre rendez-vous pour éviter tout retard." },
+                  { title: "Apportez vos documents nécessaires", desc: "Veuillez vous munir de votre pièce d’identité, de votre carte CNAS/CASNOS (si applicable), ainsi que de vos anciens examens ou ordonnances." },
+                  { title: "Préparez vos informations médicales", desc: "Notez vos symptômes et la liste des médicaments que vous prenez actuellement afin de faciliter la consultation." },
+                  { title: "Respectez votre rendez-vous", desc: "En cas d’empêchement, merci d’annuler ou reporter votre rendez-vous à l’avance pour permettre à d’autres patients d’en bénéficier." },
+                  { title: "Respectez les règles de la clinique", desc: "Merci de respecter le calme, la propreté des lieux et les consignes du personnel médical." },
+                  { title: "Hygiène et prévention", desc: "Selon la situation, il peut être demandé de porter un masque ou de respecter certaines mesures d’hygiène." },
+                  { title: "Accompagnement", desc: "Si nécessaire, vous pouvez être accompagné d’un proche, en respectant les règles de l’établissement." },
+                  { title: "Ponctualité et organisation", desc: "Tout retard important peut entraîner un report du rendez-vous afin de respecter les autres patients." },
+                  { title: "Communication avec le cabinet", desc: "En cas de question, vous pouvez contacter la clinique directement via l’application Tabibi." }
+                ])
+              ).map((item, i) => (
                 <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{i}</div>
-                  <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.5 }}>{t(`instruction_${i}`)}</div>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ flex: 1, paddingTop: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: item.desc ? 800 : 600, color: "#0f172a", marginBottom: item.desc ? 4 : 0 }}>{item.title}</div>
+                    {item.desc && <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{item.desc}</div>}
+                  </div>
                 </div>
               ))}
             </div>

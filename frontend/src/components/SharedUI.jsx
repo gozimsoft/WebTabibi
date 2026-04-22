@@ -29,11 +29,11 @@ export function useToast() {
   return { show, Toast };
 }
 
-export const Stars = ({ rating = 0, interactive, onChange, size = 18 }) => (
+export const Stars = ({ rating = 0, interactive, onChange, size = 18, color = "#f59e0b" }) => (
   <div style={{ display: "flex", gap: 2 }}>
     {[1, 2, 3, 4, 5].map(i => (
       <span key={i} onClick={() => interactive && onChange?.(i)}
-        style={{ fontSize: size, cursor: interactive ? "pointer" : "default", color: i <= rating ? "#f59e0b" : "#d1d5db", transition: "color 0.1s" }}>★</span>
+        style={{ fontSize: size, cursor: interactive ? "pointer" : "default", color: i <= rating ? color : "#d1d5db", transition: "color 0.1s" }}>★</span>
     ))}
   </div>
 );
