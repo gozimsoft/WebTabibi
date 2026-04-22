@@ -735,19 +735,19 @@ function HomePage({ user, navigate }) {
               num: "+50,000", label: t("stats_patients"),
               icon: <Users size={20} />,
               img: `${import.meta.env.BASE_URL}stats_patients_custom.png`,
-              color: "#059669",
+              color: "#0891B2",
             },
             {
               num: "+800", label: t("stats_clinics"),
               icon: <Building size={20} />,
               img: `${import.meta.env.BASE_URL}stats_clinics_custom.jpg`,
-              color: "#7c3aed",
+              color: "#0891B2",
             },
             {
               num: "+1,200", label: t("stats_doctors"),
               icon: <Stethoscope size={20} />,
               img: `${import.meta.env.BASE_URL}stats_doctors_custom.png`,
-              color: "#0891b2",
+              color: "#0891B2",
             },
           ].map((s, i) => (
             <div key={i} style={{
@@ -905,121 +905,136 @@ function HomePage({ user, navigate }) {
       <section style={{ background: "transparent", padding: "80px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", marginBottom: 80 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
           <div style={{ position: "relative" }}>
-            {/* Decoration */}
-            <div style={{ position: "absolute", top: -20, left: -100, opacity: 0.05, color: "var(--brand)", transform: "rotate(-15deg)" }}>
-              <Stethoscope size={220} />
-            </div>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", marginBottom: 32 }}>
               {t("how_it_works")}
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 24 }}>
             {[
               {
                 n: "01",
                 title: t("search_doctor"),
                 desc: t("search_doctor_desc"),
-                color: "#0891b2",
-                icon: (
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.35-4.35" />
-                  </svg>
-                ),
+                icon: <Search size={26} />,
+                color: "#0891B2",
+                img: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=600"
               },
               {
                 n: "02",
                 title: t("book_instantly"),
                 desc: t("book_instantly_desc"),
-                color: "#7c3aed",
-                icon: (
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                ),
+                icon: <Calendar size={26} />,
+                color: "#0891B2",
+                img: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&q=80&w=600"
               },
-
               {
                 n: "03",
                 title: t("attend_consult"),
                 desc: t("attend_consult_desc"),
-                color: "#059669",
-                icon: (
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                ),
+                icon: <CheckCircle size={26} />,
+                color: "#0891B2",
+                img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&q=80&w=600"
               },
             ].map((s, i) => (
               <div key={i} style={{
-                background: "#fff",
-                borderRadius: 24,
-                padding: "32px 28px",
-                minHeight: 180,
-                position: "relative",
-                overflow: "hidden",
-                border: "1px solid var(--border)",
-                boxShadow: "0 10px 40px rgba(0,0,0,0.04)",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                direction: i18n.language === 'ar' ? "rtl" : "ltr",
-                zIndex: 1
+                width: '100%',
+                background: '#ffffff',
+                borderRadius: '24px',
+                minHeight: '130px',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.04)',
+                display: 'flex',
+                alignItems: 'stretch',
+                position: 'relative',
+                overflow: 'hidden',
+                direction: i18n.language === 'ar' ? 'rtl' : 'ltr',
+                border: '1px solid #f1f5f9'
               }}>
-                {/* Big number bg (Opposite to icon side) */}
+                {/* CONTENT AREA */}
                 <div style={{
-                  position: "absolute",
-                  top: 10,
-                  left: i18n.language === 'ar' ? 24 : 'auto',
-                  right: i18n.language === 'ar' ? 'auto' : 24,
-                  fontSize: 70,
-                  fontWeight: 950,
-                  color: "var(--brand)",
-                  opacity: 0.3,
-                  lineHeight: 1,
-                  userSelect: "none",
-                  zIndex: 0
-                }}>{s.n}</div>
-
-                {/* Rising Wave Background */}
-                <svg style={{
-                  position: "absolute",
-                  bottom: -10, left: 0, width: "100%", height: 100,
-                  opacity: 0.18, zIndex: 0, pointerEvents: "none",
-                  transform: i18n.language === 'ar' ? "scaleX(-1)" : "scaleX(1)"
-                }} viewBox="0 0 1440 320" preserveAspectRatio="none">
-                  <path fill="var(--brand)" d="M0,160C120,180,240,220,360,200C480,180,600,120,720,100C840,80,960,100,1080,120C1200,140,1320,80,1440,60L1440,320L0,320Z"></path>
-                </svg>
-
-                {/* Top: Icon (Opposite side to number) */}
-                <div style={{
-                  display: "flex",
-                  justifyContent: "flex-start",
-                  zIndex: 1
+                  flex: 1,
+                  padding: '20px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 20,
+                  zIndex: 2
                 }}>
-                  <div style={{
-                    width: 52, height: 52,
-                    background: "var(--brand)",
-                    borderRadius: 16,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: "0 8px 20px rgba(0,146,162,0.2)"
-                  }}>
-                    {s.icon}
+                  {/* Step ID (Icon & Number) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      background: s.color,
+                      borderRadius: '14px',
+                      display: 'flex', alignItems: 'center', justifyContent: "center",
+                      color: '#ffffff',
+                      boxShadow: `0 8px 20px ${s.color}33`,
+                    }}>
+                      {s.icon}
+                    </div>
+                    <div style={{
+                      fontSize: '22px',
+                      fontWeight: '950',
+                      color: s.color,
+                      opacity: 0.4,
+                      letterSpacing: '-1px'
+                    }}>{s.n}</div>
+                  </div>
+
+                  {/* Text Container */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '18px',
+                      fontWeight: '850',
+                      color: '#1e293b',
+                      marginBottom: '6px',
+                      lineHeight: 1.2
+                    }}>
+                      {s.title}
+                    </div>
+                    <div style={{
+                      fontSize: '13px',
+                      color: '#64748b',
+                      lineHeight: '1.5',
+                      fontWeight: 500
+                    }}>
+                      {s.desc}
+                    </div>
                   </div>
                 </div>
 
-                {/* Bottom: Content Side */}
+                {/* PHOTO AREA : Structured Vertical Split with Trapezoid Shape */}
                 <div style={{
-                  textAlign: i18n.language === 'ar' ? "right" : "left",
-                  zIndex: 1,
-                  paddingTop: 20
+                  width: '38%',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: '#f8fafc',
+                  clipPath: i18n.language === 'ar'
+                    ? 'polygon(0 0, 85% 0, 100% 100%, 0 100%)'
+                    : 'polygon(15% 0, 100% 0, 100% 100%, 0 100%)',
                 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>{s.title}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, fontWeight: 500, opacity: 0.85 }}>{s.desc}</div>
+                  {/* Medical Hexagon Pattern Background */}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    opacity: 0.1,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='hexagons' fill='%23000' fill-opacity='1' fill-rule='nonzero'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9l10.99-6.35L25 17.9v12.7L13.99 36.95 3 30.6V17.9z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                    zIndex: 1
+                  }} />
+
+                  {/* High Quality Medical Photo with 50% Opacity */}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    backgroundImage: `url(${s.img})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    opacity: 0.5,
+                    zIndex: 2,
+                  }} />
+
+                  {/* Clinical Accent Line */}
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    height: '4px', background: s.color, zIndex: 3
+                  }} />
                 </div>
               </div>
             ))}

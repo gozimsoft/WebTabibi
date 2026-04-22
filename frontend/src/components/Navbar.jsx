@@ -1,5 +1,5 @@
 // src/components/Navbar.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { Btn } from "./SharedUI";
@@ -7,7 +7,24 @@ import { Btn } from "./SharedUI";
 export default function Navbar({ user, navigate, onLogout }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
   const name = user?.profile?.FullName?.split(" ")[0] || user?.username || "U";
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [open]);
 
   const navItems = [
     [t("search"), "/search", "🔍"],
@@ -47,7 +64,7 @@ export default function Navbar({ user, navigate, onLogout }) {
           ))}
         </div>
         {user ? (
-          <div style={{ position: "relative" }}>
+          <div ref={menuRef} style={{ position: "relative" }}>
             <button onClick={() => setOpen(!open)} style={{
               display: "flex", alignItems: "center", gap: 8,
               background: "linear-gradient(135deg,#ecfdf5,#d1fae5)",
