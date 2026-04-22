@@ -7,19 +7,6 @@ $data = json_decode(file_get_contents("php://input"), true);
 
 // ── clinic ──────────────────────────────────────────────────────────────────
 $clinic_id          = $data['clinic_id']        ?? '';
-$clinicname         = $data['clinicname']        ?? '';
-$clinic_phone       = $data['phone']             ?? '';
-$clinic_fax         = $data['fax']               ?? '';
-$clinic_address     = $data['address']           ?? '';
-$clinic_email       = $data['email']             ?? '';
-$clinic_website     = $data['website']           ?? '';
-$clinic_typeclinic  = $data['typeclinic']        ?? '';
-$cliniccoordinates  = $data['cliniccoordinates'] ?? '';
-$clinic_activity    = $data['clinicactivity']    ?? '';
-$clinic_latitude    = $data['cliniclatitude']    ?? 0;
-$clinic_longitude   = $data['cliniclongitude']   ?? 0;
-$clinic_postcode    = $data['clinicpostcode']    ?? 0;
-$logoBase64         = $data['logo']              ?? null;
 //
  
 // ── user ─────────────────────────────────────────────────────────────────────
@@ -81,7 +68,7 @@ if (
     empty($user_id)    || empty($username)   || empty($password)  ||
     empty($doctor_id)  || empty($fullname)   || empty($phone)     ||
     empty($baladiya_id)|| empty($specialtie_id) ||
-    empty($clinic_id)  || empty($clinicname)
+    empty($clinic_id)  
 ) {
     echo json_encode([
         "status"  => "fail",
@@ -123,10 +110,21 @@ $stmtClinic = $pdo->prepare("SELECT COUNT(*) FROM Clinics WHERE ID = :id");
 $stmtClinic->execute([":id" => $clinic_id]);
 $clinicExists = $stmtClinic->fetchColumn() > 0;
 
+   if (!$clinicExists) {
+    echo json_encode([
+        "status"  => "fail",    
+        "message" => "clinicID_not_exists"
+    ]);
+    exit; 
+    }
+
 // ── بدء المعاملة ─────────────────────────────────────────────────────────────
 $pdo->beginTransaction();
 
 try {
+
+
+
 
     // ══════════════════════════════════════════════════════════════════════════
     //  1) المستخدم  (Users)
@@ -249,60 +247,6 @@ try {
         $stmtPhoto->execute();
     }
  
-    // ══════════════════════════════════════════════════════════════════════════
-    //  4) العيادة  (Clinics)
-    // ══════════════════════════════════════════════════════════════════════════
-  $clinicParams = [
-        ':clinic_id'         => $clinic_id,
-        ':clinicname'        => $clinicname,
-        ':clinic_phone'      => $clinic_phone,
-        ':clinic_fax'        => $clinic_fax,
-        ':clinic_address'    => $clinic_address,
-        ':clinic_email'      => $clinic_email,
-        ':clinic_website'    => $clinic_website,
-        ':clinic_typeclinic' => $clinic_typeclinic,
-        ':cliniccoordinates' => $cliniccoordinates,
-        ':clinic_activity'   => $clinic_activity,
-        ':clinic_latitude'   => $clinic_latitude,
-        ':clinic_longitude'  => $clinic_longitude,
-        ':clinic_postcode'   => $clinic_postcode,
-    ];
-
-    if (!$clinicExists) {
-        // إنشاء عيادة جديدة
-        $stmtC = $pdo->prepare("
-            INSERT INTO Clinics (
-                ID, ClinicName, Phone, Fax, Address, Email, Website,
-                ActivitySector, ClinicCoordinates, Latitude, Longitude, PostCode,TypeClinic
-            ) VALUES (
-                :clinic_id, :clinicname, :clinic_phone, :clinic_fax, :clinic_address,
-                :clinic_email, :clinic_website,
-                :clinic_activity, :cliniccoordinates, :clinic_latitude, :clinic_longitude, :clinic_postcode,:clinic_typeclinic  
-            )
-        ");
-
-
-
-    } else {
-        // تحديث بيانات العيادة الموجودة
-        $stmtC = $pdo->prepare("
-            UPDATE Clinics SET
-                ClinicName        = :clinicname,
-                Phone             = :clinic_phone,
-                Fax               = :clinic_fax,
-                Address           = :clinic_address,
-                Email             = :clinic_email,
-                Website           = :clinic_website,
-                ActivitySector    = :clinic_activity,
-                ClinicCoordinates = :cliniccoordinates,
-                Latitude          = :clinic_latitude,
-                Longitude         = :clinic_longitude,
-                PostCode          = :clinic_postcode,
-                TypeClinic        = :clinic_typeclinic
-            WHERE ID = :clinic_id
-        ");
-    }
-    $stmtC->execute($clinicParams);
  
     // ══════════════════════════════════════════════════════════════════════════
     //  5) ربط الطبيب بالعيادة  (ClinicsDoctors)
