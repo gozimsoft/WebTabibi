@@ -334,6 +334,11 @@
     "no_schedule_desc": "يرجى التواصل مع العيادة مباشرة أو المحاولة لاحقاً.",
     "based_on": "بناءً على",
     "send_rating": "إرسال التقييم",
-    "add_comment_placeholder": "أضف تعليقك هنا..."
+    "add_comment_placeholder": "أضف تعليقك هنا...",
+    "exit_app_title": "خروج من التطبيق",
+    "exit_app_desc": "هل أنت متأكد أنك تريد مغادرة طبيبي؟",
+    "exit": "خروج",
+    "cancel": "إلغاء",
+    "next": "التالي"
   }
 }

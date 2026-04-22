@@ -334,6 +334,11 @@
     "no_schedule_desc": "Veuillez contacter la clinique directement ou réessayer plus tard.",
     "based_on": "Basé sur",
     "send_rating": "Envoyer l'évaluation",
-    "add_comment_placeholder": "Ajoutez votre commentaire ici..."
+    "add_comment_placeholder": "Ajoutez votre commentaire ici...",
+    "exit_app_title": "Quitter l'application",
+    "exit_app_desc": "Êtes-vous sûr de vouloir quitter Tabibi ?",
+    "exit": "Quitter",
+    "cancel": "Annuler",
+    "next": "Suivant"
   }
 }
