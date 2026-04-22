@@ -479,6 +479,7 @@ function Navbar({ user, navigate, onLogout }) {
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                       { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" },
                       { icon: <MessageSquare size={16} />, label: t("messages"), path: "/chat" },
+                      { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                     ].map(item => (
                       <button key={item.path} onClick={() => { navigate(item.path); setOpen(false); }} style={{
                         width: "100%", padding: "12px 16px", background: "none", border: "none",
@@ -679,6 +680,7 @@ function HomePage({ user, navigate }) {
             boxShadow: focused ? "0 0 0 4px rgba(255,255,255,0.35)" : "0 8px 40px rgba(0,0,0,0.18)",
             transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}>
+            {!isMobile && <Search size={20} style={{ flexShrink: 0, [i18n.language === 'ar' ? 'marginRight' : 'marginLeft']: 12, color: "#94a3b8" }} />}
             <input type="text" value={q}
               onChange={e => setQ(e.target.value)}
               onFocus={() => setFocused(true)}
@@ -690,7 +692,7 @@ function HomePage({ user, navigate }) {
                 fontSize: 14, color: "#333", background: "transparent",
                 textAlign: i18n.language === 'ar' ? "right" : "left",
                 direction: i18n.language === 'ar' ? "rtl" : "ltr",
-                padding: isMobile ? "12px 14px" : "14px 20px",
+                padding: isMobile ? "12px 14px" : "14px 10px",
               }}
             />
             <button
@@ -702,7 +704,6 @@ function HomePage({ user, navigate }) {
                 cursor: "pointer"
               }}
             >{t("search")}</button>
-            {!isMobile && <Search size={18} style={{ flexShrink: 0, marginLeft: 6, color: "#c5c9d0" }} />}
           </div>
 
           {/* Quick tags */}
