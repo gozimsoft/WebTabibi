@@ -38,13 +38,85 @@ export default function HomePage({ user, navigate }) {
       {/* Stats */}
       <div style={{ maxWidth: 860, margin: "-20px auto 40px", padding: "0 24px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          {[[ "👨‍⚕️", "1200+", t("stats_doctors")], ["🏥", "800+", t("stats_clinics")], ["👥", "50000+", t("stats_patients")]].map(([ic, n, l]) => (
-            <Card key={l} style={{ textAlign: "center", padding: "18px 12px" }}>
-              <div style={{ fontSize: 26, marginBottom: 6 }}>{ic}</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: "#0891b2" }}>{n}</div>
-              <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>{l}</div>
-            </Card>
-          ))}
+
+          {/* Stat: Médecins — avec la photo */}
+          <div style={{
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+            overflow: "hidden",
+            position: "relative",
+            height: 130,
+            backgroundImage: "url('/stats_doctors_custom.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center top",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.0) 100%)",
+            }} />
+            <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>1200+</div>
+              <div style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>{t("stats_doctors")}</div>
+            </div>
+          </div>
+
+          {/* Stat: Cliniques — avec la photo */}
+          <div style={{
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+            overflow: "hidden",
+            position: "relative",
+            height: 130,
+            backgroundImage: "url('/stats_clinics_custom.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.0) 100%)",
+            }} />
+            <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>800+</div>
+              <div style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>{t("stats_clinics")}</div>
+            </div>
+          </div>
+
+          {/* Stat: Patients — avec la photo */}
+          <div style={{
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+            overflow: "hidden",
+            position: "relative",
+            height: 130,
+            backgroundImage: "url('/stats_patients_custom.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.0) 100%)",
+            }} />
+            <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>50000+</div>
+              <div style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>{t("stats_patients")}</div>
+            </div>
+          </div>
+
         </div>
       </div>
 
