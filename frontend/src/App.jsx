@@ -150,8 +150,23 @@ function useIsMobile() {
 
 // ── Shared UI ─────────────────────────────────────────────────
 const Spinner = ({ size = 24 }) => (
-  <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-    <div style={{ width: size, height: size, border: `3px solid #e2f4f4`, borderTopColor: "#0891b2", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+  <div style={{ display: "flex", justifyContent: "center", padding: 8 }}>
+    <div style={{
+      width: size, height: size,
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      <img
+        src={`${import.meta.env.BASE_URL}logo.png`}
+        alt="L"
+        style={{
+          width: "100%", height: "100%",
+          objectFit: "contain"
+        }}
+      />
+    </div>
   </div>
 );
 
@@ -363,6 +378,69 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
   );
 }
 
+// ── Animated Logo Component ──────────────────────────────────
+const LOGO_EFFECTS = [
+  { transform: "rotateY(360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }, // Right
+  { transform: "rotateY(-360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }, // Left
+  { transform: "rotateX(360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }, // Up
+  { transform: "rotateX(-360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }  // Down
+];
+
+const AnimatedLogo = ({ isMobile }) => {
+  const [style, setStyle] = useState({ transform: "scale(1)", filter: "none" });
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    const cycle = () => {
+      // Step 1: Trigger random effect
+      const effect = LOGO_EFFECTS[Math.floor(Math.random() * LOGO_EFFECTS.length)];
+      setStyle(effect);
+      setKey(k => k + 1);
+
+      // Step 2: Return to base state after 1.5s
+      setTimeout(() => {
+        setStyle({ transform: "scale(1)", filter: "none" });
+      }, 1500);
+    };
+
+    const interval = setInterval(cycle, 30000);
+    cycle(); // Initial run
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div
+      key={key}
+      style={{
+        width: isMobile ? 36 : 44,
+        height: isMobile ? 36 : 44,
+        background: "var(--brand)",
+        borderRadius: 12,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        willChange: "transform, filter",
+        cursor: "pointer",
+        boxShadow: "0 4px 15px rgba(0,146,162,0.2)",
+        zIndex: 10,
+        ...style
+      }}
+    >
+      <img
+        src={`${import.meta.env.BASE_URL}logo.png`}
+        alt="Logo"
+        style={{
+          width: "70%",
+          height: "70%",
+          objectFit: "contain",
+          filter: "brightness(0) invert(1)"
+        }}
+      />
+    </div>
+  );
+};
+
 // ── Navbar ────────────────────────────────────────────────────
 function Navbar({ user, navigate, onLogout }) {
   const { t, i18n } = useTranslation();
@@ -400,13 +478,8 @@ function Navbar({ user, navigate, onLogout }) {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         {/* Logo Section */}
-        <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10, flexDirection: i18n.language === 'ar' ? 'row' : 'row' }}>
-          <div style={{
-            width: isMobile ? 36 : 42, height: isMobile ? 36 : 42, background: "var(--brand)",
-            borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center"
-          }}>
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" style={{ width: "70%", height: "70%", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
-          </div>
+        <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
+          <AnimatedLogo isMobile={isMobile} />
           {!isMobile && (
             <div style={{ textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: "var(--brand)", lineHeight: 1 }}>{t("app_name")}</div>
@@ -925,7 +998,7 @@ function HomePage({ user, navigate }) {
                 desc: t("book_instantly_desc"),
                 icon: <Calendar size={26} />,
                 color: "#0891B2",
-                img: `${import.meta.env.BASE_URL}Calendar.png`
+                img: `${import.meta.env.BASE_URL}calender.png?v=3`
               },
               {
                 n: "03",
@@ -1012,21 +1085,21 @@ function HomePage({ user, navigate }) {
                     ? 'polygon(0 0, 85% 0, 100% 100%, 0 100%)'
                     : 'polygon(15% 0, 100% 0, 100% 100%, 0 100%)',
                 }}>
-                  {/* Medical Hexagon Pattern Background */}
+                  {/* Medical Hexagon Pattern Background Overlay */}
                   <div style={{
                     position: 'absolute', inset: 0,
-                    opacity: 0.1,
+                    opacity: 0.15,
                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='hexagons' fill='%23000' fill-opacity='1' fill-rule='nonzero'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9l10.99-6.35L25 17.9v12.7L13.99 36.95 3 30.6V17.9z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                    zIndex: 1
+                    zIndex: 5
                   }} />
 
-                  {/* High Quality Medical Photo with 50% Opacity */}
+                  {/* High Quality Medical Photo */}
                   <div style={{
                     position: 'absolute', inset: 0,
                     backgroundImage: `url(${s.img})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    opacity: 0.5,
+                    opacity: 0.8,
                     zIndex: 2,
                   }} />
 
@@ -1135,8 +1208,8 @@ function LoginPage({ onLogin, navigate }) {
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Building size={32} color="var(--brand)" />
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(0,0,0,0.05)" }}>
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" style={{ width: 40, height: 40, objectFit: "contain" }} />
             </div>
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{t("login_welcome")}</h1>
@@ -2496,8 +2569,8 @@ function RegisterClinicPage({ navigate }) {
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
       <div style={{ textAlign: "center", marginBottom: 44 }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 22, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Building size={36} color="var(--brand)" />
+          <div style={{ width: 72, height: 72, borderRadius: 22, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 25px rgba(0,0,0,0.05)" }}>
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" style={{ width: 48, height: 48, objectFit: "contain" }} />
           </div>
         </div>
         <h1 style={{ fontSize: 32, fontWeight: 900, color: "#0c4a6e", marginBottom: 12 }}>{t("register_clinic_title")}</h1>
@@ -3210,15 +3283,75 @@ export default function App() {
 
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-          <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(0,146,162,0.1)" }}>
-            <Building size={40} color="var(--brand)" />
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#fff",
+      position: "relative",
+      overflow: "hidden"
+    }}>
+      {/* Fine Medical Pattern Background */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        opacity: 0.6,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%230092a2' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M30 30h16M38 22v16'/%3E%3Cpath d='M110 30h14a7 7 0 0 1 0 14h-14a7 7 0 0 1 0 -14z'/%3E%3Cpath d='M40 110c0 6 5 10 10 10s10-4 10-10v-10'/%3E%3Cpath d='M100 110h10l4-12l4 24l4-12h10'/%3E%3Cpath d='M30 75l10 10M30 85l10-10'/%3E%3Ccircle cx='130' cy='80' r='1.5' fill='%230092a2'/%3E%3C/g%3E%3C/svg%3E")`,
+        backgroundSize: "240px 240px",
+        zIndex: 0
+      }} />
+
+      {/* Subtle Geometric Connecting Lines */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        opacity: 0.3,
+        backgroundImage: `linear-gradient(rgba(0,146,162,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,146,162,1) 1px, transparent 1px)`,
+        backgroundSize: "60px 60px",
+        zIndex: 0
+      }} />
+
+      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>
+        {/* Soft Glow Background */}
+        <div style={{
+          position: "absolute",
+          width: 140, height: 140,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, var(--brand-light) 0%, transparent 70%)",
+          // animation removed
+          zIndex: 1
+        }} />
+
+        {/* Centered Logo with Pulse */}
+        <div style={{
+          position: "relative",
+          zIndex: 2,
+          // animation removed
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center"
+        }}>
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="Tabibi"
+            style={{
+              width: 100, height: 100,
+              objectFit: "contain",
+              filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.15))"
+            }}
+          />
+          <div style={{
+            marginTop: 20,
+            fontSize: 22,
+            fontWeight: 900,
+            color: "var(--brand)",
+            letterSpacing: -0.5
+          }}>
+            Tabibi
           </div>
         </div>
-        <Spinner size={34} />
-        <div style={{ marginTop: 14, color: "#6b7280", fontWeight: 600, fontSize: 14 }}>{t("loading")}</div>
       </div>
     </div>
   );
@@ -3300,12 +3433,6 @@ export default function App() {
 
       <style>{`
         * { box-sizing:border-box; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        @keyframes popIn {
-          0%   { transform:scale(0); opacity:0; }
-          70%  { transform:scale(1.15); opacity:1; }
-          100% { transform:scale(1); }
-        }
         body { margin:0; padding:0; }
         input,select,textarea,button { font-family:inherit; }
         ::-webkit-scrollbar { width:5px; }
