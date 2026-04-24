@@ -115,22 +115,50 @@ class AuthController {
 
         $token = self::createSession($user['ID']);
 
-        // Fetch profile info
+        // Fetch profile info based on UserType
         $profile = [];
-        if ((int)$user['UserType'] === 0) {
+        $userType = (int)$user['UserType'];
+
+        if ($userType === 0) {
+            // Patient
             $stmt = $pdo->prepare("SELECT * FROM Patients WHERE User_id = ? LIMIT 1");
             $stmt->execute([$user['ID']]);
             $profile = $stmt->fetch() ?: [];
-        } else {
+            unset($profile['PhotoProfile']);
+        } elseif ($userType === 1) {
+            // Doctor — check status
             $stmt = $pdo->prepare("SELECT * FROM Doctors WHERE User_id = ? LIMIT 1");
             $stmt->execute([$user['ID']]);
             $profile = $stmt->fetch() ?: [];
-            unset($profile['PhotoProfile']); // Don't send blob over JSON
+            if (!empty($profile['Status']) && $profile['Status'] !== 'APPROVED') {
+                Database::getInstance()->prepare("DELETE FROM sessions WHERE token = ?")->execute([$token]);
+                Response::error('حسابك لم يتم الموافقة عليه بعد / Compte non approuvé', 403);
+            }
+            unset($profile['PhotoProfile']);
+        } elseif ($userType === 2) {
+            // Clinic
+            $stmt = $pdo->prepare("
+                SELECT c.* FROM Clinics c
+                JOIN ClinicRegistrations cr ON cr.Clinic_ID = c.ID
+                WHERE cr.User_ID = ? LIMIT 1
+            ");
+            $stmt->execute([$user['ID']]);
+            $clinic = $stmt->fetch();
+            if (!$clinic) {
+                // fallback: look up by user_id if stored differently
+                $profile = ['user_type_label' => 'clinic'];
+            } else {
+                unset($clinic['Logo']);
+                $profile = $clinic;
+            }
+        } elseif ($userType === 3) {
+            // Admin
+            $profile = ['user_type_label' => 'admin', 'username' => $user['Username']];
         }
 
         Response::success([
             'token'     => $token,
-            'user_type' => (int)$user['UserType'],
+            'user_type' => $userType,
             'user_id'   => $user['ID'],
             'username'  => $user['Username'],
             'profile'   => $profile,
@@ -162,19 +190,40 @@ class AuthController {
         $pdo     = Database::getInstance();
         $userId  = $session['user_id'];
 
-        if ((int)$session['UserType'] === 0) {
+        $userType = (int)$session['UserType'];
+        $profile = null;
+
+        if ($userType === 0) {
             $stmt = $pdo->prepare("SELECT * FROM Patients WHERE User_id = ? LIMIT 1");
             $stmt->execute([$userId]);
-            $profile = $stmt->fetch();
+            $profile = $stmt->fetch() ?: [];
             unset($profile['PhotoProfile']);
-            Response::success(['user_type' => 0, 'profile' => $profile]);
-        } else {
+        } elseif ($userType === 1) {
             $stmt = $pdo->prepare("SELECT * FROM Doctors WHERE User_id = ? LIMIT 1");
             $stmt->execute([$userId]);
-            $profile = $stmt->fetch();
+            $profile = $stmt->fetch() ?: [];
             unset($profile['PhotoProfile']);
-            Response::success(['user_type' => 1, 'profile' => $profile]);
+        } elseif ($userType === 2) {
+            $stmt = $pdo->prepare("
+                SELECT c.* FROM Clinics c
+                JOIN ClinicRegistrations cr ON cr.Clinic_ID = c.ID
+                WHERE cr.User_ID = ? LIMIT 1
+            ");
+            $stmt->execute([$userId]);
+            $profile = $stmt->fetch() ?: [];
+            unset($profile['Logo']);
+        } elseif ($userType === 3) {
+            $stmt = $pdo->prepare("SELECT ID, Username FROM Users WHERE ID = ? LIMIT 1");
+            $stmt->execute([$userId]);
+            $profile = $stmt->fetch() ?: [];
         }
+
+        Response::success([
+            'user_type' => $userType,
+            'user_id'   => $userId,
+            'profile'   => $profile,
+            'username'  => $session['Username'] ?? null
+        ]);
     }
 
     // ----------------------------------------------------------

@@ -34,7 +34,22 @@ async function req(method, path, body, auth = true) {
     if (!d.success) throw new Error(d.message || "Erreur serveur");
     return d.data ?? d;
   } catch (e) {
-    if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le api  ");
+    if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le server  ");
+    throw e;
+  }
+}
+
+async function reqFile(method, path, body) {
+  const headers = {};
+  if (getToken()) headers["Authorization"] = `Bearer ${getToken()}`;
+  try {
+    const r = await fetch(`${BASE}${path}`, {
+      method, headers, body
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.message || "Erreur serveur");
+    return d.data ?? d;
+  } catch (e) {
     throw e;
   }
 }
@@ -52,10 +67,18 @@ const api = {
     appointments: () => req("GET", "/patients/appointments"),
     family: () => req("GET", "/patients/family"),
   },
+  doctor: {
+    profile: () => req("GET", "/doctors/profile"),
+    update: b => req("PUT", "/doctors/profile", b),
+    uploadPhoto: fd => reqFile("POST", "/doctors/photo", fd),
+  },
   clinics: {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
     one: id => req("GET", `/clinics/${id}`),
     doctor: (c, d) => req("GET", `/clinics/${c}/doctors/${d}`),
+    profile: () => req("GET", "/clinics/profile"),
+    update: b => req("PUT", "/clinics/profile", b),
+    uploadLogo: fd => reqFile("POST", "/clinics/logo", fd),
   },
   specialties: () => req("GET", "/specialties"),
   wilayas: () => req("GET", "/wilayas"),
@@ -78,6 +101,33 @@ const api = {
   ratings: {
     add: b => req("POST", "/ratings", b),
     doctor: id => req("GET", `/ratings/doctor/${id}`),
+  },
+  relations: {
+    request: b => req("POST", "/relations/request", b),
+    getRequests: () => req("GET", "/relations/requests"),
+    check: id => req("GET", `/relations/check/${id}`),
+    respond: (id, b) => req("POST", `/relations/requests/${id}/respond`, b),
+  },
+  register: {
+    clinic: b => req("POST", "/register/clinic", b, false),
+    doctor: b => req("POST", "/register/doctor", b, false),
+    status: p => req("GET", `/register/status?${new URLSearchParams(p)}`, null, false),
+  },
+  admin: {
+    stats: () => req("GET", "/admin/stats"),
+    clinics: p => req("GET", `/admin/clinics?${new URLSearchParams(p)}`),
+    doctors: p => req("GET", `/admin/doctors?${new URLSearchParams(p)}`),
+    approveClinic: id => req("POST", `/admin/clinics/${id}/approve`, {}),
+    rejectClinic: (id, reason) => req("POST", `/admin/clinics/${id}/reject`, { reason }),
+    approveDoctor: id => req("POST", `/admin/doctors/${id}/approve`, {}),
+    rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
+  },
+  tickets: {
+    create: b => req("POST", "/tickets", b),
+    list: () => req("GET", "/tickets"),
+    get: id => req("GET", `/tickets/${id}`),
+    reply: (id, b) => req("POST", `/tickets/${id}/reply`, b),
+    close: id => req("POST", `/tickets/${id}/close`, {}),
   },
 };
 
@@ -150,23 +200,8 @@ function useIsMobile() {
 
 // ── Shared UI ─────────────────────────────────────────────────
 const Spinner = ({ size = 24 }) => (
-  <div style={{ display: "flex", justifyContent: "center", padding: 8 }}>
-    <div style={{
-      width: size, height: size,
-      position: "relative",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }}>
-      <img
-        src={`${import.meta.env.BASE_URL}logo.png`}
-        alt="L"
-        style={{
-          width: "100%", height: "100%",
-          objectFit: "contain"
-        }}
-      />
-    </div>
+  <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
+    <div style={{ width: size, height: size, border: `3px solid #e2f4f4`, borderTopColor: "#0891b2", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
   </div>
 );
 
@@ -205,12 +240,12 @@ const Stars = ({ rating = 0, interactive, onChange, size = 18 }) => (
 );
 
 // Doctor Image Placeholder / Avatar
-const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
+const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {}, fallbackIcon: Icon = User }) => {
   if (photo) {
     return (
       <img
         src={`data:image/jpeg;base64,${photo}`}
-        alt="Doctor"
+        alt="Profile"
         style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }}
       />
     );
@@ -222,7 +257,7 @@ const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
       display: "flex", alignItems: "center", justifyContent: "center",
       flexShrink: 0, ...style
     }}>
-      <User size={size * 0.5} color="var(--brand)" />
+      <Icon size={size * 0.5} color="var(--brand)" />
     </div>
   );
 };
@@ -256,6 +291,20 @@ const Input = ({ label, error, ...p }) => (
       onFocus={e => e.target.style.borderColor = "#0891b2"}
       onBlur={e => e.target.style.borderColor = error ? "#f87171" : "var(--border)"}
     />
+    {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={14} /> {error}</div>}
+  </div>
+);
+
+const Select = ({ label, error, children, ...p }) => (
+  <div style={{ marginBottom: 16 }}>
+    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
+    <select {...p} style={{
+      width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
+      borderRadius: 10, fontSize: 14, outline: "none", background: "#fff",
+      boxSizing: "border-box", transition: "border 0.2s", ...p.style
+    }}>
+      {children}
+    </select>
     {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={14} /> {error}</div>}
   </div>
 );
@@ -378,69 +427,6 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
   );
 }
 
-// ── Animated Logo Component ──────────────────────────────────
-const LOGO_EFFECTS = [
-  { transform: "rotateY(360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }, // Right
-  { transform: "rotateY(-360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }, // Left
-  { transform: "rotateX(360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }, // Up
-  { transform: "rotateX(-360deg) scale(1.2)", filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.4))" }  // Down
-];
-
-const AnimatedLogo = ({ isMobile }) => {
-  const [style, setStyle] = useState({ transform: "scale(1)", filter: "none" });
-  const [key, setKey] = useState(0);
-
-  useEffect(() => {
-    const cycle = () => {
-      // Step 1: Trigger random effect
-      const effect = LOGO_EFFECTS[Math.floor(Math.random() * LOGO_EFFECTS.length)];
-      setStyle(effect);
-      setKey(k => k + 1);
-
-      // Step 2: Return to base state after 1.5s
-      setTimeout(() => {
-        setStyle({ transform: "scale(1)", filter: "none" });
-      }, 1500);
-    };
-
-    const interval = setInterval(cycle, 30000);
-    cycle(); // Initial run
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div
-      key={key}
-      style={{
-        width: isMobile ? 36 : 44,
-        height: isMobile ? 36 : 44,
-        background: "var(--brand)",
-        borderRadius: 12,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        willChange: "transform, filter",
-        cursor: "pointer",
-        boxShadow: "0 4px 15px rgba(0,146,162,0.2)",
-        zIndex: 10,
-        ...style
-      }}
-    >
-      <img
-        src={`${import.meta.env.BASE_URL}logo.png`}
-        alt="Logo"
-        style={{
-          width: "70%",
-          height: "70%",
-          objectFit: "contain",
-          filter: "brightness(0) invert(1)"
-        }}
-      />
-    </div>
-  );
-};
-
 // ── Navbar ────────────────────────────────────────────────────
 function Navbar({ user, navigate, onLogout }) {
   const { t, i18n } = useTranslation();
@@ -448,7 +434,7 @@ function Navbar({ user, navigate, onLogout }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const isMobile = useIsMobile();
-  const name = user?.profile?.FullName?.split(" ")[0] || user?.username || "U";
+  const name = user?.profile?.FullName?.split(" ")[0] || user?.profile?.ClinicName?.split(" ")[0] || user?.username || "U";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -458,8 +444,9 @@ function Navbar({ user, navigate, onLogout }) {
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
-    { label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true },
-    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/chat", private: true },
+    ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
+    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
+    ...(user?.user_type === 1 || user?.user_type === 2 ? [{ label: "طلبات الانضمام", icon: <Check size={18} />, path: "/requests", private: true }] : [])
   ];
 
   return (
@@ -478,8 +465,13 @@ function Navbar({ user, navigate, onLogout }) {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         {/* Logo Section */}
-        <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
-          <AnimatedLogo isMobile={isMobile} />
+        <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10, flexDirection: i18n.language === 'ar' ? 'row' : 'row' }}>
+          <div style={{
+            width: isMobile ? 36 : 42, height: isMobile ? 36 : 42, background: "var(--brand)",
+            borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" style={{ width: "70%", height: "70%", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+          </div>
           {!isMobile && (
             <div style={{ textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: "var(--brand)", lineHeight: 1 }}>{t("app_name")}</div>
@@ -545,15 +537,16 @@ function Navbar({ user, navigate, onLogout }) {
                     minWidth: 220, overflow: "hidden", zIndex: 1001,
                   }}>
                     <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>{user.profile?.FullName || user.username}</div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>{user.profile?.FullName || user.profile?.ClinicName || user.username}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</div>
                     </div>
                     {[
+                      user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
-                      { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" },
-                      { icon: <MessageSquare size={16} />, label: t("messages"), path: "/chat" },
+                      (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
+                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
-                    ].map(item => (
+                    ].filter(Boolean).map(item => (
                       <button key={item.path} onClick={() => { navigate(item.path); setOpen(false); }} style={{
                         width: "100%", padding: "12px 16px", background: "none", border: "none",
                         cursor: "pointer", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center",
@@ -808,19 +801,19 @@ function HomePage({ user, navigate }) {
               num: "+50,000", label: t("stats_patients"),
               icon: <Users size={20} />,
               img: `${import.meta.env.BASE_URL}stats_patients_custom.png`,
-              color: "#0891B2",
+              color: "#059669",
             },
             {
               num: "+800", label: t("stats_clinics"),
               icon: <Building size={20} />,
               img: `${import.meta.env.BASE_URL}stats_clinics_custom.jpg`,
-              color: "#0891B2",
+              color: "#7c3aed",
             },
             {
               num: "+1,200", label: t("stats_doctors"),
               icon: <Stethoscope size={20} />,
               img: `${import.meta.env.BASE_URL}stats_doctors_custom.png`,
-              color: "#0891B2",
+              color: "#0891b2",
             },
           ].map((s, i) => (
             <div key={i} style={{
@@ -974,140 +967,126 @@ function HomePage({ user, navigate }) {
         </div>
       </section>
 
+
       {/* ── SECTION: HOW IT WORKS (STEPS) ── */}
       <section style={{ background: "transparent", padding: "80px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", marginBottom: 80 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
           <div style={{ position: "relative" }}>
+            {/* Decoration */}
+            <div style={{ position: "absolute", top: -20, left: -100, opacity: 0.05, color: "var(--brand)", transform: "rotate(-15deg)" }}>
+              <Stethoscope size={220} />
+            </div>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", marginBottom: 32 }}>
               {t("how_it_works")}
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 20 }}>
             {[
               {
                 n: "01",
                 title: t("search_doctor"),
                 desc: t("search_doctor_desc"),
-                icon: <Search size={26} />,
-                color: "#0891B2",
-                img: `${import.meta.env.BASE_URL}SearchDoctor.png`
+                color: "#0891b2",
+                icon: (
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.35-4.35" />
+                  </svg>
+                ),
               },
               {
                 n: "02",
                 title: t("book_instantly"),
                 desc: t("book_instantly_desc"),
-                icon: <Calendar size={26} />,
-                color: "#0891B2",
-                img: `${import.meta.env.BASE_URL}calender.png?v=3`
+                color: "#7c3aed",
+                icon: (
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                ),
               },
+
               {
                 n: "03",
                 title: t("attend_consult"),
                 desc: t("attend_consult_desc"),
-                icon: <CheckCircle size={26} />,
-                color: "#0891B2",
-                img: `${import.meta.env.BASE_URL}consultation.png`
+                color: "#059669",
+                icon: (
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                ),
               },
             ].map((s, i) => (
               <div key={i} style={{
-                width: '100%',
-                background: '#ffffff',
-                borderRadius: '24px',
-                minHeight: '130px',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.04)',
-                display: 'flex',
-                alignItems: 'stretch',
-                position: 'relative',
-                overflow: 'hidden',
-                direction: i18n.language === 'ar' ? 'rtl' : 'ltr',
-                border: '1px solid #f1f5f9'
+                background: "#fff",
+                borderRadius: 24,
+                padding: "32px 28px",
+                minHeight: 180,
+                position: "relative",
+                overflow: "hidden",
+                border: "1px solid var(--border)",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.04)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                direction: i18n.language === 'ar' ? "rtl" : "ltr",
+                zIndex: 1
               }}>
-                {/* CONTENT AREA */}
+                {/* Big number bg (Opposite to icon side) */}
                 <div style={{
-                  flex: 1,
-                  padding: '20px 24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 20,
-                  zIndex: 2
-                }}>
-                  {/* Step ID (Icon & Number) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      background: s.color,
-                      borderRadius: '14px',
-                      display: 'flex', alignItems: 'center', justifyContent: "center",
-                      color: '#ffffff',
-                      boxShadow: `0 8px 20px ${s.color}33`,
-                    }}>
-                      {s.icon}
-                    </div>
-                    <div style={{
-                      fontSize: '22px',
-                      fontWeight: '950',
-                      color: s.color,
-                      opacity: 0.4,
-                      letterSpacing: '-1px'
-                    }}>{s.n}</div>
-                  </div>
+                  position: "absolute",
+                  top: 10,
+                  left: i18n.language === 'ar' ? 24 : 'auto',
+                  right: i18n.language === 'ar' ? 'auto' : 24,
+                  fontSize: 70,
+                  fontWeight: 950,
+                  color: "var(--brand)",
+                  opacity: 0.3,
+                  lineHeight: 1,
+                  userSelect: "none",
+                  zIndex: 0
+                }}>{s.n}</div>
 
-                  {/* Text Container */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: '18px',
-                      fontWeight: '850',
-                      color: '#1e293b',
-                      marginBottom: '6px',
-                      lineHeight: 1.2
-                    }}>
-                      {s.title}
-                    </div>
-                    <div style={{
-                      fontSize: '13px',
-                      color: '#64748b',
-                      lineHeight: '1.5',
-                      fontWeight: 500
-                    }}>
-                      {s.desc}
-                    </div>
+                {/* Rising Wave Background */}
+                <svg style={{
+                  position: "absolute",
+                  bottom: -10, left: 0, width: "100%", height: 100,
+                  opacity: 0.18, zIndex: 0, pointerEvents: "none",
+                  transform: i18n.language === 'ar' ? "scaleX(-1)" : "scaleX(1)"
+                }} viewBox="0 0 1440 320" preserveAspectRatio="none">
+                  <path fill="var(--brand)" d="M0,160C120,180,240,220,360,200C480,180,600,120,720,100C840,80,960,100,1080,120C1200,140,1320,80,1440,60L1440,320L0,320Z"></path>
+                </svg>
+
+                {/* Top: Icon (Opposite side to number) */}
+                <div style={{
+                  display: "flex",
+                  justifyContent: "flex-start",
+                  zIndex: 1
+                }}>
+                  <div style={{
+                    width: 52, height: 52,
+                    background: "var(--brand)",
+                    borderRadius: 16,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 8px 20px rgba(0,146,162,0.2)"
+                  }}>
+                    {s.icon}
                   </div>
                 </div>
 
-                {/* PHOTO AREA : Structured Vertical Split with Trapezoid Shape */}
+                {/* Bottom: Content Side */}
                 <div style={{
-                  width: '38%',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  background: '#f8fafc',
-                  clipPath: i18n.language === 'ar'
-                    ? 'polygon(0 0, 85% 0, 100% 100%, 0 100%)'
-                    : 'polygon(15% 0, 100% 0, 100% 100%, 0 100%)',
+                  textAlign: i18n.language === 'ar' ? "right" : "left",
+                  zIndex: 1,
+                  paddingTop: 20
                 }}>
-                  {/* Medical Hexagon Pattern Background Overlay */}
-                  <div style={{
-                    position: 'absolute', inset: 0,
-                    opacity: 0.15,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='hexagons' fill='%23000' fill-opacity='1' fill-rule='nonzero'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9l10.99-6.35L25 17.9v12.7L13.99 36.95 3 30.6V17.9z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                    zIndex: 5
-                  }} />
-
-                  {/* High Quality Medical Photo */}
-                  <div style={{
-                    position: 'absolute', inset: 0,
-                    backgroundImage: `url(${s.img})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    opacity: 0.8,
-                    zIndex: 2,
-                  }} />
-
-                  {/* Clinical Accent Line */}
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    height: '4px', background: s.color, zIndex: 3
-                  }} />
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>{s.title}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, fontWeight: 500, opacity: 0.85 }}>{s.desc}</div>
                 </div>
               </div>
             ))}
@@ -1157,27 +1136,33 @@ function HomePage({ user, navigate }) {
             flexDirection: isMobile ? "column" : "row",
             width: isMobile ? "100%" : "auto"
           }}>
-            <button onClick={() => navigate("/learn-more")} style={{
-              background: "rgba(255,255,255,0.15)",
-              border: "1.5px solid rgba(255,255,255,0.35)",
-              borderRadius: 10, padding: "12px 28px",
-              color: "#fff", fontSize: 14, fontWeight: 700,
-              transition: "all 0.2s", cursor: "pointer",
-              width: isMobile ? "100%" : "auto"
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
-              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.15)"}
-            >{t("learn_more")}</button>
-            <button onClick={() => navigate("/register-clinic")} style={{
-              background: "var(--bg)", border: "none",
+            <button onClick={() => navigate("/register-doctor")} style={{
+              background: "#fff", border: "none",
               borderRadius: 10, padding: "12px 28px",
               color: "var(--brand)", fontSize: 14, fontWeight: 800,
               transition: "all 0.2s", cursor: "pointer",
-              width: isMobile ? "100%" : "auto"
+              width: isMobile ? "100%" : "auto",
+              display: "flex", alignItems: "center", gap: 8, justifyContent: "center"
             }}
               onMouseEnter={e => e.currentTarget.style.opacity = "0.92"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-            >{t("register_clinic")}</button>
+            >
+              <Stethoscope size={18} /> انضم كطبيب
+            </button>
+            <button onClick={() => navigate("/register-clinic")} style={{
+              background: "rgba(255,255,255,0.15)",
+              border: "1.5px solid rgba(255,255,255,0.35)",
+              borderRadius: 10, padding: "12px 28px",
+              color: "#fff", fontSize: 14, fontWeight: 800,
+              transition: "all 0.2s", cursor: "pointer",
+              width: isMobile ? "100%" : "auto",
+              display: "flex", alignItems: "center", gap: 8, justifyContent: "center"
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.15)"}
+            >
+              <Building size={18} /> سجل عيادتك
+            </button>
           </div>
         </div>
       </div>
@@ -1208,8 +1193,8 @@ function LoginPage({ onLogin, navigate }) {
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 16, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(0,0,0,0.05)" }}>
-              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" style={{ width: 40, height: 40, objectFit: "contain" }} />
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Building size={32} color="var(--brand)" />
             </div>
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{t("login_welcome")}</h1>
@@ -1299,7 +1284,7 @@ function RegisterPage({ onRegister, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: SEARCH
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function SearchPage({ navigate, qs }) {
+function SearchPage({ navigate, qs, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const params = new URLSearchParams(qs);
@@ -1366,9 +1351,9 @@ function SearchPage({ navigate, qs }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px,1fr))", gap: 16 }}>
-            {results.map(r => (
-              <div key={r.ClinicsDoctor_id}
-                onClick={() => navigate(`/clinic/${r.ClinicId}/doctor/${r.DoctorId}`)}
+            {(user?.user_type === 1 ? results.filter(r => r.ResultType === 'CLINIC') : results).map(r => (
+              <div key={r.ResultId + r.ResultType}
+                onClick={() => r.ResultType === 'CLINIC' ? navigate(`/clinic/${r.ClinicId}`) : navigate(`/clinic/${r.ClinicId}/doctor/${r.DoctorId}`)}
                 style={{
                   background: "#fff", borderRadius: 22, border: "1px solid var(--border)", padding: isMobile ? 12 : 16,
                   cursor: "pointer", transition: "all 0.3s",
@@ -1386,61 +1371,105 @@ function SearchPage({ navigate, qs }) {
                   e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
-                <div style={{ display: "flex", gap: 16 }}>
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    <DoctorImage photo={r.PhotoProfile} size={120} borderRadius={24} />
-                    {+r.AvgRating >= 4.5 && (
-                      <div style={{
-                        position: "absolute", top: -8, right: -8, background: "#f59e0b",
-                        color: "#fff", borderRadius: "50%", width: 28, height: 28,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        border: "3px solid #fff", boxShadow: "0 3px 8px rgba(0,0,0,0.15)"
-                      }}>
-                        <Award size={15} />
+                {r.ResultType === 'CLINIC' ? (
+                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                    <DoctorImage photo={r.PhotoProfile} size={80} borderRadius={20} fallbackIcon={Building} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20, display: 'inline-block', marginBottom: 6 }}>عيادة</div>
+                      <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.ClinicName}</h3>
+                      <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
+                        <MapPin size={12} /> {r.ClinicAddress}
                       </div>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20 }}>{i18n.language === 'ar' ? r.SpecialtyAr : r.SpecialtyFr}</span>
-                      {+r.Experience > 0 && (
-                        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                          <Clock size={12} /> {r.Experience} {t("years")}
-                        </div>
-                      )}
-                    </div>
-                    <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.DoctorName}</h3>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
-                        <Building size={14} color="var(--brand)" /> {r.ClinicName}
-                      </div>
-                      {r.ClinicAddress && (
-                        <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
-                          <MapPin size={12} /> {r.ClinicAddress.split(",")[0]}
+                      {user?.user_type === 1 && (
+                        <div style={{ marginTop: 8 }}>
+                          {r.RelationStatus === 'ACCEPTED' ? (
+                            <Badge color="#059669">مرتبط بالعيادة</Badge>
+                          ) : r.RelationStatus === 'PENDING' ? (
+                            <Badge color="#f59e0b">بانتظار الموافقة</Badge>
+                          ) : null}
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#fff9eb", padding: "5px 10px", borderRadius: 10 }}>
-                      <Stars rating={Math.round(+r.AvgRating)} size={13} />
-                      <span style={{ fontSize: 13, fontWeight: 900, color: "#b45309" }}>{(+r.AvgRating || 0).toFixed(1)}</span>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 16 }}>
+                      <div style={{ position: "relative", flexShrink: 0 }}>
+                        <DoctorImage photo={r.PhotoProfile} size={120} borderRadius={24} />
+                        {+r.AvgRating >= 4.5 && (
+                          <div style={{
+                            position: "absolute", top: -8, right: -8, background: "#f59e0b",
+                            color: "#fff", borderRadius: "50%", width: 28, height: 28,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            border: "3px solid #fff", boxShadow: "0 3px 8px rgba(0,0,0,0.15)"
+                          }}>
+                            <Award size={15} />
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20 }}>{i18n.language === 'ar' ? r.SpecialtyAr : r.SpecialtyFr}</span>
+                          {+r.Experience > 0 && (
+                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                              <Clock size={12} /> {r.Experience} {t("years")}
+                            </div>
+                          )}
+                        </div>
+                        <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.DoctorName}</h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div onClick={(e) => { e.stopPropagation(); navigate(`/clinic/${r.ClinicId}`); }}
+                            style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, cursor: "pointer", transition: "color 0.2s" }}
+                            onMouseEnter={e => e.currentTarget.style.color = "var(--brand)"}
+                            onMouseLeave={e => e.currentTarget.style.color = "#334155"}
+                          >
+                            <Building size={14} color="var(--brand)" /> {r.ClinicName}
+                          </div>
+                          {r.ClinicAddress && (
+                            <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
+                              <MapPin size={12} /> {r.ClinicAddress.split(",")[0]}
+                            </div>
+                          )}
+                          {user?.user_type === 2 && (
+                            <div style={{ marginTop: 8 }}>
+                              {r.RelationStatus === 'ACCEPTED' ? (
+                                <Badge color="#059669">مرتبط بالعيادة</Badge>
+                              ) : r.RelationStatus === 'PENDING' ? (
+                                <Badge color="#f59e0b">بانتظار الموافقة</Badge>
+                              ) : (
+                                <Btn onClick={(e) => {
+                                  e.stopPropagation();
+                                  api.relations.request({ target_id: r.DoctorId })
+                                    .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
+                                    .catch(err => show(err.message, "error"));
+                                }} style={{ alignSelf: "flex-start", padding: "6px 12px", fontSize: 12 }}>
+                                  <Plus size={14} style={{ marginLeft: 4 }} /> دعوة للعيادة
+                                </Btn>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>({r.RatingCount} {t("reviews")})</span>
-                  </div>
 
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#fff9eb", padding: "5px 10px", borderRadius: 10 }}>
+                          <Stars rating={Math.round(+r.AvgRating)} size={13} />
+                          <span style={{ fontSize: 13, fontWeight: 900, color: "#b45309" }}>{(+r.AvgRating || 0).toFixed(1)}</span>
+                        </div>
+                        <span style={{ fontSize: 12, color: "#94a3b8" }}>({r.RatingCount} {t("reviews")})</span>
+                      </div>
 
-                  <div style={{ textAlign: i18n.language === 'ar' ? "left" : "right" }}>
-                    <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{t("consultation_price") || "سعر الكشف"}</div>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#059669" }}>
-                      {+r.Pricing > 0 ? `${r.Pricing} ${t("currency")}` : t("not_specified")}
+                      <div style={{ textAlign: i18n.language === 'ar' ? "left" : "right" }}>
+                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{t("consultation_price") || "سعر الكشف"}</div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: "#059669" }}>
+                          {+r.Pricing > 0 ? `${r.Pricing} ${t("currency")}` : t("not_specified")}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -1459,6 +1488,124 @@ function SearchPage({ navigate, qs }) {
   );
 }
 
+// ── PAGE: CLINIC DETAILS ──────────────────────────────────────────
+function ClinicDetailsPage({ navigate, clinicId, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [clinic, setClinic] = useState(null);
+  const [loading, setL] = useState(true);
+  const [relStatus, setRelStatus] = useState(null);
+  const [requesting, setReq] = useState(false);
+  const { show, Toast } = useToast();
+
+  const sendJoinRequest = async () => {
+    setReq(true);
+    try {
+      await api.relations.request({ target_id: clinicId });
+      show("تم إرسال طلب الانضمام بنجاح", "success");
+      setRelStatus('PENDING');
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setReq(false);
+    }
+  };
+
+  useEffect(() => {
+    setL(true);
+    const p = [api.clinics.one(clinicId)];
+    if (user?.user_type === 1) p.push(api.relations.check(clinicId));
+
+    Promise.all(p).then(([c, rel]) => {
+      setClinic(c);
+      if (rel) setRelStatus(rel.status);
+    })
+      .catch(e => show(e.message, "error"))
+      .finally(() => setL(false));
+  }, [clinicId]);
+
+  if (loading) return <div style={{ padding: 100 }}><Spinner /></div>;
+  if (!clinic) return <div style={{ padding: 100, textAlign: "center" }}>Clinique non trouvée</div>;
+
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: isMobile ? "16px" : "28px 24px" }}>
+      <Toast />
+      <button onClick={() => navigate(-1)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "var(--brand)", fontWeight: 700, marginBottom: 20 }}>
+        <ArrowRight size={18} style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} /> {t("back")}
+      </button>
+
+      <Card style={{ padding: isMobile ? 20 : 32, marginBottom: 24, background: "linear-gradient(135deg, #fff, #f8fafc)" }}>
+        <div style={{ display: "flex", gap: 24, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start" }}>
+          <DoctorImage photo={clinic.Logo} size={120} borderRadius={24} fallbackIcon={Building} style={{ border: "4px solid #fff", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }} />
+          <div style={{ flex: 1, textAlign: isMobile ? "center" : "right" }}>
+            <h1 style={{ fontSize: 32, fontWeight: 950, color: "#0c4a6e", marginBottom: 12 }}>{clinic.ClinicName}</h1>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", justifyContent: isMobile ? "center" : "flex-end" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
+                <MapPin size={16} color="var(--brand)" /> {clinic.Address}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
+                <Phone size={16} color="var(--brand)" /> {clinic.Phone}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
+                <Mail size={16} color="var(--brand)" /> {clinic.Email}
+              </div>
+            </div>
+            {clinic.Notes && <p style={{ marginTop: 20, color: "#64748b", lineHeight: 1.6 }}>{clinic.Notes}</p>}
+
+            <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: isMobile ? "center" : "flex-end" }}>
+              {user?.user_type === 1 && (
+                <>
+                  {relStatus === 'ACCEPTED' ? (
+                    <Badge color="#059669">مرتبط بالعيادة</Badge>
+                  ) : relStatus === 'PENDING' ? (
+                    <Badge color="#f59e0b">بانتظار الموافقة</Badge>
+                  ) : (
+                    <Btn onClick={sendJoinRequest} loading={requesting}>
+                      <Plus size={18} /> طلب انضمام للعيادة
+                    </Btn>
+                  )}
+                </>
+              )}
+              {user?.user_type === 0 && (
+                <Btn variant="secondary" onClick={() => navigate(`/tickets/new?clinic_id=${clinicId}`)}>
+                  <MessageSquare size={18} /> {t("contact") || "تواصل"}
+                </Btn>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {user?.user_type !== 1 && (
+        <>
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", marginBottom: 20, textAlign: "right" }}>الأطباء المتوفرون ({clinic.Doctors?.length || 0})</h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+            {clinic.Doctors?.map(d => (
+              <div key={d.DoctorId}
+                onClick={() => navigate(`/clinic/${clinicId}/doctor/${d.DoctorId}`)}
+                style={{
+                  background: "#fff", borderRadius: 20, padding: 16, border: "1px solid var(--border)", cursor: "pointer",
+                  transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
+              >
+                <DoctorImage photo={d.PhotoProfile} size={70} borderRadius={16} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{d.DoctorName}</div>
+                  <div style={{ fontSize: 13, color: "var(--brand)", fontWeight: 700 }}>{i18n.language === 'ar' ? d.SpecialtyAr : d.SpecialtyFr}</div>
+                </div>
+                <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: DOCTOR DETAIL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1467,6 +1614,7 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
   const isMobile = useIsMobile();
   const [data, setData] = useState(null);
   const [ratings, setR] = useState(null);
+  const [relStatus, setRelStatus] = useState(null);
   const [loading, setL] = useState(true);
   const [tab, setTab] = useState("info");
   const [myRating, setMR] = useState(0);
@@ -1476,10 +1624,18 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
 
   useEffect(() => {
     setL(true);
-    Promise.all([
+    const promises = [
       api.clinics.doctor(clinicId, doctorId),
       api.ratings.doctor(doctorId),
-    ]).then(([d, r]) => { setData(d); setR(r); })
+    ];
+    if (user && (user.user_type === 1 || user.user_type === 2)) {
+      promises.push(api.relations.check(user.user_type === 2 ? doctorId : clinicId));
+    }
+
+    Promise.all(promises).then(([d, r, rel]) => {
+      setData(d); setR(r);
+      if (rel) setRelStatus(rel.status);
+    })
       .catch(e => show(e.message, "error"))
       .finally(() => setL(false));
   }, [clinicId, doctorId]);
@@ -1545,23 +1701,44 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, width: isMobile ? "100%" : "auto" }}>
             {user ? (
-              <>
-                <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "12px 24px", justifyContent: "center" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
-                <Btn variant="secondary" onClick={() => navigate(`/book/${clinicId}/${doctorId}?relative=1`)} style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}>
-                  <Users size={16} /> {t("book_for_relative")}
-                </Btn>
-              </>
+              user.user_type === 2 ? (
+                <>
+                  {relStatus === 'ACCEPTED' ? (
+                    <Badge color="#059669" style={{ padding: 12, justifyContent: "center" }}>مرتبط بالعيادة</Badge>
+                  ) : relStatus === 'PENDING' ? (
+                    <Badge color="#f59e0b" style={{ padding: 12, justifyContent: "center" }}>بانتظار الموافقة</Badge>
+                  ) : (
+                    <Btn onClick={() => {
+                      api.relations.request({ target_id: doctorId })
+                        .then(() => {
+                          show("تم إرسال دعوة الانضمام للطبيب", "success");
+                          setRelStatus('PENDING');
+                        })
+                        .catch(err => show(err.message, "error"));
+                    }} style={{ padding: "12px 24px", justifyContent: "center" }}>
+                      <Plus size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> دعوة للعيادة
+                    </Btn>
+                  )}
+                </>
+              ) : user.user_type === 1 ? null : (
+                <>
+                  <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "12px 24px", justifyContent: "center" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
+                  <Btn variant="secondary" onClick={() => navigate(`/book/${clinicId}/${doctorId}?relative=1`)} style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}>
+                    <Users size={16} /> {t("book_for_relative")}
+                  </Btn>
+                </>
+              )
             ) : (
               <Btn onClick={() => navigate("/login")} style={{ justifyContent: "center" }}>{t("login_to_book")}</Btn>
             )}
-            <Btn variant="secondary" onClick={() => { navigate("/chat"); }} style={{ padding: "10px 24px", fontSize: 13, justifyContent: "center" }}><MessageSquare size={16} /> {t("contact")}</Btn>
+            <Btn variant="secondary" onClick={() => { navigate(`/tickets/new?doctor_id=${doctorId}`); }} style={{ padding: "10px 24px", fontSize: 13, justifyContent: "center" }}><MessageSquare size={16} /> {t("contact")}</Btn>
           </div>
         </div>
       </Card>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20 }}>
-        {[["info", t("tab_info")], ["reasons", t("tab_reasons")], ["schedule", t("tab_schedule")], ["ratings", t("tab_ratings")]].map(([k, l]) => (
+        {[["info", t("tab_info")], ["reasons", t("tab_reasons")], ["clinics", "العيادات"], ["schedule", t("tab_schedule")], ["ratings", t("tab_ratings")]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 18px", background: "none", border: "none", cursor: "pointer",
             fontWeight: 700, fontSize: 13, color: tab === k ? "#0891b2" : "#6b7280",
@@ -1609,6 +1786,35 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
             </Card>
           ))}
           {(!data.Reasons || data.Reasons.length === 0) && <p style={{ color: "#9ca3af" }}>{t("no_reasons")}</p>}
+        </div>
+      )}
+
+      {/* CLINICS */}
+      {tab === "clinics" && (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+          {data.OtherClinics?.map(c => (
+            <div key={c.ID}
+              onClick={() => navigate(`/clinic/${c.ID}`)}
+              style={{
+                background: "#fff", borderRadius: 20, padding: 16, border: "1px solid var(--border)", cursor: "pointer",
+                transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
+            >
+              <div style={{ width: 50, height: 50, borderRadius: 12, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Building size={24} color="var(--brand)" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{c.ClinicName}</div>
+                <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> {c.Address}</div>
+              </div>
+              <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />
+            </div>
+          ))}
+          {(!data.OtherClinics || data.OtherClinics.length === 0) && (
+            <div style={{ textAlign: "center", gridColumn: "1 / -1", padding: 40, color: "#9ca3af" }}>لا توجد عيادات مرتبطة</div>
+          )}
         </div>
       )}
 
@@ -2135,50 +2341,10 @@ function BookPage({ clinicId, doctorId, navigate, user }) {
               <Info size={18} color="var(--brand)" /> {t("instructions_title")}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {(isMobile
-                ? (i18n.language === 'ar' ? [
-                  { title: "احضر قبل الموعد بـ 10 إلى 15 دقيقة" },
-                  { title: "أحضر مستنداتك الطبية + بطاقة الشفاء" },
-                  { title: "جهّز أدويتك والأعراض التي تعاني منها" },
-                  { title: "قم بالإلغاء مسبقاً إذا لم تتمكن من الحضور" },
-                  { title: "احترم تعليمات العيادة" },
-                  { title: "ارتدِ كمامة إذا طُلب منك ذلك" }
-                ] : [
-                  { title: "Arrivez 10 à 15 min à l’avance" },
-                  { title: "Apportez vos documents médicaux + carte CNAS/CASNOS" },
-                  { title: "Préparez vos médicaments et symptômes" },
-                  { title: "Annulez à l’avance si vous ne pouvez pas venir" },
-                  { title: "Respectez les consignes de la clinique" },
-                  { title: "Portez un masque si demandé" }
-                ])
-                : (i18n.language === 'ar' ? [
-                  { title: "احضر مبكراً", desc: "يرجى الحضور قبل 10 إلى 15 دقيقة من موعدك لتجنب أي تأخير." },
-                  { title: "أحضر مستنداتك الضرورية", desc: "يرجى إحضار بطاقة هويتك، بطاقة الشفاء (إن وجدت)، بالإضافة إلى فحوصاتك أو وصفاتك الطبية القديمة." },
-                  { title: "جهّز معلوماتك الطبية", desc: "قم بتدوين الأعراض والأدوية التي تتناولها حالياً لتسهيل الاستشارة." },
-                  { title: "احترم موعدك", desc: "في حال عدم قدرتك على الحضور، يرجى إلغاء أو تأجيل الموعد مسبقاً للسماح لمرضى آخرين بالاستفادة منه." },
-                  { title: "احترم قواعد العيادة", desc: "يرجى احترام الهدوء ونظافة المكان وتعليمات الطاقم الطبي." },
-                  { title: "النظافة والوقاية", desc: "حسب الوضع، قد يُطلب منك ارتداء كمامة أو الالتزام ببعض تدابير النظافة." },
-                  { title: "المرافقة", desc: "إذا لزم الأمر، يمكنك اصطحاب مرافق، مع الالتزام بقواعد المؤسسة." },
-                  { title: "الالتزام بالوقت", desc: "أي تأخير كبير قد يؤدي إلى تأجيل الموعد احتراماً للمرضى الآخرين." },
-                  { title: "التواصل مع العيادة", desc: "لأي استفسار، يمكنك التواصل مع العيادة مباشرة عبر تطبيق Tabibi." }
-                ] : [
-                  { title: "Présentez-vous à l’avance", desc: "Merci d’arriver 10 à 15 minutes avant l’heure de votre rendez-vous pour éviter tout retard." },
-                  { title: "Apportez vos documents nécessaires", desc: "Veuillez vous munir de votre pièce d’identité, de votre carte CNAS/CASNOS (si applicable), ainsi que de vos anciens examens ou ordonnances." },
-                  { title: "Préparez vos informations médicales", desc: "Notez vos symptômes et la liste des médicaments que vous prenez actuellement afin de faciliter la consultation." },
-                  { title: "Respectez votre rendez-vous", desc: "En cas d’empêchement, merci d’annuler ou reporter votre rendez-vous à l’avance pour permettre à d’autres patients d’en bénéficier." },
-                  { title: "Respectez les règles de la clinique", desc: "Merci de respecter le calme, la propreté des lieux et les consignes du personnel médical." },
-                  { title: "Hygiène et prévention", desc: "Selon la situation, il peut être demandé de porter un masque ou de respecter certaines mesures d’hygiène." },
-                  { title: "Accompagnement", desc: "Si nécessaire, vous pouvez être accompagné d’un proche, en respectant les règles de l’établissement." },
-                  { title: "Ponctualité et organisation", desc: "Tout retard important peut entraîner un report du rendez-vous afin de respecter les autres patients." },
-                  { title: "Communication avec le cabinet", desc: "En cas de question, vous pouvez contacter la clinique directement via l’application Tabibi." }
-                ])
-              ).map((item, i) => (
+              {[1, 2, 3].map(i => (
                 <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{i + 1}</div>
-                  <div style={{ flex: 1, paddingTop: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: item.desc ? 800 : 600, color: "#0f172a", marginBottom: item.desc ? 4 : 0 }}>{item.title}</div>
-                    {item.desc && <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{item.desc}</div>}
-                  </div>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{i}</div>
+                  <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.5 }}>{t(`instruction_${i}`)}</div>
                 </div>
               ))}
             </div>
@@ -2565,46 +2731,439 @@ function AboutPage({ navigate }) {
 function RegisterClinicPage({ navigate }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
-      <div style={{ textAlign: "center", marginBottom: 44 }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 22, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 25px rgba(0,0,0,0.05)" }}>
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" style={{ width: 48, height: 48, objectFit: "contain" }} />
-          </div>
+  const { show, Toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [form, setForm] = useState({ clinic_name: '', email: '', phone: '', password: '', address: '', notes: '' });
+  const [errors, setErrors] = useState({});
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
+
+  const validate = () => {
+    const e = {};
+    if (!form.clinic_name.trim()) e.clinic_name = 'اسم العيادة مطلوب';
+    if (!form.email.trim()) e.email = 'البريد الإلكتروني مطلوب';
+    if (!form.phone.trim()) e.phone = 'رقم الهاتف مطلوب';
+    if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      await api.register.clinic(form);
+      setDone(true);
+    } catch (e) { show(e.message, 'error'); }
+    finally { setLoading(false); }
+  };
+
+  if (done) return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+        <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <CheckCircle size={40} color="#fff" />
         </div>
-        <h1 style={{ fontSize: 32, fontWeight: 900, color: "#0c4a6e", marginBottom: 12 }}>{t("register_clinic_title")}</h1>
-        <p style={{ fontSize: 16, color: "#6b7280", maxWidth: 550, margin: "0 auto" }}>
-          {t("register_clinic_desc")}
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>تم إرسال الطلب بنجاح!</h2>
+        <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
+          تم إرسال طلب تسجيل العيادة بنجاح، سيتم مراجعته من طرف الإدارة وستصلك رسالة عند الموافقة.
         </p>
+        <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
+          <div style={{ fontSize: 13, color: '#0f766e', fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <AlertCircle size={14} /> تفاصيل الطلب
+          </div>
+          <div style={{ fontSize: 14, color: '#134e4a' }}>العيادة: <strong>{form.clinic_name}</strong></div>
+          <div style={{ fontSize: 14, color: '#134e4a' }}>البريد: <strong>{form.email}</strong></div>
+        </div>
+        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>العودة إلى الرئيسية</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '16px' : '28px 24px' }}>
+      <Toast />
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Building size={36} color="var(--brand)" />
+        </div>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>تسجيل عيادة جديدة</h1>
+        <p style={{ color: '#6b7280', fontSize: 15 }}>أرسل طلبك وسيتم مراجعته من طرف الإدارة خلال 24-48 ساعة</p>
       </div>
 
-      <Card style={{ padding: 36 }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 20, marginBottom: isMobile ? 0 : 20 }}>
-          <Input label={t("clinic_name_input")} placeholder={t("clinic_name_placeholder")} />
-          <Input label={t("responsible_doctor")} placeholder={t("fullname_placeholder")} />
+      <Card style={{ padding: isMobile ? 20 : 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label="اسم العيادة *" placeholder="عيادة الرحمة" value={form.clinic_name} onChange={e => set('clinic_name', e.target.value)} error={errors.clinic_name} />
+          <Input label="رقم الهاتف *" placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 20, marginBottom: isMobile ? 0 : 20 }}>
-          <Input label={t("professional_phone")} placeholder={t("phone_placeholder")} />
-          <Input label={t("primary_specialty")} placeholder={t("specialty_placeholder")} />
+        <Input label="البريد الإلكتروني *" type="email" placeholder="clinic@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
+        <Input label="كلمة المرور *" type="password" placeholder="6 أحرف على الأقل" value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <Input label="العنوان" placeholder="شارع، مدينة، ولاية" value={form.address} onChange={e => set('address', e.target.value)} />
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>معلومات إضافية</label>
+          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="أي تفاصيل إضافية عن العيادة..."
+            style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
-        <Input label={t("full_address")} placeholder={t("address_placeholder")} />
-
-        <div style={{ marginTop: 24, padding: 20, background: "#f0fdfa", borderRadius: 12, border: "1px solid #ccfbf1", marginBottom: 28 }}>
-          <h4 style={{ margin: "0 0 10px", color: "#0f766e", display: "flex", alignItems: "center", gap: 8 }}>
-            <Shield size={18} /> {t("why_join_title")}
-          </h4>
-          <ul style={{ margin: 0, paddingRight: 20, fontSize: 13, color: "#134e4a", lineHeight: 1.8 }}>
-            <li>{t("why_join_1")}</li>
-            <li>{t("why_join_2")}</li>
-            <li>{t("why_join_3")}</li>
-            <li>{t("why_join_4")}</li>
+        <div style={{ background: '#f0fdfa', borderRadius: 12, border: '1px solid #ccfbf1', padding: '16px 20px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0f766e', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
+            <Shield size={16} /> لماذا تنضم إلى طبيبي؟
+          </div>
+          <ul style={{ margin: 0, paddingRight: 20, fontSize: 13, color: '#134e4a', lineHeight: 2 }}>
+            <li>إدارة المواعيد والحجوزات بسهولة تامة</li>
+            <li>الوصول لآلاف المرضى في الجزائر</li>
+            <li>لوحة تحكم متكاملة للعيادة</li>
+            <li>دعم فني متواصل</li>
           </ul>
         </div>
-
-        <Btn style={{ width: "100%", justifyContent: "center", padding: 16, fontSize: 16 }}>{t("submit_join_btn")}</Btn>
-        <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af", marginTop: 16 }}>{t("join_verification_msg")}</p>
+        <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
+          <Send size={18} /> إرسال طلب التسجيل
+        </Btn>
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 14 }}>
+          سيتم مراجعة طلبك من قبل فريق الإدارة وإشعارك بالنتيجة
+        </p>
       </Card>
+    </div>
+  );
+}
+
+// ── PAGE: REGISTER DOCTOR ─────────────────────────────────────
+function RegisterDoctorPage({ navigate }) {
+  const isMobile = useIsMobile();
+  const { t, i18n } = useTranslation();
+  const { show, Toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [specs, setSpecs] = useState([]);
+
+  useEffect(() => {
+    api.specialties().then(setSpecs).catch(() => { });
+  }, []);
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
+
+  const validate = () => {
+    const e = {};
+    if (!form.fullname.trim()) e.fullname = 'الاسم الكامل مطلوب';
+    if (!form.speciality.trim()) e.speciality = 'التخصص مطلوب';
+    if (!form.email.trim()) e.email = 'البريد الإلكتروني مطلوب';
+    if (!form.phone.trim()) e.phone = 'رقم الهاتف مطلوب';
+    if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      await api.register.doctor(form);
+      setDone(true);
+    } catch (e) { show(e.message, 'error'); }
+    finally { setLoading(false); }
+  };
+
+  if (done) return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+        <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <CheckCircle size={40} color="#fff" />
+        </div>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>تم إرسال الطلب بنجاح!</h2>
+        <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
+          تم إرسال طلب تسجيل الطبيب بنجاح، بانتظار موافقة الإدارة. سيتم إشعارك عند قبول طلبك.
+        </p>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>الطبيب: <strong>{form.fullname}</strong></div>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>التخصص: <strong>{form.speciality}</strong></div>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>البريد: <strong>{form.email}</strong></div>
+        </div>
+        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>العودة إلى الرئيسية</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '16px' : '28px 24px' }}>
+      <Toast />
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 22, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Stethoscope size={36} color="#2563eb" />
+        </div>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>تسجيل طبيب جديد</h1>
+        <p style={{ color: '#6b7280', fontSize: 15 }}>أرسل طلبك وسيتم مراجعته من طرف الإدارة</p>
+      </div>
+      <Card style={{ padding: isMobile ? 20 : 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label="الاسم الكامل *" placeholder="د. محمد أمين" value={form.fullname} onChange={e => set('fullname', e.target.value)} error={errors.fullname} />
+          <Select label="التخصص *" value={form.speciality} onChange={e => set('speciality', e.target.value)} error={errors.speciality}>
+            <option value="">اختر التخصص...</option>
+            {specs.map(s => (
+              <option key={s.ID} value={i18n.language === 'ar' ? s.NameAr : s.NameFr}>
+                {i18n.language === 'ar' ? s.NameAr : s.NameFr}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label="البريد الإلكتروني *" type="email" placeholder="doctor@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
+          <Input label="رقم الهاتف *" placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
+        </div>
+        <Input label="كلمة المرور *" type="password" placeholder="6 أحرف على الأقل" value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <div style={{ background: '#eff6ff', borderRadius: 12, border: '1px solid #bfdbfe', padding: '16px 20px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e40af', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
+            <AlertCircle size={16} /> ملاحظة مهمة
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: '#1e3a8a', lineHeight: 1.8 }}>
+            بعد الموافقة على طلبك ستتمكن من تسجيل الدخول باستخدام بريدك الإلكتروني وكلمة المرور المُدخلة.
+          </p>
+        </div>
+        <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
+          <Send size={18} /> إرسال طلب التسجيل
+        </Btn>
+      </Card>
+    </div>
+  );
+}
+
+// ── PAGE: ADMIN DASHBOARD ─────────────────────────────────────
+function AdminDashboardPage({ navigate, user }) {
+  const isMobile = useIsMobile();
+  const { show, Toast } = useToast();
+  const [tab, setTab] = useState('overview'); // overview | clinics | doctors
+  const [subTab, setSubTab] = useState('PENDING');
+  const [stats, setStats] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState('');
+  const [rejectModal, setRejectModal] = useState(null); // { id, type }
+  const [rejectReason, setRejectReason] = useState('');
+
+  useEffect(() => {
+    if (tab === 'overview') {
+      setLoading(true);
+      api.admin.stats().then(setStats).catch(e => show(e.message, 'error')).finally(() => setLoading(false));
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab === 'clinics' || tab === 'doctors') {
+      setLoading(true);
+      setItems([]);
+      const fn = tab === 'clinics' ? api.admin.clinics : api.admin.doctors;
+      fn({ status: subTab }).then(d => setItems(d.items || [])).catch(e => show(e.message, 'error')).finally(() => setLoading(false));
+    }
+  }, [tab, subTab]);
+
+  const doApprove = async (id) => {
+    setActionLoading(id);
+    try {
+      const fn = tab === 'clinics' ? api.admin.approveClinic : api.admin.approveDoctor;
+      await fn(id);
+      show('✅ تمت الموافقة بنجاح');
+      setItems(prev => prev.filter(i => i.ID !== id));
+    } catch (e) { show(e.message, 'error'); }
+    finally { setActionLoading(''); }
+  };
+
+  const doReject = async () => {
+    if (!rejectModal) return;
+    setActionLoading(rejectModal.id);
+    try {
+      const fn = tab === 'clinics' ? api.admin.rejectClinic : api.admin.rejectDoctor;
+      await fn(rejectModal.id, rejectReason);
+      show('تم الرفض');
+      setItems(prev => prev.filter(i => i.ID !== rejectModal.id));
+      setRejectModal(null); setRejectReason('');
+    } catch (e) { show(e.message, 'error'); }
+    finally { setActionLoading(''); }
+  };
+
+  // ── Stat Card
+  const StatCard = ({ label, value, icon, color, bg }) => (
+    <div style={{ background: '#fff', borderRadius: 18, padding: '20px 24px', border: '1px solid #f0f0f0', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: '#0c4a6e', lineHeight: 1 }}>{value ?? '…'}</div>
+        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontWeight: 600 }}>{label}</div>
+      </div>
+    </div>
+  );
+
+  // ── Tab Bar
+  const tabs = [
+    { key: 'overview', label: 'لوحة الإحصائيات', icon: <Activity size={16} /> },
+    { key: 'clinics', label: 'طلبات العيادات', icon: <Building size={16} /> },
+    { key: 'doctors', label: 'طلبات الأطباء', icon: <Stethoscope size={16} /> },
+  ];
+
+  const statusTabs = ['PENDING', 'APPROVED', 'REJECTED'];
+  const statusLabel = { PENDING: 'قيد المراجعة', APPROVED: 'مقبولة', REJECTED: 'مرفوضة' };
+  const statusColor = { PENDING: '#d97706', APPROVED: '#059669', REJECTED: '#dc2626' };
+  const statusBg = { PENDING: '#fef3c7', APPROVED: '#d1fae5', REJECTED: '#fee2e2' };
+
+  return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '12px' : '24px 24px' }}>
+      <Toast />
+
+      {/* Reject Modal */}
+      {rejectModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 440, width: '100%' }}>
+            <h3 style={{ margin: '0 0 16px', color: '#0c4a6e', fontWeight: 900 }}>سبب الرفض (اختياري)</h3>
+            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
+              placeholder="أدخل سبب الرفض للإشعار..." style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }} />
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              <Btn variant="secondary" onClick={() => { setRejectModal(null); setRejectReason(''); }} style={{ flex: 1, justifyContent: 'center' }}>إلغاء</Btn>
+              <Btn variant="danger" onClick={doReject} loading={!!actionLoading} style={{ flex: 1, justifyContent: 'center' }}>تأكيد الرفض</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(135deg,#0c4a6e,#0891b2)', borderRadius: 20, padding: isMobile ? '20px 18px' : '28px 32px', marginBottom: 24, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Shield size={22} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>لوحة تحكم الإدارة</h1>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>مرحباً، {user?.username || 'Admin'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Nav */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            padding: '10px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+            background: tab === t.key ? 'var(--brand)' : '#fff',
+            color: tab === t.key ? '#fff' : '#4b5563',
+            boxShadow: tab === t.key ? '0 4px 12px rgba(8,145,178,0.3)' : '0 1px 4px rgba(0,0,0,0.06)',
+            transition: 'all 0.2s',
+          }}>{t.icon}{t.label}</button>
+        ))}
+      </div>
+
+      {/* ─── OVERVIEW TAB ───── */}
+      {tab === 'overview' && (
+        <div>
+          {loading ? <Spinner size={36} /> : stats && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+                <StatCard label="إجمالي العيادات" value={stats.total_clinics} icon={<Building size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label="إجمالي الأطباء" value={stats.total_doctors} icon={<Stethoscope size={22} />} color="#0891b2" bg="#ecfeff" />
+                <StatCard label="إجمالي المرضى" value={stats.total_patients} icon={<Users size={22} />} color="#059669" bg="#f0fdf4" />
+                <StatCard label="إجمالي المواعيد" value={stats.total_appointments} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 14, marginBottom: 24 }}>
+                <StatCard label="مواعيد اليوم" value={stats.today_appointments} icon={<Clock size={22} />} color="#0891b2" bg="#ecfeff" />
+                <StatCard label="مواعيد هذا الشهر" value={stats.month_appointments} icon={<Activity size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div onClick={() => { setTab('clinics'); setSubTab('PENDING'); }}
+                    style={{ background: '#fef3c7', borderRadius: 14, padding: '14px 18px', border: '2px solid #fde68a', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#92400e' }}>{stats.pending_clinics}</div>
+                    <div style={{ fontSize: 13, color: '#78350f', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AlertCircle size={14} /> عيادات قيد المراجعة
+                    </div>
+                  </div>
+                  <div onClick={() => { setTab('doctors'); setSubTab('PENDING'); }}
+                    style={{ background: '#fee2e2', borderRadius: 14, padding: '14px 18px', border: '2px solid #fca5a5', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#991b1b' }}>{stats.pending_doctors}</div>
+                    <div style={{ fontSize: 13, color: '#7f1d1d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AlertCircle size={14} /> أطباء قيد المراجعة
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ─── CLINICS / DOCTORS TAB ───── */}
+      {(tab === 'clinics' || tab === 'doctors') && (
+        <div>
+          {/* Sub-tabs */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            {statusTabs.map(s => (
+              <button key={s} onClick={() => setSubTab(s)} style={{
+                padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
+                background: subTab === s ? statusBg[s] : '#fff',
+                color: subTab === s ? statusColor[s] : '#9ca3af',
+                boxShadow: subTab === s ? `0 0 0 2px ${statusColor[s]}40` : '0 1px 3px rgba(0,0,0,0.06)',
+                transition: 'all 0.18s',
+              }}>{statusLabel[s]}</button>
+            ))}
+          </div>
+
+          {loading ? <Spinner size={32} /> : (
+            items.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af' }}>
+                <CheckCircle size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
+                <p style={{ fontWeight: 700, fontSize: 16 }}>لا توجد طلبات في هذه الفئة</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {items.map(item => (
+                  <div key={item.ID} style={{ background: '#fff', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid #f0f0f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: 16, color: '#0c4a6e' }}>
+                            {tab === 'clinics' ? item.ClinicName : item.FullName}
+                          </span>
+                          <span style={{ background: statusBg[item.Status], color: statusColor[item.Status], borderRadius: 20, padding: '2px 12px', fontSize: 12, fontWeight: 700 }}>
+                            {statusLabel[item.Status]}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '4px 24px' }}>
+                          {tab === 'doctors' && <div style={{ fontSize: 13, color: '#6b7280' }}><strong>التخصص:</strong> {item.Speciality}</div>}
+                          <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><Mail size={13} /> {item.Email}</div>
+                          <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><Phone size={13} /> {item.Phone}</div>
+                          {item.Address && <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {item.Address}</div>}
+                          <div style={{ fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} /> {new Date(item.CreatedAt).toLocaleDateString('ar-DZ')}</div>
+                        </div>
+                        {item.RejectedReason && (
+                          <div style={{ marginTop: 8, background: '#fee2e2', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#991b1b' }}>
+                            <strong>سبب الرفض:</strong> {item.RejectedReason}
+                          </div>
+                        )}
+                      </div>
+
+                      {subTab === 'PENDING' && (
+                        <div style={{ display: 'flex', gap: 10, flexShrink: 0, alignItems: 'center' }}>
+                          <button onClick={() => doApprove(item.ID)} disabled={actionLoading === item.ID}
+                            style={{ padding: '8px 18px', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: actionLoading === item.ID ? 0.6 : 1 }}>
+                            <Check size={15} /> قبول
+                          </button>
+                          <button onClick={() => setRejectModal({ id: item.ID, type: tab })} disabled={!!actionLoading}
+                            style={{ padding: '8px 18px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <X size={15} /> رفض
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2860,23 +3419,342 @@ function TermsOfUsePage({ navigate }) {
   );
 }
 
-// ── PAGE: PROFILE ─────────────────────────────────────────────
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ── PAGE: PROFILE (ACCOUNT SETTINGS)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function ProfilePage() {
+// ── PAGE: REQUESTS ──────────────────────────────────────────────
+function RequestsPage({ navigate, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
-  const [form, setForm] = useState(null);
+  const [requests, setRequests] = useState([]);
   const [loading, setL] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [verStatus, setVS] = useState(null);
-  const [otpModal, setOTP] = useState(null); // "email" | "phone" | null
   const { show, Toast } = useToast();
 
   const load = async () => {
     try {
-      const [p, vs] = await Promise.all([api.patient.profile(), api.verify.status().catch(() => null)]);
+      setL(true);
+      const reqs = await api.relations.getRequests();
+      setRequests(reqs);
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setL(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const respond = async (id, action) => {
+    try {
+      await api.relations.respond(id, { action });
+      show(action === 'ACCEPT' ? "تمت الموافقة على الطلب" : "تم رفض الطلب", "success");
+      load();
+    } catch (e) {
+      show(e.message, "error");
+    }
+  };
+
+  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>طلبات الانضمام</h1>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {requests.map(r => (
+          <Card key={r.ID} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px", flexWrap: "wrap", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>
+                {(r.SenderType?.toUpperCase() === (user.user_type === 1 ? 'DOCTOR' : 'CLINIC')) ? "طلب انضمام إلى:" : "دعوة من:"}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{r.TargetName}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                تاريخ الطلب: {new Date(r.CreatedAt).toLocaleDateString(i18n.language)}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              {r.Status === 'PENDING' ? (
+                r.SenderType?.toUpperCase() !== (user.user_type === 1 ? 'DOCTOR' : 'CLINIC') ? (
+                  <>
+                    <Btn onClick={() => respond(r.ID, 'ACCEPT')} style={{ background: "#059669", borderColor: "#059669" }}>
+                      <Check size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> موافقة
+                    </Btn>
+                    <Btn onClick={() => respond(r.ID, 'REJECT')} style={{ background: "#ef4444", borderColor: "#ef4444" }}>
+                      <X size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> رفض
+                    </Btn>
+                  </>
+                ) : (
+                  <Badge color="#f59e0b">قيد الانتظار</Badge>
+                )
+              ) : (
+                <Badge color={r.Status === 'ACCEPTED' ? "#059669" : "#ef4444"}>
+                  {r.Status === 'ACCEPTED' ? "مقبول" : "مرفوض"}
+                </Badge>
+              )}
+            </div>
+          </Card>
+        ))}
+
+        {requests.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            لا توجد طلبات انضمام حالياً
+          </div>
+        )}
+      </div>
+      <Toast />
+    </div>
+  );
+}
+
+// ── PAGE: TICKETS ──────────────────────────────────────────────
+function TicketsPage({ navigate, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setL] = useState(true);
+  const { show, Toast } = useToast();
+
+  const load = async () => {
+    try {
+      setL(true);
+      const data = await api.tickets.list();
+      setTickets(data);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>الرسائل والمحادثات</h1>
+        {user.user_type === 0 && (
+          <Btn onClick={() => navigate("/tickets/new")}>
+            <Plus size={18} /> رسالة جديدة
+          </Btn>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {tickets.map(t => (
+          <Card key={t.ID} onClick={() => navigate(`/tickets/${t.ID}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{t.Subject}</div>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                {user.user_type === 0 ? (
+                  t.DoctorName ? `محادثة مع الطبيب: ${t.DoctorName}` : (t.ClinicName ? `محادثة مع العيادة: ${t.ClinicName}` : "رسالة عامة")
+                ) : (
+                  `من المريض: ${t.PatientName}`
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                آخر تحديث: {new Date(t.Updated_At).toLocaleString(i18n.language)}
+              </div>
+            </div>
+            <Badge color={t.Status === 'CLOSED' ? "#64748b" : (t.Status === 'OPEN' ? "#0ea5e9" : "#f59e0b")}>
+              {t.Status === 'OPEN' ? "مفتوحة" : (t.Status === 'PENDING' ? "بانتظار ردك" : "مغلقة")}
+            </Badge>
+          </Card>
+        ))}
+
+        {tickets.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            لا توجد رسائل حالياً
+          </div>
+        )}
+      </div>
+      <Toast />
+    </div>
+  );
+}
+
+function TicketConversationPage({ ticketId, navigate, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [data, setData] = useState(null);
+  const [loading, setL] = useState(true);
+  const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const { show, Toast } = useToast();
+  const scrollRef = useRef();
+
+  const load = async () => {
+    try {
+      const d = await api.tickets.get(ticketId);
+      setData(d);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [data]);
+
+  const onSend = async (e) => {
+    e?.preventDefault();
+    if (!msg.trim() || sending) return;
+    setSending(true);
+    try {
+      await api.tickets.reply(ticketId, { message: msg });
+      setMsg("");
+      load();
+    } catch (e) { show(e.message, "error"); }
+    finally { setSending(false); }
+  };
+
+  const onCloseTicket = async () => {
+    if (!window.confirm("هل أنت متأكد من إغلاق هذه التذكرة؟")) return;
+    try {
+      await api.tickets.close(ticketId);
+      show("تم إغلاق التذكرة", "success");
+      load();
+    } catch (e) { show(e.message, "error"); }
+  };
+
+  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+  if (!data) return <div style={{ padding: 60, textAlign: "center" }}>Ticket not found</div>;
+
+  const { ticket, messages } = data;
+
+  return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "24px", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <button onClick={() => navigate("/tickets")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
+            <ArrowRight size={18} /> العودة للرسائل
+          </button>
+          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{ticket.Subject}</h1>
+        </div>
+        {user.user_type !== 0 && ticket.Status !== 'CLOSED' && (
+          <Btn variant="danger" onClick={onCloseTicket}>إنهاء المحادثة</Btn>
+        )}
+      </div>
+
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px", background: "#fff", borderRadius: 20, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+        {messages.map(m => {
+          const isMe = (user.user_type === 0 && m.Sender_Type === 'patient') ||
+            (user.user_type === 1 && m.Sender_Type === 'doctor') ||
+            (user.user_type === 2 && m.Sender_Type === 'clinic');
+          return (
+            <div key={m.ID} style={{
+              alignSelf: isMe ? "flex-start" : "flex-end",
+              maxWidth: "80%",
+              padding: "12px 16px",
+              borderRadius: 16,
+              background: isMe ? "var(--brand)" : "#f1f5f9",
+              color: isMe ? "#fff" : "#1e293b",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+              position: "relative"
+            }}>
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}>{m.Message}</div>
+              <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4, textAlign: "left" }}>
+                {new Date(m.Created_At).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {ticket.Status !== 'CLOSED' ? (
+        <form onSubmit={onSend} style={{ display: "flex", gap: 10 }}>
+          <input
+            value={msg}
+            onChange={e => setMsg(e.target.value)}
+            placeholder="اكتب ردك هنا..."
+            style={{ flex: 1, padding: "14px 20px", borderRadius: 12, border: "1.5px solid var(--border)", outline: "none" }}
+          />
+          <Btn type="submit" loading={sending} disabled={!msg.trim()}>إرسال</Btn>
+        </form>
+      ) : (
+        <div style={{ textAlign: "center", padding: 15, background: "#f1f5f9", borderRadius: 12, color: "#64748b", fontWeight: 700 }}>
+          هذه المحادثة مغلقة
+        </div>
+      )}
+      <Toast />
+    </div>
+  );
+}
+
+function NewTicketPage({ navigate, user, qs }) {
+  const { show, Toast } = useToast();
+  const [loading, setL] = useState(false);
+  const [subject, setSub] = useState("");
+  const [message, setMsg] = useState("");
+
+  const params = new URLSearchParams(qs);
+  const doctorId = params.get("doctor_id");
+  const clinicId = params.get("clinic_id");
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!subject.trim() || !message.trim()) return;
+    setL(true);
+    try {
+      await api.tickets.create({ subject, message, doctor_id: doctorId, clinic_id: clinicId });
+      show("تم إنشاء التذكرة بنجاح", "success");
+      setTimeout(() => navigate("/tickets"), 1500);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "40px 24px" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 24 }}>إرسال رسالة جديدة</h1>
+      <Card>
+        <form onSubmit={onSubmit}>
+          <Input label="عنوان الرسالة (الموضوع)" value={subject} onChange={e => setSub(e.target.value)} placeholder="مثال: استفسار عن موعد" required />
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#374151" }}>محتوى الرسالة</label>
+            <textarea
+              value={message}
+              onChange={e => setMsg(e.target.value)}
+              placeholder="اكتب تفاصيل استفسارك هنا..."
+              required
+              style={{ width: "100%", height: 150, padding: 14, borderRadius: 12, border: "1.5px solid var(--border)", outline: "none", resize: "none", boxSizing: "border-box" }}
+            />
+          </div>
+          <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center" }}>إرسال الآن</Btn>
+        </form>
+      </Card>
+      <Toast />
+    </div>
+  );
+}
+
+// ── PAGE: PROFILE ─────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── PAGE: PROFILE (ACCOUNT SETTINGS)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function ProfilePage({ user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+
+  const [form, setForm] = useState(null);
+  const [loading, setL] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUPhoto] = useState(false);
+  const [verStatus, setVS] = useState(null);
+  const [otpModal, setOTP] = useState(null);
+  const fileInput = useRef(null);
+  const { show, Toast } = useToast();
+
+  const load = async () => {
+    try {
+      let p;
+      if (user?.user_type === 1) p = await api.doctor.profile();
+      else if (user?.user_type === 2) p = await api.clinics.profile();
+      else p = await api.patient.profile();
+
+      let vs = null;
+      if (user?.user_type === 0) vs = await api.verify.status().catch(() => null);
+
       setForm(p); setVS(vs);
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
@@ -2886,9 +3764,29 @@ function ProfilePage() {
 
   const save = async e => {
     e.preventDefault(); setSaving(true);
-    try { await api.patient.update(form); show(t("save_success")); }
+    try {
+      if (user?.user_type === 1) await api.doctor.update(form);
+      else if (user?.user_type === 2) await api.clinics.update(form);
+      else await api.patient.update(form);
+      show(t("save_success"));
+    }
     catch (e) { show(e.message, "error"); }
     finally { setSaving(false); }
+  };
+
+  const handlePhotoUpload = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      if (user?.user_type === 2) await api.clinics.uploadLogo(fd);
+      else await api.doctor.uploadPhoto(fd);
+      show("تم تحديث الصورة بنجاح");
+      load();
+    } catch (err) { show(err.message, "error"); }
+    finally { setUPhoto(false); }
   };
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -2898,28 +3796,39 @@ function ProfilePage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
+      <input type="file" ref={fileInput} onChange={handlePhotoUpload} accept="image/*" style={{ display: "none" }} />
       {/* Header */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 28 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900 }}>
-          {(form.FullName || "U")[0].toUpperCase()}
+        <div
+          onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
+          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
+          {uploadingPhoto ? <Spinner size={24} /> : (
+            (form.PhotoProfile || form.Logo) ? (
+              <img src={`data:image/jpeg;base64,${form.PhotoProfile || form.Logo}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              (form.FullName || form.ClinicName || "U")[0].toUpperCase()
+            )
+          )}
         </div>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{form.FullName}</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{form.FullName || form.ClinicName}</h1>
           <div style={{ fontSize: 13, color: "#6b7280" }}>{form.Email}</div>
-          <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <Badge color={verStatus?.email_verified ? "#059669" : "#f59e0b"}>
-              {verStatus?.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-              {verStatus?.email_verified ? t("email_verified") : t("email_unverified")}
-            </Badge>
-            <Badge color={verStatus?.phone_verified ? "#059669" : "#f59e0b"}>
-              {verStatus?.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-              {verStatus?.phone_verified ? t("phone_verified") : t("phone_unverified")}
-            </Badge>
-          </div>
+          {verStatus && (
+            <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <Badge color={verStatus.email_verified ? "#059669" : "#f59e0b"}>
+                {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
+                {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
+              </Badge>
+              <Badge color={verStatus.phone_verified ? "#059669" : "#f59e0b"}>
+                {verStatus.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
+                {verStatus.phone_verified ? t("phone_verified") : t("phone_unverified")}
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Verification section */}
+      {/* Verification section for patient */}
       {verStatus && (!verStatus.email_verified || !verStatus.phone_verified) && (
         <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
           <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
@@ -2945,44 +3854,95 @@ function ProfilePage() {
       )}
 
       <form onSubmit={save}>
+        {/* Account Info (Doctor & Clinic) */}
+        {(user?.user_type === 1 || user?.user_type === 2) && (
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label="اسم المستخدم" value={form.Username || ""} onChange={e => f("Username", e.target.value)} />
+              <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.Password || ""} onChange={e => f("Password", e.target.value)} />
+            </div>
+          </Card>
+        )}
+
         {/* Personal Info */}
         <Card style={{ marginBottom: 14 }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
+          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {user?.user_type === 2 ? "معلومات العيادة" : t("personal_info")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-            <Input label={t("fullname")} value={form.FullName || ""} onChange={e => f("FullName", e.target.value)} />
+            <Input label={user?.user_type === 2 ? "اسم العيادة" : t("fullname")} value={form.FullName || form.ClinicName || ""} onChange={e => f(user?.user_type === 2 ? "ClinicName" : "FullName", e.target.value)} />
             <Input label={t("phone")} type="tel" value={form.Phone || ""} onChange={e => f("Phone", e.target.value)} />
             <Input label={t("email")} type="email" value={form.Email || ""} onChange={e => f("Email", e.target.value)} />
-            <Input label={t("birth_date")} type="date" value={(form.BirthDate || "").substring(0, 10)} onChange={e => f("BirthDate", e.target.value)} />
-            <Input label={t("address")} value={form.Address || ""} onChange={e => f("Address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
-              <select value={form.Gender ?? 0} onChange={e => f("Gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
-              <select value={form.BloodType || ""} onChange={e => f("BloodType", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                <option value="">{t("not_specified")}</option>
-                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
-              </select>
-            </div>
+            {user?.user_type === 2 && (
+              <Input label="العنوان" value={form.Address || ""} onChange={e => f("Address", e.target.value)} />
+            )}
+
+            {user?.user_type === 0 && (
+              <>
+                <Input label={t("birth_date")} type="date" value={(form.BirthDate || "").substring(0, 10)} onChange={e => f("BirthDate", e.target.value)} />
+                <Input label={t("address")} value={form.Address || ""} onChange={e => f("Address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                  <select value={form.Gender ?? 0} onChange={e => f("Gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                    <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
+                  <select value={form.BloodType || ""} onChange={e => f("BloodType", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                    <option value="">{t("not_specified")}</option>
+                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {user?.user_type === 1 && (
+              <>
+                <Input label="رقم الهاتف الثابت" value={form.Fix || ""} onChange={e => f("Fix", e.target.value)} />
+                <Input label="اللغات المتحدث بها" value={form.SpeakingLanguage || ""} onChange={e => f("SpeakingLanguage", e.target.value)} />
+                <Input label="تسعيرة الكشف الأساسية" type="number" value={form.Pricing || ""} onChange={e => f("Pricing", e.target.value)} />
+                <Input label="الرمز البريدي" value={form.PostCode || ""} onChange={e => f("PostCode", e.target.value)} />
+              </>
+            )}
           </div>
         </Card>
 
-        {/* Emergency */}
-        <Card style={{ marginBottom: 20 }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Shield size={18} /> {t("emergency_info")}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Input label={t("emergency_phone")} value={form.EmergancyPhone || ""} onChange={e => f("EmergancyPhone", e.target.value)} />
-            <Input label={t("emergency_email")} type="email" value={form.EmergancyEmail || ""} onChange={e => f("EmergancyEmail", e.target.value)} />
-          </div>
-          <div style={{ marginBottom: 0 }}>
-            <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("emergency_notes")}</label>
-            <textarea value={form.EmergancyNote || ""} onChange={e => f("EmergancyNote", e.target.value)} rows={2}
-              style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
-          </div>
-        </Card>
+        {user?.user_type === 1 && (
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Briefcase size={18} /> المعلومات المهنية</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label="رقم CASNOS" value={form.Casnos || ""} onChange={e => f("Casnos", e.target.value)} />
+              <Input label="رقم RPPS" value={form.RPPS || ""} onChange={e => f("RPPS", e.target.value)} />
+              <Input label="رقم التسجيل الطبي" value={form.NumRegister || ""} onChange={e => f("NumRegister", e.target.value)} />
+              <Input label="الشهادات العلمية" value={form.Degrees || ""} onChange={e => f("Degrees", e.target.value)} />
+              <Input label="الألقاب الأكاديمية" value={form.AcademyTitles || ""} onChange={e => f("AcademyTitles", e.target.value)} />
+            </div>
+          </Card>
+        )}
+
+        {/* Emergency (Patient Only) */}
+        {user?.user_type === 0 && (
+          <Card style={{ marginBottom: 20 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Shield size={18} /> {t("emergency_info")}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label={t("emergency_phone")} value={form.EmergancyPhone || ""} onChange={e => f("EmergancyPhone", e.target.value)} />
+              <Input label={t("emergency_email")} type="email" value={form.EmergancyEmail || ""} onChange={e => f("EmergancyEmail", e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 0 }}>
+              <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("emergency_notes")}</label>
+              <textarea value={form.EmergancyNote || ""} onChange={e => f("EmergancyNote", e.target.value)} rows={2}
+                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+            </div>
+          </Card>
+        )}
+
+        {user?.user_type === 2 && (
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
+            <textarea value={form.Notes || ""} onChange={e => f("Notes", e.target.value)} rows={4}
+              style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
+          </Card>
+        )}
 
         <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
           <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
@@ -3197,6 +4157,7 @@ function Footer({ navigate }) {
           {[
             { label: t("footer_privacy"), path: "/privacy" },
             { label: t("footer_terms"), path: "/terms" },
+            { label: "انضم كطبيب", path: "/register-doctor" },
             { label: t("footer_learn_more"), path: "/learn-more" }
           ].map(link => (
             <button
@@ -3283,75 +4244,15 @@ export default function App() {
 
 
   if (loading) return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#fff",
-      position: "relative",
-      overflow: "hidden"
-    }}>
-      {/* Fine Medical Pattern Background */}
-      <div style={{
-        position: "absolute",
-        inset: 0,
-        opacity: 0.6,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%230092a2' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M30 30h16M38 22v16'/%3E%3Cpath d='M110 30h14a7 7 0 0 1 0 14h-14a7 7 0 0 1 0 -14z'/%3E%3Cpath d='M40 110c0 6 5 10 10 10s10-4 10-10v-10'/%3E%3Cpath d='M100 110h10l4-12l4 24l4-12h10'/%3E%3Cpath d='M30 75l10 10M30 85l10-10'/%3E%3Ccircle cx='130' cy='80' r='1.5' fill='%230092a2'/%3E%3C/g%3E%3C/svg%3E")`,
-        backgroundSize: "240px 240px",
-        zIndex: 0
-      }} />
-
-      {/* Subtle Geometric Connecting Lines */}
-      <div style={{
-        position: "absolute",
-        inset: 0,
-        opacity: 0.3,
-        backgroundImage: `linear-gradient(rgba(0,146,162,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,146,162,1) 1px, transparent 1px)`,
-        backgroundSize: "60px 60px",
-        zIndex: 0
-      }} />
-
-      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>
-        {/* Soft Glow Background */}
-        <div style={{
-          position: "absolute",
-          width: 140, height: 140,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, var(--brand-light) 0%, transparent 70%)",
-          // animation removed
-          zIndex: 1
-        }} />
-
-        {/* Centered Logo with Pulse */}
-        <div style={{
-          position: "relative",
-          zIndex: 2,
-          // animation removed
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center"
-        }}>
-          <img
-            src={`${import.meta.env.BASE_URL}logo.png`}
-            alt="Tabibi"
-            style={{
-              width: 100, height: 100,
-              objectFit: "contain",
-              filter: "drop-shadow(0 10px 20px rgba(0,146,162,0.15))"
-            }}
-          />
-          <div style={{
-            marginTop: 20,
-            fontSize: 22,
-            fontWeight: 900,
-            color: "var(--brand)",
-            letterSpacing: -0.5
-          }}>
-            Tabibi
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+          <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(0,146,162,0.1)" }}>
+            <Building size={40} color="var(--brand)" />
           </div>
         </div>
+        <Spinner size={34} />
+        <div style={{ marginTop: 14, color: "#6b7280", fontWeight: 600, fontSize: 14 }}>{t("loading")}</div>
       </div>
     </div>
   );
@@ -3361,6 +4262,10 @@ export default function App() {
     // /clinic/:cId/doctor/:dId  — MUST check before switch
     const dm = route.match(/^\/clinic\/([^?#/]+)\/doctor\/([^?#/]+)/);
     if (dm) return <DoctorDetailPage key={route} clinicId={dm[1]} doctorId={dm[2]} navigate={navigate} user={user} />;
+
+    // /clinic/:id
+    const cm = route.match(/^\/clinic\/([^?#/]+)$/);
+    if (cm) return <ClinicDetailsPage key={route} clinicId={cm[1]} navigate={navigate} user={user} />;
 
     // /book/:cId/:dId
     const bm = route.match(/^\/book\/([^?#/]+)\/([^?#/]+)/);
@@ -3379,13 +4284,18 @@ export default function App() {
         if (user) { setTimeout(() => navigate("/"), 0); return null; }
         return <RegisterPage key="register" onRegister={register} navigate={navigate} />;
       case "/search":
-        return <SearchPage key={route + qs} navigate={navigate} qs={qs} />;
+        return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
       case "/about":
         return <AboutPage navigate={navigate} />;
       case "/contact":
         return <ContactPage navigate={navigate} />;
       case "/register-clinic":
         return <RegisterClinicPage navigate={navigate} />;
+      case "/register-doctor":
+        return <RegisterDoctorPage navigate={navigate} />;
+      case "/admin":
+        if (!user || user.user_type !== 3) { setTimeout(() => navigate("/"), 0); return null; }
+        return <AdminDashboardPage navigate={navigate} user={user} />;
       case "/learn-more":
         return <LearnMorePage navigate={navigate} />;
       case "/privacy":
@@ -3401,11 +4311,22 @@ export default function App() {
         return <AppointmentsPage key="appts" navigate={navigate} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <ProfilePage key="profile" />;
-      case "/chat":
+        return <ProfilePage key="profile" user={user} />;
+      case "/requests":
+        if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }
+        return <RequestsPage key="requests" navigate={navigate} user={user} />;
+      case "/tickets":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <ChatPage key="chat" user={user} />;
+        return <TicketsPage key="tickets" navigate={navigate} user={user} />;
+      case "/tickets/new":
+        if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
+        return <NewTicketPage key="new_ticket" navigate={navigate} user={user} qs={qs} />;
       default:
+        if (route.startsWith("/tickets/")) {
+          if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+          const tid = route.split("/")[2];
+          return <TicketConversationPage key={tid} ticketId={tid} navigate={navigate} user={user} />;
+        }
         return (
           <div key="404" style={{ textAlign: "center", padding: "80px 24px" }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
@@ -3433,6 +4354,12 @@ export default function App() {
 
       <style>{`
         * { box-sizing:border-box; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes popIn {
+          0%   { transform:scale(0); opacity:0; }
+          70%  { transform:scale(1.15); opacity:1; }
+          100% { transform:scale(1); }
+        }
         body { margin:0; padding:0; }
         input,select,textarea,button { font-family:inherit; }
         ::-webkit-scrollbar { width:5px; }

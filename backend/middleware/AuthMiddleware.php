@@ -23,7 +23,7 @@ class AuthMiddleware {
         $pdo   = Database::getInstance();
 
         $stmt = $pdo->prepare("
-            SELECT s.user_id, s.created_at, u.UserType
+            SELECT s.user_id, s.created_at, u.UserType, u.Username
             FROM sessions s
             JOIN Users u ON u.ID = s.user_id
             WHERE s.token = ?
@@ -65,6 +65,28 @@ class AuthMiddleware {
         $session = self::authenticate();
         if ((int)$session['UserType'] !== 1) {
             Response::error('Accès réservé aux médecins', 403);
+        }
+        return $session;
+    }
+
+    /**
+     * Only clinics (UserType = 2) allowed.
+     */
+    public static function clinicOnly(): array {
+        $session = self::authenticate();
+        if ((int)$session['UserType'] !== 2) {
+            Response::error('Accès réservé aux cliniques', 403);
+        }
+        return $session;
+    }
+
+    /**
+     * Only admins (UserType = 3) allowed.
+     */
+    public static function adminOnly(): array {
+        $session = self::authenticate();
+        if ((int)$session['UserType'] !== 3) {
+            Response::error('Accès réservé aux administrateurs', 403);
         }
         return $session;
     }
