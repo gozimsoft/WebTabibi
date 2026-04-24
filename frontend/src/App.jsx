@@ -18,8 +18,8 @@ import ContactPage from "./pages/Contact";
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BASE = "https://tabibi.dz/api";
-//const BASE = "http://localhost:8000/api";
+// const BASE = "https://tabibi.dz/api";
+const BASE = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -34,7 +34,22 @@ async function req(method, path, body, auth = true) {
     if (!d.success) throw new Error(d.message || "Erreur serveur");
     return d.data ?? d;
   } catch (e) {
-    if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le api  ");
+    if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le server  ");
+    throw e;
+  }
+}
+
+async function reqFile(method, path, body) {
+  const headers = {};
+  if (getToken()) headers["Authorization"] = `Bearer ${getToken()}`;
+  try {
+    const r = await fetch(`${BASE}${path}`, {
+      method, headers, body
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.message || "Erreur serveur");
+    return d.data ?? d;
+  } catch (e) {
     throw e;
   }
 }
@@ -51,6 +66,11 @@ const api = {
     update: b => req("PUT", "/patients/profile", b),
     appointments: () => req("GET", "/patients/appointments"),
     family: () => req("GET", "/patients/family"),
+  },
+  doctor: {
+    profile: () => req("GET", "/doctors/profile"),
+    update: b => req("PUT", "/doctors/profile", b),
+    uploadPhoto: fd => reqFile("POST", "/doctors/photo", fd),
   },
   clinics: {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
@@ -78,6 +98,25 @@ const api = {
   ratings: {
     add: b => req("POST", "/ratings", b),
     doctor: id => req("GET", `/ratings/doctor/${id}`),
+  },
+  relations: {
+    request: b => req("POST", "/relations/request", b),
+    getRequests: () => req("GET", "/relations/requests"),
+    respond: (id, b) => req("POST", `/relations/requests/${id}/respond`, b),
+  },
+  register: {
+    clinic: b => req("POST", "/register/clinic", b, false),
+    doctor: b => req("POST", "/register/doctor", b, false),
+    status: p => req("GET", `/register/status?${new URLSearchParams(p)}`, null, false),
+  },
+  admin: {
+    stats: () => req("GET", "/admin/stats"),
+    clinics: p => req("GET", `/admin/clinics?${new URLSearchParams(p)}`),
+    doctors: p => req("GET", `/admin/doctors?${new URLSearchParams(p)}`),
+    approveClinic: id => req("POST", `/admin/clinics/${id}/approve`, {}),
+    rejectClinic: (id, reason) => req("POST", `/admin/clinics/${id}/reject`, { reason }),
+    approveDoctor: id => req("POST", `/admin/doctors/${id}/approve`, {}),
+    rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
   },
 };
 
@@ -245,6 +284,20 @@ const Input = ({ label, error, ...p }) => (
   </div>
 );
 
+const Select = ({ label, error, children, ...p }) => (
+  <div style={{ marginBottom: 16 }}>
+    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
+    <select {...p} style={{
+      width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
+      borderRadius: 10, fontSize: 14, outline: "none", background: "#fff",
+      boxSizing: "border-box", transition: "border 0.2s", ...p.style
+    }}>
+      {children}
+    </select>
+    {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={14} /> {error}</div>}
+  </div>
+);
+
 // Modern Button Component
 const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, ...p }) => {
   const variants = {
@@ -380,8 +433,9 @@ function Navbar({ user, navigate, onLogout }) {
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
-    { label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true },
+    ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/chat", private: true },
+    ...(user?.user_type === 1 || user?.user_type === 2 ? [{ label: "طلبات الانضمام", icon: <Check size={18} />, path: "/requests", private: true }] : [])
   ];
 
   return (
@@ -476,11 +530,12 @@ function Navbar({ user, navigate, onLogout }) {
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</div>
                     </div>
                     {[
+                      user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
-                      { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" },
+                      (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                       { icon: <MessageSquare size={16} />, label: t("messages"), path: "/chat" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
-                    ].map(item => (
+                    ].filter(Boolean).map(item => (
                       <button key={item.path} onClick={() => { navigate(item.path); setOpen(false); }} style={{
                         width: "100%", padding: "12px 16px", background: "none", border: "none",
                         cursor: "pointer", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center",
@@ -901,6 +956,47 @@ function HomePage({ user, navigate }) {
         </div>
       </section>
 
+      {/* ── SECTION: JOIN US CTA ── */}
+      <section style={{ padding: isMobile ? "40px 0" : "80px 0", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
+          <div style={{
+            background: "linear-gradient(135deg, #0c4a6e, #075985)",
+            borderRadius: 32, padding: isMobile ? "40px 24px" : "60px 50px",
+            color: "#fff", position: "relative", overflow: "hidden",
+            boxShadow: "0 20px 50px rgba(12, 74, 110, 0.2)",
+            display: "flex", flexDirection: isMobile ? "column" : "row-reverse",
+            alignItems: "center", justifyContent: "space-between", gap: 32
+          }}>
+            <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+            <div style={{ position: "absolute", bottom: -20, left: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.03)" }} />
+
+            <div style={{ flex: 1, textAlign: isMobile ? "center" : "right", position: "relative", zIndex: 1 }}>
+              <h2 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, marginBottom: 16 }}>هل أنت طبيب أو صاحب عيادة؟</h2>
+              <p style={{ fontSize: 16, opacity: 0.9, lineHeight: 1.6, maxWidth: 600, margin: isMobile ? "0 auto" : "0 0 0 auto" }}>
+                انضم إلى منصة طبيبي وقم بإدارة مواعيدك، تواصل مع مرضاك، ووسع نطاق عملك بسهولة تامة. انضم لأكثر من 1200 طبيب مسجل.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, flexDirection: isMobile ? "column" : "row", width: isMobile ? "100%" : "auto", position: "relative", zIndex: 1 }}>
+              <button onClick={() => navigate("/register-doctor")} style={{
+                background: "#fff", color: "#0c4a6e", border: "none", borderRadius: 14,
+                padding: "16px 32px", fontSize: 16, fontWeight: 800, cursor: "pointer",
+                transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+              }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "none"}>
+                <Stethoscope size={20} /> انضم كطبيب
+              </button>
+              <button onClick={() => navigate("/register-clinic")} style={{
+                background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 14,
+                padding: "16px 32px", fontSize: 16, fontWeight: 800, cursor: "pointer",
+                transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+              }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "none"}>
+                <Building size={20} /> سجل عيادتك
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── SECTION: HOW IT WORKS (STEPS) ── */}
       <section style={{ background: "transparent", padding: "80px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", marginBottom: 80 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
@@ -1211,7 +1307,7 @@ function RegisterPage({ onRegister, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: SEARCH
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function SearchPage({ navigate, qs }) {
+function SearchPage({ navigate, qs, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const params = new URLSearchParams(qs);
@@ -1278,9 +1374,9 @@ function SearchPage({ navigate, qs }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px,1fr))", gap: 16 }}>
-            {results.map(r => (
-              <div key={r.ClinicsDoctor_id}
-                onClick={() => navigate(`/clinic/${r.ClinicId}/doctor/${r.DoctorId}`)}
+            {(user?.user_type === 1 ? results.filter(r => r.ResultType === 'CLINIC') : results).map(r => (
+              <div key={r.ResultId + r.ResultType}
+                onClick={() => r.ResultType === 'CLINIC' ? navigate(`/clinic/${r.ClinicId}`) : navigate(`/clinic/${r.ClinicId}/doctor/${r.DoctorId}`)}
                 style={{
                   background: "#fff", borderRadius: 22, border: "1px solid var(--border)", padding: isMobile ? 12 : 16,
                   cursor: "pointer", transition: "all 0.3s",
@@ -1298,61 +1394,90 @@ function SearchPage({ navigate, qs }) {
                   e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
-                <div style={{ display: "flex", gap: 16 }}>
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    <DoctorImage photo={r.PhotoProfile} size={120} borderRadius={24} />
-                    {+r.AvgRating >= 4.5 && (
-                      <div style={{
-                        position: "absolute", top: -8, right: -8, background: "#f59e0b",
-                        color: "#fff", borderRadius: "50%", width: 28, height: 28,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        border: "3px solid #fff", boxShadow: "0 3px 8px rgba(0,0,0,0.15)"
-                      }}>
-                        <Award size={15} />
+                {r.ResultType === 'CLINIC' ? (
+                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                    <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Building size={40} color="var(--brand)" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20, display: 'inline-block', marginBottom: 6 }}>عيادة</div>
+                      <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.ClinicName}</h3>
+                      <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
+                        <MapPin size={12} /> {r.ClinicAddress}
                       </div>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20 }}>{i18n.language === 'ar' ? r.SpecialtyAr : r.SpecialtyFr}</span>
-                      {+r.Experience > 0 && (
-                        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                          <Clock size={12} /> {r.Experience} {t("years")}
-                        </div>
-                      )}
                     </div>
-                    <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.DoctorName}</h3>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
-                        <Building size={14} color="var(--brand)" /> {r.ClinicName}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 16 }}>
+                      <div style={{ position: "relative", flexShrink: 0 }}>
+                        <DoctorImage photo={r.PhotoProfile} size={120} borderRadius={24} />
+                        {+r.AvgRating >= 4.5 && (
+                          <div style={{
+                            position: "absolute", top: -8, right: -8, background: "#f59e0b",
+                            color: "#fff", borderRadius: "50%", width: 28, height: 28,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            border: "3px solid #fff", boxShadow: "0 3px 8px rgba(0,0,0,0.15)"
+                          }}>
+                            <Award size={15} />
+                          </div>
+                        )}
                       </div>
-                      {r.ClinicAddress && (
-                        <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
-                          <MapPin size={12} /> {r.ClinicAddress.split(",")[0]}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20 }}>{i18n.language === 'ar' ? r.SpecialtyAr : r.SpecialtyFr}</span>
+                          {+r.Experience > 0 && (
+                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                              <Clock size={12} /> {r.Experience} {t("years")}
+                            </div>
+                          )}
                         </div>
-                      )}
+                        <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.DoctorName}</h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div onClick={(e) => { e.stopPropagation(); navigate(`/clinic/${r.ClinicId}`); }}
+                            style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, cursor: "pointer", transition: "color 0.2s" }}
+                            onMouseEnter={e => e.currentTarget.style.color = "var(--brand)"}
+                            onMouseLeave={e => e.currentTarget.style.color = "#334155"}
+                          >
+                            <Building size={14} color="var(--brand)" /> {r.ClinicName}
+                          </div>
+                          {r.ClinicAddress && (
+                            <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
+                              <MapPin size={12} /> {r.ClinicAddress.split(",")[0]}
+                            </div>
+                          )}
+                          {user?.user_type === 2 && (
+                            <Btn onClick={(e) => {
+                              e.stopPropagation();
+                              api.relations.request({ target_id: r.DoctorId })
+                                .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
+                                .catch(err => show(err.message, "error"));
+                            }} style={{ marginTop: 8, alignSelf: "flex-start", padding: "6px 12px", fontSize: 12 }}>
+                              <Plus size={14} style={{ marginLeft: 4 }} /> دعوة للعيادة
+                            </Btn>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#fff9eb", padding: "5px 10px", borderRadius: 10 }}>
-                      <Stars rating={Math.round(+r.AvgRating)} size={13} />
-                      <span style={{ fontSize: 13, fontWeight: 900, color: "#b45309" }}>{(+r.AvgRating || 0).toFixed(1)}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#fff9eb", padding: "5px 10px", borderRadius: 10 }}>
+                          <Stars rating={Math.round(+r.AvgRating)} size={13} />
+                          <span style={{ fontSize: 13, fontWeight: 900, color: "#b45309" }}>{(+r.AvgRating || 0).toFixed(1)}</span>
+                        </div>
+                        <span style={{ fontSize: 12, color: "#94a3b8" }}>({r.RatingCount} {t("reviews")})</span>
+                      </div>
+
+                      <div style={{ textAlign: i18n.language === 'ar' ? "left" : "right" }}>
+                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{t("consultation_price") || "سعر الكشف"}</div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: "#059669" }}>
+                          {+r.Pricing > 0 ? `${r.Pricing} ${t("currency")}` : t("not_specified")}
+                        </div>
+                      </div>
                     </div>
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>({r.RatingCount} {t("reviews")})</span>
-                  </div>
-
-
-                  <div style={{ textAlign: i18n.language === 'ar' ? "left" : "right" }}>
-                    <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{t("consultation_price") || "سعر الكشف"}</div>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#059669" }}>
-                      {+r.Pricing > 0 ? `${r.Pricing} ${t("currency")}` : t("not_specified")}
-                    </div>
-                  </div>
-
-                </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -1367,6 +1492,104 @@ function SearchPage({ navigate, qs }) {
         </>
       )}
       <Toast />
+    </div>
+  );
+}
+
+// ── PAGE: CLINIC DETAILS ──────────────────────────────────────────
+function ClinicDetailsPage({ navigate, clinicId, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [clinic, setClinic] = useState(null);
+  const [loading, setL] = useState(true);
+  const [requesting, setReq] = useState(false);
+  const { show, Toast } = useToast();
+
+  const sendJoinRequest = async () => {
+    setReq(true);
+    try {
+      await api.relations.request({ target_id: clinicId });
+      show("تم إرسال طلب الانضمام بنجاح", "success");
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setReq(false);
+    }
+  };
+
+  useEffect(() => {
+    setL(true);
+    api.clinics.one(clinicId)
+      .then(setClinic)
+      .catch(e => show(e.message, "error"))
+      .finally(() => setL(false));
+  }, [clinicId]);
+
+  if (loading) return <div style={{ padding: 100 }}><Spinner /></div>;
+  if (!clinic) return <div style={{ padding: 100, textAlign: "center" }}>Clinique non trouvée</div>;
+
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: isMobile ? "16px" : "28px 24px" }}>
+      <Toast />
+      <button onClick={() => navigate(-1)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "var(--brand)", fontWeight: 700, marginBottom: 20 }}>
+        <ArrowRight size={18} style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} /> {t("back")}
+      </button>
+
+      <Card style={{ padding: isMobile ? 20 : 32, marginBottom: 24, background: "linear-gradient(135deg, #fff, #f8fafc)" }}>
+        <div style={{ display: "flex", gap: 24, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start" }}>
+          <div style={{ width: 120, height: 120, borderRadius: 24, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "4px solid #fff", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}>
+            <Building size={60} color="var(--brand)" />
+          </div>
+          <div style={{ flex: 1, textAlign: isMobile ? "center" : "right" }}>
+            <h1 style={{ fontSize: 32, fontWeight: 950, color: "#0c4a6e", marginBottom: 12 }}>{clinic.ClinicName}</h1>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", justifyContent: isMobile ? "center" : "flex-end" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
+                <MapPin size={16} color="var(--brand)" /> {clinic.Address}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
+                <Phone size={16} color="var(--brand)" /> {clinic.Phone}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
+                <Mail size={16} color="var(--brand)" /> {clinic.Email}
+              </div>
+            </div>
+            {clinic.Notes && <p style={{ marginTop: 20, color: "#64748b", lineHeight: 1.6 }}>{clinic.Notes}</p>}
+
+            {user?.user_type === 1 && (
+              <Btn onClick={sendJoinRequest} loading={requesting} style={{ marginTop: 20 }}>
+                <Plus size={18} /> طلب انضمام للعيادة
+              </Btn>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {user?.user_type !== 1 && (
+        <>
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", marginBottom: 20, textAlign: "right" }}>الأطباء المتوفرون ({clinic.Doctors?.length || 0})</h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+            {clinic.Doctors?.map(d => (
+              <div key={d.DoctorId}
+                onClick={() => navigate(`/clinic/${clinicId}/doctor/${d.DoctorId}`)}
+                style={{
+                  background: "#fff", borderRadius: 20, padding: 16, border: "1px solid var(--border)", cursor: "pointer",
+                  transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
+              >
+                <DoctorImage photo={d.PhotoProfile} size={70} borderRadius={16} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{d.DoctorName}</div>
+                  <div style={{ fontSize: 13, color: "var(--brand)", fontWeight: 700 }}>{i18n.language === 'ar' ? d.SpecialtyAr : d.SpecialtyFr}</div>
+                </div>
+                <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1457,12 +1680,22 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, width: isMobile ? "100%" : "auto" }}>
             {user ? (
-              <>
-                <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "12px 24px", justifyContent: "center" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
-                <Btn variant="secondary" onClick={() => navigate(`/book/${clinicId}/${doctorId}?relative=1`)} style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}>
-                  <Users size={16} /> {t("book_for_relative")}
+              user.user_type === 2 ? (
+                <Btn onClick={() => {
+                  api.relations.request({ target_id: doctorId })
+                    .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
+                    .catch(err => show(err.message, "error"));
+                }} style={{ padding: "12px 24px", justifyContent: "center" }}>
+                  <Plus size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> دعوة للعيادة
                 </Btn>
-              </>
+              ) : user.user_type === 1 ? null : (
+                <>
+                  <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "12px 24px", justifyContent: "center" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
+                  <Btn variant="secondary" onClick={() => navigate(`/book/${clinicId}/${doctorId}?relative=1`)} style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}>
+                    <Users size={16} /> {t("book_for_relative")}
+                  </Btn>
+                </>
+              )
             ) : (
               <Btn onClick={() => navigate("/login")} style={{ justifyContent: "center" }}>{t("login_to_book")}</Btn>
             )}
@@ -1473,7 +1706,7 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20 }}>
-        {[["info", t("tab_info")], ["reasons", t("tab_reasons")], ["schedule", t("tab_schedule")], ["ratings", t("tab_ratings")]].map(([k, l]) => (
+        {[["info", t("tab_info")], ["reasons", t("tab_reasons")], ["clinics", "العيادات"], ["schedule", t("tab_schedule")], ["ratings", t("tab_ratings")]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 18px", background: "none", border: "none", cursor: "pointer",
             fontWeight: 700, fontSize: 13, color: tab === k ? "#0891b2" : "#6b7280",
@@ -1521,6 +1754,35 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
             </Card>
           ))}
           {(!data.Reasons || data.Reasons.length === 0) && <p style={{ color: "#9ca3af" }}>{t("no_reasons")}</p>}
+        </div>
+      )}
+
+      {/* CLINICS */}
+      {tab === "clinics" && (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+          {data.OtherClinics?.map(c => (
+            <div key={c.ID}
+              onClick={() => navigate(`/clinic/${c.ID}`)}
+              style={{
+                background: "#fff", borderRadius: 20, padding: 16, border: "1px solid var(--border)", cursor: "pointer",
+                transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
+            >
+              <div style={{ width: 50, height: 50, borderRadius: 12, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Building size={24} color="var(--brand)" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{c.ClinicName}</div>
+                <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> {c.Address}</div>
+              </div>
+              <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />
+            </div>
+          ))}
+          {(!data.OtherClinics || data.OtherClinics.length === 0) && (
+            <div style={{ textAlign: "center", gridColumn: "1 / -1", padding: 40, color: "#9ca3af" }}>لا توجد عيادات مرتبطة</div>
+          )}
         </div>
       )}
 
@@ -2437,46 +2699,439 @@ function AboutPage({ navigate }) {
 function RegisterClinicPage({ navigate }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
-      <div style={{ textAlign: "center", marginBottom: 44 }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 22, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Building size={36} color="var(--brand)" />
-          </div>
+  const { show, Toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [form, setForm] = useState({ clinic_name: '', email: '', phone: '', password: '', address: '', notes: '' });
+  const [errors, setErrors] = useState({});
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
+
+  const validate = () => {
+    const e = {};
+    if (!form.clinic_name.trim()) e.clinic_name = 'اسم العيادة مطلوب';
+    if (!form.email.trim()) e.email = 'البريد الإلكتروني مطلوب';
+    if (!form.phone.trim()) e.phone = 'رقم الهاتف مطلوب';
+    if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      await api.register.clinic(form);
+      setDone(true);
+    } catch (e) { show(e.message, 'error'); }
+    finally { setLoading(false); }
+  };
+
+  if (done) return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+        <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <CheckCircle size={40} color="#fff" />
         </div>
-        <h1 style={{ fontSize: 32, fontWeight: 900, color: "#0c4a6e", marginBottom: 12 }}>{t("register_clinic_title")}</h1>
-        <p style={{ fontSize: 16, color: "#6b7280", maxWidth: 550, margin: "0 auto" }}>
-          {t("register_clinic_desc")}
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>تم إرسال الطلب بنجاح!</h2>
+        <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
+          تم إرسال طلب تسجيل العيادة بنجاح، سيتم مراجعته من طرف الإدارة وستصلك رسالة عند الموافقة.
         </p>
+        <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
+          <div style={{ fontSize: 13, color: '#0f766e', fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <AlertCircle size={14} /> تفاصيل الطلب
+          </div>
+          <div style={{ fontSize: 14, color: '#134e4a' }}>العيادة: <strong>{form.clinic_name}</strong></div>
+          <div style={{ fontSize: 14, color: '#134e4a' }}>البريد: <strong>{form.email}</strong></div>
+        </div>
+        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>العودة إلى الرئيسية</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '16px' : '28px 24px' }}>
+      <Toast />
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Building size={36} color="var(--brand)" />
+        </div>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>تسجيل عيادة جديدة</h1>
+        <p style={{ color: '#6b7280', fontSize: 15 }}>أرسل طلبك وسيتم مراجعته من طرف الإدارة خلال 24-48 ساعة</p>
       </div>
 
-      <Card style={{ padding: 36 }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 20, marginBottom: isMobile ? 0 : 20 }}>
-          <Input label={t("clinic_name_input")} placeholder={t("clinic_name_placeholder")} />
-          <Input label={t("responsible_doctor")} placeholder={t("fullname_placeholder")} />
+      <Card style={{ padding: isMobile ? 20 : 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label="اسم العيادة *" placeholder="عيادة الرحمة" value={form.clinic_name} onChange={e => set('clinic_name', e.target.value)} error={errors.clinic_name} />
+          <Input label="رقم الهاتف *" placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 20, marginBottom: isMobile ? 0 : 20 }}>
-          <Input label={t("professional_phone")} placeholder={t("phone_placeholder")} />
-          <Input label={t("primary_specialty")} placeholder={t("specialty_placeholder")} />
+        <Input label="البريد الإلكتروني *" type="email" placeholder="clinic@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
+        <Input label="كلمة المرور *" type="password" placeholder="6 أحرف على الأقل" value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <Input label="العنوان" placeholder="شارع، مدينة، ولاية" value={form.address} onChange={e => set('address', e.target.value)} />
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>معلومات إضافية</label>
+          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="أي تفاصيل إضافية عن العيادة..."
+            style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
-        <Input label={t("full_address")} placeholder={t("address_placeholder")} />
-
-        <div style={{ marginTop: 24, padding: 20, background: "#f0fdfa", borderRadius: 12, border: "1px solid #ccfbf1", marginBottom: 28 }}>
-          <h4 style={{ margin: "0 0 10px", color: "#0f766e", display: "flex", alignItems: "center", gap: 8 }}>
-            <Shield size={18} /> {t("why_join_title")}
-          </h4>
-          <ul style={{ margin: 0, paddingRight: 20, fontSize: 13, color: "#134e4a", lineHeight: 1.8 }}>
-            <li>{t("why_join_1")}</li>
-            <li>{t("why_join_2")}</li>
-            <li>{t("why_join_3")}</li>
-            <li>{t("why_join_4")}</li>
+        <div style={{ background: '#f0fdfa', borderRadius: 12, border: '1px solid #ccfbf1', padding: '16px 20px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0f766e', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
+            <Shield size={16} /> لماذا تنضم إلى طبيبي؟
+          </div>
+          <ul style={{ margin: 0, paddingRight: 20, fontSize: 13, color: '#134e4a', lineHeight: 2 }}>
+            <li>إدارة المواعيد والحجوزات بسهولة تامة</li>
+            <li>الوصول لآلاف المرضى في الجزائر</li>
+            <li>لوحة تحكم متكاملة للعيادة</li>
+            <li>دعم فني متواصل</li>
           </ul>
         </div>
-
-        <Btn style={{ width: "100%", justifyContent: "center", padding: 16, fontSize: 16 }}>{t("submit_join_btn")}</Btn>
-        <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af", marginTop: 16 }}>{t("join_verification_msg")}</p>
+        <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
+          <Send size={18} /> إرسال طلب التسجيل
+        </Btn>
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 14 }}>
+          سيتم مراجعة طلبك من قبل فريق الإدارة وإشعارك بالنتيجة
+        </p>
       </Card>
+    </div>
+  );
+}
+
+// ── PAGE: REGISTER DOCTOR ─────────────────────────────────────
+function RegisterDoctorPage({ navigate }) {
+  const isMobile = useIsMobile();
+  const { t, i18n } = useTranslation();
+  const { show, Toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [specs, setSpecs] = useState([]);
+
+  useEffect(() => {
+    api.specialties().then(setSpecs).catch(() => {});
+  }, []);
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
+
+  const validate = () => {
+    const e = {};
+    if (!form.fullname.trim()) e.fullname = 'الاسم الكامل مطلوب';
+    if (!form.speciality.trim()) e.speciality = 'التخصص مطلوب';
+    if (!form.email.trim()) e.email = 'البريد الإلكتروني مطلوب';
+    if (!form.phone.trim()) e.phone = 'رقم الهاتف مطلوب';
+    if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      await api.register.doctor(form);
+      setDone(true);
+    } catch (e) { show(e.message, 'error'); }
+    finally { setLoading(false); }
+  };
+
+  if (done) return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+        <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <CheckCircle size={40} color="#fff" />
+        </div>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>تم إرسال الطلب بنجاح!</h2>
+        <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
+          تم إرسال طلب تسجيل الطبيب بنجاح، بانتظار موافقة الإدارة. سيتم إشعارك عند قبول طلبك.
+        </p>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>الطبيب: <strong>{form.fullname}</strong></div>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>التخصص: <strong>{form.speciality}</strong></div>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>البريد: <strong>{form.email}</strong></div>
+        </div>
+        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>العودة إلى الرئيسية</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '16px' : '28px 24px' }}>
+      <Toast />
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 22, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Stethoscope size={36} color="#2563eb" />
+        </div>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>تسجيل طبيب جديد</h1>
+        <p style={{ color: '#6b7280', fontSize: 15 }}>أرسل طلبك وسيتم مراجعته من طرف الإدارة</p>
+      </div>
+      <Card style={{ padding: isMobile ? 20 : 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label="الاسم الكامل *" placeholder="د. محمد أمين" value={form.fullname} onChange={e => set('fullname', e.target.value)} error={errors.fullname} />
+          <Select label="التخصص *" value={form.speciality} onChange={e => set('speciality', e.target.value)} error={errors.speciality}>
+            <option value="">اختر التخصص...</option>
+            {specs.map(s => (
+              <option key={s.ID} value={i18n.language === 'ar' ? s.NameAr : s.NameFr}>
+                {i18n.language === 'ar' ? s.NameAr : s.NameFr}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label="البريد الإلكتروني *" type="email" placeholder="doctor@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
+          <Input label="رقم الهاتف *" placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
+        </div>
+        <Input label="كلمة المرور *" type="password" placeholder="6 أحرف على الأقل" value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <div style={{ background: '#eff6ff', borderRadius: 12, border: '1px solid #bfdbfe', padding: '16px 20px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e40af', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
+            <AlertCircle size={16} /> ملاحظة مهمة
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: '#1e3a8a', lineHeight: 1.8 }}>
+            بعد الموافقة على طلبك ستتمكن من تسجيل الدخول باستخدام بريدك الإلكتروني وكلمة المرور المُدخلة.
+          </p>
+        </div>
+        <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
+          <Send size={18} /> إرسال طلب التسجيل
+        </Btn>
+      </Card>
+    </div>
+  );
+}
+
+// ── PAGE: ADMIN DASHBOARD ─────────────────────────────────────
+function AdminDashboardPage({ navigate, user }) {
+  const isMobile = useIsMobile();
+  const { show, Toast } = useToast();
+  const [tab, setTab] = useState('overview'); // overview | clinics | doctors
+  const [subTab, setSubTab] = useState('PENDING');
+  const [stats, setStats] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState('');
+  const [rejectModal, setRejectModal] = useState(null); // { id, type }
+  const [rejectReason, setRejectReason] = useState('');
+
+  useEffect(() => {
+    if (tab === 'overview') {
+      setLoading(true);
+      api.admin.stats().then(setStats).catch(e => show(e.message, 'error')).finally(() => setLoading(false));
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab === 'clinics' || tab === 'doctors') {
+      setLoading(true);
+      setItems([]);
+      const fn = tab === 'clinics' ? api.admin.clinics : api.admin.doctors;
+      fn({ status: subTab }).then(d => setItems(d.items || [])).catch(e => show(e.message, 'error')).finally(() => setLoading(false));
+    }
+  }, [tab, subTab]);
+
+  const doApprove = async (id) => {
+    setActionLoading(id);
+    try {
+      const fn = tab === 'clinics' ? api.admin.approveClinic : api.admin.approveDoctor;
+      await fn(id);
+      show('✅ تمت الموافقة بنجاح');
+      setItems(prev => prev.filter(i => i.ID !== id));
+    } catch (e) { show(e.message, 'error'); }
+    finally { setActionLoading(''); }
+  };
+
+  const doReject = async () => {
+    if (!rejectModal) return;
+    setActionLoading(rejectModal.id);
+    try {
+      const fn = tab === 'clinics' ? api.admin.rejectClinic : api.admin.rejectDoctor;
+      await fn(rejectModal.id, rejectReason);
+      show('تم الرفض');
+      setItems(prev => prev.filter(i => i.ID !== rejectModal.id));
+      setRejectModal(null); setRejectReason('');
+    } catch (e) { show(e.message, 'error'); }
+    finally { setActionLoading(''); }
+  };
+
+  // ── Stat Card
+  const StatCard = ({ label, value, icon, color, bg }) => (
+    <div style={{ background: '#fff', borderRadius: 18, padding: '20px 24px', border: '1px solid #f0f0f0', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: '#0c4a6e', lineHeight: 1 }}>{value ?? '…'}</div>
+        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontWeight: 600 }}>{label}</div>
+      </div>
+    </div>
+  );
+
+  // ── Tab Bar
+  const tabs = [
+    { key: 'overview', label: 'لوحة الإحصائيات', icon: <Activity size={16} /> },
+    { key: 'clinics', label: 'طلبات العيادات', icon: <Building size={16} /> },
+    { key: 'doctors', label: 'طلبات الأطباء', icon: <Stethoscope size={16} /> },
+  ];
+
+  const statusTabs = ['PENDING', 'APPROVED', 'REJECTED'];
+  const statusLabel = { PENDING: 'قيد المراجعة', APPROVED: 'مقبولة', REJECTED: 'مرفوضة' };
+  const statusColor = { PENDING: '#d97706', APPROVED: '#059669', REJECTED: '#dc2626' };
+  const statusBg = { PENDING: '#fef3c7', APPROVED: '#d1fae5', REJECTED: '#fee2e2' };
+
+  return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '12px' : '24px 24px' }}>
+      <Toast />
+
+      {/* Reject Modal */}
+      {rejectModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 440, width: '100%' }}>
+            <h3 style={{ margin: '0 0 16px', color: '#0c4a6e', fontWeight: 900 }}>سبب الرفض (اختياري)</h3>
+            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
+              placeholder="أدخل سبب الرفض للإشعار..." style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }} />
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              <Btn variant="secondary" onClick={() => { setRejectModal(null); setRejectReason(''); }} style={{ flex: 1, justifyContent: 'center' }}>إلغاء</Btn>
+              <Btn variant="danger" onClick={doReject} loading={!!actionLoading} style={{ flex: 1, justifyContent: 'center' }}>تأكيد الرفض</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(135deg,#0c4a6e,#0891b2)', borderRadius: 20, padding: isMobile ? '20px 18px' : '28px 32px', marginBottom: 24, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Shield size={22} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>لوحة تحكم الإدارة</h1>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>مرحباً، {user?.username || 'Admin'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Nav */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            padding: '10px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+            background: tab === t.key ? 'var(--brand)' : '#fff',
+            color: tab === t.key ? '#fff' : '#4b5563',
+            boxShadow: tab === t.key ? '0 4px 12px rgba(8,145,178,0.3)' : '0 1px 4px rgba(0,0,0,0.06)',
+            transition: 'all 0.2s',
+          }}>{t.icon}{t.label}</button>
+        ))}
+      </div>
+
+      {/* ─── OVERVIEW TAB ───── */}
+      {tab === 'overview' && (
+        <div>
+          {loading ? <Spinner size={36} /> : stats && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+                <StatCard label="إجمالي العيادات" value={stats.total_clinics} icon={<Building size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label="إجمالي الأطباء" value={stats.total_doctors} icon={<Stethoscope size={22} />} color="#0891b2" bg="#ecfeff" />
+                <StatCard label="إجمالي المرضى" value={stats.total_patients} icon={<Users size={22} />} color="#059669" bg="#f0fdf4" />
+                <StatCard label="إجمالي المواعيد" value={stats.total_appointments} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 14, marginBottom: 24 }}>
+                <StatCard label="مواعيد اليوم" value={stats.today_appointments} icon={<Clock size={22} />} color="#0891b2" bg="#ecfeff" />
+                <StatCard label="مواعيد هذا الشهر" value={stats.month_appointments} icon={<Activity size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div onClick={() => { setTab('clinics'); setSubTab('PENDING'); }}
+                    style={{ background: '#fef3c7', borderRadius: 14, padding: '14px 18px', border: '2px solid #fde68a', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#92400e' }}>{stats.pending_clinics}</div>
+                    <div style={{ fontSize: 13, color: '#78350f', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AlertCircle size={14} /> عيادات قيد المراجعة
+                    </div>
+                  </div>
+                  <div onClick={() => { setTab('doctors'); setSubTab('PENDING'); }}
+                    style={{ background: '#fee2e2', borderRadius: 14, padding: '14px 18px', border: '2px solid #fca5a5', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#991b1b' }}>{stats.pending_doctors}</div>
+                    <div style={{ fontSize: 13, color: '#7f1d1d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AlertCircle size={14} /> أطباء قيد المراجعة
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ─── CLINICS / DOCTORS TAB ───── */}
+      {(tab === 'clinics' || tab === 'doctors') && (
+        <div>
+          {/* Sub-tabs */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            {statusTabs.map(s => (
+              <button key={s} onClick={() => setSubTab(s)} style={{
+                padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
+                background: subTab === s ? statusBg[s] : '#fff',
+                color: subTab === s ? statusColor[s] : '#9ca3af',
+                boxShadow: subTab === s ? `0 0 0 2px ${statusColor[s]}40` : '0 1px 3px rgba(0,0,0,0.06)',
+                transition: 'all 0.18s',
+              }}>{statusLabel[s]}</button>
+            ))}
+          </div>
+
+          {loading ? <Spinner size={32} /> : (
+            items.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af' }}>
+                <CheckCircle size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
+                <p style={{ fontWeight: 700, fontSize: 16 }}>لا توجد طلبات في هذه الفئة</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {items.map(item => (
+                  <div key={item.ID} style={{ background: '#fff', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid #f0f0f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: 16, color: '#0c4a6e' }}>
+                            {tab === 'clinics' ? item.ClinicName : item.FullName}
+                          </span>
+                          <span style={{ background: statusBg[item.Status], color: statusColor[item.Status], borderRadius: 20, padding: '2px 12px', fontSize: 12, fontWeight: 700 }}>
+                            {statusLabel[item.Status]}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '4px 24px' }}>
+                          {tab === 'doctors' && <div style={{ fontSize: 13, color: '#6b7280' }}><strong>التخصص:</strong> {item.Speciality}</div>}
+                          <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><Mail size={13} /> {item.Email}</div>
+                          <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><Phone size={13} /> {item.Phone}</div>
+                          {item.Address && <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {item.Address}</div>}
+                          <div style={{ fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} /> {new Date(item.CreatedAt).toLocaleDateString('ar-DZ')}</div>
+                        </div>
+                        {item.RejectedReason && (
+                          <div style={{ marginTop: 8, background: '#fee2e2', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#991b1b' }}>
+                            <strong>سبب الرفض:</strong> {item.RejectedReason}
+                          </div>
+                        )}
+                      </div>
+
+                      {subTab === 'PENDING' && (
+                        <div style={{ display: 'flex', gap: 10, flexShrink: 0, alignItems: 'center' }}>
+                          <button onClick={() => doApprove(item.ID)} disabled={actionLoading === item.ID}
+                            style={{ padding: '8px 18px', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: actionLoading === item.ID ? 0.6 : 1 }}>
+                            <Check size={15} /> قبول
+                          </button>
+                          <button onClick={() => setRejectModal({ id: item.ID, type: tab })} disabled={!!actionLoading}
+                            style={{ padding: '8px 18px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <X size={15} /> رفض
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2732,23 +3387,135 @@ function TermsOfUsePage({ navigate }) {
   );
 }
 
-// ── PAGE: PROFILE ─────────────────────────────────────────────
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ── PAGE: PROFILE (ACCOUNT SETTINGS)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function ProfilePage() {
+// ── PAGE: REQUESTS ──────────────────────────────────────────────
+function RequestsPage({ navigate, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
-  const [form, setForm] = useState(null);
+  const [requests, setRequests] = useState([]);
   const [loading, setL] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [verStatus, setVS] = useState(null);
-  const [otpModal, setOTP] = useState(null); // "email" | "phone" | null
   const { show, Toast } = useToast();
 
   const load = async () => {
     try {
-      const [p, vs] = await Promise.all([api.patient.profile(), api.verify.status().catch(() => null)]);
+      setL(true);
+      const reqs = await api.relations.getRequests();
+      setRequests(reqs);
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setL(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const respond = async (id, action) => {
+    try {
+      await api.relations.respond(id, { action });
+      show(action === 'ACCEPT' ? "تمت الموافقة على الطلب" : "تم رفض الطلب", "success");
+      load();
+    } catch (e) {
+      show(e.message, "error");
+    }
+  };
+
+  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>طلبات الانضمام</h1>
+      
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {requests.map(r => (
+          <Card key={r.ID} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px", flexWrap: "wrap", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>
+                {(r.SenderType?.toUpperCase() === (user.user_type === 1 ? 'DOCTOR' : 'CLINIC')) ? "طلب انضمام إلى:" : "دعوة من:"}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{r.TargetName}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                تاريخ الطلب: {new Date(r.CreatedAt).toLocaleDateString(i18n.language)}
+              </div>
+            </div>
+            
+            <div style={{ display: "flex", gap: 10 }}>
+              {r.Status === 'PENDING' ? (
+                r.SenderType?.toUpperCase() !== (user.user_type === 1 ? 'DOCTOR' : 'CLINIC') ? (
+                  <>
+                    <Btn onClick={() => respond(r.ID, 'ACCEPT')} style={{ background: "#059669", borderColor: "#059669" }}>
+                      <Check size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> موافقة
+                    </Btn>
+                    <Btn onClick={() => respond(r.ID, 'REJECT')} style={{ background: "#ef4444", borderColor: "#ef4444" }}>
+                      <X size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> رفض
+                    </Btn>
+                  </>
+                ) : (
+                  <Badge color="#f59e0b">قيد الانتظار</Badge>
+                )
+              ) : (
+                <Badge color={r.Status === 'ACCEPTED' ? "#059669" : "#ef4444"}>
+                  {r.Status === 'ACCEPTED' ? "مقبول" : "مرفوض"}
+                </Badge>
+              )}
+            </div>
+          </Card>
+        ))}
+
+        {requests.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            لا توجد طلبات انضمام حالياً
+          </div>
+        )}
+      </div>
+      <Toast />
+    </div>
+  );
+}
+
+// ── PAGE: PROFILE ─────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── PAGE: PROFILE (ACCOUNT SETTINGS)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function ProfilePage({ user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  
+  if (user && user.user_type === 2) {
+    return (
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", textAlign: "center" }}>
+        <Card style={{ padding: 40 }}>
+          <h2 style={{ color: "#0c4a6e", marginBottom: 16 }}>الملف الشخصي للعيادة</h2>
+          <p style={{ color: "#64748b", fontSize: 16 }}>
+            مرحباً <strong>{user.profile?.ClinicName || user.username}</strong>
+          </p>
+          <div style={{ padding: 20, background: "#f8fafc", borderRadius: 12, marginTop: 24, border: "1px dashed var(--border)" }}>
+            <p style={{ color: "#94a3b8", margin: 0, fontSize: 14 }}>
+              واجهة الإعدادات الخاصة بالعيادات قيد التطوير وستتوفر قريباً...
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const [form, setForm] = useState(null);
+  const [loading, setL] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUPhoto] = useState(false);
+  const [verStatus, setVS] = useState(null);
+  const [otpModal, setOTP] = useState(null);
+  const fileInput = useRef(null);
+  const { show, Toast } = useToast();
+
+  const load = async () => {
+    try {
+      let p;
+      if (user?.user_type === 1) p = await api.doctor.profile();
+      else p = await api.patient.profile();
+
+      let vs = null;
+      if (user?.user_type === 0) vs = await api.verify.status().catch(() => null);
+
       setForm(p); setVS(vs);
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
@@ -2758,9 +3525,28 @@ function ProfilePage() {
 
   const save = async e => {
     e.preventDefault(); setSaving(true);
-    try { await api.patient.update(form); show(t("save_success")); }
+    try {
+      if (user?.user_type === 1) await api.doctor.update(form);
+      else await api.patient.update(form);
+      show(t("save_success"));
+    }
     catch (e) { show(e.message, "error"); }
     finally { setSaving(false); }
+  };
+
+  const handlePhotoUpload = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      await api.doctor.uploadPhoto(fd);
+      show("تم تحديث الصورة الشخصية بنجاح");
+      const p = await api.doctor.profile();
+      setForm(p);
+    } catch (err) { show(err.message, "error"); }
+    finally { setUPhoto(false); }
   };
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -2770,28 +3556,39 @@ function ProfilePage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
+      <input type="file" ref={fileInput} onChange={handlePhotoUpload} accept="image/*" style={{ display: "none" }} />
       {/* Header */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 28 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900 }}>
-          {(form.FullName || "U")[0].toUpperCase()}
+        <div 
+          onClick={() => user?.user_type === 1 && fileInput.current?.click()}
+          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: user?.user_type === 1 ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
+          {uploadingPhoto ? <Spinner size={24} /> : (
+            form.PhotoProfile ? (
+              <img src={`data:image/jpeg;base64,${form.PhotoProfile}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              (form.FullName || "U")[0].toUpperCase()
+            )
+          )}
         </div>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{form.FullName}</h1>
           <div style={{ fontSize: 13, color: "#6b7280" }}>{form.Email}</div>
-          <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <Badge color={verStatus?.email_verified ? "#059669" : "#f59e0b"}>
-              {verStatus?.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-              {verStatus?.email_verified ? t("email_verified") : t("email_unverified")}
-            </Badge>
-            <Badge color={verStatus?.phone_verified ? "#059669" : "#f59e0b"}>
-              {verStatus?.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-              {verStatus?.phone_verified ? t("phone_verified") : t("phone_unverified")}
-            </Badge>
-          </div>
+          {verStatus && (
+            <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <Badge color={verStatus.email_verified ? "#059669" : "#f59e0b"}>
+                {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
+                {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
+              </Badge>
+              <Badge color={verStatus.phone_verified ? "#059669" : "#f59e0b"}>
+                {verStatus.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
+                {verStatus.phone_verified ? t("phone_verified") : t("phone_unverified")}
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Verification section */}
+      {/* Verification section for patient */}
       {verStatus && (!verStatus.email_verified || !verStatus.phone_verified) && (
         <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
           <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
@@ -2817,6 +3614,17 @@ function ProfilePage() {
       )}
 
       <form onSubmit={save}>
+        {/* Account Info (Doctor Only) */}
+        {user?.user_type === 1 && (
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label="اسم المستخدم" value={form.Username || ""} onChange={e => f("Username", e.target.value)} />
+              <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.Password || ""} onChange={e => f("Password", e.target.value)} />
+            </div>
+          </Card>
+        )}
+
         {/* Personal Info */}
         <Card style={{ marginBottom: 14 }}>
           <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
@@ -2824,37 +3632,66 @@ function ProfilePage() {
             <Input label={t("fullname")} value={form.FullName || ""} onChange={e => f("FullName", e.target.value)} />
             <Input label={t("phone")} type="tel" value={form.Phone || ""} onChange={e => f("Phone", e.target.value)} />
             <Input label={t("email")} type="email" value={form.Email || ""} onChange={e => f("Email", e.target.value)} />
-            <Input label={t("birth_date")} type="date" value={(form.BirthDate || "").substring(0, 10)} onChange={e => f("BirthDate", e.target.value)} />
-            <Input label={t("address")} value={form.Address || ""} onChange={e => f("Address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
-              <select value={form.Gender ?? 0} onChange={e => f("Gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
-              <select value={form.BloodType || ""} onChange={e => f("BloodType", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                <option value="">{t("not_specified")}</option>
-                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
-              </select>
-            </div>
+            
+            {user?.user_type === 0 && (
+              <>
+                <Input label={t("birth_date")} type="date" value={(form.BirthDate || "").substring(0, 10)} onChange={e => f("BirthDate", e.target.value)} />
+                <Input label={t("address")} value={form.Address || ""} onChange={e => f("Address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                  <select value={form.Gender ?? 0} onChange={e => f("Gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                    <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
+                  <select value={form.BloodType || ""} onChange={e => f("BloodType", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                    <option value="">{t("not_specified")}</option>
+                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {user?.user_type === 1 && (
+              <>
+                <Input label="رقم الهاتف الثابت" value={form.Fix || ""} onChange={e => f("Fix", e.target.value)} />
+                <Input label="اللغات المتحدث بها" value={form.SpeakingLanguage || ""} onChange={e => f("SpeakingLanguage", e.target.value)} />
+                <Input label="تسعيرة الكشف الأساسية" type="number" value={form.Pricing || ""} onChange={e => f("Pricing", e.target.value)} />
+                <Input label="الرمز البريدي" value={form.PostCode || ""} onChange={e => f("PostCode", e.target.value)} />
+              </>
+            )}
           </div>
         </Card>
 
-        {/* Emergency */}
-        <Card style={{ marginBottom: 20 }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Shield size={18} /> {t("emergency_info")}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Input label={t("emergency_phone")} value={form.EmergancyPhone || ""} onChange={e => f("EmergancyPhone", e.target.value)} />
-            <Input label={t("emergency_email")} type="email" value={form.EmergancyEmail || ""} onChange={e => f("EmergancyEmail", e.target.value)} />
-          </div>
-          <div style={{ marginBottom: 0 }}>
-            <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("emergency_notes")}</label>
-            <textarea value={form.EmergancyNote || ""} onChange={e => f("EmergancyNote", e.target.value)} rows={2}
-              style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
-          </div>
-        </Card>
+        {user?.user_type === 1 && (
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Briefcase size={18} /> المعلومات المهنية</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label="رقم CASNOS" value={form.Casnos || ""} onChange={e => f("Casnos", e.target.value)} />
+              <Input label="رقم RPPS" value={form.RPPS || ""} onChange={e => f("RPPS", e.target.value)} />
+              <Input label="رقم التسجيل الطبي" value={form.NumRegister || ""} onChange={e => f("NumRegister", e.target.value)} />
+              <Input label="الشهادات العلمية" value={form.Degrees || ""} onChange={e => f("Degrees", e.target.value)} />
+              <Input label="الألقاب الأكاديمية" value={form.AcademyTitles || ""} onChange={e => f("AcademyTitles", e.target.value)} />
+            </div>
+          </Card>
+        )}
+
+        {/* Emergency (Patient Only) */}
+        {user?.user_type === 0 && (
+          <Card style={{ marginBottom: 20 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Shield size={18} /> {t("emergency_info")}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label={t("emergency_phone")} value={form.EmergancyPhone || ""} onChange={e => f("EmergancyPhone", e.target.value)} />
+              <Input label={t("emergency_email")} type="email" value={form.EmergancyEmail || ""} onChange={e => f("EmergancyEmail", e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 0 }}>
+              <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("emergency_notes")}</label>
+              <textarea value={form.EmergancyNote || ""} onChange={e => f("EmergancyNote", e.target.value)} rows={2}
+                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+            </div>
+          </Card>
+        )}
 
         <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
           <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
@@ -3069,6 +3906,7 @@ function Footer({ navigate }) {
           {[
             { label: t("footer_privacy"), path: "/privacy" },
             { label: t("footer_terms"), path: "/terms" },
+            { label: "انضم كطبيب", path: "/register-doctor" },
             { label: t("footer_learn_more"), path: "/learn-more" }
           ].map(link => (
             <button
@@ -3174,6 +4012,10 @@ export default function App() {
     const dm = route.match(/^\/clinic\/([^?#/]+)\/doctor\/([^?#/]+)/);
     if (dm) return <DoctorDetailPage key={route} clinicId={dm[1]} doctorId={dm[2]} navigate={navigate} user={user} />;
 
+    // /clinic/:id
+    const cm = route.match(/^\/clinic\/([^?#/]+)$/);
+    if (cm) return <ClinicDetailsPage key={route} clinicId={cm[1]} navigate={navigate} user={user} />;
+
     // /book/:cId/:dId
     const bm = route.match(/^\/book\/([^?#/]+)\/([^?#/]+)/);
     if (bm) {
@@ -3191,13 +4033,18 @@ export default function App() {
         if (user) { setTimeout(() => navigate("/"), 0); return null; }
         return <RegisterPage key="register" onRegister={register} navigate={navigate} />;
       case "/search":
-        return <SearchPage key={route + qs} navigate={navigate} qs={qs} />;
+        return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
       case "/about":
         return <AboutPage navigate={navigate} />;
       case "/contact":
         return <ContactPage navigate={navigate} />;
       case "/register-clinic":
         return <RegisterClinicPage navigate={navigate} />;
+      case "/register-doctor":
+        return <RegisterDoctorPage navigate={navigate} />;
+      case "/admin":
+        if (!user || user.user_type !== 3) { setTimeout(() => navigate("/"), 0); return null; }
+        return <AdminDashboardPage navigate={navigate} user={user} />;
       case "/learn-more":
         return <LearnMorePage navigate={navigate} />;
       case "/privacy":
@@ -3213,7 +4060,10 @@ export default function App() {
         return <AppointmentsPage key="appts" navigate={navigate} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <ProfilePage key="profile" />;
+        return <ProfilePage key="profile" user={user} />;
+      case "/requests":
+        if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }
+        return <RequestsPage key="requests" navigate={navigate} user={user} />;
       case "/chat":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ChatPage key="chat" user={user} />;

@@ -12,8 +12,8 @@ define('DB_CHARSET',  'utf8mb4');
 
 // Email (PHPMailer / SMTP)
 define('MAIL_HOST',   'smtp.gmail.com');
-define('MAIL_USER',   'noreply@tabibi.dz');
-define('MAIL_PASS',   'your_app_password');
+define('MAIL_USER',   'stellarsoftpro@gmail.com');     // بريد Gmail
+define('MAIL_PASS',   'equi uawa usrl wpor');  // كلمة مرور التطبيق
 define('MAIL_PORT',   587);
 define('MAIL_NAME',   'Tabibi - طبيبي');
 
@@ -23,3 +23,5 @@ define('FRONTEND_URL','http://localhost:5173');
 
 // Session / Token expiry (seconds)
 define('TOKEN_EXPIRY', 86400 * 30); // 30 days
+
+ 

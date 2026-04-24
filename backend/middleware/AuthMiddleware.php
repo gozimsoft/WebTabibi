@@ -68,4 +68,26 @@ class AuthMiddleware {
         }
         return $session;
     }
+
+    /**
+     * Only clinics (UserType = 2) allowed.
+     */
+    public static function clinicOnly(): array {
+        $session = self::authenticate();
+        if ((int)$session['UserType'] !== 2) {
+            Response::error('Accès réservé aux cliniques', 403);
+        }
+        return $session;
+    }
+
+    /**
+     * Only admins (UserType = 3) allowed.
+     */
+    public static function adminOnly(): array {
+        $session = self::authenticate();
+        if ((int)$session['UserType'] !== 3) {
+            Response::error('Accès réservé aux administrateurs', 403);
+        }
+        return $session;
+    }
 }
