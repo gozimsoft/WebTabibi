@@ -73,10 +73,10 @@ export default function SearchPage({ navigate, qs }) {
                 {r.ClinicAddress && <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>📍 {r.ClinicAddress.slice(0, 60)}</div>}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f3f4f6", paddingTop: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <Stars rating={Math.round(+r.AvgRating)} size={13} />
+                    <Stars rating={Math.round(+r.AvgRating)} size={13} color="#0A85A4" />
                     <span style={{ fontSize: 11, color: "#6b7280" }}>({r.RatingCount})</span>
                   </div>
-                  {+r.Pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>{r.Pricing} {t("da")}</span>}
+                  {+r.Pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#0A85A4" }}>{r.Pricing} {t("da")}</span>}
                   {+r.Experience > 0 && <span style={{ fontSize: 11, color: "#9ca3af" }}>{r.Experience} {t("experience")}</span>}
                 </div>
               </div>
