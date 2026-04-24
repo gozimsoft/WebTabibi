@@ -76,6 +76,9 @@ const api = {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
     one: id => req("GET", `/clinics/${id}`),
     doctor: (c, d) => req("GET", `/clinics/${c}/doctors/${d}`),
+    profile: () => req("GET", "/clinics/profile"),
+    update: b => req("PUT", "/clinics/profile", b),
+    uploadLogo: fd => reqFile("POST", "/clinics/logo", fd),
   },
   specialties: () => req("GET", "/specialties"),
   wilayas: () => req("GET", "/wilayas"),
@@ -102,6 +105,7 @@ const api = {
   relations: {
     request: b => req("POST", "/relations/request", b),
     getRequests: () => req("GET", "/relations/requests"),
+    check: id => req("GET", `/relations/check/${id}`),
     respond: (id, b) => req("POST", `/relations/requests/${id}/respond`, b),
   },
   register: {
@@ -117,6 +121,13 @@ const api = {
     rejectClinic: (id, reason) => req("POST", `/admin/clinics/${id}/reject`, { reason }),
     approveDoctor: id => req("POST", `/admin/doctors/${id}/approve`, {}),
     rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
+  },
+  tickets: {
+    create: b => req("POST", "/tickets", b),
+    list: () => req("GET", "/tickets"),
+    get: id => req("GET", `/tickets/${id}`),
+    reply: (id, b) => req("POST", `/tickets/${id}/reply`, b),
+    close: id => req("POST", `/tickets/${id}/close`, {}),
   },
 };
 
@@ -229,12 +240,12 @@ const Stars = ({ rating = 0, interactive, onChange, size = 18 }) => (
 );
 
 // Doctor Image Placeholder / Avatar
-const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
+const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {}, fallbackIcon: Icon = User }) => {
   if (photo) {
     return (
       <img
         src={`data:image/jpeg;base64,${photo}`}
-        alt="Doctor"
+        alt="Profile"
         style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }}
       />
     );
@@ -246,7 +257,7 @@ const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
       display: "flex", alignItems: "center", justifyContent: "center",
       flexShrink: 0, ...style
     }}>
-      <User size={size * 0.5} color="var(--brand)" />
+      <Icon size={size * 0.5} color="var(--brand)" />
     </div>
   );
 };
@@ -423,7 +434,7 @@ function Navbar({ user, navigate, onLogout }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const isMobile = useIsMobile();
-  const name = user?.profile?.FullName?.split(" ")[0] || user?.username || "U";
+  const name = user?.profile?.FullName?.split(" ")[0] || user?.profile?.ClinicName?.split(" ")[0] || user?.username || "U";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -434,7 +445,7 @@ function Navbar({ user, navigate, onLogout }) {
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
-    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/chat", private: true },
+    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [{ label: "طلبات الانضمام", icon: <Check size={18} />, path: "/requests", private: true }] : [])
   ];
 
@@ -526,14 +537,14 @@ function Navbar({ user, navigate, onLogout }) {
                     minWidth: 220, overflow: "hidden", zIndex: 1001,
                   }}>
                     <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>{user.profile?.FullName || user.username}</div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>{user.profile?.FullName || user.profile?.ClinicName || user.username}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</div>
                     </div>
                     {[
                       user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                       (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
-                      { icon: <MessageSquare size={16} />, label: t("messages"), path: "/chat" },
+                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                     ].filter(Boolean).map(item => (
                       <button key={item.path} onClick={() => { navigate(item.path); setOpen(false); }} style={{
@@ -956,46 +967,6 @@ function HomePage({ user, navigate }) {
         </div>
       </section>
 
-      {/* ── SECTION: JOIN US CTA ── */}
-      <section style={{ padding: isMobile ? "40px 0" : "80px 0", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
-          <div style={{
-            background: "linear-gradient(135deg, #0c4a6e, #075985)",
-            borderRadius: 32, padding: isMobile ? "40px 24px" : "60px 50px",
-            color: "#fff", position: "relative", overflow: "hidden",
-            boxShadow: "0 20px 50px rgba(12, 74, 110, 0.2)",
-            display: "flex", flexDirection: isMobile ? "column" : "row-reverse",
-            alignItems: "center", justifyContent: "space-between", gap: 32
-          }}>
-            <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
-            <div style={{ position: "absolute", bottom: -20, left: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.03)" }} />
-
-            <div style={{ flex: 1, textAlign: isMobile ? "center" : "right", position: "relative", zIndex: 1 }}>
-              <h2 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, marginBottom: 16 }}>هل أنت طبيب أو صاحب عيادة؟</h2>
-              <p style={{ fontSize: 16, opacity: 0.9, lineHeight: 1.6, maxWidth: 600, margin: isMobile ? "0 auto" : "0 0 0 auto" }}>
-                انضم إلى منصة طبيبي وقم بإدارة مواعيدك، تواصل مع مرضاك، ووسع نطاق عملك بسهولة تامة. انضم لأكثر من 1200 طبيب مسجل.
-              </p>
-            </div>
-
-            <div style={{ display: "flex", gap: 12, flexDirection: isMobile ? "column" : "row", width: isMobile ? "100%" : "auto", position: "relative", zIndex: 1 }}>
-              <button onClick={() => navigate("/register-doctor")} style={{
-                background: "#fff", color: "#0c4a6e", border: "none", borderRadius: 14,
-                padding: "16px 32px", fontSize: 16, fontWeight: 800, cursor: "pointer",
-                transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-              }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "none"}>
-                <Stethoscope size={20} /> انضم كطبيب
-              </button>
-              <button onClick={() => navigate("/register-clinic")} style={{
-                background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 14,
-                padding: "16px 32px", fontSize: 16, fontWeight: 800, cursor: "pointer",
-                transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-              }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "none"}>
-                <Building size={20} /> سجل عيادتك
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ── SECTION: HOW IT WORKS (STEPS) ── */}
       <section style={{ background: "transparent", padding: "80px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", marginBottom: 80 }}>
@@ -1165,27 +1136,33 @@ function HomePage({ user, navigate }) {
             flexDirection: isMobile ? "column" : "row",
             width: isMobile ? "100%" : "auto"
           }}>
-            <button onClick={() => navigate("/learn-more")} style={{
-              background: "rgba(255,255,255,0.15)",
-              border: "1.5px solid rgba(255,255,255,0.35)",
-              borderRadius: 10, padding: "12px 28px",
-              color: "#fff", fontSize: 14, fontWeight: 700,
-              transition: "all 0.2s", cursor: "pointer",
-              width: isMobile ? "100%" : "auto"
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
-              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.15)"}
-            >{t("learn_more")}</button>
-            <button onClick={() => navigate("/register-clinic")} style={{
-              background: "var(--bg)", border: "none",
+            <button onClick={() => navigate("/register-doctor")} style={{
+              background: "#fff", border: "none",
               borderRadius: 10, padding: "12px 28px",
               color: "var(--brand)", fontSize: 14, fontWeight: 800,
               transition: "all 0.2s", cursor: "pointer",
-              width: isMobile ? "100%" : "auto"
+              width: isMobile ? "100%" : "auto",
+              display: "flex", alignItems: "center", gap: 8, justifyContent: "center"
             }}
               onMouseEnter={e => e.currentTarget.style.opacity = "0.92"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-            >{t("register_clinic")}</button>
+            >
+              <Stethoscope size={18} /> انضم كطبيب
+            </button>
+            <button onClick={() => navigate("/register-clinic")} style={{
+              background: "rgba(255,255,255,0.15)",
+              border: "1.5px solid rgba(255,255,255,0.35)",
+              borderRadius: 10, padding: "12px 28px",
+              color: "#fff", fontSize: 14, fontWeight: 800,
+              transition: "all 0.2s", cursor: "pointer",
+              width: isMobile ? "100%" : "auto",
+              display: "flex", alignItems: "center", gap: 8, justifyContent: "center"
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.15)"}
+            >
+              <Building size={18} /> سجل عيادتك
+            </button>
           </div>
         </div>
       </div>
@@ -1396,15 +1373,22 @@ function SearchPage({ navigate, qs, user }) {
               >
                 {r.ResultType === 'CLINIC' ? (
                   <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Building size={40} color="var(--brand)" />
-                    </div>
+                    <DoctorImage photo={r.PhotoProfile} size={80} borderRadius={20} fallbackIcon={Building} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20, display: 'inline-block', marginBottom: 6 }}>عيادة</div>
                       <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.ClinicName}</h3>
                       <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
                         <MapPin size={12} /> {r.ClinicAddress}
                       </div>
+                      {user?.user_type === 1 && (
+                        <div style={{ marginTop: 8 }}>
+                          {r.RelationStatus === 'ACCEPTED' ? (
+                            <Badge color="#059669">مرتبط بالعيادة</Badge>
+                          ) : r.RelationStatus === 'PENDING' ? (
+                            <Badge color="#f59e0b">بانتظار الموافقة</Badge>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -1447,14 +1431,22 @@ function SearchPage({ navigate, qs, user }) {
                             </div>
                           )}
                           {user?.user_type === 2 && (
-                            <Btn onClick={(e) => {
-                              e.stopPropagation();
-                              api.relations.request({ target_id: r.DoctorId })
-                                .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
-                                .catch(err => show(err.message, "error"));
-                            }} style={{ marginTop: 8, alignSelf: "flex-start", padding: "6px 12px", fontSize: 12 }}>
-                              <Plus size={14} style={{ marginLeft: 4 }} /> دعوة للعيادة
-                            </Btn>
+                            <div style={{ marginTop: 8 }}>
+                              {r.RelationStatus === 'ACCEPTED' ? (
+                                <Badge color="#059669">مرتبط بالعيادة</Badge>
+                              ) : r.RelationStatus === 'PENDING' ? (
+                                <Badge color="#f59e0b">بانتظار الموافقة</Badge>
+                              ) : (
+                                <Btn onClick={(e) => {
+                                  e.stopPropagation();
+                                  api.relations.request({ target_id: r.DoctorId })
+                                    .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
+                                    .catch(err => show(err.message, "error"));
+                                }} style={{ alignSelf: "flex-start", padding: "6px 12px", fontSize: 12 }}>
+                                  <Plus size={14} style={{ marginLeft: 4 }} /> دعوة للعيادة
+                                </Btn>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1502,6 +1494,7 @@ function ClinicDetailsPage({ navigate, clinicId, user }) {
   const isMobile = useIsMobile();
   const [clinic, setClinic] = useState(null);
   const [loading, setL] = useState(true);
+  const [relStatus, setRelStatus] = useState(null);
   const [requesting, setReq] = useState(false);
   const { show, Toast } = useToast();
 
@@ -1510,6 +1503,7 @@ function ClinicDetailsPage({ navigate, clinicId, user }) {
     try {
       await api.relations.request({ target_id: clinicId });
       show("تم إرسال طلب الانضمام بنجاح", "success");
+      setRelStatus('PENDING');
     } catch (e) {
       show(e.message, "error");
     } finally {
@@ -1519,8 +1513,13 @@ function ClinicDetailsPage({ navigate, clinicId, user }) {
 
   useEffect(() => {
     setL(true);
-    api.clinics.one(clinicId)
-      .then(setClinic)
+    const p = [api.clinics.one(clinicId)];
+    if (user?.user_type === 1) p.push(api.relations.check(clinicId));
+
+    Promise.all(p).then(([c, rel]) => {
+      setClinic(c);
+      if (rel) setRelStatus(rel.status);
+    })
       .catch(e => show(e.message, "error"))
       .finally(() => setL(false));
   }, [clinicId]);
@@ -1537,9 +1536,7 @@ function ClinicDetailsPage({ navigate, clinicId, user }) {
 
       <Card style={{ padding: isMobile ? 20 : 32, marginBottom: 24, background: "linear-gradient(135deg, #fff, #f8fafc)" }}>
         <div style={{ display: "flex", gap: 24, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start" }}>
-          <div style={{ width: 120, height: 120, borderRadius: 24, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "4px solid #fff", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}>
-            <Building size={60} color="var(--brand)" />
-          </div>
+          <DoctorImage photo={clinic.Logo} size={120} borderRadius={24} fallbackIcon={Building} style={{ border: "4px solid #fff", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }} />
           <div style={{ flex: 1, textAlign: isMobile ? "center" : "right" }}>
             <h1 style={{ fontSize: 32, fontWeight: 950, color: "#0c4a6e", marginBottom: 12 }}>{clinic.ClinicName}</h1>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", justifyContent: isMobile ? "center" : "flex-end" }}>
@@ -1555,11 +1552,26 @@ function ClinicDetailsPage({ navigate, clinicId, user }) {
             </div>
             {clinic.Notes && <p style={{ marginTop: 20, color: "#64748b", lineHeight: 1.6 }}>{clinic.Notes}</p>}
 
-            {user?.user_type === 1 && (
-              <Btn onClick={sendJoinRequest} loading={requesting} style={{ marginTop: 20 }}>
-                <Plus size={18} /> طلب انضمام للعيادة
-              </Btn>
-            )}
+            <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: isMobile ? "center" : "flex-end" }}>
+              {user?.user_type === 1 && (
+                <>
+                  {relStatus === 'ACCEPTED' ? (
+                    <Badge color="#059669">مرتبط بالعيادة</Badge>
+                  ) : relStatus === 'PENDING' ? (
+                    <Badge color="#f59e0b">بانتظار الموافقة</Badge>
+                  ) : (
+                    <Btn onClick={sendJoinRequest} loading={requesting}>
+                      <Plus size={18} /> طلب انضمام للعيادة
+                    </Btn>
+                  )}
+                </>
+              )}
+              {user?.user_type === 0 && (
+                <Btn variant="secondary" onClick={() => navigate(`/tickets/new?clinic_id=${clinicId}`)}>
+                  <MessageSquare size={18} /> {t("contact") || "تواصل"}
+                </Btn>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -1602,6 +1614,7 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
   const isMobile = useIsMobile();
   const [data, setData] = useState(null);
   const [ratings, setR] = useState(null);
+  const [relStatus, setRelStatus] = useState(null);
   const [loading, setL] = useState(true);
   const [tab, setTab] = useState("info");
   const [myRating, setMR] = useState(0);
@@ -1611,10 +1624,18 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
 
   useEffect(() => {
     setL(true);
-    Promise.all([
+    const promises = [
       api.clinics.doctor(clinicId, doctorId),
       api.ratings.doctor(doctorId),
-    ]).then(([d, r]) => { setData(d); setR(r); })
+    ];
+    if (user && (user.user_type === 1 || user.user_type === 2)) {
+      promises.push(api.relations.check(user.user_type === 2 ? doctorId : clinicId));
+    }
+
+    Promise.all(promises).then(([d, r, rel]) => {
+      setData(d); setR(r);
+      if (rel) setRelStatus(rel.status);
+    })
       .catch(e => show(e.message, "error"))
       .finally(() => setL(false));
   }, [clinicId, doctorId]);
@@ -1681,13 +1702,24 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8, width: isMobile ? "100%" : "auto" }}>
             {user ? (
               user.user_type === 2 ? (
-                <Btn onClick={() => {
-                  api.relations.request({ target_id: doctorId })
-                    .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
-                    .catch(err => show(err.message, "error"));
-                }} style={{ padding: "12px 24px", justifyContent: "center" }}>
-                  <Plus size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> دعوة للعيادة
-                </Btn>
+                <>
+                  {relStatus === 'ACCEPTED' ? (
+                    <Badge color="#059669" style={{ padding: 12, justifyContent: "center" }}>مرتبط بالعيادة</Badge>
+                  ) : relStatus === 'PENDING' ? (
+                    <Badge color="#f59e0b" style={{ padding: 12, justifyContent: "center" }}>بانتظار الموافقة</Badge>
+                  ) : (
+                    <Btn onClick={() => {
+                      api.relations.request({ target_id: doctorId })
+                        .then(() => {
+                          show("تم إرسال دعوة الانضمام للطبيب", "success");
+                          setRelStatus('PENDING');
+                        })
+                        .catch(err => show(err.message, "error"));
+                    }} style={{ padding: "12px 24px", justifyContent: "center" }}>
+                      <Plus size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> دعوة للعيادة
+                    </Btn>
+                  )}
+                </>
               ) : user.user_type === 1 ? null : (
                 <>
                   <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "12px 24px", justifyContent: "center" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
@@ -1699,7 +1731,7 @@ function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
             ) : (
               <Btn onClick={() => navigate("/login")} style={{ justifyContent: "center" }}>{t("login_to_book")}</Btn>
             )}
-            <Btn variant="secondary" onClick={() => { navigate("/chat"); }} style={{ padding: "10px 24px", fontSize: 13, justifyContent: "center" }}><MessageSquare size={16} /> {t("contact")}</Btn>
+            <Btn variant="secondary" onClick={() => { navigate(`/tickets/new?doctor_id=${doctorId}`); }} style={{ padding: "10px 24px", fontSize: 13, justifyContent: "center" }}><MessageSquare size={16} /> {t("contact")}</Btn>
           </div>
         </div>
       </Card>
@@ -3472,6 +3504,230 @@ function RequestsPage({ navigate, user }) {
   );
 }
 
+// ── PAGE: TICKETS ──────────────────────────────────────────────
+function TicketsPage({ navigate, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setL] = useState(true);
+  const { show, Toast } = useToast();
+
+  const load = async () => {
+    try {
+      setL(true);
+      const data = await api.tickets.list();
+      setTickets(data);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>الرسائل والمحادثات</h1>
+        {user.user_type === 0 && (
+          <Btn onClick={() => navigate("/tickets/new")}>
+            <Plus size={18} /> رسالة جديدة
+          </Btn>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {tickets.map(t => (
+          <Card key={t.ID} onClick={() => navigate(`/tickets/${t.ID}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{t.Subject}</div>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                {user.user_type === 0 ? (
+                  t.DoctorName ? `محادثة مع الطبيب: ${t.DoctorName}` : (t.ClinicName ? `محادثة مع العيادة: ${t.ClinicName}` : "رسالة عامة")
+                ) : (
+                  `من المريض: ${t.PatientName}`
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                آخر تحديث: {new Date(t.Updated_At).toLocaleString(i18n.language)}
+              </div>
+            </div>
+            <Badge color={t.Status === 'CLOSED' ? "#64748b" : (t.Status === 'OPEN' ? "#0ea5e9" : "#f59e0b")}>
+              {t.Status === 'OPEN' ? "مفتوحة" : (t.Status === 'PENDING' ? "بانتظار ردك" : "مغلقة")}
+            </Badge>
+          </Card>
+        ))}
+
+        {tickets.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            لا توجد رسائل حالياً
+          </div>
+        )}
+      </div>
+      <Toast />
+    </div>
+  );
+}
+
+function TicketConversationPage({ ticketId, navigate, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [data, setData] = useState(null);
+  const [loading, setL] = useState(true);
+  const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const { show, Toast } = useToast();
+  const scrollRef = useRef();
+
+  const load = async () => {
+    try {
+      const d = await api.tickets.get(ticketId);
+      setData(d);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [data]);
+
+  const onSend = async (e) => {
+    e?.preventDefault();
+    if (!msg.trim() || sending) return;
+    setSending(true);
+    try {
+      await api.tickets.reply(ticketId, { message: msg });
+      setMsg("");
+      load();
+    } catch (e) { show(e.message, "error"); }
+    finally { setSending(false); }
+  };
+
+  const onCloseTicket = async () => {
+    if (!window.confirm("هل أنت متأكد من إغلاق هذه التذكرة؟")) return;
+    try {
+      await api.tickets.close(ticketId);
+      show("تم إغلاق التذكرة", "success");
+      load();
+    } catch (e) { show(e.message, "error"); }
+  };
+
+  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+  if (!data) return <div style={{ padding: 60, textAlign: "center" }}>Ticket not found</div>;
+
+  const { ticket, messages } = data;
+
+  return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "24px", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <button onClick={() => navigate("/tickets")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
+            <ArrowRight size={18} /> العودة للرسائل
+          </button>
+          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{ticket.Subject}</h1>
+        </div>
+        {user.user_type !== 0 && ticket.Status !== 'CLOSED' && (
+          <Btn variant="danger" onClick={onCloseTicket}>إنهاء المحادثة</Btn>
+        )}
+      </div>
+
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px", background: "#fff", borderRadius: 20, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+        {messages.map(m => {
+          const isMe = (user.user_type === 0 && m.Sender_Type === 'patient') ||
+                       (user.user_type === 1 && m.Sender_Type === 'doctor') ||
+                       (user.user_type === 2 && m.Sender_Type === 'clinic');
+          return (
+            <div key={m.ID} style={{
+              alignSelf: isMe ? "flex-start" : "flex-end",
+              maxWidth: "80%",
+              padding: "12px 16px",
+              borderRadius: 16,
+              background: isMe ? "var(--brand)" : "#f1f5f9",
+              color: isMe ? "#fff" : "#1e293b",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+              position: "relative"
+            }}>
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}>{m.Message}</div>
+              <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4, textAlign: "left" }}>
+                {new Date(m.Created_At).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {ticket.Status !== 'CLOSED' ? (
+        <form onSubmit={onSend} style={{ display: "flex", gap: 10 }}>
+          <input
+            value={msg}
+            onChange={e => setMsg(e.target.value)}
+            placeholder="اكتب ردك هنا..."
+            style={{ flex: 1, padding: "14px 20px", borderRadius: 12, border: "1.5px solid var(--border)", outline: "none" }}
+          />
+          <Btn type="submit" loading={sending} disabled={!msg.trim()}>إرسال</Btn>
+        </form>
+      ) : (
+        <div style={{ textAlign: "center", padding: 15, background: "#f1f5f9", borderRadius: 12, color: "#64748b", fontWeight: 700 }}>
+          هذه المحادثة مغلقة
+        </div>
+      )}
+      <Toast />
+    </div>
+  );
+}
+
+function NewTicketPage({ navigate, user, qs }) {
+  const { show, Toast } = useToast();
+  const [loading, setL] = useState(false);
+  const [subject, setSub] = useState("");
+  const [message, setMsg] = useState("");
+  
+  const params = new URLSearchParams(qs);
+  const doctorId = params.get("doctor_id");
+  const clinicId = params.get("clinic_id");
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!subject.trim() || !message.trim()) return;
+    setL(true);
+    try {
+      await api.tickets.create({ subject, message, doctor_id: doctorId, clinic_id: clinicId });
+      show("تم إنشاء التذكرة بنجاح", "success");
+      setTimeout(() => navigate("/tickets"), 1500);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "40px 24px" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 24 }}>إرسال رسالة جديدة</h1>
+      <Card>
+        <form onSubmit={onSubmit}>
+          <Input label="عنوان الرسالة (الموضوع)" value={subject} onChange={e => setSub(e.target.value)} placeholder="مثال: استفسار عن موعد" required />
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#374151" }}>محتوى الرسالة</label>
+            <textarea
+              value={message}
+              onChange={e => setMsg(e.target.value)}
+              placeholder="اكتب تفاصيل استفسارك هنا..."
+              required
+              style={{ width: "100%", height: 150, padding: 14, borderRadius: 12, border: "1.5px solid var(--border)", outline: "none", resize: "none", boxSizing: "border-box" }}
+            />
+          </div>
+          <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center" }}>إرسال الآن</Btn>
+        </form>
+      </Card>
+      <Toast />
+    </div>
+  );
+}
+
 // ── PAGE: PROFILE ─────────────────────────────────────────────
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: PROFILE (ACCOUNT SETTINGS)
@@ -3480,24 +3736,6 @@ function ProfilePage({ user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   
-  if (user && user.user_type === 2) {
-    return (
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", textAlign: "center" }}>
-        <Card style={{ padding: 40 }}>
-          <h2 style={{ color: "#0c4a6e", marginBottom: 16 }}>الملف الشخصي للعيادة</h2>
-          <p style={{ color: "#64748b", fontSize: 16 }}>
-            مرحباً <strong>{user.profile?.ClinicName || user.username}</strong>
-          </p>
-          <div style={{ padding: 20, background: "#f8fafc", borderRadius: 12, marginTop: 24, border: "1px dashed var(--border)" }}>
-            <p style={{ color: "#94a3b8", margin: 0, fontSize: 14 }}>
-              واجهة الإعدادات الخاصة بالعيادات قيد التطوير وستتوفر قريباً...
-            </p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   const [form, setForm] = useState(null);
   const [loading, setL] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -3511,6 +3749,7 @@ function ProfilePage({ user }) {
     try {
       let p;
       if (user?.user_type === 1) p = await api.doctor.profile();
+      else if (user?.user_type === 2) p = await api.clinics.profile();
       else p = await api.patient.profile();
 
       let vs = null;
@@ -3527,6 +3766,7 @@ function ProfilePage({ user }) {
     e.preventDefault(); setSaving(true);
     try {
       if (user?.user_type === 1) await api.doctor.update(form);
+      else if (user?.user_type === 2) await api.clinics.update(form);
       else await api.patient.update(form);
       show(t("save_success"));
     }
@@ -3541,10 +3781,10 @@ function ProfilePage({ user }) {
     try {
       const fd = new FormData();
       fd.append("photo", file);
-      await api.doctor.uploadPhoto(fd);
-      show("تم تحديث الصورة الشخصية بنجاح");
-      const p = await api.doctor.profile();
-      setForm(p);
+      if (user?.user_type === 2) await api.clinics.uploadLogo(fd);
+      else await api.doctor.uploadPhoto(fd);
+      show("تم تحديث الصورة بنجاح");
+      load();
     } catch (err) { show(err.message, "error"); }
     finally { setUPhoto(false); }
   };
@@ -3560,18 +3800,18 @@ function ProfilePage({ user }) {
       {/* Header */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 28 }}>
         <div 
-          onClick={() => user?.user_type === 1 && fileInput.current?.click()}
-          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: user?.user_type === 1 ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
+          onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
+          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
           {uploadingPhoto ? <Spinner size={24} /> : (
-            form.PhotoProfile ? (
-              <img src={`data:image/jpeg;base64,${form.PhotoProfile}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            (form.PhotoProfile || form.Logo) ? (
+              <img src={`data:image/jpeg;base64,${form.PhotoProfile || form.Logo}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              (form.FullName || "U")[0].toUpperCase()
+              (form.FullName || form.ClinicName || "U")[0].toUpperCase()
             )
           )}
         </div>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{form.FullName}</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{form.FullName || form.ClinicName}</h1>
           <div style={{ fontSize: 13, color: "#6b7280" }}>{form.Email}</div>
           {verStatus && (
             <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -3614,8 +3854,8 @@ function ProfilePage({ user }) {
       )}
 
       <form onSubmit={save}>
-        {/* Account Info (Doctor Only) */}
-        {user?.user_type === 1 && (
+        {/* Account Info (Doctor & Clinic) */}
+        {(user?.user_type === 1 || user?.user_type === 2) && (
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
@@ -3627,11 +3867,14 @@ function ProfilePage({ user }) {
 
         {/* Personal Info */}
         <Card style={{ marginBottom: 14 }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
+          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {user?.user_type === 2 ? "معلومات العيادة" : t("personal_info")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-            <Input label={t("fullname")} value={form.FullName || ""} onChange={e => f("FullName", e.target.value)} />
+            <Input label={user?.user_type === 2 ? "اسم العيادة" : t("fullname")} value={form.FullName || form.ClinicName || ""} onChange={e => f(user?.user_type === 2 ? "ClinicName" : "FullName", e.target.value)} />
             <Input label={t("phone")} type="tel" value={form.Phone || ""} onChange={e => f("Phone", e.target.value)} />
             <Input label={t("email")} type="email" value={form.Email || ""} onChange={e => f("Email", e.target.value)} />
+            {user?.user_type === 2 && (
+              <Input label="العنوان" value={form.Address || ""} onChange={e => f("Address", e.target.value)} />
+            )}
             
             {user?.user_type === 0 && (
               <>
@@ -3691,6 +3934,14 @@ function ProfilePage({ user }) {
                 style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
             </div>
           </Card>
+        )}
+
+        {user?.user_type === 2 && (
+           <Card style={{ marginBottom: 14 }}>
+             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
+             <textarea value={form.Notes || ""} onChange={e => f("Notes", e.target.value)} rows={4}
+                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
+           </Card>
         )}
 
         <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
@@ -4064,10 +4315,18 @@ export default function App() {
       case "/requests":
         if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }
         return <RequestsPage key="requests" navigate={navigate} user={user} />;
-      case "/chat":
+      case "/tickets":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <ChatPage key="chat" user={user} />;
+        return <TicketsPage key="tickets" navigate={navigate} user={user} />;
+      case "/tickets/new":
+        if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
+        return <NewTicketPage key="new_ticket" navigate={navigate} user={user} qs={qs} />;
       default:
+        if (route.startsWith("/tickets/")) {
+          if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+          const tid = route.split("/")[2];
+          return <TicketConversationPage key={tid} ticketId={tid} navigate={navigate} user={user} />;
+        }
         return (
           <div key="404" style={{ textAlign: "center", padding: "80px 24px" }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>

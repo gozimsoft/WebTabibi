@@ -141,6 +141,34 @@ class RelationController {
         Response::success($results);
     }
 
+    public static function checkRelation(string $targetId): void {
+        $user = AuthMiddleware::authenticate();
+        $pdo = Database::getInstance();
+        
+        $myId = '';
+        $filterCol = '';
+        $targetCol = '';
+
+        if ($user['UserType'] == 1) { // Doctor checking relation with Clinic
+            $myId = $user['Doctor_id'] ?? self::getDoctorId($user['user_id']);
+            $filterCol = 'Doctor_ID';
+            $targetCol = 'Clinic_ID';
+        } else if ($user['UserType'] == 2) { // Clinic checking relation with Doctor
+            $myId = $user['Clinic_id'] ?? self::getClinicId($user['user_id']);
+            $filterCol = 'Clinic_ID';
+            $targetCol = 'Doctor_ID';
+        } else {
+            Response::success(['status' => null]);
+            return;
+        }
+
+        $stmt = $pdo->prepare("SELECT Status FROM ClinicsDoctors WHERE $filterCol = ? AND $targetCol = ? LIMIT 1");
+        $stmt->execute([$myId, $targetId]);
+        $status = $stmt->fetchColumn();
+        
+        Response::success(['status' => $status ? strtoupper($status) : null]);
+    }
+
     public static function respondToRequest(string $requestId): void {
         $user = AuthMiddleware::authenticate();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];

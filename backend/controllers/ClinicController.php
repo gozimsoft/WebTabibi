@@ -8,6 +8,101 @@ require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
 class ClinicController {
 
+    // GET /api/clinics/profile
+    public static function getProfile(): void {
+        $session = AuthMiddleware::authenticate();
+        if ($session['UserType'] != 2) Response::error('Non autorisé', 403);
+        
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("
+            SELECT c.*, u.Username 
+            FROM Clinics c 
+            JOIN ClinicRegistrations cr ON cr.Clinic_ID = c.ID
+            JOIN Users u ON u.ID = cr.User_ID
+            WHERE cr.User_ID = ? 
+            LIMIT 1
+        ");
+        $stmt->execute([$session['user_id']]);
+        $clinic = $stmt->fetch();
+        
+        if (!$clinic) Response::notFound('Profil clinique non trouvé');
+        
+        if (!empty($clinic['Logo'])) {
+            $clinic['Logo'] = base64_encode($clinic['Logo']);
+        }
+
+        Response::success($clinic);
+    }
+
+    // PUT /api/clinics/profile
+    public static function updateProfile(): void {
+        $session = AuthMiddleware::authenticate();
+        if ($session['UserType'] != 2) Response::error('Non autorisé', 403);
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pdo  = Database::getInstance();
+
+        // 1. Update Users table
+        $userFields = [];
+        $userValues = [];
+        if (!empty($data['Username'])) {
+            $check = $pdo->prepare("SELECT ID FROM Users WHERE Username = ? AND ID != ?");
+            $check->execute([$data['Username'], $session['user_id']]);
+            if ($check->fetchColumn()) Response::error("Nom d'utilisateur déjà pris", 409);
+            $userFields[] = "`Username` = ?";
+            $userValues[] = $data['Username'];
+        }
+        if (!empty($data['Password'])) {
+            $userFields[] = "`Password` = ?";
+            $userValues[] = base64_encode($data['Password']);
+        }
+        if (!empty($userFields)) {
+            $userValues[] = $session['user_id'];
+            $pdo->prepare("UPDATE Users SET " . implode(', ', $userFields) . " WHERE ID = ?")->execute($userValues);
+        }
+
+        // 2. Update Clinics table
+        $clinicId = $session['Clinic_id'] ?? self::getClinicId($session['user_id']);
+        if ($clinicId) {
+            $allowed = ['ClinicName', 'Email', 'Phone', 'Address', 'Notes'];
+            $fields = [];
+            $values = [];
+            foreach ($allowed as $field) {
+                if (array_key_exists($field, $data)) {
+                    $fields[] = "`$field` = ?";
+                    $values[] = $data[$field];
+                }
+            }
+            if (!empty($fields)) {
+                $values[] = $clinicId;
+                $pdo->prepare("UPDATE Clinics SET " . implode(', ', $fields) . " WHERE ID = ?")->execute($values);
+            }
+        }
+
+        Response::success(null, 'Profil mis à jour avec succès');
+    }
+
+    // POST /api/clinics/logo (Self upload)
+    public static function uploadSelfLogo(): void {
+        $session = AuthMiddleware::authenticate();
+        if ($session['UserType'] != 2) Response::error('Non autorisé', 403);
+        
+        if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('Erreur lors du téléchargement du logo', 400);
+        }
+
+        $fileContent = file_get_contents($_FILES['photo']['tmp_name']);
+        $clinicId = $session['Clinic_id'] ?? self::getClinicId($session['user_id']);
+
+        if (!$clinicId) Response::error('Profil non trouvé', 404);
+
+        $pdo = Database::getInstance();
+        $pdo->prepare("UPDATE Clinics SET Logo = ? WHERE ID = ?")
+            ->execute([$fileContent, $clinicId]);
+
+        Response::success(null, 'Logo mis à jour avec succès');
+    }
+
     // GET /api/clinics?q=&specialty=&wilaya=&page=1&limit=20
     public static function search(): void {
         $pdo = Database::getInstance();
@@ -27,6 +122,14 @@ class ClinicController {
             $params = [$like, $like, $like, $like];
         }
 
+        $user = AuthMiddleware::authenticate(false);
+        $myDoctorId = null;
+        $myClinicId = null;
+        if ($user) {
+            if ($user['UserType'] == 1) $myDoctorId = $user['Doctor_id'] ?? self::getDoctorId($user['user_id']);
+            if ($user['UserType'] == 2) $myClinicId = $user['Clinic_id'] ?? self::getClinicId($user['user_id']);
+        }
+
         // We use a UNION to get both Clinics and Doctor-at-Clinic entries
         // Note: We need to match column counts and types
         $query = "
@@ -40,14 +143,15 @@ class ClinicController {
                     c.Phone as ClinicPhone,
                     NULL as DoctorId,
                     NULL as DoctorName,
-                    NULL as PhotoProfile,
+                    c.Logo as PhotoProfile,
                     0 as Experience,
                     0 as Pricing,
                     NULL as SpecialtyId,
                     NULL as SpecialtyFr,
                     NULL as SpecialtyAr,
                     0 as AvgRating,
-                    0 as RatingCount
+                    0 as RatingCount,
+                    (SELECT Status FROM ClinicsDoctors WHERE Clinic_ID = c.ID AND Doctor_ID = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as RelationStatus
                 FROM Clinics c
                 WHERE c.Status = 'APPROVED' AND c.ClinicName LIKE ?
                 GROUP BY c.ID
@@ -70,7 +174,8 @@ class ClinicController {
                     s.NameFr as SpecialtyFr,
                     s.NameAr as SpecialtyAr,
                     COALESCE(AVG(dr2.Rating), 0) as AvgRating,
-                    COUNT(dr2.ID) as RatingCount
+                    COUNT(dr2.ID) as RatingCount,
+                    (SELECT Status FROM ClinicsDoctors WHERE Doctor_ID = d.ID AND Clinic_ID = " . ($myClinicId ? $pdo->quote($myClinicId) : "NULL") . " LIMIT 1) as RelationStatus
                 FROM ClinicsDoctors cd
                 JOIN Clinics c ON c.ID = cd.Clinic_ID
                 JOIN Doctors d ON d.ID = cd.Doctor_ID
@@ -98,6 +203,9 @@ class ClinicController {
         foreach ($results as &$r) {
             if (!empty($r['PhotoProfile'])) {
                 $r['PhotoProfile'] = base64_encode($r['PhotoProfile']);
+            }
+            if (!empty($r['RelationStatus'])) {
+                $r['RelationStatus'] = strtoupper($r['RelationStatus']);
             }
         }
 
@@ -154,7 +262,10 @@ class ClinicController {
                 ];
             }
         }
-        unset($clinic['DoctorsList'], $clinic['Logo']);
+        if (!empty($clinic['Logo'])) {
+            $clinic['Logo'] = base64_encode($clinic['Logo']);
+        }
+        unset($clinic['DoctorsList']);
         $clinic['Doctors'] = $doctors;
 
         Response::success($clinic);
@@ -368,4 +479,17 @@ class ClinicController {
         exit;
     }
 
+    public static function getDoctorId(string $userId): string {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT ID FROM Doctors WHERE User_id=? LIMIT 1");
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn() ?: '';
+    }
+
+    public static function getClinicId(string $userId): string {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT Clinic_ID FROM ClinicRegistrations WHERE User_ID=? LIMIT 1");
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn() ?: '';
+    }
 }

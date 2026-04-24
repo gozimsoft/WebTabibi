@@ -23,7 +23,7 @@ class AuthMiddleware {
         $pdo   = Database::getInstance();
 
         $stmt = $pdo->prepare("
-            SELECT s.user_id, s.created_at, u.UserType
+            SELECT s.user_id, s.created_at, u.UserType, u.Username
             FROM sessions s
             JOIN Users u ON u.ID = s.user_id
             WHERE s.token = ?

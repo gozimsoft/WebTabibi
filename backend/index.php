@@ -69,6 +69,11 @@ try {
     if ($uri === '/clinics' && $method === 'GET') {
         require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::search();
     }
+    // /clinics/profile
+    if ($uri === '/clinics/profile' && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getProfile(); }
+    if ($uri === '/clinics/profile' && $method === 'PUT') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::updateProfile(); }
+    if ($uri === '/clinics/logo' && $method === 'POST')   { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::uploadSelfLogo(); }
+
     // /clinics/:id
     if (isset($parts[0]) && $parts[0] === 'clinics' && isset($parts[1]) && !isset($parts[2]) && $method === 'GET') {
         require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getClinic($parts[1]);
@@ -148,8 +153,25 @@ try {
     // ── Relations (Clinic-Doctor requests) ──────────────────────
     if ($uri === '/relations/request' && $method === 'POST') { require_once __DIR__.'/controllers/RelationController.php'; RelationController::sendRequest(); }
     if ($uri === '/relations/requests' && $method === 'GET')  { require_once __DIR__.'/controllers/RelationController.php'; RelationController::getRequests(); }
+    if (isset($parts[0]) && $parts[0]==='relations' && ($parts[1]??'')==='check' && isset($parts[2]) && !isset($parts[3]) && $method==='GET') {
+        require_once __DIR__.'/controllers/RelationController.php'; RelationController::checkRelation($parts[2]);
+    }
     if (isset($parts[0]) && $parts[0]==='relations' && ($parts[1]??'')==='requests' && isset($parts[2]) && ($parts[3]??'')==='respond' && $method==='POST') {
         require_once __DIR__.'/controllers/RelationController.php'; RelationController::respondToRequest($parts[2]);
+    }
+
+    // ── Tickets (Support) ──────────────────────────────────────
+    if ($uri === '/tickets' && $method === 'POST') { require_once __DIR__.'/controllers/TicketController.php'; TicketController::create(); }
+    if ($uri === '/tickets' && $method === 'GET')  { require_once __DIR__.'/controllers/TicketController.php'; TicketController::list(); }
+    if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[1]) && !isset($parts[2])) {
+        require_once __DIR__.'/controllers/TicketController.php';
+        if ($method === 'GET') TicketController::get($parts[1]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[2]) && $parts[2] === 'reply' && $method === 'POST') {
+        require_once __DIR__.'/controllers/TicketController.php'; TicketController::reply($parts[1]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[2]) && $parts[2] === 'close' && $method === 'POST') {
+        require_once __DIR__.'/controllers/TicketController.php'; TicketController::close($parts[1]);
     }
 
     // ── 404 ───────────────────────────────────────────────────
