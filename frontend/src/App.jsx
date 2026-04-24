@@ -18,8 +18,8 @@ import ContactPage from "./pages/Contact";
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// const BASE = "https://tabibi.dz/api";
-const BASE = "http://localhost:8000/api";
+const BASE = "https://tabibi.dz/api";
+//const BASE = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -2839,7 +2839,7 @@ function RegisterDoctorPage({ navigate }) {
   const [specs, setSpecs] = useState([]);
 
   useEffect(() => {
-    api.specialties().then(setSpecs).catch(() => {});
+    api.specialties().then(setSpecs).catch(() => { });
   }, []);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
@@ -3456,7 +3456,7 @@ function RequestsPage({ navigate, user }) {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
       <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>طلبات الانضمام</h1>
-      
+
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {requests.map(r => (
           <Card key={r.ID} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px", flexWrap: "wrap", gap: 16 }}>
@@ -3469,7 +3469,7 @@ function RequestsPage({ navigate, user }) {
                 تاريخ الطلب: {new Date(r.CreatedAt).toLocaleDateString(i18n.language)}
               </div>
             </div>
-            
+
             <div style={{ display: "flex", gap: 10 }}>
               {r.Status === 'PENDING' ? (
                 r.SenderType?.toUpperCase() !== (user.user_type === 1 ? 'DOCTOR' : 'CLINIC') ? (
@@ -3640,8 +3640,8 @@ function TicketConversationPage({ ticketId, navigate, user }) {
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px", background: "#fff", borderRadius: 20, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
         {messages.map(m => {
           const isMe = (user.user_type === 0 && m.Sender_Type === 'patient') ||
-                       (user.user_type === 1 && m.Sender_Type === 'doctor') ||
-                       (user.user_type === 2 && m.Sender_Type === 'clinic');
+            (user.user_type === 1 && m.Sender_Type === 'doctor') ||
+            (user.user_type === 2 && m.Sender_Type === 'clinic');
           return (
             <div key={m.ID} style={{
               alignSelf: isMe ? "flex-start" : "flex-end",
@@ -3687,7 +3687,7 @@ function NewTicketPage({ navigate, user, qs }) {
   const [loading, setL] = useState(false);
   const [subject, setSub] = useState("");
   const [message, setMsg] = useState("");
-  
+
   const params = new URLSearchParams(qs);
   const doctorId = params.get("doctor_id");
   const clinicId = params.get("clinic_id");
@@ -3735,7 +3735,7 @@ function NewTicketPage({ navigate, user, qs }) {
 function ProfilePage({ user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
-  
+
   const [form, setForm] = useState(null);
   const [loading, setL] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -3799,7 +3799,7 @@ function ProfilePage({ user }) {
       <input type="file" ref={fileInput} onChange={handlePhotoUpload} accept="image/*" style={{ display: "none" }} />
       {/* Header */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 28 }}>
-        <div 
+        <div
           onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
           style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
           {uploadingPhoto ? <Spinner size={24} /> : (
@@ -3875,7 +3875,7 @@ function ProfilePage({ user }) {
             {user?.user_type === 2 && (
               <Input label="العنوان" value={form.Address || ""} onChange={e => f("Address", e.target.value)} />
             )}
-            
+
             {user?.user_type === 0 && (
               <>
                 <Input label={t("birth_date")} type="date" value={(form.BirthDate || "").substring(0, 10)} onChange={e => f("BirthDate", e.target.value)} />
@@ -3937,11 +3937,11 @@ function ProfilePage({ user }) {
         )}
 
         {user?.user_type === 2 && (
-           <Card style={{ marginBottom: 14 }}>
-             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
-             <textarea value={form.Notes || ""} onChange={e => f("Notes", e.target.value)} rows={4}
-                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
-           </Card>
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
+            <textarea value={form.Notes || ""} onChange={e => f("Notes", e.target.value)} rows={4}
+              style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
+          </Card>
         )}
 
         <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
