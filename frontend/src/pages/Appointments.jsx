@@ -20,20 +20,20 @@ export default function AppointmentsPage({ navigate }) {
     if (!confirm(t("cancel_confirm"))) return;
     try {
       await api.appointments.cancel(id);
-      setAppts(p => p.filter(a => a.ID !== id));
+      setAppts(p => p.filter(a => a.id !== id));
       show(t("cancel_success"));
     } catch (e) { show(e.message, "error"); }
   };
 
   const filtered = appts.filter(a => {
-    const d = new Date(a.AppointementDate);
+    const d = new Date(a.appointementdate);
     if (filter === "upcoming") return d >= now;
     if (filter === "past") return d < now;
     return true;
   });
 
   const cnt = (f) => appts.filter(a => {
-    const d = new Date(a.AppointementDate);
+    const d = new Date(a.appointementdate);
     if (f === "upcoming") return d >= now;
     if (f === "past") return d < now;
     return true;
@@ -69,17 +69,17 @@ export default function AppointmentsPage({ navigate }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map(a => {
-            const isPast = new Date(a.AppointementDate) < now;
-            const d = new Date(a.AppointementDate);
+            const isPast = new Date(a.appointementdate) < now;
+            const d = new Date(a.appointementdate);
             return (
-              <Card key={a.ID} style={{ padding: "16px 20px" }}>
+              <Card key={a.id} style={{ padding: "16px 20px" }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-                  <DoctorImage photo={a.PhotoProfile} size={46} borderRadius={10} style={{ background: isPast ? "#f3f4f6" : undefined }} />
+                  <DoctorImage photo={a.photoprofile} size={46} borderRadius={10} style={{ background: isPast ? "#f3f4f6" : undefined }} />
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
                       <div>
-                        <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{a.DoctorName || t("doctor")}</div>
-                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>🏥 {a.ClinicName || "—"}</div>
+                        <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{a.doctorname || t("doctor")}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>🏥 {a.clinicname || "—"}</div>
                         {a.ReasonName && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 3 }}>🩺 {a.ReasonName}</div>}
                       </div>
                       <div style={{ textAlign: i18n.language === 'ar' ? "right" : "left" }}>
@@ -96,7 +96,7 @@ export default function AppointmentsPage({ navigate }) {
                     </div>
                     {!isPast && (
                       <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                        <Btn variant="danger" onClick={() => cancel(a.ID)} style={{ padding: "6px 14px", fontSize: 12 }}>{t("cancel_btn")}</Btn>
+                        <Btn variant="danger" onClick={() => cancel(a.id)} style={{ padding: "6px 14px", fontSize: 12 }}>{t("cancel_btn")}</Btn>
                       </div>
                     )}
                   </div>

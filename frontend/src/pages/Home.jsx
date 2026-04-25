@@ -91,7 +91,7 @@ export default function HomePage({ user, navigate }) {
             </div>
           </div>
 
-          {/* Stat: Patients — avec la photo */}
+          {/* Stat: patients — avec la photo */}
           <div style={{
             borderRadius: 16,
             border: "1px solid #e5e7eb",
@@ -120,7 +120,7 @@ export default function HomePage({ user, navigate }) {
         </div>
       </div>
 
-      {/* Specialties */}
+      {/* specialties */}
       <div style={{ maxWidth: 1100, margin: "0 auto 60px", padding: "0 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0c4a6e", margin: 0 }}>{t("specialties_title")}</h2>
@@ -128,13 +128,13 @@ export default function HomePage({ user, navigate }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))", gap: 10 }}>
           {specialties.slice(0, 12).map(s => (
-            <div key={s.ID} onClick={() => navigate(`/search?specialty=${s.ID}`)}
+            <div key={s.id} onClick={() => navigate(`/search?specialty=${s.id}`)}
               style={{ background: "#fff", borderRadius: 12, padding: "14px 10px", textAlign: "center", cursor: "pointer", border: "1px solid #e5e7eb", transition: "all 0.2s" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(8,145,178,0.1)"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
             >
-              <div style={{ fontSize: 26, marginBottom: 6 }}>{icons[s.NameFr] || "🩺"}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", lineHeight: 1.3 }}>{s.NameAr}</div>
+              <div style={{ fontSize: 26, marginBottom: 6 }}>{icons[s.namefr] || "🩺"}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", lineHeight: 1.3 }}>{s.namear}</div>
             </div>
           ))}
         </div>

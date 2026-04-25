@@ -23,9 +23,9 @@ class AuthMiddleware {
         $pdo   = Database::getInstance();
 
         $stmt = $pdo->prepare("
-            SELECT s.user_id, s.created_at, u.UserType, u.Username
+            SELECT s.user_id, s.created_at, u.usertype, u.username
             FROM sessions s
-            JOIN Users u ON u.ID = s.user_id
+            JOIN users u ON u.id = s.user_id
             WHERE s.token = ?
             LIMIT 1
         ");
@@ -48,44 +48,44 @@ class AuthMiddleware {
     }
 
     /**
-     * Only patients (UserType = 0) allowed.
+     * Only patients (usertype = 0) allowed.
      */
     public static function patientOnly(): array {
         $session = self::authenticate();
-        if ((int)$session['UserType'] !== 0) {
+        if ((int)$session['usertype'] !== 0) {
             Response::error('Accès réservé aux patients', 403);
         }
         return $session;
     }
 
     /**
-     * Only doctors (UserType = 1) allowed.
+     * Only doctors (usertype = 1) allowed.
      */
     public static function doctorOnly(): array {
         $session = self::authenticate();
-        if ((int)$session['UserType'] !== 1) {
+        if ((int)$session['usertype'] !== 1) {
             Response::error('Accès réservé aux médecins', 403);
         }
         return $session;
     }
 
     /**
-     * Only clinics (UserType = 2) allowed.
+     * Only clinics (usertype = 2) allowed.
      */
     public static function clinicOnly(): array {
         $session = self::authenticate();
-        if ((int)$session['UserType'] !== 2) {
+        if ((int)$session['usertype'] !== 2) {
             Response::error('Accès réservé aux cliniques', 403);
         }
         return $session;
     }
 
     /**
-     * Only admins (UserType = 3) allowed.
+     * Only admins (usertype = 3) allowed.
      */
     public static function adminOnly(): array {
         $session = self::authenticate();
-        if ((int)$session['UserType'] !== 3) {
+        if ((int)$session['usertype'] !== 3) {
             Response::error('Accès réservé aux administrateurs', 403);
         }
         return $session;

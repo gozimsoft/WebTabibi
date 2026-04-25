@@ -14,24 +14,24 @@ class ChatController {
         $session = AuthMiddleware::patientOnly();
         $pdo     = Database::getInstance();
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound();
 
         $stmt = $pdo->prepare("
             SELECT mt.*,
-                   d.FullName as DoctorName, d.Email as DoctorEmail,
-                   s.NameFr as SpecialtyFr,
-                   (SELECT ContentMessage FROM Messages WHERE MessageThread_id = mt.ID ORDER BY DateSend DESC LIMIT 1) as LastMessage,
-                   (SELECT DateSend FROM Messages WHERE MessageThread_id = mt.ID ORDER BY DateSend DESC LIMIT 1) as LastMessageDate
-            FROM MessageThreads mt
-            JOIN Doctors d ON d.ID = mt.Doctor_id
-            LEFT JOIN Specialties s ON s.ID = d.Specialtie_id
-            WHERE mt.Patient_id = ?
+                   d.fullname as doctorname, d.email as doctoremail,
+                   s.namefr as specialtyfr,
+                   (SELECT ContentMessage FROM messages WHERE MessageThread_id = mt.id ORDER BY DateSend DESC LIMIT 1) as LastMessage,
+                   (SELECT DateSend FROM messages WHERE MessageThread_id = mt.id ORDER BY DateSend DESC LIMIT 1) as LastMessageDate
+            FROM messagethreads mt
+            JOIN doctors d ON d.id = mt.doctor_id
+            LEFT JOIN specialties s ON s.id = d.specialtie_id
+            WHERE mt.patient_id = ?
             ORDER BY LastMessageDate DESC
         ");
-        $stmt->execute([$patient['ID']]);
+        $stmt->execute([$patient['id']]);
         Response::success($stmt->fetchAll());
     }
 
@@ -44,32 +44,32 @@ class ChatController {
 
         if (empty($data['doctor_id'])) Response::error("doctor_id requis", 422);
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound();
 
         // Check existing open thread
         $stmt = $pdo->prepare("
-            SELECT ID FROM MessageThreads
-            WHERE Patient_id = ? AND Doctor_id = ? AND IsClose = 0
+            SELECT id FROM messagethreads
+            WHERE patient_id = ? AND doctor_id = ? AND isclose = 0
             LIMIT 1
         ");
-        $stmt->execute([$patient['ID'], $data['doctor_id']]);
+        $stmt->execute([$patient['id'], $data['doctor_id']]);
         $existing = $stmt->fetch();
         if ($existing) {
-            Response::success(['thread_id' => $existing['ID']], 'Thread existant');
+            Response::success(['thread_id' => $existing['id']], 'Thread existant');
         }
 
         $threadId = UUIDHelper::generate();
         $pdo->prepare("
-            INSERT INTO MessageThreads (ID, Patient_id, Doctor_id, ObjectMessage, IsClose, DateCreate)
+            INSERT INTO messagethreads (id, patient_id, doctor_id, ObjectMessage, isclose, DateCreate)
             VALUES (?, ?, ?, ?, 0, NOW())
         ")->execute([
             $threadId,
-            $patient['ID'],
+            $patient['id'],
             $data['doctor_id'],
-            $data['subject'] ?? 'Consultation',
+            $data['subject'] ?? 'consultation',
         ]);
 
         Response::success(['thread_id' => $threadId], 'Discussion créée', 201);
@@ -81,20 +81,20 @@ class ChatController {
         $pdo     = Database::getInstance();
 
         // Verify access
-        $stmt = $pdo->prepare("SELECT * FROM MessageThreads WHERE ID = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM messagethreads WHERE id = ? LIMIT 1");
         $stmt->execute([$threadId]);
         $thread = $stmt->fetch();
         if (!$thread) Response::notFound();
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient || $thread['Patient_id'] !== $patient['ID']) {
+        if (!$patient || $thread['patient_id'] !== $patient['id']) {
             Response::error('Accès interdit', 403);
         }
 
         $stmt = $pdo->prepare("
-            SELECT * FROM Messages
+            SELECT * FROM messages
             WHERE MessageThread_id = ?
             ORDER BY DateSend ASC
         ");
@@ -111,23 +111,23 @@ class ChatController {
 
         if (empty($data['content'])) Response::error('Contenu du message requis', 422);
 
-        $stmt = $pdo->prepare("SELECT * FROM MessageThreads WHERE ID = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM messagethreads WHERE id = ? LIMIT 1");
         $stmt->execute([$threadId]);
         $thread = $stmt->fetch();
         if (!$thread) Response::notFound();
 
-        if ($thread['IsClose']) Response::error('Cette discussion est fermée', 400);
+        if ($thread['isclose']) Response::error('Cette discussion est fermée', 400);
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient || $thread['Patient_id'] !== $patient['ID']) {
+        if (!$patient || $thread['patient_id'] !== $patient['id']) {
             Response::error('Accès interdit', 403);
         }
 
         $msgId = UUIDHelper::generate();
         $pdo->prepare("
-            INSERT INTO Messages (ID, MessageThread_id, ContentMessage, DateSend, IsDoctor)
+            INSERT INTO messages (id, MessageThread_id, ContentMessage, DateSend, IsDoctor)
             VALUES (?, ?, ?, NOW(), 0)
         ")->execute([$msgId, $threadId, trim($data['content'])]);
 

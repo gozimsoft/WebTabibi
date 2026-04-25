@@ -24,25 +24,25 @@ class AuthController {
 
         // Validate email
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Response::error('Email invalide.', 422);
+            Response::error('email invalide.', 422);
         }
 
         $pdo = Database::getInstance();
 
         // Check username / email uniqueness
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM Users WHERE Username = ?");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
         $stmt->execute([strtolower(trim($data['username']))]);
         if ($stmt->fetchColumn() > 0) {
             Response::error("Ce nom d'utilisateur est déjà utilisé.", 409);
         }
 
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM Patients WHERE Email = ?");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM patients WHERE email = ?");
         $stmt->execute([$data['email']]);
         if ($stmt->fetchColumn() > 0) {
             Response::error("Cet email est déjà utilisé.", 409);
         }
 
-        // Password: store as base64 for DB compatibility (varchar 50)
+        // password: store as base64 for DB compatibility (varchar 50)
         $passwordEncoded = base64_encode($data['password']);
 
         $userId    = UUIDHelper::generate();
@@ -51,12 +51,12 @@ class AuthController {
         $pdo->beginTransaction();
         try {
             // Insert User
-            $pdo->prepare("INSERT INTO Users (ID, Username, Password, UserType) VALUES (?,?,?,0)")
+            $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
                 ->execute([$userId, strtolower(trim($data['username'])), $passwordEncoded]);
 
             // Insert Patient
             $pdo->prepare("
-                INSERT INTO Patients (ID, Reference, FullName, Phone, Email, BirthDate, Gender, User_id, Country, DeleteAcount)
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount)
                 VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0)
             ")->execute([
                 $patientId,
@@ -99,7 +99,7 @@ class AuthController {
         }
 
         $pdo  = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT * FROM Users WHERE Username = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
         $stmt->execute([strtolower(trim($data['username']))]);
         $user = $stmt->fetch();
 
@@ -109,58 +109,58 @@ class AuthController {
 
         // Verify password (base64 encoded)
         $encoded = base64_encode($data['password']);
-        if ($user['Password'] !== $encoded) {
+        if ($user['password'] !== $encoded) {
             Response::error("Nom d'utilisateur ou mot de passe incorrect.", 401);
         }
 
-        $token = self::createSession($user['ID']);
+        $token = self::createSession($user['id']);
 
-        // Fetch profile info based on UserType
+        // Fetch profile info based on usertype
         $profile = [];
-        $userType = (int)$user['UserType'];
+        $usertype = (int)$user['usertype'];
 
-        if ($userType === 0) {
+        if ($usertype === 0) {
             // Patient
-            $stmt = $pdo->prepare("SELECT * FROM Patients WHERE User_id = ? LIMIT 1");
-            $stmt->execute([$user['ID']]);
+            $stmt = $pdo->prepare("SELECT * FROM patients WHERE user_id = ? LIMIT 1");
+            $stmt->execute([$user['id']]);
             $profile = $stmt->fetch() ?: [];
-            unset($profile['PhotoProfile']);
-        } elseif ($userType === 1) {
+            unset($profile['photoprofile']);
+        } elseif ($usertype === 1) {
             // Doctor — check status
-            $stmt = $pdo->prepare("SELECT * FROM Doctors WHERE User_id = ? LIMIT 1");
-            $stmt->execute([$user['ID']]);
+            $stmt = $pdo->prepare("SELECT * FROM doctors WHERE user_id = ? LIMIT 1");
+            $stmt->execute([$user['id']]);
             $profile = $stmt->fetch() ?: [];
-            if (!empty($profile['Status']) && $profile['Status'] !== 'APPROVED') {
+            if (!empty($profile['status']) && $profile['status'] !== 'APPROVED') {
                 Database::getInstance()->prepare("DELETE FROM sessions WHERE token = ?")->execute([$token]);
-                Response::error('حسابك لم يتم الموافقة عليه بعد / Compte non approuvé', 403);
+                Response::error('Compte non approuvé', 403);
             }
-            unset($profile['PhotoProfile']);
-        } elseif ($userType === 2) {
+            unset($profile['photoprofile']);
+        } elseif ($usertype === 2) {
             // Clinic
             $stmt = $pdo->prepare("
-                SELECT c.* FROM Clinics c
-                JOIN ClinicRegistrations cr ON cr.Clinic_ID = c.ID
-                WHERE cr.User_ID = ? LIMIT 1
+                SELECT c.* FROM clinics c
+                JOIN clinicregistrations cr ON cr.clinic_id = c.id
+                WHERE cr.user_id = ? LIMIT 1
             ");
-            $stmt->execute([$user['ID']]);
+            $stmt->execute([$user['id']]);
             $clinic = $stmt->fetch();
             if (!$clinic) {
                 // fallback: look up by user_id if stored differently
                 $profile = ['user_type_label' => 'clinic'];
             } else {
-                unset($clinic['Logo']);
+                unset($clinic['logo']);
                 $profile = $clinic;
             }
-        } elseif ($userType === 3) {
+        } elseif ($usertype === 3) {
             // Admin
-            $profile = ['user_type_label' => 'admin', 'username' => $user['Username']];
+            $profile = ['user_type_label' => 'admin', 'username' => $user['username']];
         }
 
         Response::success([
             'token'     => $token,
-            'user_type' => $userType,
-            'user_id'   => $user['ID'],
-            'username'  => $user['Username'],
+            'user_type' => $usertype,
+            'user_id'   => $user['id'],
+            'username'  => $user['username'],
             'profile'   => $profile,
         ], 'Connexion réussie');
     }
@@ -190,39 +190,39 @@ class AuthController {
         $pdo     = Database::getInstance();
         $userId  = $session['user_id'];
 
-        $userType = (int)$session['UserType'];
+        $usertype = (int)$session['usertype'];
         $profile = null;
 
-        if ($userType === 0) {
-            $stmt = $pdo->prepare("SELECT * FROM Patients WHERE User_id = ? LIMIT 1");
+        if ($usertype === 0) {
+            $stmt = $pdo->prepare("SELECT * FROM patients WHERE user_id = ? LIMIT 1");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
-            unset($profile['PhotoProfile']);
-        } elseif ($userType === 1) {
-            $stmt = $pdo->prepare("SELECT * FROM Doctors WHERE User_id = ? LIMIT 1");
+            unset($profile['photoprofile']);
+        } elseif ($usertype === 1) {
+            $stmt = $pdo->prepare("SELECT * FROM doctors WHERE user_id = ? LIMIT 1");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
-            unset($profile['PhotoProfile']);
-        } elseif ($userType === 2) {
+            unset($profile['photoprofile']);
+        } elseif ($usertype === 2) {
             $stmt = $pdo->prepare("
-                SELECT c.* FROM Clinics c
-                JOIN ClinicRegistrations cr ON cr.Clinic_ID = c.ID
-                WHERE cr.User_ID = ? LIMIT 1
+                SELECT c.* FROM clinics c
+                JOIN clinicregistrations cr ON cr.clinic_id = c.id
+                WHERE cr.user_id = ? LIMIT 1
             ");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
-            unset($profile['Logo']);
-        } elseif ($userType === 3) {
-            $stmt = $pdo->prepare("SELECT ID, Username FROM Users WHERE ID = ? LIMIT 1");
+            unset($profile['logo']);
+        } elseif ($usertype === 3) {
+            $stmt = $pdo->prepare("SELECT id, username FROM users WHERE id = ? LIMIT 1");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
         }
 
         Response::success([
-            'user_type' => $userType,
+            'user_type' => $usertype,
             'user_id'   => $userId,
             'profile'   => $profile,
-            'username'  => $session['Username'] ?? null
+            'username'  => $session['username'] ?? null
         ]);
     }
 

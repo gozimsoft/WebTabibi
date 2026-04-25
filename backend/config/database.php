@@ -10,7 +10,7 @@ define('DB_USER',     'uyyuppcc_admin');          // ← change in production
 define('DB_PASS',     'EV]s6^lwR0OnG029');              // ← change in production
 define('DB_CHARSET',  'utf8mb4');
 
-// Email (PHPMailer / SMTP)
+// email (PHPMailer / SMTP)
 define('MAIL_HOST',   'smtp.gmail.com');
 define('MAIL_USER',   'stellarsoftpro@gmail.com');     // بريد Gmail
 define('MAIL_PASS',   'equi uawa usrl wpor');  // كلمة مرور التطبيق

@@ -93,7 +93,7 @@
 
 ## Additional Tables (مختصرة)
 
-* Messages / MessageThreads → نظام المحادثة
+* Tickets / TicketMessages → نظام المحادثة
 * DoctorsRatings / PatientRatings → التقييمات
 * ClinicsPhotos → صور العيادات
 * Medicines → الأدوية
@@ -124,7 +124,7 @@
 
 ## Important Notes for AI
 
-* لا تغير أسماء الجداول أو الحقول
+* لا تعدل اي شئ في قاعدة البيانات  الا اذا اخبرتك بتعديل معين
 * استخدم العلاقات الموجودة فقط
 * لا تفترض وجود أعمدة غير مذكورة
 * احترم نظام الربط بين Doctors و Clinics عبر ClinicsDoctors

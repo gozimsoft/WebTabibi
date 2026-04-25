@@ -34,18 +34,18 @@ export default function ProfilePage({ user }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
         <Card>
           <h3 style={{ margin: "0 0 16px", color: "#0c4a6e", fontSize: 16 }}>{t("personal_info")}</h3>
-          <Input label={t("fullname")} value={data?.FullName || ""} onChange={e => setData({ ...data, FullName: e.target.value })} />
+          <Input label={t("fullname")} value={data?.fullname || ""} onChange={e => setData({ ...data, fullname: e.target.value })} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Input label={t("birth_date")} type="date" value={data?.BirthDate || ""} onChange={e => setData({ ...data, BirthDate: e.target.value })} />
+            <Input label={t("birth_date")} type="date" value={data?.birthdate || ""} onChange={e => setData({ ...data, birthdate: e.target.value })} />
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600 }}>{t("blood_type")}</label>
-              <select value={data?.BloodGroup || ""} onChange={e => setData({ ...data, BloodGroup: e.target.value })} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontSize: 14, background: "#fafafa", boxSizing: "border-box" }}>
+              <select value={data?.bloodgroup || ""} onChange={e => setData({ ...data, bloodgroup: e.target.value })} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontSize: 14, background: "#fafafa", boxSizing: "border-box" }}>
                 <option value="">--</option>
                 {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
           </div>
-          <Input label={t("address")} value={data?.Address || ""} onChange={e => setData({ ...data, Address: e.target.value })} />
+          <Input label={t("address")} value={data?.address || ""} onChange={e => setData({ ...data, address: e.target.value })} />
           <Btn onClick={save} loading={saving} style={{ width: "100%", justifyContent: "center", marginTop: 10 }}>{t("save_changes")}</Btn>
         </Card>
 

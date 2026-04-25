@@ -65,7 +65,7 @@ try {
     if ($uri === '/baladiyas'   && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getBaladiyas(); }
     if ($uri === '/reasons'   && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getReasons(); }
 
-    // ── Clinics ───────────────────────────────────────────────
+    // ── clinics ───────────────────────────────────────────────
     if ($uri === '/clinics' && $method === 'GET') {
         require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::search();
     }
@@ -133,7 +133,7 @@ try {
     if ($uri === '/register/doctor'  && $method === 'POST') { require_once __DIR__.'/controllers/RegistrationController.php'; RegistrationController::registerDoctor(); }
     if ($uri === '/register/status'  && $method === 'GET')  { require_once __DIR__.'/controllers/RegistrationController.php'; RegistrationController::checkStatus(); }
 
-    // ── Admin (UserType = 3) ──────────────────────────────────
+    // ── Admin (usertype = 3) ──────────────────────────────────
     if ($uri === '/admin/stats'   && $method === 'GET')  { require_once __DIR__.'/controllers/AdminController.php'; AdminController::stats(); }
     if ($uri === '/admin/clinics' && $method === 'GET')  { require_once __DIR__.'/controllers/AdminController.php'; AdminController::listClinics(); }
     if ($uri === '/admin/doctors' && $method === 'GET')  { require_once __DIR__.'/controllers/AdminController.php'; AdminController::listDoctors(); }
@@ -160,7 +160,7 @@ try {
         require_once __DIR__.'/controllers/RelationController.php'; RelationController::respondToRequest($parts[2]);
     }
 
-    // ── Tickets (Support) ──────────────────────────────────────
+    // ── tickets (Support) ──────────────────────────────────────
     if ($uri === '/tickets' && $method === 'POST') { require_once __DIR__.'/controllers/TicketController.php'; TicketController::create(); }
     if ($uri === '/tickets' && $method === 'GET')  { require_once __DIR__.'/controllers/TicketController.php'; TicketController::list(); }
     if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[1]) && !isset($parts[2])) {

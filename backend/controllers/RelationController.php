@@ -1,8 +1,8 @@
 <?php
 // ============================================================
 // controllers/RelationController.php
-// Manages Join/Recruit requests between Doctors and Clinics
-// using ClinicsDoctors table
+// Manages Join/Recruit requests between doctors and clinics
+// using clinicsdoctors table
 // ============================================================
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
@@ -14,74 +14,74 @@ class RelationController {
     public static function sendRequest(): void {
         $user = AuthMiddleware::authenticate();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $targetId = $data['target_id'] ?? '';
+        $targetid = $data['target_id'] ?? '';
 
-        if (!$targetId) Response::error('Target ID requis', 422);
+        if (!$targetid) Response::error('Target id requis', 422);
 
         $pdo = Database::getInstance();
         $senderType = '';
-        $clinicId = '';
-        $doctorId = '';
+        $clinicid = '';
+        $doctor_id = '';
 
-        if ($user['UserType'] == 1) { // DOCTOR
+        if ($user['usertype'] == 1) { // DOCTOR
             $senderType = 'DOCTOR';
-            $doctorId = $user['Doctor_id'] ?? self::getDoctorId($user['user_id']);
-            $clinicId = $targetId;
-        } else if ($user['UserType'] == 2) { // CLINIC
+            $doctor_id = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            $clinicid = $targetid;
+        } else if ($user['usertype'] == 2) { // CLINIC
             $senderType = 'CLINIC';
-            $clinicId = $user['Clinic_id'] ?? self::getClinicId($user['user_id']);
-            $doctorId = $targetId;
+            $clinicid = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
+            $doctor_id = $targetid;
         } else {
             Response::error('Seuls les médecins et les cliniques peuvent envoyer des demandes', 403);
         }
 
-        if (!$doctorId) {
-            Response::error("معرف الطبيب مفقود (Doctor ID is missing or invalid). TargetID: $targetId", 400);
+        if (!$doctor_id) {
+            Response::error("معرف الطبيب مفقود (Doctor id is missing or invalid). targetid: $targetid", 400);
         }
-        if (!$clinicId) {
-            Response::error("معرف العيادة مفقود (Clinic ID is missing or invalid). TargetID: $targetId", 400);
+        if (!$clinicid) {
+            Response::error("معرف العيادة مفقود (Clinic id is missing or invalid). targetid: $targetid", 400);
         }
 
         // Check if relation already exists
-        $stmt = $pdo->prepare("SELECT ID, Status FROM ClinicsDoctors WHERE Clinic_ID=? AND Doctor_ID=?");
-        $stmt->execute([$clinicId, $doctorId]);
+        $stmt = $pdo->prepare("SELECT id, status FROM clinicsdoctors WHERE clinic_id=? AND doctor_id=?");
+        $stmt->execute([$clinicid, $doctor_id]);
         $existing = $stmt->fetch();
 
         if ($existing) {
-            $status = strtolower($existing['Status']);
+            $status = strtolower($existing['status']);
             if ($status === 'accepted' || $status === 'approved') {
                 Response::error('Déjà lié', 409);
             } else if ($status === 'pending') {
                 Response::error('Une demande est déjà en cours', 409);
             } else {
                 // If rejected, we might want to update it to pending again
-                $pdo->prepare("UPDATE ClinicsDoctors SET Status='pending', RequestedBy=? WHERE Clinic_ID=? AND Doctor_ID=?")->execute([$senderType, $clinicId, $doctorId]);
+                $pdo->prepare("UPDATE clinicsdoctors SET status='pending', requestedby=? WHERE clinic_id=? AND doctor_id=?")->execute([$senderType, $clinicid, $doctor_id]);
                 Response::success(null, 'Demande envoyée avec succès');
                 return;
             }
         }
 
-        // We need a specialtie_id for ClinicsDoctors. Get the primary specialty of the doctor
-        $stmtD = $pdo->prepare("SELECT Specialtie_id FROM Doctors WHERE ID=? LIMIT 1");
-        $stmtD->execute([$doctorId]);
+        // We need a specialtie_id for clinicsdoctors. Get the primary specialty of the doctor
+        $stmtD = $pdo->prepare("SELECT specialtie_id FROM doctors WHERE id=? LIMIT 1");
+        $stmtD->execute([$doctor_id]);
         $sid = $stmtD->fetchColumn();
 
         if (empty($sid) || $sid === 'unknown') {
-            // Fallback to a valid specialty ID to satisfy foreign key constraint
-            $sid = $pdo->query("SELECT ID FROM Specialties LIMIT 1")->fetchColumn();
+            // Fallback to a valid specialty id to satisfy foreign key constraint
+            $sid = $pdo->query("SELECT id FROM specialties LIMIT 1")->fetchColumn();
         }
 
         $id = UUIDHelper::generate();
-        file_put_contents(__DIR__.'/../request_log.txt', date('Y-m-d H:i:s') . " - sendRequest: targetId=$targetId, clinicId=$clinicId, doctorId=$doctorId, sid=$sid, senderType=$senderType\n", FILE_APPEND);
+        file_put_contents(__DIR__.'/../request_log.txt', date('Y-m-d H:i:s') . " - sendRequest: targetid=$targetid, clinicid=$clinicid, doctor_id=$doctor_id, sid=$sid, senderType=$senderType\n", FILE_APPEND);
         try {
             $pdo->prepare("
-                INSERT INTO ClinicsDoctors (ID, Clinic_ID, Doctor_ID, specialtie_id, Status, RequestedBy)
+                INSERT INTO clinicsdoctors (id, clinic_id, doctor_id, specialtie_id, status, requestedby)
                 VALUES (?, ?, ?, ?, 'pending', ?)
-            ")->execute([$id, $clinicId, $doctorId, $sid, $senderType]);
+            ")->execute([$id, $clinicid, $doctor_id, $sid, $senderType]);
 
             Response::success(['request_id' => $id], 'Demande envoyée avec succès');
         } catch (\PDOException $e) {
-            $err = "SQL Error: " . $e->getMessage() . " | ClinicID: $clinicId | DoctorID: $doctorId | SID: $sid";
+            $err = "SQL Error: " . $e->getMessage() . " | clinicid: $clinicid | doctor_id: $doctor_id | SID: $sid";
             file_put_contents(__DIR__.'/../request_log.txt', date('Y-m-d H:i:s') . " - ERROR: $err\n", FILE_APPEND);
             Response::error($err, 500);
         }
@@ -97,51 +97,51 @@ class RelationController {
         $joinCol = '';
         $nameCol = '';
 
-        if ($user['UserType'] == 1) { // DOCTOR
-            $myId = $user['Doctor_id'] ?? self::getDoctorId($user['user_id']);
-            $filterCol = 'Doctor_ID';
-            $joinTable = 'Clinics';
-            $joinCol = 'Clinic_ID';
-            $nameCol = 'ClinicName as TargetName';
-        } else if ($user['UserType'] == 2) { // CLINIC
-            $myId = $user['Clinic_id'] ?? self::getClinicId($user['user_id']);
-            $filterCol = 'Clinic_ID';
-            $joinTable = 'Doctors';
-            $joinCol = 'Doctor_ID';
-            $nameCol = 'FullName as TargetName';
+        if ($user['usertype'] == 1) { // DOCTOR
+            $myId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            $filterCol = 'doctor_id';
+            $joinTable = 'clinics';
+            $joinCol = 'clinic_id';
+            $nameCol = 'clinicname as targetname';
+        } else if ($user['usertype'] == 2) { // CLINIC
+            $myId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
+            $filterCol = 'clinic_id';
+            $joinTable = 'doctors';
+            $joinCol = 'doctor_id';
+            $nameCol = 'fullname as targetname';
         } else {
             Response::error('Non autorisé', 403);
         }
 
-        // We want to fetch all ClinicsDoctors records for this user where it's a request state
-        // (Status = pending, accepted, rejected) and it acts as a "Request".
+        // We want to fetch all clinicsdoctors records for this user where it's a request state
+        // (status = pending, accepted, rejected) and it acts as a "Request".
         // Actually, let's fetch pending, and maybe recently accepted/rejected. 
         // For simplicity, we can fetch all or just pending ones, but UI expects history.
         
         $stmt = $pdo->prepare("
-            SELECT r.ID, r.Clinic_ID, r.Doctor_ID, r.Status, r.RequestedBy as SenderType, t.$nameCol, '2025-01-01 00:00:00' as CreatedAt
-            FROM ClinicsDoctors r
-            JOIN $joinTable t ON t.ID = r.$joinCol
-            WHERE r.$filterCol = ? AND r.Status IN ('pending', 'accepted', 'rejected', 'APPROVED')
+            SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType, t.$nameCol, '2025-01-01 00:00:00' as createdat
+            FROM clinicsdoctors r
+            JOIN $joinTable t ON t.id = r.$joinCol
+            WHERE r.$filterCol = ? AND r.status IN ('pending', 'accepted', 'rejected', 'APPROVED')
         ");
         $stmt->execute([$myId]);
         
         $results = $stmt->fetchAll();
         foreach ($results as &$r) {
             // Normalize status to upper for frontend
-            if (strtolower($r['Status']) === 'accepted' || strtoupper($r['Status']) === 'APPROVED') {
-                $r['Status'] = 'ACCEPTED';
-            } else if (strtolower($r['Status']) === 'rejected') {
-                $r['Status'] = 'REJECTED';
+            if (strtolower($r['status']) === 'accepted' || strtoupper($r['status']) === 'APPROVED') {
+                $r['status'] = 'ACCEPTED';
+            } else if (strtolower($r['status']) === 'rejected') {
+                $r['status'] = 'REJECTED';
             } else {
-                $r['Status'] = 'PENDING';
+                $r['status'] = 'PENDING';
             }
         }
         
         Response::success($results);
     }
 
-    public static function checkRelation(string $targetId): void {
+    public static function checkRelation(string $targetid): void {
         $user = AuthMiddleware::authenticate();
         $pdo = Database::getInstance();
         
@@ -149,21 +149,21 @@ class RelationController {
         $filterCol = '';
         $targetCol = '';
 
-        if ($user['UserType'] == 1) { // Doctor checking relation with Clinic
-            $myId = $user['Doctor_id'] ?? self::getDoctorId($user['user_id']);
-            $filterCol = 'Doctor_ID';
-            $targetCol = 'Clinic_ID';
-        } else if ($user['UserType'] == 2) { // Clinic checking relation with Doctor
-            $myId = $user['Clinic_id'] ?? self::getClinicId($user['user_id']);
-            $filterCol = 'Clinic_ID';
-            $targetCol = 'Doctor_ID';
+        if ($user['usertype'] == 1) { // Doctor checking relation with Clinic
+            $myId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            $filterCol = 'doctor_id';
+            $targetCol = 'clinic_id';
+        } else if ($user['usertype'] == 2) { // Clinic checking relation with Doctor
+            $myId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
+            $filterCol = 'clinic_id';
+            $targetCol = 'doctor_id';
         } else {
             Response::success(['status' => null]);
             return;
         }
 
-        $stmt = $pdo->prepare("SELECT Status FROM ClinicsDoctors WHERE $filterCol = ? AND $targetCol = ? LIMIT 1");
-        $stmt->execute([$myId, $targetId]);
+        $stmt = $pdo->prepare("SELECT status FROM clinicsdoctors WHERE $filterCol = ? AND $targetCol = ? LIMIT 1");
+        $stmt->execute([$myId, $targetid]);
         $status = $stmt->fetchColumn();
         
         Response::success(['status' => $status ? strtoupper($status) : null]);
@@ -181,40 +181,40 @@ class RelationController {
         $newStatus = ($action === 'accept' || $action === 'accepted') ? 'accepted' : 'rejected';
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT * FROM ClinicsDoctors WHERE ID=? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM clinicsdoctors WHERE id=? LIMIT 1");
         $stmt->execute([$requestId]);
         $req = $stmt->fetch();
 
-        if (!$req || strtolower($req['Status']) !== 'pending') {
+        if (!$req || strtolower($req['status']) !== 'pending') {
             Response::notFound('Demande introuvable ou déjà traitée');
         }
 
-        if ($user['UserType'] == 1) { // Doctor
-            $myDoctorId = $user['Doctor_id'] ?? self::getDoctorId($user['user_id']);
-            if ($req['Doctor_ID'] !== $myDoctorId || strtoupper($req['RequestedBy']) !== 'CLINIC') {
+        if ($user['usertype'] == 1) { // Doctor
+            $myDoctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            if ($req['doctor_id'] !== $myDoctorId || strtoupper($req['requestedby']) !== 'CLINIC') {
                 Response::error('Vous ne pouvez pas répondre à cette demande', 403);
             }
-        } else if ($user['UserType'] == 2) { // Clinic
-            $myClinicId = $user['Clinic_id'] ?? self::getClinicId($user['user_id']);
-            if ($req['Clinic_ID'] !== $myClinicId || strtoupper($req['RequestedBy']) !== 'DOCTOR') {
+        } else if ($user['usertype'] == 2) { // Clinic
+            $myClinicId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
+            if ($req['clinic_id'] !== $myClinicId || strtoupper($req['requestedby']) !== 'DOCTOR') {
                 Response::error('Vous ne pouvez pas répondre à cette demande', 403);
             }
         }
 
-        $pdo->prepare("UPDATE ClinicsDoctors SET Status=? WHERE ID=?")->execute([$newStatus, $requestId]);
+        $pdo->prepare("UPDATE clinicsdoctors SET status=? WHERE id=?")->execute([$newStatus, $requestId]);
         Response::success(null, "Demande $newStatus");
     }
 
     private static function getDoctorId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT ID FROM Doctors WHERE User_id=? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id=? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }
 
     private static function getClinicId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT Clinic_ID FROM ClinicRegistrations WHERE User_ID=? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT clinic_id FROM clinicregistrations WHERE user_id=? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }

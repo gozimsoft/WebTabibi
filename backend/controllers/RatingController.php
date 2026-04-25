@@ -18,62 +18,62 @@ class RatingController {
 
         if (empty($data['doctor_id'])) Response::error('doctor_id requis', 422);
         $rating = (int)($data['rating'] ?? 0);
-        if ($rating < 1 || $rating > 5) Response::error('Note entre 1 et 5', 422);
+        if ($rating < 1 || $rating > 5) Response::error('note entre 1 et 5', 422);
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound();
 
         // Check existing rating
         $stmt = $pdo->prepare("
-            SELECT ID FROM DoctorsRatings
-            WHERE Patient_id = ? AND Doctor_id = ? LIMIT 1
+            SELECT id FROM doctorsratings
+            WHERE patient_id = ? AND doctor_id = ? LIMIT 1
         ");
-        $stmt->execute([$patient['ID'], $data['doctor_id']]);
+        $stmt->execute([$patient['id'], $data['doctor_id']]);
         $existing = $stmt->fetch();
 
         if ($existing) {
             // Update
             $pdo->prepare("
-                UPDATE DoctorsRatings SET Rating = ?, Comment = ?, HidePatient = ?
-                WHERE ID = ?
-            ")->execute([$rating, $data['comment'] ?? '', $data['hide_patient'] ? 1 : 0, $existing['ID']]);
+                UPDATE doctorsratings SET rating = ?, comment = ?, hidepatient = ?
+                WHERE id = ?
+            ")->execute([$rating, $data['comment'] ?? '', $data['hide_patient'] ? 1 : 0, $existing['id']]);
             Response::success(null, 'Avis mis à jour');
         } else {
             $id = UUIDHelper::generate();
             $pdo->prepare("
-                INSERT INTO DoctorsRatings (ID, Patient_id, Doctor_id, Rating, Comment, HidePatient)
+                INSERT INTO doctorsratings (id, patient_id, doctor_id, rating, comment, hidepatient)
                 VALUES (?,?,?,?,?,?)
-            ")->execute([$id, $patient['ID'], $data['doctor_id'], $rating,
+            ")->execute([$id, $patient['id'], $data['doctor_id'], $rating,
                          $data['comment'] ?? '', $data['hide_patient'] ? 1 : 0]);
             Response::success(['rating_id' => $id], 'Avis ajouté', 201);
         }
     }
 
     // GET /api/ratings/doctor/{id}
-    public static function getDoctorRatings(string $doctorId): void {
+    public static function getDoctorRatings(string $doctor_id): void {
         $pdo  = Database::getInstance();
         $stmt = $pdo->prepare("
             SELECT 
-                dr.ID, dr.Rating, dr.Comment, dr.HidePatient,
-                CASE WHEN dr.HidePatient=1 THEN 'Anonyme' ELSE p.FullName END as PatientName,
-                COALESCE(AVG(dr2.Rating),0) as AvgRating
-            FROM DoctorsRatings dr
-            LEFT JOIN Patients p ON p.ID = dr.Patient_id
-            JOIN DoctorsRatings dr2 ON dr2.Doctor_id = dr.Doctor_id
-            WHERE dr.Doctor_id = ?
-            GROUP BY dr.ID
-            ORDER BY dr.ID DESC
+                dr.id, dr.rating, dr.comment, dr.hidepatient,
+                CASE WHEN dr.hidepatient=1 THEN 'Anonyme' ELSE p.fullname END as patientname,
+                COALESCE(AVG(dr2.rating),0) as AvgRating
+            FROM doctorsratings dr
+            LEFT JOIN patients p ON p.id = dr.patient_id
+            JOIN doctorsratings dr2 ON dr2.doctor_id = dr.doctor_id
+            WHERE dr.doctor_id = ?
+            GROUP BY dr.id
+            ORDER BY dr.id DESC
         ");
-        $stmt->execute([$doctorId]);
+        $stmt->execute([$doctor_id]);
         $ratings = $stmt->fetchAll();
 
         $stmt2 = $pdo->prepare("
-            SELECT COALESCE(AVG(Rating),0) as avg, COUNT(*) as total
-            FROM DoctorsRatings WHERE Doctor_id = ?
+            SELECT COALESCE(AVG(rating),0) as avg, COUNT(*) as total
+            FROM doctorsratings WHERE doctor_id = ?
         ");
-        $stmt2->execute([$doctorId]);
+        $stmt2->execute([$doctor_id]);
         $summary = $stmt2->fetch();
 
         Response::success([

@@ -7,21 +7,21 @@ class TicketController {
 
     public static function create(): void {
         $user = AuthMiddleware::authenticate();
-        if ($user['UserType'] != 0) { // Only patients can start tickets
+        if ($user['usertype'] != 0) { // Only patients can start tickets
             Response::error('Seuls les patients peuvent créer des tickets', 403);
         }
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $subject = trim($data['subject'] ?? '');
         $message = trim($data['message'] ?? '');
-        $doctorId = $data['doctor_id'] ?? null;
-        $clinicId = $data['clinic_id'] ?? null;
+        $doctor_id = $data['doctor_id'] ?? null;
+        $clinicid = $data['clinic_id'] ?? null;
 
         if (!$subject || !$message) {
             Response::error('Le sujet et le message sont obligatoires', 422);
         }
 
-        if ($doctorId && $clinicId) {
+        if ($doctor_id && $clinicid) {
             Response::error('Un ticket ne peut être lié qu\'à un médecin ou une clinique, pas les deux', 422);
         }
 
@@ -29,10 +29,10 @@ class TicketController {
         $patientId = self::getPatientId($user['user_id']);
         $ticketId = self::uuid();
 
-        $pdo->prepare("INSERT INTO Tickets (ID, Patient_ID, Doctor_ID, Clinic_ID, Subject, Status) VALUES (?, ?, ?, ?, ?, 'OPEN')")
-            ->execute([$ticketId, $patientId, $doctorId, $clinicId, $subject]);
+        $pdo->prepare("INSERT INTO tickets (id, patient_id, doctor_id, clinic_id, subject, status) VALUES (?, ?, ?, ?, ?, 'OPEN')")
+            ->execute([$ticketId, $patientId, $doctor_id, $clinicid, $subject]);
 
-        $pdo->prepare("INSERT INTO TicketMessages (ID, Ticket_ID, Sender_Type, Sender_ID, Message) VALUES (?, ?, 'patient', ?, ?)")
+        $pdo->prepare("INSERT INTO ticketmessages (id, ticket_id, sender_type, sender_id, message) VALUES (?, ?, 'patient', ?, ?)")
             ->execute([self::uuid(), $ticketId, $patientId, $message]);
 
         Response::success(['id' => $ticketId], 'Ticket créé avec succès');
@@ -45,27 +45,27 @@ class TicketController {
         $sql = "";
         $params = [];
 
-        if ($user['UserType'] == 0) { // Patient
+        if ($user['usertype'] == 0) { // Patient
             $myId = self::getPatientId($user['user_id']);
-            $sql = "SELECT t.*, d.FullName as DoctorName, c.ClinicName 
-                    FROM Tickets t 
-                    LEFT JOIN Doctors d ON d.ID = t.Doctor_ID 
-                    LEFT JOIN Clinics c ON c.ID = t.Clinic_ID 
-                    WHERE t.Patient_ID = ? ORDER BY t.Updated_At DESC";
+            $sql = "SELECT t.*, d.fullname as doctorname, c.clinicname 
+                    FROM tickets t 
+                    LEFT JOIN doctors d ON d.id = t.doctor_id 
+                    LEFT JOIN clinics c ON c.id = t.clinic_id 
+                    WHERE t.patient_id = ? ORDER BY t.updated_at DESC";
             $params = [$myId];
-        } else if ($user['UserType'] == 1) { // Doctor
+        } else if ($user['usertype'] == 1) { // Doctor
             $myId = self::getDoctorId($user['user_id']);
-            $sql = "SELECT t.*, p.FullName as PatientName 
-                    FROM Tickets t 
-                    LEFT JOIN Patients p ON p.ID = t.Patient_ID 
-                    WHERE t.Doctor_ID = ? ORDER BY t.Updated_At DESC";
+            $sql = "SELECT t.*, p.fullname as patientname 
+                    FROM tickets t 
+                    LEFT JOIN patients p ON p.id = t.patient_id 
+                    WHERE t.doctor_id = ? ORDER BY t.updated_at DESC";
             $params = [$myId];
-        } else if ($user['UserType'] == 2) { // Clinic
-            $sql = "SELECT t.*, p.FullName as PatientName 
-                    FROM Tickets t 
-                    LEFT JOIN Patients p ON p.ID = t.Patient_ID 
-                    JOIN ClinicRegistrations cr ON cr.Clinic_ID = t.Clinic_ID
-                    WHERE cr.User_ID = ? ORDER BY t.Updated_At DESC";
+        } else if ($user['usertype'] == 2) { // Clinic
+            $sql = "SELECT t.*, p.fullname as patientname 
+                    FROM tickets t 
+                    LEFT JOIN patients p ON p.id = t.patient_id 
+                    JOIN clinicregistrations cr ON cr.clinic_id = t.clinic_id
+                    WHERE cr.user_id = ? ORDER BY t.updated_at DESC";
             $params = [$user['user_id']];
         }
 
@@ -84,7 +84,7 @@ class TicketController {
         $pdo = Database::getInstance();
 
         // Security check: user must be part of the ticket
-        $stmt = $pdo->prepare("SELECT * FROM Tickets WHERE ID = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -92,32 +92,32 @@ class TicketController {
 
         $myId = null;
         $isAllowed = false;
-        if ($user['UserType'] == 0) {
+        if ($user['usertype'] == 0) {
             $myId = self::getPatientId($user['user_id']);
-            if ($ticket['Patient_ID'] === $myId) $isAllowed = true;
-        } else if ($user['UserType'] == 1) {
+            if ($ticket['patient_id'] === $myId) $isAllowed = true;
+        } else if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['Doctor_ID'] === $myId) $isAllowed = true;
-        } else if ($user['UserType'] == 2) {
+            if ($ticket['doctor_id'] === $myId) $isAllowed = true;
+        } else if ($user['usertype'] == 2) {
             // Check if this ticket belongs to the clinic this user is registered for
             $stmt = $pdo->prepare("
-                SELECT 1 FROM ClinicRegistrations 
-                WHERE User_ID = ? AND Clinic_ID = ? 
+                SELECT 1 FROM clinicregistrations 
+                WHERE user_id = ? AND clinic_id = ? 
                 LIMIT 1
             ");
-            $stmt->execute([$user['user_id'], $ticket['Clinic_ID']]);
+            $stmt->execute([$user['user_id'], $ticket['clinic_id']]);
             if ($stmt->fetch()) $isAllowed = true;
         }
 
         if (!$isAllowed) Response::error('Accès refusé', 403);
 
         // Fetch messages
-        $stmt = $pdo->prepare("SELECT * FROM TicketMessages WHERE Ticket_ID = ? ORDER BY Created_At ASC");
+        $stmt = $pdo->prepare("SELECT * FROM ticketmessages WHERE ticket_id = ? ORDER BY created_at ASC");
         $stmt->execute([$id]);
         $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Mark as read for the receiver
-        $pdo->prepare("UPDATE TicketMessages SET Is_Read = 1 WHERE Ticket_ID = ? AND Sender_ID != ?")
+        $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_id != ?")
             ->execute([$id, $myId]);
 
         Response::success([
@@ -134,34 +134,34 @@ class TicketController {
 
         if (!$message) Response::error('Le message est vide', 422);
 
-        $stmt = $pdo->prepare("SELECT * FROM Tickets WHERE ID = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$ticket) Response::notFound('Ticket non trouvé');
-        if ($ticket['Status'] === 'CLOSED') Response::error('Le ticket est fermé', 422);
+        if ($ticket['status'] === 'CLOSED') Response::error('Le ticket est fermé', 422);
 
         $myId = null;
         $type = '';
-        if ($user['UserType'] == 0) {
+        if ($user['usertype'] == 0) {
             $myId = self::getPatientId($user['user_id']);
-            if ($ticket['Patient_ID'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['patient_id'] !== $myId) Response::error('Accès refusé', 403);
             $type = 'patient';
-        } else if ($user['UserType'] == 1) {
+        } else if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['Doctor_ID'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['doctor_id'] !== $myId) Response::error('Accès refusé', 403);
             $type = 'doctor';
-        } else if ($user['UserType'] == 2) {
+        } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
-            if ($ticket['Clinic_ID'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['clinic_id'] !== $myId) Response::error('Accès refusé', 403);
             $type = 'clinic';
         }
 
-        $pdo->prepare("INSERT INTO TicketMessages (ID, Ticket_ID, Sender_Type, Sender_ID, Message) VALUES (?, ?, ?, ?, ?)")
+        $pdo->prepare("INSERT INTO ticketmessages (id, ticket_id, sender_type, sender_id, message) VALUES (?, ?, ?, ?, ?)")
             ->execute([self::uuid(), $id, $type, $myId, $message]);
 
         // Update ticket status/updated_at
         $newStatus = ($type === 'patient') ? 'OPEN' : 'PENDING';
-        $pdo->prepare("UPDATE Tickets SET Status = ?, Updated_At = CURRENT_TIMESTAMP WHERE ID = ?")
+        $pdo->prepare("UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             ->execute([$newStatus, $id]);
 
         Response::success(null, 'Réponse envoyée');
@@ -169,24 +169,24 @@ class TicketController {
 
     public static function close(string $id): void {
         $user = AuthMiddleware::authenticate();
-        if ($user['UserType'] == 0) Response::error('Action non autorisée', 403);
+        if ($user['usertype'] == 0) Response::error('Action non autorisée', 403);
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT * FROM Tickets WHERE ID = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$ticket) Response::notFound('Ticket non trouvé');
 
         $myId = null;
-        if ($user['UserType'] == 1) {
+        if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['Doctor_ID'] !== $myId) Response::error('Accès refusé', 403);
-        } else if ($user['UserType'] == 2) {
+            if ($ticket['doctor_id'] !== $myId) Response::error('Accès refusé', 403);
+        } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
-            if ($ticket['Clinic_ID'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['clinic_id'] !== $myId) Response::error('Accès refusé', 403);
         }
 
-        $pdo->prepare("UPDATE Tickets SET Status = 'CLOSED' WHERE ID = ?")
+        $pdo->prepare("UPDATE tickets SET status = 'CLOSED' WHERE id = ?")
             ->execute([$id]);
 
         Response::success(null, 'Ticket fermé');
@@ -194,21 +194,21 @@ class TicketController {
 
     private static function getPatientId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }
 
     private static function getDoctorId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT ID FROM Doctors WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }
 
     private static function getClinicId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT Clinic_ID FROM ClinicRegistrations WHERE User_ID = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT clinic_id FROM clinicregistrations WHERE user_id = ? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }

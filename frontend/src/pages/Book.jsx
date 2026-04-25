@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, useToast } from "../components/SharedUI";
 
-export default function BookPage({ clinicId, doctorId, navigate, user }) {
+export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
   const [doctor, setDoctor] = useState(null);
   const [family, setFamily] = useState([]);
@@ -23,24 +23,24 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
 
   useEffect(() => {
     Promise.all([
-      api.clinics.doctor(clinicId, doctorId),
+      api.clinics.doctor(clinicid, doctor_id),
       api.patient.family().catch(() => []),
     ]).then(([d, fam]) => {
       setDoctor(d);
       setFamily(fam || []);
     }).catch(e => setError(e.message))
       .finally(() => setInitL(false));
-  }, [clinicId, doctorId]);
+  }, [clinicid, doctor_id]);
 
-  const selfOption = { id: null, name: user?.profile?.FullName || user?.username || t("self"), isSelf: true };
-  const allPatients = [selfOption, ...(family.map(f => ({ id: f.ID, name: f.FullName, isSelf: false, gender: f.Gender })))];
+  const selfOption = { id: null, name: user?.profile?.fullname || user?.username || t("self"), isSelf: true };
+  const allPatients = [selfOption, ...(family.map(f => ({ id: f.id, name: f.fullname, isSelf: false, gender: f.gender })))];
   const activePat = selPatient || selfOption;
 
   const fetchSlots = async (d) => {
-    if (!doctor?.ClinicsDoctor_id) return;
+    if (!doctor?.clinicsdoctor_id) return;
     setSL(true); setSlots([]); setSlot("");
     try {
-      const s = await api.appointments.slots({ clinics_doctor_id: doctor.ClinicsDoctor_id, date: d });
+      const s = await api.appointments.slots({ clinics_doctor_id: doctor.clinicsdoctor_id, date: d });
       setSlots(s.slots || []);
       if (!(s.slots || []).length) show(t("no_times_this_day"), "error");
     } catch (e) { show(e.message, "error"); }
@@ -50,8 +50,8 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
   const confirmBook = async () => {
     setL(true);
     try {
-      const body = { clinics_doctor_id: doctor.ClinicsDoctor_id, date, time: selSlot };
-      if (reason) body.doctors_reason_id = reason.ID;
+      const body = { clinics_doctor_id: doctor.clinicsdoctor_id, date, time: selSlot };
+      if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
       setStep(5);
@@ -69,12 +69,12 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
 
   const getAvailableDates = () => {
     const schedule = doctor?.Schedule || {};
-    const countDays = parseInt(schedule.CountDays || 30);
-    const weekBegin = parseInt(schedule.WeekBeginDay || 0);
-    const workingDays = schedule.WorkingDays || "1111111";
+    const countdays = parseInt(schedule.countdays || 30);
+    const weekBegin = parseInt(schedule.weekbeginday || 0);
+    const workingdays = schedule.workingdays || "1111111";
     const dates = [];
     const stdWBD = (weekBegin + 1) % 7;
-    for (let i = 0; i <= countDays; i++) {
+    for (let i = 0; i <= countdays; i++) {
       const d = new Date(); d.setDate(d.getDate() + i);
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -82,7 +82,7 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
       const full = `${yyyy}-${mm}-${dd}`;
       const w = d.getDay();
       const relIndex = (w - stdWBD + 7) % 7;
-      if (workingDays[relIndex] === "1" || !schedule.WorkingDays) {
+      if (workingdays[relIndex] === "1" || !schedule.workingdays) {
         dates.push({
           full: full, day: d.getDate(),
           month: d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { month: "short" }),
@@ -139,18 +139,18 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
 
   const DoctorBanner = () => step < 5 && (
     <div style={{ background: "linear-gradient(135deg,#0c4a6e,#0891b2,#06b6d4)", borderRadius: 16, padding: "16px 22px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14, color: "#fff" }}>
-      <DoctorImage photo={doctor.PhotoProfile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
+      <DoctorImage photo={doctor.photoprofile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 0.3 }}>{doctor.FullName}</div>
-        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{i18n.language === 'ar' ? doctor.SpecialtyAr : doctor.SpecialtyFr}</div>
+        <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 0.3 }}>{doctor.fullname}</div>
+        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr}</div>
       </div>
-      {+doctor.Pricing > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 800 }}>💰 {doctor.Pricing} DA</div>}
+      {+doctor.pricing > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 800 }}>💰 {doctor.pricing} DA</div>}
     </div>
   );
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px" }}>
-      <button onClick={() => navigate(`/clinic/${clinicId}/doctor/${doctorId}`)}
+      <button onClick={() => navigate(`/clinic/${clinicid}/doctor/${doctor_id}`)}
         style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>{t("back_to_doctor")}</button>
       <DoctorBanner /><Stepper />
 
@@ -187,14 +187,14 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_reason")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("comment_optional")}</p>
-          {(!doctor.Reasons || doctor.Reasons.length === 0) ? (
+          {(!doctor.reasons || doctor.reasons.length === 0) ? (
             <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "#f9fafb", borderRadius: 12, marginBottom: 20 }}>📋 {t("no_reasons_defined")}</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
-              {doctor.Reasons.map(r => {
-                const sel = reason?.ID === r.ID;
+              {doctor.reasons.map(r => {
+                const sel = reason?.id === r.id;
                 return (
-                  <div key={r.ID} onClick={() => setReason(sel ? null : r)} style={{
+                  <div key={r.id} onClick={() => setReason(sel ? null : r)} style={{
                     padding: "14px 16px", borderRadius: 11, cursor: "pointer", transition: "all 0.2s",
                     border: sel ? "2.5px solid #0891b2" : "1.5px solid #e5e7eb", background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fafafa", transform: sel ? "scale(1.02)" : "scale(1)"
                   }}>
@@ -263,13 +263,13 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("review_confirm")}</h2>
           <div style={{ background: "#f0fdfa", border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
             {[
-              ["👨‍⚕️", t("doctor"), doctor.FullName],
-              ["🏥", t("specialty"), (i18n.language === 'ar' ? doctor.SpecialtyAr : doctor.SpecialtyFr) || "—"],
+              ["👨‍⚕️", t("doctor"), doctor.fullname],
+              ["🏥", t("specialty"), (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) || "—"],
               ["👤", t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
               ["🩺", t("step_reason"), reason?.reason_name || "—"],
               ["📅", t("date"), date],
               ["⏰", t("time"), selSlot],
-              ...(+doctor.Pricing > 0 ? [["💰", t("consultation_fee"), `${doctor.Pricing} ${t("da")}`]] : []),
+              ...(+doctor.pricing > 0 ? [["💰", t("consultation_fee"), `${doctor.pricing} ${t("da")}`]] : []),
             ].map(([ic, lbl, val], idx, arr) => (
               <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(8,145,178,0.12)" : "none" }}>
                 <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>{ic}</span>
@@ -299,7 +299,7 @@ export default function BookPage({ clinicId, doctorId, navigate, user }) {
         <Card style={{ padding: "44px 28px", textAlign: "center" }}>
           <div style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 24px", background: "#059669", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, color: "#fff" }}>✅</div>
           <h2 style={{ color: "#059669", fontSize: 24, fontWeight: 900 }}>{t("success_title")}</h2>
-          <p style={{ color: "#6b7280", marginBottom: 28 }}>{t("success_msg")} <strong>{doctor.FullName}</strong><br />{t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong></p>
+          <p style={{ color: "#6b7280", marginBottom: 28 }}>{t("success_msg")} <strong>{doctor.fullname}</strong><br />{t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong></p>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <Btn variant="secondary" onClick={() => navigate("/")}>{t("home")}</Btn>
             <Btn onClick={() => navigate("/appointments")}>{t("view_my_appts")}</Btn>
