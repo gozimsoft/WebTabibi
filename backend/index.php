@@ -58,6 +58,7 @@ try {
     if ($uri === '/doctors/profile'       && $method === 'GET')  { require_once __DIR__.'/controllers/DoctorController.php'; DoctorController::getProfile(); }
     if ($uri === '/doctors/profile'       && $method === 'PUT')  { require_once __DIR__.'/controllers/DoctorController.php'; DoctorController::updateProfile(); }
     if ($uri === '/doctors/photo'         && $method === 'POST') { require_once __DIR__.'/controllers/DoctorController.php'; DoctorController::uploadPhoto(); }
+    if ($uri === '/doctors/upload'        && $method === 'POST') { require_once __DIR__.'/controllers/DoctorController.php'; DoctorController::uploadDoctor(); }
 
     // ── Lookup ───────────────────────────────────────────────
     if ($uri === '/specialties' && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getSpecialties(); }
@@ -65,14 +66,20 @@ try {
     if ($uri === '/baladiyas'   && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getBaladiyas(); }
     if ($uri === '/reasons'   && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getReasons(); }
 
-    // ── Clinics ───────────────────────────────────────────────
+    // ── Doctors ──────────────────────────────────────────────
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && !isset($parts[2]) && $method === 'GET') {
+        require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getDoctorPublicProfile($parts[1]);
+    }
+
+    // ── clinics ───────────────────────────────────────────────
     if ($uri === '/clinics' && $method === 'GET') {
         require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::search();
     }
     // /clinics/profile
     if ($uri === '/clinics/profile' && $method === 'GET') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::getProfile(); }
-    if ($uri === '/clinics/profile' && $method === 'PUT') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::updateProfile(); }
-    if ($uri === '/clinics/logo' && $method === 'POST')   { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::uploadSelfLogo(); }
+    if ($uri === '/clinics/profile' && $method === 'PUT')  { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::updateProfile(); }
+    if ($uri === '/clinics/profile' && $method === 'POST') { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::uploadProfile(); }
+    if ($uri === '/clinics/logo' && $method === 'POST')    { require_once __DIR__.'/controllers/ClinicController.php'; ClinicController::uploadSelfLogo(); }
 
     // /clinics/:id
     if (isset($parts[0]) && $parts[0] === 'clinics' && isset($parts[1]) && !isset($parts[2]) && $method === 'GET') {
@@ -101,6 +108,13 @@ try {
         if ($method === 'GET')    AppointmentController::getOne($parts[1]);
         if ($method === 'DELETE') AppointmentController::cancel($parts[1]);
     }
+
+    // ── Delphi Sync (مزامنة دلفي ↔ سيرفر) ───────────────────────
+    // POST /api/apointements/sync  ← note: 'apointements' (Delphi spelling)
+    if ($uri === '/apointements/sync' && $method === 'POST') {
+        require_once __DIR__.'/controllers/AppointmentController.php'; AppointmentController::sync();
+    }
+  
 
     // ── Chat ─────────────────────────────────────────────────
     if ($uri === '/chat/threads' && $method === 'GET')  { require_once __DIR__.'/controllers/ChatController.php'; ChatController::getThreads(); }
@@ -133,7 +147,7 @@ try {
     if ($uri === '/register/doctor'  && $method === 'POST') { require_once __DIR__.'/controllers/RegistrationController.php'; RegistrationController::registerDoctor(); }
     if ($uri === '/register/status'  && $method === 'GET')  { require_once __DIR__.'/controllers/RegistrationController.php'; RegistrationController::checkStatus(); }
 
-    // ── Admin (UserType = 3) ──────────────────────────────────
+    // ── Admin (usertype = 3) ──────────────────────────────────
     if ($uri === '/admin/stats'   && $method === 'GET')  { require_once __DIR__.'/controllers/AdminController.php'; AdminController::stats(); }
     if ($uri === '/admin/clinics' && $method === 'GET')  { require_once __DIR__.'/controllers/AdminController.php'; AdminController::listClinics(); }
     if ($uri === '/admin/doctors' && $method === 'GET')  { require_once __DIR__.'/controllers/AdminController.php'; AdminController::listDoctors(); }
@@ -160,7 +174,7 @@ try {
         require_once __DIR__.'/controllers/RelationController.php'; RelationController::respondToRequest($parts[2]);
     }
 
-    // ── Tickets (Support) ──────────────────────────────────────
+    // ── tickets (Support) ──────────────────────────────────────
     if ($uri === '/tickets' && $method === 'POST') { require_once __DIR__.'/controllers/TicketController.php'; TicketController::create(); }
     if ($uri === '/tickets' && $method === 'GET')  { require_once __DIR__.'/controllers/TicketController.php'; TicketController::list(); }
     if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[1]) && !isset($parts[2])) {
@@ -180,5 +194,5 @@ try {
 } catch (PDOException $e) {
     Response::serverError('Erreur base de données: ' . $e->getMessage());
 } catch (Throwable $e) {
-    Response::serverError('Erreur interne: ' . $e->getMessage());
+    Response::serverError('Erreur internet: ' . $e->getMessage());
 }

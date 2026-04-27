@@ -20,7 +20,7 @@ export default function Navbar({ user, navigate, onLogout }) {
   const [animKey, setAnimKey]   = useState(null); // null = no animation
   const [textAnim, setTextAnim] = useState({});
   const menuRef = useRef(null);
-  const name = user?.profile?.FullName?.split(" ")[0] || user?.username || "U";
+  const name = user?.profile?.fullname?.split(" ")[0] || user?.username || "U";
 
   useEffect(() => {
     let timeoutId;
@@ -87,7 +87,7 @@ export default function Navbar({ user, navigate, onLogout }) {
         }
       `}</style>
 
-      {/* Logo */}
+      {/* logo */}
       <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
 
         {/* ✅ key forces React to remount the div — animation always retriggers */}
@@ -103,7 +103,7 @@ export default function Navbar({ user, navigate, onLogout }) {
         >
           <img
             src={`${import.meta.env.BASE_URL}logo.png?v=10`}
-            alt="Logo"
+            alt="logo"
             style={{ width: 30, height: 30, objectFit: "contain" }}
           />
         </div>

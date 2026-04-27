@@ -21,7 +21,7 @@ export default function ChatPage({ user }) {
   useEffect(() => {
     if (!sel) return;
     setML(true);
-    api.chat.messages(sel.ID).then(setMsgs).catch(() => { }).finally(() => setML(false));
+    api.chat.messages(sel.id).then(setMsgs).catch(() => { }).finally(() => setML(false));
   }, [sel]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
@@ -29,9 +29,9 @@ export default function ChatPage({ user }) {
   const send = async e => {
     e.preventDefault();
     if (!txt.trim() || !sel) return;
-    const m = { ID: Date.now(), SenderID: user.id, Content: txt, CreatedAt: new Date().toISOString() };
+    const m = { id: Date.now(), SenderID: user.id, Content: txt, createdat: new Date().toISOString() };
     setMsgs(p => [...p, m]); setTxt("");
-    try { await api.chat.send(sel.ID, { content: txt }); } catch { }
+    try { await api.chat.send(sel.id, { content: txt }); } catch { }
   };
 
   if (loading) return <Spinner />;
@@ -45,13 +45,13 @@ export default function ChatPage({ user }) {
         </div>
         <div style={{ flex: 1, overflowY: "auto" }}>
           {threads.map(tr => (
-            <div key={tr.ID} onClick={() => setSel(tr)} style={{
+            <div key={tr.id} onClick={() => setSel(tr)} style={{
               padding: "16px", borderBottom: "1px solid #f3f4f6", cursor: "pointer",
-              background: sel?.ID === tr.ID ? "#ecfeff" : "none", display: "flex", gap: 12, alignItems: "center"
+              background: sel?.id === tr.id ? "#ecfeff" : "none", display: "flex", gap: 12, alignItems: "center"
             }}>
               <DoctorImage photo={tr.DoctorPhoto} size={44} borderRadius="50%" />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#374151" }}>{tr.DoctorName}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#374151" }}>{tr.doctorname}</div>
                 <div style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tr.LastMessage || t("no_messages")}</div>
               </div>
             </div>
@@ -60,19 +60,19 @@ export default function ChatPage({ user }) {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* messages */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         {sel ? (
           <>
             <div style={{ padding: "12px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 12 }}>
               <DoctorImage photo={sel.DoctorPhoto} size={38} borderRadius="50%" />
-              <div style={{ fontWeight: 800, color: "#0c4a6e" }}>{sel.DoctorName}</div>
+              <div style={{ fontWeight: 800, color: "#0c4a6e" }}>{sel.doctorname}</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 20, background: "#fff", display: "flex", flexDirection: "column", gap: 12 }}>
               {msgL ? <Spinner /> : msgs.map(m => {
                 const isMe = m.SenderID === user.id;
                 return (
-                  <div key={m.ID} style={{
+                  <div key={m.id} style={{
                     alignSelf: isMe ? "flex-end" : "flex-start",
                     maxWidth: "70%", padding: "10px 14px", borderRadius: 16,
                     background: isMe ? "#0891b2" : "#f3f4f6",
@@ -83,7 +83,7 @@ export default function ChatPage({ user }) {
                   }}>
                     <div>{m.Content}</div>
                     <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7, textAlign: "left" }}>
-                      {new Date(m.CreatedAt).toLocaleTimeString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(m.createdat).toLocaleTimeString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { hour: "2-digit", minute: "2-digit" })}
                     </div>
                   </div>
                 );

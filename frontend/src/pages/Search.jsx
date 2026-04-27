@@ -43,7 +43,7 @@ export default function SearchPage({ navigate, qs }) {
           <select value={sp} onChange={e => setSP(e.target.value)}
             style={{ flex: 1, minWidth: 150, padding: "10px 12px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontSize: 13, background: "#fafafa", boxSizing: "border-box" }}>
             <option value="">{t("all_specialties")}</option>
-            {spList.map(s => <option key={s.ID} value={s.ID}>{i18n.language === 'ar' ? s.NameAr : s.NameFr}</option>)}
+            {spList.map(s => <option key={s.id} value={s.id}>{i18n.language === 'ar' ? s.namear : s.namefr}</option>)}
           </select>
           <Btn onClick={() => doSearch(q, sp)} style={{ padding: "10px 24px", whiteSpace: "nowrap" }}>{t("search_btn")}</Btn>
         </div>
@@ -55,32 +55,46 @@ export default function SearchPage({ navigate, qs }) {
             {total > 0 ? `${total} ${t("results_count")}` : t("no_results")}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px,1fr))", gap: 14 }}>
-            {results.map(r => (
-              <div key={r.ClinicsDoctor_id}
-                onClick={() => navigate(`/clinic/${r.ClinicId}/doctor/${r.DoctorId}`)}
-                style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", padding: 18, cursor: "pointer", transition: "all 0.2s" }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(8,145,178,0.12)"; e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; }}
-              >
-                <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  <DoctorImage photo={r.PhotoProfile} size={48} borderRadius={10} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: "#0c4a6e", marginBottom: 4 }}>{r.DoctorName}</div>
-                    <Badge color="#0891b2">{i18n.language === 'ar' ? r.SpecialtyAr : r.SpecialtyFr}</Badge>
+            {results.map(r => {
+              const type = (r.ResultType || "").toUpperCase();
+              return (
+                <div key={type + r.ResultId}
+                  onClick={() => type === 'DOCTOR' ? navigate(`/doctor/${r.doctor_id}`) : navigate(`/clinic/${r.clinicid}`)}
+                  style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", padding: 18, cursor: "pointer", transition: "all 0.2s" }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(8,145,178,0.12)"; e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; }}
+                >
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -15 }}>
+                    <Badge color={type === 'DOCTOR' ? "#0891b2" : "#7c3aed"}>
+                      {type === 'DOCTOR' ? t("doctor") : t("clinic") || "Clinic"}
+                    </Badge>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                    {type === 'DOCTOR' ? (
+                      <DoctorImage photo={r.photoprofile} size={48} borderRadius={10} />
+                    ) : (
+                      <div style={{ width: 48, height: 48, borderRadius: 10, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>🏥</div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: "#0c4a6e", marginBottom: 4 }}>
+                        {type === 'DOCTOR' ? r.doctorname : r.clinicname}
+                      </div>
+                      {type === 'DOCTOR' && <Badge color="#0891b2">{i18n.language === 'ar' ? r.specialtyar : r.specialtyfr}</Badge>}
+                    </div>
+                  </div>
+                  {type === 'DOCTOR' && <div style={{ fontSize: 13, color: "#374151", marginBottom: 6 }}>🏥 {r.clinicname}</div>}
+                  {r.ClinicAddress && <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>📍 {r.ClinicAddress.slice(0, 60)}</div>}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f3f4f6", paddingTop: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <Stars rating={Math.round(+r.AvgRating)} size={13} color="#0A85A4" />
+                      <span style={{ fontSize: 11, color: "#6b7280" }}>({r.RatingCount})</span>
+                    </div>
+                    {+r.pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#0A85A4" }}>{r.pricing} {t("da")}</span>}
+                    {+r.experience > 0 && <span style={{ fontSize: 11, color: "#9ca3af" }}>{r.experience} {t("experience")}</span>}
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: "#374151", marginBottom: 6 }}>🏥 {r.ClinicName}</div>
-                {r.ClinicAddress && <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>📍 {r.ClinicAddress.slice(0, 60)}</div>}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f3f4f6", paddingTop: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <Stars rating={Math.round(+r.AvgRating)} size={13} color="#0A85A4" />
-                    <span style={{ fontSize: 11, color: "#6b7280" }}>({r.RatingCount})</span>
-                  </div>
-                  {+r.Pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#0A85A4" }}>{r.Pricing} {t("da")}</span>}
-                  {+r.Experience > 0 && <span style={{ fontSize: 11, color: "#9ca3af" }}>{r.Experience} {t("experience")}</span>}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {results.length === 0 && !loading && (
             <div style={{ textAlign: "center", padding: "60px 24px", color: "#9ca3af" }}>

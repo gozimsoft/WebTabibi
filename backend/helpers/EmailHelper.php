@@ -13,8 +13,8 @@ class EmailHelper {
     public static function sendAppointmentConfirmation(
         string $toEmail,
         string $toName,
-        string $doctorName,
-        string $clinicName,
+        string $doctorname,
+        string $clinicname,
         string $appointmentDate,
         string $reason
     ): bool {
@@ -37,8 +37,8 @@ class EmailHelper {
               <p style='color:#555'>تم حجز موعدك بنجاح. إليك تفاصيل الموعد:</p>
               <div style='background:#f8f9fa;border-right:4px solid #0d6efd;border-radius:8px;padding:20px;margin:20px 0'>
                 <table style='width:100%;border-collapse:collapse'>
-                  <tr><td style='padding:8px 0;color:#666;width:40%'>👨‍⚕️ الطبيب:</td><td style='padding:8px 0;font-weight:bold;color:#333'>{$doctorName}</td></tr>
-                  <tr><td style='padding:8px 0;color:#666'>🏥 العيادة:</td><td style='padding:8px 0;font-weight:bold;color:#333'>{$clinicName}</td></tr>
+                  <tr><td style='padding:8px 0;color:#666;width:40%'>👨‍⚕️ الطبيب:</td><td style='padding:8px 0;font-weight:bold;color:#333'>{$doctorname}</td></tr>
+                  <tr><td style='padding:8px 0;color:#666'>🏥 العيادة:</td><td style='padding:8px 0;font-weight:bold;color:#333'>{$clinicname}</td></tr>
                   <tr><td style='padding:8px 0;color:#666'>📅 التاريخ والوقت:</td><td style='padding:8px 0;font-weight:bold;color:#0d6efd'>{$dateFormatted}</td></tr>
                   <tr><td style='padding:8px 0;color:#666'>🩺 سبب الزيارة:</td><td style='padding:8px 0;font-weight:bold;color:#333'>{$reason}</td></tr>
                 </table>

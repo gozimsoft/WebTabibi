@@ -14,17 +14,17 @@ class PatientController {
         $pdo     = Database::getInstance();
 
         $stmt = $pdo->prepare("
-            SELECT p.*, b.NameFr as BaladiyaName, b.NameAr as BaladiyaNameAr
-            FROM Patients p
-            LEFT JOIN Baladiyas b ON b.ID = p.Baladiya_id
-            WHERE p.User_id = ?
+            SELECT p.*, b.namefr as BaladiyaName, b.namear as BaladiyaNameAr
+            FROM patients p
+            LEFT JOIN baladiyas b ON b.id = p.baladiya_id
+            WHERE p.user_id = ?
             LIMIT 1
         ");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
 
         if (!$patient) Response::notFound('Profil patient non trouvé');
-        unset($patient['PhotoProfile']);
+        unset($patient['photoprofile']);
 
         Response::success($patient);
     }
@@ -35,15 +35,15 @@ class PatientController {
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo     = Database::getInstance();
 
-        // Get patient ID
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        // Get patient id
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound();
 
-        $allowed = ['FullName','Phone','Email','BirthDate','Address','Gender','Baladiya_id',
-                    'BirthPlace','BirthCountry','PostCode','SpeakingLanguage','Country',
-                    'BloodType','EmergancyPhone','EmergancyEmail','EmergancyNote'];
+        $allowed = ['fullname','phone','email','birthdate','address','gender','baladiya_id',
+                    'birthplace','birthcountry','postcode','speakinglanguage','country',
+                    'bloodtype','emergancyphone','emergancyemail','emergancynote'];
 
         $fields = [];
         $values = [];
@@ -56,8 +56,8 @@ class PatientController {
 
         if (empty($fields)) Response::error('Aucun champ à mettre à jour', 422);
 
-        $values[] = $patient['ID'];
-        $pdo->prepare("UPDATE Patients SET " . implode(', ', $fields) . " WHERE ID = ?")
+        $values[] = $patient['id'];
+        $pdo->prepare("UPDATE patients SET " . implode(', ', $fields) . " WHERE id = ?")
             ->execute($values);
 
         Response::success(null, 'Profil mis à jour avec succès');
@@ -68,18 +68,18 @@ class PatientController {
         $session = AuthMiddleware::authenticate();
         $pdo     = Database::getInstance();
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) { Response::success([]); return; }
 
         $stmt = $pdo->prepare("
-            SELECT p.ID, p.FullName, p.Phone, p.Email, p.Gender, p.BirthDate
-            FROM PatientsProches pp
-            JOIN Patients p ON p.ID = pp.Proche_id
-            WHERE pp.Patient_id = ?
+            SELECT p.id, p.fullname, p.phone, p.email, p.gender, p.birthdate
+            FROM patientsproches pp
+            JOIN patients p ON p.id = pp.proche_id
+            WHERE pp.patient_id = ?
         ");
-        $stmt->execute([$patient['ID']]);
+        $stmt->execute([$patient['id']]);
         $family = $stmt->fetchAll();
         Response::success($family);
     }
@@ -89,35 +89,35 @@ class PatientController {
         $session = AuthMiddleware::patientOnly();
         $pdo     = Database::getInstance();
 
-        $stmt = $pdo->prepare("SELECT ID FROM Patients WHERE User_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound();
 
         $stmt = $pdo->prepare("
             SELECT 
-                a.ID, a.AppointementDate, a.Note, a.PatientName,
-                a.ClinicsDoctor_id, a.DoctorsReason_id,
-                cd.Clinic_ID, cd.Doctor_ID, cd.specialtie_id,
-                d.FullName as DoctorName, d.Email as DoctorEmail, d.PhotoProfile,
-                c.ClinicName, c.Address as ClinicAddress,
-                dr.reason_name as ReasonName,
-                s.NameFr as SpecialtyFr, s.NameAr as SpecialtyAr
-            FROM Apointements a
-            LEFT JOIN ClinicsDoctors cd ON cd.ID = a.ClinicsDoctor_id
-            LEFT JOIN Doctors d         ON d.ID = cd.Doctor_ID
-            LEFT JOIN Clinics c         ON c.ID = cd.Clinic_ID
-            LEFT JOIN DoctorsReasons dr ON dr.ID = a.DoctorsReason_id
-            LEFT JOIN Specialties s     ON s.ID = cd.specialtie_id
-            WHERE a.Patient_id = ?
-            ORDER BY a.AppointementDate DESC
+                a.id, a.apointementdate, a.note, a.patientname,
+                a.clinicsdoctor_id, a.reason_id, a.status,
+                cd.clinic_id as clinicid, cd.doctor_id, cd.specialtie_id,
+                d.fullname as doctorname, d.email as doctoremail, d.photoprofile,
+                c.clinicname, c.address as ClinicAddress,
+                r.name as ReasonName,
+                s.namefr as specialtyfr, s.namear as specialtyar
+            FROM apointements a
+            LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
+            LEFT JOIN doctors d         ON d.id = cd.doctor_id
+            LEFT JOIN clinics c         ON c.id = cd.clinic_id
+            LEFT JOIN reasons r         ON r.id = a.reason_id
+            LEFT JOIN specialties s     ON s.id = cd.specialtie_id
+            WHERE (a.patient_id = ? OR a.patient_id IN (SELECT proche_id FROM patientsproches WHERE patient_id = ?))
+            ORDER BY a.apointementdate DESC
         ");
-        $stmt->execute([$patient['ID']]);
+        $stmt->execute([$patient['id'], $patient['id']]);
         $appointments = $stmt->fetchAll();
 
         foreach ($appointments as &$a) {
-            if (!empty($a['PhotoProfile'])) {
-                $a['PhotoProfile'] = base64_encode($a['PhotoProfile']);
+            if (!empty($a['photoprofile'])) {
+                $a['photoprofile'] = base64_encode($a['photoprofile']);
             }
         }
 

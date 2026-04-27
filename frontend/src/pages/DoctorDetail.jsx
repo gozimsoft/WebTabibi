@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
 
-export default function DoctorDetailPage({ clinicId, doctorId, navigate, user }) {
+export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
   const [data, setData] = useState(null);
+  const [selectedClinicId, setSelectedClinicId] = useState(initialClinicId || null);
   const [ratings, setR] = useState(null);
   const [loading, setL] = useState(true);
   const [tab, setTab] = useState("info");
@@ -17,21 +18,39 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
 
   useEffect(() => {
     setL(true);
-    Promise.all([
-      api.clinics.doctor(clinicId, doctorId),
-      api.ratings.doctor(doctorId),
-    ]).then(([d, r]) => { setData(d); setR(r); })
-      .catch(e => show(e.message, "error"))
-      .finally(() => setL(false));
-  }, [clinicId, doctorId, show]);
+    const load = async () => {
+      try {
+        const [r] = await Promise.all([
+          api.ratings.doctor(doctor_id),
+        ]);
+        setR(r);
+
+        if (selectedClinicId) {
+          const d = await api.clinics.doctor(selectedClinicId, doctor_id);
+          setData(d);
+        } else {
+          const d = await api.doctors.get(doctor_id);
+          setData(d);
+          if (d.OtherClinics?.length === 1) {
+            setSelectedClinicId(d.OtherClinics[0].id);
+          }
+        }
+      } catch (e) {
+        show(e.message, "error");
+      } finally {
+        setL(false);
+      }
+    };
+    load();
+  }, [selectedClinicId, doctor_id, show]);
 
   const submitRating = async () => {
     if (!user) { navigate("/login"); return; }
     if (myRating < 1) { show(t("otp_error_len") || "Select rating", "error"); return; }
     setSav(true);
     try {
-      await api.ratings.add({ doctor_id: doctorId, rating: myRating, comment: myComment, hide_patient: false });
-      const r = await api.ratings.doctor(doctorId);
+      await api.ratings.add({ doctor_id: doctor_id, rating: myRating, comment: myComment, hide_patient: false });
+      const r = await api.ratings.doctor(doctor_id);
       setR(r); setMR(0); setMC("");
       show(t("save_success"));
     } catch (e) { show(e.message, "error"); }
@@ -56,15 +75,31 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
       {/* Doctor header */}
       <Card style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-          <DoctorImage photo={data.PhotoProfile} size={90} borderRadius={16} style={{ fontSize: 38 }} />
+          <DoctorImage photo={data.photoprofile} size={90} borderRadius={16} style={{ fontSize: 38 }} />
           <div style={{ flex: 1, minWidth: 180 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-              <Badge color="#0891b2">{i18n.language === 'ar' ? data.SpecialtyAr : data.SpecialtyFr}</Badge>
-              {data.Degrees && <Badge color="#7c3aed">{data.Degrees}</Badge>}
+              <Badge color="#0891b2">{i18n.language === 'ar' ? data.specialtyar : data.specialtyfr}</Badge>
+              {data.degrees && <Badge color="#7c3aed">{data.degrees}</Badge>}
               {+data.Cnas === 1 && <Badge color="#059669">CNAS ✓</Badge>}
-              {+data.Casnos === 1 && <Badge color="#0891b2">CASNOS ✓</Badge>}
+              {+data.casnos === 1 && <Badge color="#0891b2">casnos ✓</Badge>}
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{data.FullName}</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{data.fullname}</h1>
+            
+            {selectedClinicId ? (
+              <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                🏥 {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
+                {data.OtherClinics?.length > 1 && (
+                  <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
+                    ({t("change") || "change"})
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>
+                ⚠️ {t("select_clinic_to_book") || "Please select a clinic to book"}
+              </div>
+            )}
+
             {data.BaladiyaName && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6 }}>📍 {data.BaladiyaName}</div>}
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -72,13 +107,19 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(data.AvgRating || 0)).toFixed(1)}</span>
                 <span style={{ fontSize: 11, color: "#9ca3af" }}>({data.RatingCount || 0})</span>
               </div>
-              {+data.Experience > 0 && <span style={{ fontSize: 12, color: "#6b7280" }}>⏱ {data.Experience} {t("experience")}</span>}
-              {+data.Pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>💰 {data.Pricing} {t("da")}</span>}
+              {+data.experience > 0 && <span style={{ fontSize: 12, color: "#6b7280" }}>⏱ {data.experience} {t("experience")}</span>}
+              {+data.pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>💰 {data.pricing} {t("da")}</span>}
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
             {user ? (
-              <Btn onClick={() => navigate(`/book/${clinicId}/${doctorId}`)} style={{ padding: "11px 24px" }}>{t("book_appointment")}</Btn>
+              <Btn 
+                onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}`)} 
+                disabled={!selectedClinicId}
+                style={{ padding: "11px 24px" }}
+              >
+                {t("book_appointment")}
+              </Btn>
             ) : (
               <Btn onClick={() => navigate("/login")}>{t("login_to_book")}</Btn>
             )}
@@ -86,6 +127,30 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
           </div>
         </div>
       </Card>
+
+      {/* Clinic Selection (if not selected) */}
+      {!selectedClinicId && data.OtherClinics?.length > 0 && (
+        <Card style={{ marginBottom: 20, border: "2px solid #0891b2" }}>
+          <h3 style={{ color: "#0c4a6e", margin: "0 0 14px", fontSize: 16, fontWeight: 800 }}>{t("select_clinic_title") || "Select Clinic"}</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
+            {data.OtherClinics.map(c => (
+              <div key={c.id} 
+                onClick={() => setSelectedClinicId(c.id)}
+                style={{ 
+                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", cursor: "pointer", transition: "all 0.2s",
+                  background: "#fff"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdfa"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
+              >
+                <div style={{ fontWeight: 700, color: "#0c4a6e", marginBottom: 4 }}>{c.clinicname}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>📍 {c.address}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>📞 {c.phone}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid #e5e7eb", marginBottom: 20 }}>
@@ -117,25 +182,25 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
           <Card style={{ padding: "18px 20px" }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 15 }}>{t("contact_info")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 13 }}>
-              {data.Phone && <div>📱 <strong>{t("phone_label")}</strong> {data.Phone}</div>}
-              {data.Email && <div>✉️ <strong>{t("email_label")}</strong> {data.Email}</div>}
-              {data.SpeakingLanguage && <div>🗣 <strong>{t("languages")}</strong> {data.SpeakingLanguage}</div>}
+              {data.phone && <div>📱 <strong>{t("phone_label")}</strong> {data.phone}</div>}
+              {data.email && <div>✉️ <strong>{t("email_label")}</strong> {data.email}</div>}
+              {data.speakinglanguage && <div>🗣 <strong>{t("languages")}</strong> {data.speakinglanguage}</div>}
               {data.PayementMethods && <div>💳 <strong>{t("payment")}</strong> {data.PayementMethods}</div>}
             </div>
           </Card>
         </div>
       )}
 
-      {/* REASONS */}
+      {/* reasons */}
       {tab === "reasons" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 10 }}>
-          {(data.Reasons || []).map(r => (
-            <Card key={r.ID} style={{ padding: "14px 16px" }}>
+          {(data.reasons || []).map(r => (
+            <Card key={r.id} style={{ padding: "14px 16px" }}>
               <div style={{ fontWeight: 700, color: "#0c4a6e", fontSize: 14, marginBottom: 4 }}>{r.reason_name}</div>
               {+r.reason_time > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>⏱ {r.reason_time} {t("minutes")}</div>}
             </Card>
           ))}
-          {(!data.Reasons || data.Reasons.length === 0) && <p style={{ color: "#9ca3af" }}>{t("no_reasons_defined")}</p>}
+          {(!data.reasons || data.reasons.length === 0) && <p style={{ color: "#9ca3af" }}>{t("no_reasons_defined")}</p>}
         </div>
       )}
 
@@ -149,12 +214,12 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {(() => {
                 const daysKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-                const weekBegin = parseInt(data.Schedule.WeekBeginDay || 0);
-                const workingDays = data.Schedule.WorkingDays || "1111111";
+                const weekBegin = parseInt(data.Schedule.weekbeginday || 0);
+                const workingdays = data.Schedule.workingdays || "1111111";
                 const orderedDays = [];
                 for (let i = 0; i < 7; i++) {
                   const idx = (weekBegin + i) % 7;
-                  orderedDays.push({ name: t(daysKeys[idx]), works: workingDays[i] === "1" });
+                  orderedDays.push({ name: t(daysKeys[idx]), works: workingdays[i] === "1" });
                 }
                 return orderedDays.map((d, i) => (
                   <div key={i} style={{
@@ -174,19 +239,19 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 18 }}>⏰</span>
                   <span style={{ fontSize: 14, color: "#334155" }}>
-                    <strong>{t("from")}</strong> {(data.Schedule.DaytimeStart || "").match(/\d{2}:\d{2}/)?.[0] || "08:00"}
+                    <strong>{t("from")}</strong> {(data.Schedule.daytimestart || "").match(/\d{2}:\d{2}/)?.[0] || "08:00"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 18 }}>⌛</span>
                   <span style={{ fontSize: 14, color: "#334155" }}>
-                    <strong>{t("to")}</strong> {(data.Schedule.DaytimeEnd || "").match(/\d{2}:\d{2}/)?.[0] || "17:00"}
+                    <strong>{t("to")}</strong> {(data.Schedule.daytimeend || "").match(/\d{2}:\d{2}/)?.[0] || "17:00"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 18 }}>⏱️</span>
                   <span style={{ fontSize: 14, color: "#334155" }}>
-                    <strong>{t("appt_duration")}</strong> {data.Schedule.TimeScale} {t("minutes")}
+                    <strong>{t("appt_duration")}</strong> {data.Schedule.timescale} {t("minutes")}
                   </span>
                 </div>
               </div>
@@ -223,14 +288,14 @@ export default function DoctorDetailPage({ clinicId, doctorId, navigate, user })
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {(ratings?.ratings || []).map(r => (
-              <Card key={r.ID} style={{ padding: "14px 18px" }}>
+              <Card key={r.id} style={{ padding: "14px 18px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: "#374151", marginBottom: 4, fontSize: 14 }}>{r.PatientName}</div>
-                    <Stars rating={r.Rating} size={13} />
+                    <div style={{ fontWeight: 700, color: "#374151", marginBottom: 4, fontSize: 14 }}>{r.patientname}</div>
+                    <Stars rating={r.rating} size={13} />
                   </div>
                 </div>
-                {r.Comment && <p style={{ color: "#6b7280", marginTop: 8, fontSize: 13, lineHeight: 1.6 }}>{r.Comment}</p>}
+                {r.comment && <p style={{ color: "#6b7280", marginTop: 8, fontSize: 13, lineHeight: 1.6 }}>{r.comment}</p>}
               </Card>
             ))}
           </div>

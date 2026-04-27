@@ -2,8 +2,8 @@
 // ============================================================
 // controllers/RegistrationController.php
 // Public endpoints — no auth required
-// POST /api/register/clinic  → ClinicRegistrations (PENDING)
-// POST /api/register/doctor  → DoctorRegistrations (PENDING)
+// POST /api/register/clinic  → clinicregistrations (PENDING)
+// POST /api/register/doctor  → doctorregistrations (PENDING)
 // ============================================================
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
@@ -26,13 +26,13 @@ class RegistrationController {
         }
 
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Response::error('Email invalide.', 422);
+            Response::error('email invalide.', 422);
         }
 
         $pdo = Database::getInstance();
 
         // Check email uniqueness
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM ClinicRegistrations WHERE Email=?");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM clinicregistrations WHERE email=?");
         $stmt->execute([$data['email']]);
         if ($stmt->fetchColumn() > 0) {
             Response::error("Cet email est déjà utilisé pour une demande d'inscription.", 409);
@@ -42,7 +42,7 @@ class RegistrationController {
         $passwordEncoded = base64_encode($data['password']);
 
         $pdo->prepare("
-            INSERT INTO ClinicRegistrations (ID, ClinicName, Email, Phone, Address, Notes, Password, Status)
+            INSERT INTO clinicregistrations (id, clinicname, email, phone, address, notes, password, status)
             VALUES (?,?,?,?,?,?, ?, 'PENDING')
         ")->execute([
             $id,
@@ -76,13 +76,13 @@ class RegistrationController {
         }
 
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Response::error('Email invalide.', 422);
+            Response::error('email invalide.', 422);
         }
 
         $pdo = Database::getInstance();
 
         // Check email uniqueness
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM DoctorRegistrations WHERE Email=?");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM doctorregistrations WHERE email=?");
         $stmt->execute([$data['email']]);
         if ($stmt->fetchColumn() > 0) {
             Response::error("Cet email est déjà utilisé pour une demande d'inscription.", 409);
@@ -92,7 +92,7 @@ class RegistrationController {
         $passwordEncoded = base64_encode($data['password']);
 
         $pdo->prepare("
-            INSERT INTO DoctorRegistrations (ID, FullName, Speciality, Email, Phone, Password, Status)
+            INSERT INTO doctorregistrations (id, fullname, speciality, email, phone, password, status)
             VALUES (?,?,?,?,?,?, 'PENDING')
         ")->execute([
             $id,
@@ -118,12 +118,12 @@ class RegistrationController {
         $email = $_GET['email'] ?? '';
         $type  = $_GET['type']  ?? 'clinic';
 
-        if (!$email) Response::error('Email requis', 422);
+        if (!$email) Response::error('email requis', 422);
 
         $pdo   = Database::getInstance();
-        $table = $type === 'doctor' ? 'DoctorRegistrations' : 'ClinicRegistrations';
+        $table = $type === 'doctor' ? 'doctorregistrations' : 'clinicregistrations';
 
-        $stmt = $pdo->prepare("SELECT Status, RejectedReason, ApprovedAt, CreatedAt FROM $table WHERE Email=? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT status, rejectedreason, approvedat, createdat FROM $table WHERE email=? LIMIT 1");
         $stmt->execute([$email]);
         $row = $stmt->fetch();
 
