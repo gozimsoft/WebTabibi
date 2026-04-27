@@ -127,6 +127,7 @@
     "review_confirm": "مراجعة وتأكيد الحجز",
     "review_confirm_desc": "تحقق من التفاصيل قبل إتمام الحجز النهائي",
     "doctor": "الطبيب",
+    "clinic": "عيادة",
     "specialty": "التخصص",
     "patient": "المريض",
     "date": "التاريخ",
@@ -151,6 +152,9 @@
     "all": "الكل",
     "upcoming": "القادمة",
     "past": "الماضية",
+    "cancelled": "ملغاة",
+    "cancelled_badge": "ملغى",
+    "diagnosed_badge": "تم التشخيص",
     "no_upcoming": "لا توجد مواعيد قادمة",
     "cancel_confirm": "هل أنت متأكد من إلغاء هذا الموعد؟",
     "cancel_success": "تم إلغاء الموعد بنجاح",
@@ -339,6 +343,9 @@
     "exit_app_desc": "هل أنت متأكد أنك تريد مغادرة طبيبي؟",
     "exit": "خروج",
     "cancel": "إلغاء",
-    "next": "التالي"
+    "next": "التالي",
+    "select_clinic_to_book": "يرجى اختيار عيادة لإتمام الحجز",
+    "select_clinic_title": "اختر العيادة",
+    "change": "تغيير"
   }
 }

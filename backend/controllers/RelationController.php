@@ -214,7 +214,7 @@ class RelationController {
 
     private static function getClinicId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT clinic_id FROM clinicregistrations WHERE user_id=? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM clinics WHERE user_id=? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }

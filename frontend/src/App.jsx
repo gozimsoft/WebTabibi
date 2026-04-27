@@ -80,6 +80,9 @@ const api = {
     update: b => req("PUT", "/clinics/profile", b),
     uploadLogo: fd => reqFile("POST", "/clinics/logo", fd),
   },
+  doctors: {
+    get: id => req("GET", `/doctors/${id}`),
+  },
   specialties: () => req("GET", "/specialties"),
   wilayas: () => req("GET", "/wilayas"),
   appointments: {
@@ -1353,7 +1356,7 @@ function SearchPage({ navigate, qs, user }) {
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px,1fr))", gap: 16 }}>
             {(user?.user_type === 1 ? results.filter(r => r.ResultType === 'CLINIC') : results).map(r => (
               <div key={r.ResultId + r.ResultType}
-                onClick={() => r.ResultType === 'CLINIC' ? navigate(`/clinic/${r.clinicid}`) : navigate(`/clinic/${r.clinicid}/doctor/${r.doctor_id}`)}
+                onClick={() => r.ResultType === 'CLINIC' ? navigate(`/clinic/${r.clinicid}`) : navigate(`/doctor/${r.doctor_id}`)}
                 style={{
                   background: "#fff", borderRadius: 22, border: "1px solid var(--border)", padding: isMobile ? 12 : 16,
                   cursor: "pointer", transition: "all 0.3s",
@@ -1609,10 +1612,11 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: DOCTOR DETAIL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function DoctorDetailPage({ clinicid, doctor_id, navigate, user }) {
+function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const [data, setData] = useState(null);
+  const [selectedClinicId, setSelectedClinicId] = useState(initialClinicId || null);
   const [ratings, setR] = useState(null);
   const [relStatus, setRelStatus] = useState(null);
   const [loading, setL] = useState(true);
@@ -1624,21 +1628,32 @@ function DoctorDetailPage({ clinicid, doctor_id, navigate, user }) {
 
   useEffect(() => {
     setL(true);
-    const promises = [
-      api.clinics.doctor(clinicid, doctor_id),
-      api.ratings.doctor(doctor_id),
-    ];
-    if (user && (user.user_type === 1 || user.user_type === 2)) {
-      promises.push(api.relations.check(user.user_type === 2 ? doctor_id : clinicid));
-    }
+    const load = async () => {
+      try {
+        const promises = [
+          selectedClinicId ? api.clinics.doctor(selectedClinicId, doctor_id) : api.doctors.get(doctor_id),
+          api.ratings.doctor(doctor_id),
+        ];
+        if (user && (user.user_type === 1 || user.user_type === 2)) {
+          promises.push(api.relations.check(user.user_type === 2 ? doctor_id : (selectedClinicId || initialClinicId)));
+        }
 
-    Promise.all(promises).then(([d, r, rel]) => {
-      setData(d); setR(r);
-      if (rel) setRelStatus(rel.status);
-    })
-      .catch(e => show(e.message, "error"))
-      .finally(() => setL(false));
-  }, [clinicid, doctor_id]);
+        const [d, r, rel] = await Promise.all(promises);
+        setData(d);
+        setR(r);
+        if (rel) setRelStatus(rel.status);
+
+        if (!selectedClinicId && d.OtherClinics?.length === 1) {
+          setSelectedClinicId(d.OtherClinics[0].id);
+        }
+      } catch (e) {
+        show(e.message, "error");
+      } finally {
+        setL(false);
+      }
+    };
+    load();
+  }, [selectedClinicId, doctor_id, initialClinicId]);
 
   const submitRating = async () => {
     if (!user) { navigate("/login"); return; }
@@ -1682,6 +1697,22 @@ function DoctorDetailPage({ clinicid, doctor_id, navigate, user }) {
               {+data.casnos === 1 && <Badge color="#0891b2"><Check size={12} style={{ marginLeft: 4 }} /> casnos</Badge>}
             </div>
             <h1 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 900, color: "#0c4a6e", margin: "0 0 8px" }}>{data.fullname}</h1>
+
+            {selectedClinicId ? (
+              <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, justifyContent: isMobile ? "center" : "flex-start" }}>
+                🏥 {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
+                {data.OtherClinics?.length > 1 && (
+                  <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
+                    ({t("change")})
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#f59e0b", fontWeight: 600, marginBottom: 12, textAlign: isMobile ? "center" : "left" }}>
+                ⚠️ {t("select_clinic_to_book")}
+              </div>
+            )}
+
             <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 6, justifyContent: isMobile ? "center" : "flex-start" }}>
               <MapPin size={14} style={{ marginTop: 2, flexShrink: 0, color: "#0891b2" }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -1722,8 +1753,19 @@ function DoctorDetailPage({ clinicid, doctor_id, navigate, user }) {
                 </>
               ) : user.user_type === 1 ? null : (
                 <>
-                  <Btn onClick={() => navigate(`/book/${clinicid}/${doctor_id}`)} style={{ padding: "12px 24px", justifyContent: "center" }}><Calendar size={18} /> {t("book_appointment")}</Btn>
-                  <Btn variant="secondary" onClick={() => navigate(`/book/${clinicid}/${doctor_id}?relative=1`)} style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}>
+                  <Btn
+                    onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}`)}
+                    disabled={!selectedClinicId}
+                    style={{ padding: "12px 24px", justifyContent: "center" }}
+                  >
+                    <Calendar size={18} /> {t("book_appointment")}
+                  </Btn>
+                  <Btn
+                    variant="secondary"
+                    onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}?relative=1`)}
+                    disabled={!selectedClinicId}
+                    style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}
+                  >
                     <Users size={16} /> {t("book_for_relative")}
                   </Btn>
                 </>
@@ -1792,26 +1834,39 @@ function DoctorDetailPage({ clinicid, doctor_id, navigate, user }) {
       {/* clinics */}
       {tab === "clinics" && (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-          {data.OtherClinics?.map(c => (
-            <div key={c.id}
-              onClick={() => navigate(`/clinic/${c.id}`)}
-              style={{
-                background: "#fff", borderRadius: 20, padding: 16, border: "1px solid var(--border)", cursor: "pointer",
-                transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
-            >
-              <div style={{ width: 50, height: 50, borderRadius: 12, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Building size={24} color="var(--brand)" />
+          {data.OtherClinics?.map(c => {
+            const isSelected = selectedClinicId === c.id;
+            return (
+              <div key={c.id}
+                onClick={() => {
+                  if (user?.user_type === 0) {
+                    setSelectedClinicId(c.id);
+                    setTab("schedule");
+                  } else {
+                    navigate(`/clinic/${c.id}`);
+                  }
+                }}
+                style={{
+                  background: isSelected ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
+                  borderRadius: 20, padding: 16, border: isSelected ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                  cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16,
+                  boxShadow: isSelected ? "0 8px 24px rgba(8,145,178,0.15)" : "0 4px 12px rgba(0,0,0,0.03)",
+                  transform: isSelected ? "scale(1.02)" : "none"
+                }}
+                onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; } }}
+                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; } }}
+              >
+                <div style={{ width: 50, height: 50, borderRadius: 12, background: isSelected ? "var(--brand)" : "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Building size={24} color={isSelected ? "#fff" : "var(--brand)"} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{c.clinicname}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> {c.address}</div>
+                </div>
+                {isSelected ? <CheckCircle size={22} color="#0891b2" /> : <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{c.clinicname}</div>
-                <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> {c.address}</div>
-              </div>
-              <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />
-            </div>
-          ))}
+            );
+          })}
           {(!data.OtherClinics || data.OtherClinics.length === 0) && (
             <div style={{ textAlign: "center", gridColumn: "1 / -1", padding: 40, color: "#9ca3af" }}>لا توجد عيادات مرتبطة</div>
           )}
@@ -2499,22 +2554,26 @@ function AppointmentsPage({ navigate }) {
     if (!confirm(t("cancel_confirm"))) return;
     try {
       await api.appointments.cancel(id);
-      setAppts(p => p.filter(a => a.id !== id));
+      // Instead of filtering out, let's refresh to see it in "Cancelled" tab
+      const updated = await api.patient.appointments();
+      setAppts(updated);
       show(t("cancel_success"));
     } catch (e) { show(e.message, "error"); }
   };
 
   const filtered = appts.filter(a => {
-    const d = new Date(a.appointementdate);
-    if (filter === "upcoming") return d >= now;
-    if (filter === "past") return d < now;
+    const d = new Date(a.apointementdate);
+    if (filter === "upcoming") return (a.status != 1) && d >= now;
+    if (filter === "past") return (a.status != 1) && d < now;
+    if (filter === "cancelled") return (a.status == 1);
     return true;
   });
 
   const cnt = (f) => appts.filter(a => {
-    const d = new Date(a.appointementdate);
-    if (f === "upcoming") return d >= now;
-    if (f === "past") return d < now;
+    const d = new Date(a.apointementdate);
+    if (f === "upcoming") return (a.status != 1) && d >= now;
+    if (f === "past") return (a.status != 1) && d < now;
+    if (f === "cancelled") return (a.status == 1);
     return true;
   }).length;
 
@@ -2528,7 +2587,7 @@ function AppointmentsPage({ navigate }) {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        {[["all", t("all")], ["upcoming", t("upcoming")], ["past", t("past")]].map(([v, l]) => (
+        {[["all", t("all")], ["upcoming", t("upcoming")], ["past", t("past")], ["cancelled", t("cancelled")]].map(([v, l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
             padding: "7px 16px", borderRadius: 20, border: "1.5px solid",
             fontWeight: 700, fontSize: 13, cursor: "pointer",
@@ -2556,8 +2615,8 @@ function AppointmentsPage({ navigate }) {
           gap: isMobile ? 12 : 20
         }}>
           {filtered.map(a => {
-            const isPast = new Date(a.appointementdate) < now;
-            const d = new Date(a.appointementdate);
+            const isPast = new Date(a.apointementdate) < now;
+            const d = new Date(a.apointementdate);
             return (
               <Card key={a.id} style={{
                 padding: 0,
@@ -2610,9 +2669,13 @@ function AppointmentsPage({ navigate }) {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 16, marginBottom: 2 }}>{a.doctorname || t("doctor")}</div>
                         <div>
-                          {isPast ?
-                            <Badge color="#94a3b8" style={{ padding: "3px 8px", fontSize: 10 }}>{t("past_badge")}</Badge> :
-                            <Badge color="#059669" style={{ padding: "3px 8px", fontSize: 10 }}>{t("upcoming_badge")}</Badge>
+                          {(a.status == 1) ?
+                            <Badge color="#ef4444" style={{ padding: "3px 8px", fontSize: 10 }}>{t("cancelled_badge")}</Badge> :
+                            (a.status == 2) ?
+                              <Badge color="#0ea5e9" style={{ padding: "3px 8px", fontSize: 10 }}>{t("diagnosed_badge")}</Badge> :
+                              isPast ?
+                                <Badge color="#94a3b8" style={{ padding: "3px 8px", fontSize: 10 }}>{t("past_badge")}</Badge> :
+                                <Badge color="#059669" style={{ padding: "3px 8px", fontSize: 10 }}>{t("upcoming_badge")}</Badge>
                           }
                         </div>
                       </div>
@@ -2634,7 +2697,7 @@ function AppointmentsPage({ navigate }) {
 
                   {/* Actions */}
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    {!isPast && (
+                    {!isPast && (a.status != 1 && a.status != 2) && (
                       <>
                         <Btn variant="danger" onClick={() => cancel(a.id)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <Trash2 size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("cancel_btn")}
@@ -4259,6 +4322,10 @@ export default function App() {
 
   // ── Routing ────────────────────────────────────────────────
   const renderPage = () => {
+    // /doctor/:id
+    const dm2 = route.match(/^\/doctor\/([^?#/]+)/);
+    if (dm2) return <DoctorDetailPage key={route} doctor_id={dm2[1]} navigate={navigate} user={user} />;
+
     // /clinic/:cId/doctor/:dId  — MUST check before switch
     const dm = route.match(/^\/clinic\/([^?#/]+)\/doctor\/([^?#/]+)/);
     if (dm) return <DoctorDetailPage key={route} clinicid={dm[1]} doctor_id={dm[2]} navigate={navigate} user={user} />;

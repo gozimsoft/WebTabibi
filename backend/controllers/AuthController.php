@@ -135,17 +135,26 @@ class AuthController {
                 Response::error('Compte non approuvé', 403);
             }
             unset($profile['photoprofile']);
+
+            // Fetch clinics the doctor works at
+            if (!empty($profile['id'])) {
+                $stmtClinics = $pdo->prepare("
+                    SELECT c.id, c.clinicname, c.address, c.phone, cd.specialtie_id,
+                           s.namefr as specialtyfr, s.namear as specialtyar
+                    FROM clinicsdoctors cd
+                    JOIN clinics c ON c.id = cd.clinic_id
+                    LEFT JOIN specialties s ON s.id = cd.specialtie_id
+                    WHERE cd.doctor_id = ? AND cd.status IN ('APPROVED', 'ACCEPTED')
+                    ORDER BY c.clinicname
+                ");
+                $stmtClinics->execute([$profile['id']]);
+                $profile['clinics'] = $stmtClinics->fetchAll();
+            }
         } elseif ($usertype === 2) {
-            // Clinic
-            $stmt = $pdo->prepare("
-                SELECT c.* FROM clinics c
-                JOIN clinicregistrations cr ON cr.clinic_id = c.id
-                WHERE cr.user_id = ? LIMIT 1
-            ");
+            $stmt = $pdo->prepare("SELECT * FROM clinics WHERE user_id = ? LIMIT 1");
             $stmt->execute([$user['id']]);
             $clinic = $stmt->fetch();
             if (!$clinic) {
-                // fallback: look up by user_id if stored differently
                 $profile = ['user_type_label' => 'clinic'];
             } else {
                 unset($clinic['logo']);
@@ -204,11 +213,7 @@ class AuthController {
             $profile = $stmt->fetch() ?: [];
             unset($profile['photoprofile']);
         } elseif ($usertype === 2) {
-            $stmt = $pdo->prepare("
-                SELECT c.* FROM clinics c
-                JOIN clinicregistrations cr ON cr.clinic_id = c.id
-                WHERE cr.user_id = ? LIMIT 1
-            ");
+            $stmt = $pdo->prepare("SELECT * FROM clinics WHERE user_id = ? LIMIT 1");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
             unset($profile['logo']);

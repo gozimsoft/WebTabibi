@@ -36,11 +36,11 @@ class AdminController {
         $stats['total_appointments'] = (int)$r;
 
         // Today's appointments
-        $r = $pdo->query("SELECT COUNT(*) FROM apointements WHERE DATE(appointementdate) = CURDATE()")->fetchColumn();
+        $r = $pdo->query("SELECT COUNT(*) FROM apointements WHERE DATE(apointementdate) = CURDATE()")->fetchColumn();
         $stats['today_appointments'] = (int)$r;
 
         // This month's appointments
-        $r = $pdo->query("SELECT COUNT(*) FROM apointements WHERE YEAR(appointementdate)=YEAR(NOW()) AND MONTH(appointementdate)=MONTH(NOW())")->fetchColumn();
+        $r = $pdo->query("SELECT COUNT(*) FROM apointements WHERE YEAR(apointementdate)=YEAR(NOW()) AND MONTH(apointementdate)=MONTH(NOW())")->fetchColumn();
         $stats['month_appointments'] = (int)$r;
 
         // Pending clinic registrations
@@ -62,9 +62,9 @@ class AdminController {
 
         // Monthly appointment trend (last 6 months)
         $stmt = $pdo->query("
-            SELECT DATE_FORMAT(appointementdate,'%Y-%m') as month, COUNT(*) as count
+            SELECT DATE_FORMAT(apointementdate,'%Y-%m') as month, COUNT(*) as count
             FROM apointements
-            WHERE appointementdate >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            WHERE apointementdate >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
             GROUP BY month ORDER BY month ASC
         ");
         $stats['appointment_trend'] = $stmt->fetchAll();
@@ -170,9 +170,9 @@ class AdminController {
 
             // Create Clinic record
             $pdo->prepare("
-                INSERT INTO clinics (id, clinicname, phone, email, address, status, approvedat)
-                VALUES (?,?,?,?,?,  'APPROVED', NOW())
-            ")->execute([$clinicid, $reg['clinicname'], $reg['phone'], $reg['email'], $reg['address']]);
+                INSERT INTO clinics (id, clinicname, phone, email, address, status, approvedat, user_id)
+                VALUES (?,?,?,?,?,  'APPROVED', NOW(), ?)
+            ")->execute([$clinicid, $reg['clinicname'], $reg['phone'], $reg['email'], $reg['address'], $userId]);
 
             // Update registration record
             $pdo->prepare("

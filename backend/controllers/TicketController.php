@@ -60,12 +60,12 @@ class TicketController {
                     LEFT JOIN patients p ON p.id = t.patient_id 
                     WHERE t.doctor_id = ? ORDER BY t.updated_at DESC";
             $params = [$myId];
-        } else if ($user['usertype'] == 2) { // Clinic
+        } else if ($user['usertype'] == 2) {
             $sql = "SELECT t.*, p.fullname as patientname 
                     FROM tickets t 
                     LEFT JOIN patients p ON p.id = t.patient_id 
-                    JOIN clinicregistrations cr ON cr.clinic_id = t.clinic_id
-                    WHERE cr.user_id = ? ORDER BY t.updated_at DESC";
+                    JOIN clinics c ON c.id = t.clinic_id
+                    WHERE c.user_id = ? ORDER BY t.updated_at DESC";
             $params = [$user['user_id']];
         }
 
@@ -101,8 +101,8 @@ class TicketController {
         } else if ($user['usertype'] == 2) {
             // Check if this ticket belongs to the clinic this user is registered for
             $stmt = $pdo->prepare("
-                SELECT 1 FROM clinicregistrations 
-                WHERE user_id = ? AND clinic_id = ? 
+                SELECT 1 FROM clinics 
+                WHERE user_id = ? AND id = ? 
                 LIMIT 1
             ");
             $stmt->execute([$user['user_id'], $ticket['clinic_id']]);
@@ -208,7 +208,7 @@ class TicketController {
 
     private static function getClinicId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT clinic_id FROM clinicregistrations WHERE user_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM clinics WHERE user_id = ? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }

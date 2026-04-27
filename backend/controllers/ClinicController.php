@@ -17,9 +17,8 @@ class ClinicController {
         $stmt = $pdo->prepare("
             SELECT c.*, u.username 
             FROM clinics c 
-            JOIN clinicregistrations cr ON cr.clinic_id = c.id
-            JOIN users u ON u.id = cr.user_id
-            WHERE cr.user_id = ? 
+            JOIN users u ON u.id = c.user_id
+            WHERE c.user_id = ? 
             LIMIT 1
         ");
         $stmt->execute([$session['user_id']]);
@@ -64,7 +63,7 @@ class ClinicController {
         // 2. Update clinics table
         $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
         if ($clinicid) {
-            $allowed = ['clinicname', 'email', 'phone', 'address', 'notes'];
+            $allowed = ['clinicname', 'email', 'phone', 'address', 'notes', 'fax', 'website', 'typeclinic', 'cliniccoordinates'];
             $fields = [];
             $values = [];
             foreach ($allowed as $field) {
@@ -82,25 +81,110 @@ class ClinicController {
         Response::success(null, 'Profil mis à jour avec succès');
     }
 
-    // POST /api/clinics/logo (Self upload)
-    public static function uploadSelfLogo(): void {
+    // POST /api/clinics/profile  (Delphi desktop sync)
+    public static function uploadProfile(): void {
         $session = AuthMiddleware::authenticate();
-        if ($session['usertype'] != 2) Response::error('Non autorisé', 403);
-        
-        if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
-            Response::error('Erreur lors du téléchargement du logo', 400);
+        if ((int)$session['usertype'] !== 2) Response::error('Non autorisé', 403);
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pdo  = Database::getInstance();
+
+        // Resolve clinic_id from session user
+        $clinicid = self::getClinicId($session['user_id']);
+        if (!$clinicid) Response::notFound('Profil clinique non trouvé');
+
+        // Map of incoming JSON keys → DB columns
+        $map = [
+            'clinicname'        => 'clinicname',
+            'phone'             => 'phone',
+            'fax'               => 'fax',
+            'address'           => 'address',
+            'email'             => 'email',
+            'webSite'           => 'website',
+            'typeclinic'        => 'typeclinic',
+            'cliniccoordinates' => 'cliniccoordinates',
+        ];
+
+        $fields = [];
+        $values = [];
+        foreach ($map as $jsonKey => $dbCol) {
+            if (array_key_exists($jsonKey, $data)) {
+                $fields[] = "`$dbCol` = ?";
+                $values[] = $data[$jsonKey];
+            }
         }
 
-        $fileContent = file_get_contents($_FILES['photo']['tmp_name']);
-        $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
+        if (empty($fields)) {
+            Response::error('Aucune donnée à mettre à jour', 422);
+        }
 
+        $values[] = $clinicid;
+        $sql = "UPDATE clinics SET " . implode(', ', $fields) . " WHERE id = ?";
+        $pdo->prepare($sql)->execute($values);
+
+        // Return the updated clinic
+        $stmt = $pdo->prepare("SELECT * FROM clinics WHERE id = ? LIMIT 1");
+        $stmt->execute([$clinicid]);
+        $clinic = $stmt->fetch();
+        unset($clinic['logo']); // don't return blob
+
+        Response::success($clinic, 'Profil clinique mis à jour avec succès');
+    }
+
+    // POST /api/clinics/logo (Self upload — multipart OR base64 JSON)
+    public static function uploadSelfLogo(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 2) Response::error('Non autorisé', 403);
+
+        $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
         if (!$clinicid) Response::error('Profil non trouvé', 404);
+
+        $imageData = null;
+        $maxSize   = 5 * 1024 * 1024; // 5 MB
+
+        // Option 1: multipart file upload (field "photo")
+        if (!empty($_FILES['photo'])) {
+            $file = $_FILES['photo'];
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                Response::error('Erreur lors de l\'upload du fichier (code: ' . $file['error'] . ')', 400);
+            }
+            if ($file['size'] > $maxSize) {
+                Response::error('Le fichier dépasse la taille maximale de 5 Mo', 400);
+            }
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            if (!in_array($mimeType, $allowedTypes)) {
+                Response::error('Type de fichier non supporté. Formats acceptés: JPEG, PNG, GIF, WebP', 400);
+            }
+            $imageData = file_get_contents($file['tmp_name']);
+        }
+        // Option 2: JSON body with base64 (Delphi desktop)
+        else {
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+            if (empty($input['logo']) && empty($input['photo'])) {
+                Response::error('Aucune photo fournie. Envoyez un fichier (champ "photo") ou un JSON { "logo": "base64..." }', 422);
+            }
+            $base64 = $input['logo'] ?? $input['photo'];
+            // Strip data URI prefix if present
+            if (preg_match('/^data:image\/\w+;base64,/', $base64)) {
+                $base64 = preg_replace('/^data:image\/\w+;base64,/', '', $base64);
+            }
+            $imageData = base64_decode($base64, true);
+            if ($imageData === false) {
+                Response::error('Données base64 invalides', 400);
+            }
+            if (strlen($imageData) > $maxSize) {
+                Response::error('L\'image dépasse la taille maximale de 5 Mo', 400);
+            }
+        }
 
         $pdo = Database::getInstance();
         $pdo->prepare("UPDATE clinics SET logo = ? WHERE id = ?")
-            ->execute([$fileContent, $clinicid]);
+            ->execute([$imageData, $clinicid]);
 
-        Response::success(null, 'logo mis à jour avec succès');
+        Response::success(null, 'Logo mis à jour avec succès');
     }
 
     // GET /api/clinics?q=&specialty=&wilaya=&page=1&limit=20
@@ -130,6 +214,18 @@ class ClinicController {
             if ($user['usertype'] == 2) $myClinicId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
         }
 
+        // Add specialty/wilaya filters to whereQ
+        if ($specialty) {
+            $whereQ .= " AND (cd.specialtie_id = ? OR d.specialtie_id = ?)";
+            $params[] = $specialty;
+            $params[] = $specialty;
+        }
+        if ($wilaya) {
+            $whereQ .= " AND (d.baladiya_id IN (SELECT id FROM baladiyas WHERE wilaya_id = ?) OR c.baladiya_id IN (SELECT id FROM baladiyas WHERE wilaya_id = ?))";
+            $params[] = $wilaya;
+            $params[] = $wilaya;
+        }
+
         // We use a UNION to get both clinics and Doctor-at-Clinic entries
         // note: We need to match column counts and types
         $query = "
@@ -153,37 +249,39 @@ class ClinicController {
                     0 as RatingCount,
                     (SELECT status FROM clinicsdoctors WHERE clinic_id = c.id AND doctor_id = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as relationstatus
                 FROM clinics c
-                WHERE c.status = 'APPROVED' AND c.clinicname LIKE ?
+                WHERE UPPER(c.status) = 'APPROVED' AND c.clinicname LIKE ?
                 GROUP BY c.id
             )
             UNION ALL
             (
                 SELECT 
                     'DOCTOR' as ResultType,
-                    cd.id as ResultId,
-                    c.id as clinicid,
-                    c.clinicname,
-                    c.address as ClinicAddress,
-                    c.phone as ClinicPhone,
+                    d.id as ResultId,
+                    MAX(c.id) as clinicid,
+                    MAX(c.clinicname) as clinicname,
+                    MAX(c.address) as ClinicAddress,
+                    MAX(c.phone) as ClinicPhone,
                     d.id as doctor_id,
                     d.fullname as doctorname,
                     d.photoprofile,
                     d.experience,
                     d.pricing,
-                    s.id as specialtyid,
-                    s.namefr as specialtyfr,
-                    s.namear as specialtyar,
+                    MAX(s.id) as specialtyid,
+                    MAX(s.namefr) as specialtyfr,
+                    MAX(s.namear) as specialtyar,
                     COALESCE(AVG(dr2.rating), 0) as AvgRating,
                     COUNT(dr2.id) as RatingCount,
                     (SELECT status FROM clinicsdoctors WHERE doctor_id = d.id AND clinic_id = " . ($myClinicId ? $pdo->quote($myClinicId) : "NULL") . " LIMIT 1) as relationstatus
-                FROM clinicsdoctors cd
-                JOIN clinics c ON c.id = cd.clinic_id
-                JOIN doctors d ON d.id = cd.doctor_id
-                JOIN specialties s ON s.id = cd.specialtie_id
+                FROM doctors d
+                LEFT JOIN clinicsdoctors cd ON cd.doctor_id = d.id
+                LEFT JOIN clinics c ON c.id = cd.clinic_id
+                LEFT JOIN specialties s ON s.id = COALESCE(d.specialtie_id, cd.specialtie_id)
                 LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-                WHERE c.status = 'APPROVED' AND d.status = 'APPROVED' AND cd.status IN ('APPROVED', 'ACCEPTED')
+                WHERE UPPER(d.status) = 'APPROVED'
+                AND (c.status IS NULL OR UPPER(c.status) = 'APPROVED')
+                AND (cd.status IS NULL OR UPPER(cd.status) IN ('APPROVED', 'ACCEPTED'))
                 AND $whereQ
-                GROUP BY cd.id
+                GROUP BY d.id
             )
             ORDER BY ResultType ASC, AvgRating DESC
             LIMIT $limit OFFSET $offset
@@ -223,7 +321,7 @@ class ClinicController {
         $pdo  = Database::getInstance();
         $stmt = $pdo->prepare("
             SELECT c.*,
-                   GROUP_CONCAT(DISTINCT CONCAT(d.id,'|',d.fullname,'|',s.namefr,'|',s.namear,'|',cd.id,'|',s.id) SEPARATOR ';;') as DoctorsList,
+                   GROUP_CONCAT(DISTINCT CONCAT_WS('|', d.id, d.fullname, COALESCE(s.namefr,''), COALESCE(s.namear,''), cd.id, COALESCE(s.id,'')) SEPARATOR ';;') as DoctorsList,
                    COALESCE(AVG(dr2.rating),0) as AvgRating,
                    COUNT(DISTINCT dr2.id) as RatingCount
             FROM clinics c
@@ -231,8 +329,10 @@ class ClinicController {
             LEFT JOIN doctors d         ON d.id = cd.doctor_id
             LEFT JOIN specialties s     ON s.id = cd.specialtie_id
             LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-            WHERE c.id = ? AND c.status = 'APPROVED' AND (d.status = 'APPROVED' OR d.status IS NULL)
-            AND (cd.status IN ('APPROVED', 'ACCEPTED') OR cd.status IS NULL)
+            WHERE c.id = ? 
+              AND UPPER(c.status) = 'APPROVED' 
+              AND (UPPER(d.status) = 'APPROVED' OR d.status IS NULL)
+              AND (UPPER(cd.status) IN ('APPROVED', 'ACCEPTED') OR cd.status IS NULL)
             GROUP BY c.id
         ");
         $stmt->execute([$id]);
@@ -279,6 +379,9 @@ class ClinicController {
         $stmt = $pdo->prepare("
             SELECT 
                 d.*, 
+                d.cnas as Cnas, d.casnos as Casnos,
+                d.education as Education, d.presentation as Presentation,
+                d.payementmethods as PayementMethods,
                 cd.id as clinicsdoctor_id, cd.specialtie_id,
                 s.namefr as specialtyfr, s.namear as specialtyar,
                 b.namefr as BaladiyaName,
@@ -286,16 +389,18 @@ class ClinicController {
                 COUNT(DISTINCT dr2.id) as RatingCount
             FROM doctors d
             JOIN clinicsdoctors cd ON cd.doctor_id = d.id AND cd.clinic_id = ?
-            JOIN specialties s     ON s.id = cd.specialtie_id
+            LEFT JOIN specialties s ON s.id = cd.specialtie_id
             LEFT JOIN baladiyas b  ON b.id = d.baladiya_id
             LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-            WHERE d.id = ? AND d.status = 'APPROVED' AND cd.status IN ('APPROVED', 'ACCEPTED')
+            WHERE d.id = ? 
             GROUP BY d.id, cd.id
         ");
         $stmt->execute([$clinicid, $doctor_id]);
         $doctor = $stmt->fetch();
 
-        if (!$doctor) Response::notFound('Médecin non trouvé dans cette clinique');
+        if (!$doctor) {
+            Response::notFound('Médecin non trouvé dans cette clinique');
+        }
         
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
@@ -303,15 +408,13 @@ class ClinicController {
             $doctor['photoprofile'] = null;
         }
 
-        // Doctor's reasons for this clinic
+        // Doctor's reasons
         $stmt2 = $pdo->prepare("
-            SELECT dr.id, dr.reason_name, dr.reason_time, dr.reason_color,
-                   r.name as BaseReasonName
-            FROM doctorsreasons dr
-            LEFT JOIN reasons r ON r.id = dr.reason_id
-            WHERE dr.doctor_id = ? AND dr.clinic_id = ?
+            SELECT id, reason_name, reason_time, reason_color
+            FROM doctorsreasons
+            WHERE doctor_id = ?
         ");
-        $stmt2->execute([$doctor_id, $clinicid]);
+        $stmt2->execute([$doctor_id]);
         $doctor['reasons'] = $stmt2->fetchAll();
 
         // Schedule settings
@@ -488,8 +591,58 @@ class ClinicController {
 
     public static function getClinicId(string $userId): string {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT clinic_id FROM clinicregistrations WHERE user_id=? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM clinics WHERE user_id=? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }
+
+    // GET /api/doctors/{id}
+    public static function getDoctorPublicProfile(string $id): void {
+        $pdo = Database::getInstance();
+
+        // 1. Doctor basic info
+        $stmt = $pdo->prepare("
+            SELECT 
+                d.*, 
+                d.cnas as Cnas, d.casnos as Casnos,
+                d.education as Education, d.presentation as Presentation,
+                d.payementmethods as PayementMethods,
+                s.namefr as specialtyfr, s.namear as specialtyar,
+                b.namefr as BaladiyaName,
+                COALESCE(AVG(dr2.rating),0) as AvgRating,
+                COUNT(DISTINCT dr2.id) as RatingCount
+            FROM doctors d
+            LEFT JOIN specialties s ON s.id = d.specialtie_id
+            LEFT JOIN baladiyas b  ON b.id = d.baladiya_id
+            LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
+            WHERE d.id = ? AND (UPPER(d.status) = 'APPROVED')
+            GROUP BY d.id
+        ");
+        $stmt->execute([$id]);
+        $doctor = $stmt->fetch();
+
+        if (!$doctor) Response::notFound('Médecin non trouvé');
+
+        if (!empty($doctor['photoprofile'])) {
+            $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
+        }
+
+        // 2. Reasons
+        $stmt2 = $pdo->prepare("SELECT id, reason_name, reason_time, reason_color FROM doctorsreasons WHERE doctor_id = ?");
+        $stmt2->execute([$id]);
+        $doctor['reasons'] = $stmt2->fetchAll();
+
+        // 3. Clinics where this doctor works
+        $stmt3 = $pdo->prepare("
+            SELECT c.id, c.clinicname, c.address, c.phone, cd.status as relationstatus
+            FROM clinics c
+            JOIN clinicsdoctors cd ON cd.clinic_id = c.id
+            WHERE cd.doctor_id = ? AND UPPER(cd.status) IN ('APPROVED', 'ACCEPTED')
+        ");
+        $stmt3->execute([$id]);
+        $doctor['OtherClinics'] = $stmt3->fetchAll();
+
+        Response::success($doctor);
+    }
 }
+

@@ -11,11 +11,12 @@ class AuthMiddleware {
      * Validate Bearer token from Authorization header.
      * Returns user row or calls Response::unauthorized().
      */
-    public static function authenticate(): array {
+    public static function authenticate(bool $required = true): ?array {
         $headers  = getallheaders();
         $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
 
         if (!preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
+            if (!$required) return null;
             Response::unauthorized('Token manquant / Missing token');
         }
 
@@ -33,14 +34,16 @@ class AuthMiddleware {
         $session = $stmt->fetch();
 
         if (!$session) {
+            if (!$required) return null;
             Response::unauthorized('Token invalide / Invalid token');
         }
 
         // Check expiry
         $created = strtotime($session['created_at']);
-        if (time() - $created > TOKEN_EXPIRY) {
+        if (time() - $created > 86400 * 30) { // Using 30 days if TOKEN_EXPIRY not defined, or adjust to your needs
             // Delete expired session
             $pdo->prepare("DELETE FROM sessions WHERE token = ?")->execute([$token]);
+            if (!$required) return null;
             Response::unauthorized('Session expirée / Session expired');
         }
 

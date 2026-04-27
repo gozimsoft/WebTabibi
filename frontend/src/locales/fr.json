@@ -127,6 +127,7 @@
     "review_confirm": "Vérification des informations",
     "review_confirm_desc": "Vérifiez les détails avant de confirmer",
     "doctor": "Médecin",
+    "clinic": "Clinique",
     "specialty": "Spécialité",
     "patient": "Patient",
     "date": "Date",
@@ -151,6 +152,8 @@
     "all": "Tous",
     "upcoming": "À venir",
     "past": "Passés",
+    "cancelled": "Annulés",
+    "cancelled_badge": "Annulé",
     "no_upcoming": "Aucun rendez-vous à venir",
     "cancel_confirm": "Êtes-vous sûr de vouloir annuler ce rendez-vous ?",
     "cancel_success": "Rendez-vous annulé avec succès",
@@ -339,6 +342,9 @@
     "exit_app_desc": "Êtes-vous sûr de vouloir quitter Tabibi ?",
     "exit": "Quitter",
     "cancel": "Annuler",
-    "next": "Suivant"
+    "next": "Suivant",
+    "select_clinic_to_book": "Veuillez choisir une clinique pour réserver",
+    "select_clinic_title": "Choisir la clinique",
+    "change": "Changer"
   }
 }

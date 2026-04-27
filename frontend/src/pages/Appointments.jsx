@@ -26,14 +26,14 @@ export default function AppointmentsPage({ navigate }) {
   };
 
   const filtered = appts.filter(a => {
-    const d = new Date(a.appointementdate);
+    const d = new Date(a.apointementdate);
     if (filter === "upcoming") return d >= now;
     if (filter === "past") return d < now;
     return true;
   });
 
   const cnt = (f) => appts.filter(a => {
-    const d = new Date(a.appointementdate);
+    const d = new Date(a.apointementdate);
     if (f === "upcoming") return d >= now;
     if (f === "past") return d < now;
     return true;
@@ -69,8 +69,8 @@ export default function AppointmentsPage({ navigate }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map(a => {
-            const isPast = new Date(a.appointementdate) < now;
-            const d = new Date(a.appointementdate);
+            const isPast = new Date(a.apointementdate) < now;
+            const d = new Date(a.apointementdate);
             return (
               <Card key={a.id} style={{ padding: "16px 20px" }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>

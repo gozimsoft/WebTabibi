@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
 
-export default function DoctorDetailPage({ clinicid, doctor_id, navigate, user }) {
+export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
   const [data, setData] = useState(null);
+  const [selectedClinicId, setSelectedClinicId] = useState(initialClinicId || null);
   const [ratings, setR] = useState(null);
   const [loading, setL] = useState(true);
   const [tab, setTab] = useState("info");
@@ -17,13 +18,31 @@ export default function DoctorDetailPage({ clinicid, doctor_id, navigate, user }
 
   useEffect(() => {
     setL(true);
-    Promise.all([
-      api.clinics.doctor(clinicid, doctor_id),
-      api.ratings.doctor(doctor_id),
-    ]).then(([d, r]) => { setData(d); setR(r); })
-      .catch(e => show(e.message, "error"))
-      .finally(() => setL(false));
-  }, [clinicid, doctor_id, show]);
+    const load = async () => {
+      try {
+        const [r] = await Promise.all([
+          api.ratings.doctor(doctor_id),
+        ]);
+        setR(r);
+
+        if (selectedClinicId) {
+          const d = await api.clinics.doctor(selectedClinicId, doctor_id);
+          setData(d);
+        } else {
+          const d = await api.doctors.get(doctor_id);
+          setData(d);
+          if (d.OtherClinics?.length === 1) {
+            setSelectedClinicId(d.OtherClinics[0].id);
+          }
+        }
+      } catch (e) {
+        show(e.message, "error");
+      } finally {
+        setL(false);
+      }
+    };
+    load();
+  }, [selectedClinicId, doctor_id, show]);
 
   const submitRating = async () => {
     if (!user) { navigate("/login"); return; }
@@ -65,6 +84,22 @@ export default function DoctorDetailPage({ clinicid, doctor_id, navigate, user }
               {+data.casnos === 1 && <Badge color="#0891b2">casnos ✓</Badge>}
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{data.fullname}</h1>
+            
+            {selectedClinicId ? (
+              <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                🏥 {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
+                {data.OtherClinics?.length > 1 && (
+                  <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
+                    ({t("change") || "change"})
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>
+                ⚠️ {t("select_clinic_to_book") || "Please select a clinic to book"}
+              </div>
+            )}
+
             {data.BaladiyaName && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6 }}>📍 {data.BaladiyaName}</div>}
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -78,7 +113,13 @@ export default function DoctorDetailPage({ clinicid, doctor_id, navigate, user }
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
             {user ? (
-              <Btn onClick={() => navigate(`/book/${clinicid}/${doctor_id}`)} style={{ padding: "11px 24px" }}>{t("book_appointment")}</Btn>
+              <Btn 
+                onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}`)} 
+                disabled={!selectedClinicId}
+                style={{ padding: "11px 24px" }}
+              >
+                {t("book_appointment")}
+              </Btn>
             ) : (
               <Btn onClick={() => navigate("/login")}>{t("login_to_book")}</Btn>
             )}
@@ -86,6 +127,30 @@ export default function DoctorDetailPage({ clinicid, doctor_id, navigate, user }
           </div>
         </div>
       </Card>
+
+      {/* Clinic Selection (if not selected) */}
+      {!selectedClinicId && data.OtherClinics?.length > 0 && (
+        <Card style={{ marginBottom: 20, border: "2px solid #0891b2" }}>
+          <h3 style={{ color: "#0c4a6e", margin: "0 0 14px", fontSize: 16, fontWeight: 800 }}>{t("select_clinic_title") || "Select Clinic"}</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
+            {data.OtherClinics.map(c => (
+              <div key={c.id} 
+                onClick={() => setSelectedClinicId(c.id)}
+                style={{ 
+                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", cursor: "pointer", transition: "all 0.2s",
+                  background: "#fff"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdfa"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
+              >
+                <div style={{ fontWeight: 700, color: "#0c4a6e", marginBottom: 4 }}>{c.clinicname}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>📍 {c.address}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>📞 {c.phone}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid #e5e7eb", marginBottom: 20 }}>

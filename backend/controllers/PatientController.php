@@ -96,23 +96,23 @@ class PatientController {
 
         $stmt = $pdo->prepare("
             SELECT 
-                a.id, a.appointementdate, a.note, a.patientname,
-                a.clinicsdoctor_id, a.doctorsreason_id,
-                cd.clinic_id, cd.doctor_id, cd.specialtie_id,
+                a.id, a.apointementdate, a.note, a.patientname,
+                a.clinicsdoctor_id, a.reason_id, a.status,
+                cd.clinic_id as clinicid, cd.doctor_id, cd.specialtie_id,
                 d.fullname as doctorname, d.email as doctoremail, d.photoprofile,
                 c.clinicname, c.address as ClinicAddress,
-                dr.reason_name as ReasonName,
+                r.name as ReasonName,
                 s.namefr as specialtyfr, s.namear as specialtyar
             FROM apointements a
             LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
             LEFT JOIN doctors d         ON d.id = cd.doctor_id
             LEFT JOIN clinics c         ON c.id = cd.clinic_id
-            LEFT JOIN doctorsreasons dr ON dr.id = a.doctorsreason_id
+            LEFT JOIN reasons r         ON r.id = a.reason_id
             LEFT JOIN specialties s     ON s.id = cd.specialtie_id
-            WHERE a.patient_id = ?
-            ORDER BY a.appointementdate DESC
+            WHERE (a.patient_id = ? OR a.patient_id IN (SELECT proche_id FROM patientsproches WHERE patient_id = ?))
+            ORDER BY a.apointementdate DESC
         ");
-        $stmt->execute([$patient['id']]);
+        $stmt->execute([$patient['id'], $patient['id']]);
         $appointments = $stmt->fetchAll();
 
         foreach ($appointments as &$a) {

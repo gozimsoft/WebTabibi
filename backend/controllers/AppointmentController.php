@@ -85,21 +85,23 @@ class AppointmentController {
         $offHours = $stmt->fetchAll();
         $slots    = self::filterOffHours($slots, $date, $relIndex, $offHours);
 
-        // Remove already-booked (across ALL clinics for this doctor)
+        // Remove already-booked slots (use new schema: clinicsdoctor_id, status != 0)
         $stmt = $pdo->prepare("
-            SELECT appointementdate 
-            FROM apointements 
-            WHERE (clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?) OR doctor_id = ?)
-              AND DATE(appointementdate) = ?
-              AND isdelete = 0
+            SELECT apointementdate
+            FROM apointements
+            WHERE clinicsdoctor_id IN (
+                SELECT id FROM clinicsdoctors WHERE doctor_id = ?
+            )
+              AND DATE(apointementdate) = ?
+              AND status != 1
         ");
-        $stmt->execute([$doctor_id, $doctor_id, $date]);
+        $stmt->execute([$doctor_id, $date]);
         $booked = $stmt->fetchAll();
         
         // Convert booked times to timestamps for easier comparison
         $bookedTimestamps = [];
         foreach ($booked as $r) {
-            $ts = strtotime($r['appointementdate'] ?? '');
+            $ts = strtotime($r['apointementdate'] ?? '');
             if ($ts) $bookedTimestamps[] = $ts;
         }
 
@@ -172,16 +174,16 @@ class AppointmentController {
         }
 
         // Validate reason if provided (optional)
-        $reasonId   = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
+        $reasonId   = !empty($data['reason_id']) ? $data['reason_id'] : null;
         $reasonName = 'consultation';
         if ($reasonId) {
             $stmt = $pdo->prepare(
-                "SELECT * FROM doctorsreasons WHERE id = ? AND doctor_id = ? AND clinic_id = ? LIMIT 1"
+                "SELECT * FROM reasons WHERE id = ? AND specialtie_id = (SELECT specialtie_id FROM clinicsdoctors WHERE id = ? LIMIT 1)"
             );
-            $stmt->execute([$reasonId, $cd['doctor_id'], $cd['clinic_id']]);
+            $stmt->execute([$reasonId, $cdId]);
             $reasonRow = $stmt->fetch();
             if (!$reasonRow) Response::notFound('Motif introuvable pour ce médecin');
-            $reasonName = $reasonRow['reason_name'] ?? 'consultation';
+            $reasonName = $reasonRow['name'] ?? 'consultation';
         }
 
         $time = preg_replace('/[^0-9:]/', '', trim($data['time']));
@@ -190,25 +192,32 @@ class AppointmentController {
 
         $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
 
+        // Check for double-booking (new schema: clinicsdoctor_id, status != 0)
         $stmt = $pdo->prepare("
-            SELECT COUNT(*) FROM apointements 
-            WHERE (clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?) OR doctor_id = ?)
-              AND appointementdate = ?
-              AND isdelete = 0
+            SELECT COUNT(*) FROM apointements
+            WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+              AND apointementdate = ?
+              AND status != 1
         ");
-        $stmt->execute([$cd['doctor_id'], $cd['doctor_id'], $appointmentDatetime]);
+        $stmt->execute([$cd['doctor_id'], $appointmentDatetime]);
         if ($stmt->fetchColumn() > 0)
             Response::error('هذا الوقت محجوز بالفعل لدى الطبيب. يرجى اختيار وقت آخر.', 409);
 
         $appointmentId = UUIDHelper::generate();
-        $pdo->prepare(
-            "INSERT INTO apointements (id, appointementdate, note, patientname, clinicsdoctor_id, doctorsreason_id, patient_id, doctor_id, source)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'web')"
-        )->execute([
-            $appointmentId, $appointmentDatetime,
-            $data['note'] ?? '', $patientname,
-            $cdId, $reasonId, $patientId,
-            $cd['doctor_id']
+        $pdo->prepare("
+            INSERT INTO apointements
+                (id, apointementdate, note, patientname, clinicsdoctor_id,
+                 reason_id, patient_id, phone, status, updatedat)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+        ")->execute([
+            $appointmentId,
+            $appointmentDatetime,
+            $data['note'] ?? '',
+            $patientname,
+            $cdId,
+            $reasonId,
+            $patientId,
+            $patient['phone'] ?? ''
         ]);
 
         $stmt = $pdo->prepare("SELECT fullname FROM doctors WHERE id = ? LIMIT 1");
@@ -245,13 +254,13 @@ class AppointmentController {
             SELECT a.*,
                    d.fullname as doctorname, d.id as doctor_id,
                    c.clinicname, c.address as ClinicAddress, c.id as clinicid,
-                   dr.reason_name as ReasonName,
+                   r.name as ReasonName,
                    s.namefr as specialtyfr
             FROM apointements a
             LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
             LEFT JOIN doctors d         ON d.id = cd.doctor_id
             LEFT JOIN clinics c         ON c.id = cd.clinic_id
-            LEFT JOIN doctorsreasons dr ON dr.id = a.doctorsreason_id
+            LEFT JOIN reasons r         ON r.id = a.reason_id
             LEFT JOIN specialties s     ON s.id = cd.specialtie_id
             WHERE a.id = ?
         ");
@@ -277,25 +286,138 @@ class AppointmentController {
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound();
 
-        $stmt = $pdo->prepare("SELECT * FROM apointements WHERE id = ? AND patient_id = ? LIMIT 1");
-        $stmt->execute([$id, $patient['id']]);
+        $stmt = $pdo->prepare("
+            SELECT * FROM apointements 
+            WHERE id = ? 
+              AND (patient_id = ? OR patient_id IN (SELECT proche_id FROM patientsproches WHERE patient_id = ?))
+            LIMIT 1
+        ");
+        $stmt->execute([$id, $patient['id'], $patient['id']]);
         $appt = $stmt->fetch();
         if (!$appt) Response::notFound('Rendez-vous non trouvé');
 
-        if (strtotime($appt['appointementdate']) < time())
+        if (strtotime($appt['apointementdate']) < time())
             Response::error("Impossible d'annuler un rendez-vous passé", 400);
 
-        $pdo->prepare("DELETE FROM apointements WHERE id = ?")->execute([$id]);
+        // Soft delete: status = 1 = annulé
+        $pdo->prepare("
+            UPDATE apointements SET status = 1, updatedat = NOW() WHERE id = ?
+        ")->execute([$id]);
 
         $stmt = $pdo->prepare("SELECT * FROM patients WHERE id = ? LIMIT 1");
         $stmt->execute([$patient['id']]);
         $pd = $stmt->fetch();
         if (!empty($pd['email'])) {
             @EmailHelper::sendAppointmentCancellation(
-                $pd['email'], $pd['fullname'], $appt['appointementdate']
+                $pd['email'], $pd['fullname'], $appt['apointementdate']
             );
         }
         Response::success(null, 'Rendez-vous annulé');
+    }
+
+    // ── Delphi Sync — Delta Sync (مزامنة تفاضلية) ──────────────────
+    // POST /api/apointements/sync
+    // Headers: Authorization: Bearer <doctor_token> 
+    // Returns: { success, data: [...delta appointments...], SyncDate }
+    // ────────────────────────────────────────────────────────────────
+
+      public static function sync(): void {
+        $session = AuthMiddleware::authenticate();
+        $pdo     = Database::getInstance();
+
+        // ── Resolve doctor_id ────────────────────────────────────
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorRow = $stmt->fetch();
+        if (!$doctorRow) Response::error('Médecin introuvable', 404);
+        $doctor_id = $doctorRow['id'];
+
+        $data           = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinic_id      = trim($data['clinic_id']      ?? '');
+        $last_sync_date      = trim($data['last_sync_date']      ?? '');
+        if (!$clinic_id) Response::error('clinic_id requis', 422);
+  
+
+        // ── Resolve clinicsdoctors.id ────────────────────────────
+        $stmt = $pdo->prepare(
+            "SELECT id FROM clinicsdoctors WHERE doctor_id = ? AND clinic_id = ? LIMIT 1"
+        );
+        $stmt->execute([$doctor_id, $clinic_id]);
+        $cdRow = $stmt->fetch();
+        if (!$cdRow) Response::error('Relation médecin-clinique introuvable', 403);
+        $clinicsdoctor_id = $cdRow['id'];
+     
+        // ── DOWNLOAD PHASE ─────────────────────────────────────────   
+        // ── GET NEW appointments (since last sync) ───────────────
+        $lastSyncDb = $last_sync_date ?: date('Y-m-d H:i:s', strtotime('-1 year'));
+        $stmt = $pdo->prepare("
+            SELECT a.*
+            FROM apointements a
+            WHERE a.clinicsdoctor_id = ?
+              AND a.updatedat > ?
+            ORDER BY a.apointementdate ASC
+        ");
+        $stmt->execute([$clinicsdoctor_id, $lastSyncDb]);
+        $downloadItems = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+  
+        // ── UPLOAD PHASE ─────────────────────────────────────────        
+        $uploadItems = $data['appointments'] ?? [];
+        foreach ($uploadItems as $item) {
+            $id = trim($item['id'] ?? '');
+            if (!$id) continue;
+
+            $apointementdate = $item['apointementdate'] ?? null;
+            $patientname      = $item['fullname']        ?? '';
+            $phone            = $item['phone']           ?? '';
+            $reason_id        = ($item['reason_id'] ?? '') !== '' ? $item['reason_id'] : null;
+            $notes            = $item['note']            ?? '';
+            $status           = (int)($item['status']   ?? 2);
+            $apointementcolor = (int)($item['apointementcolor'] ?? 13952740);
+
+            // UpdatedAt sent by Delphi — used as the record timestamp
+            $delphiUpdatedAt = date('Y-m-d H:i:s');
+
+            // Check if record exists and fetch its current UpdatedAt
+            $chk = $pdo->prepare(
+                "SELECT id FROM apointements WHERE id = ? LIMIT 1"
+            );
+            $chk->execute([$id]);
+            $existing = $chk->fetch();
+
+            if ($existing) {                             
+                    $pdo->prepare("
+                        UPDATE apointements
+                        SET apointementdate = ?, patientname = ?, phone = ?,
+                            reason_id = ?, note = ?, status = ?,
+                            apointementcolor = ?, updatedat = ?
+                        WHERE id = ?
+                    ")->execute([
+                        $apointementdate, $patientname, $phone,
+                        $reason_id, $notes, $status,
+                        $apointementcolor, $delphiUpdatedAt, $id
+                    ]);                
+            } else {
+                // New record from Delphi — insert it
+                $pdo->prepare("
+                    INSERT INTO apointements
+                        (id, clinicsdoctor_id, apointementdate, patientname, phone,
+                         reason_id, note, status, apointementcolor, updatedat)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ")->execute([
+                    $id, $clinicsdoctor_id, $apointementdate, $patientname, $phone,
+                    $reason_id, $notes, $status, $apointementcolor, $delphiUpdatedAt
+                ]);
+            }
+        }
+      
+       // SyncDate = now — Delphi must store this as the new LastSyncDate
+        $syncDate = date('Y-m-d H:i:s');
+        echo json_encode([
+            'success'  => true, 
+            'sync_date' => $syncDate,
+             'data'     => $downloadItems,
+        ]);
+        exit;
     }
 
     // ── Private Helpers ─────────────────────────────────────────

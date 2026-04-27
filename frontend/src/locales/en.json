@@ -126,6 +126,7 @@
     "review_confirm": "Review and Confirm",
     "review_confirm_desc": "Check details before final booking",
     "doctor": "Doctor",
+    "clinic": "Clinic",
     "specialty": "specialty",
     "patient": "Patient",
     "date": "Date",
@@ -150,6 +151,8 @@
     "all": "All",
     "upcoming": "Upcoming",
     "past": "Past",
+    "cancelled": "Cancelled",
+    "cancelled_badge": "Cancelled",
     "no_upcoming": "No upcoming appointments",
     "cancel_confirm": "Are you sure you want to cancel this appointment?",
     "cancel_success": "Appointment cancelled successfully",
@@ -334,6 +337,9 @@
     "no_schedule_desc": "Please contact the clinic directly or try again later.",
     "based_on": "Based on",
     "send_rating": "Send rating",
-    "add_comment_placeholder": "Add your comment here..."
+    "add_comment_placeholder": "Add your comment here...",
+    "select_clinic_to_book": "Please select a clinic to book",
+    "select_clinic_title": "Select Clinic",
+    "change": "Change"
   }
 }

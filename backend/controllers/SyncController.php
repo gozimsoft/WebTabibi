@@ -117,7 +117,7 @@ class SyncController {
                 if ($isdelete) {
                     // Suppression logique
                     if ($existing) {
-                        $pdo->prepare("UPDATE apointements SET isdelete=1, syncedat=NOW() WHERE id=?")
+                        $pdo->prepare("UPDATE apointements SET status=1, updatedat=NOW() WHERE id=?")
                             ->execute([$id]);
                         $deleted++;
                     }
@@ -125,24 +125,23 @@ class SyncController {
                     continue;
                 }
 
-                // Trouver le doctorsreason_id correspondant au reason_id local
+                // Trouver le reason_id correspondant
                 $reasonId = null;
                 if (!empty($appt['reason_id'])) {
-                    // Chercher dans doctorsreasons par reason_id
+                    // Chercher dans reasons par id
                     $stmt2 = $pdo->prepare("
-                        SELECT id FROM doctorsreasons 
-                        WHERE (reason_id = ? OR id = ?) 
-                          AND doctor_id = ?
+                        SELECT id FROM reasons 
+                        WHERE id = ? 
                         LIMIT 1
                     ");
-                    $stmt2->execute([$appt['reason_id'], $appt['reason_id'], $doctor_id]);
+                    $stmt2->execute([$appt['reason_id']]);
                     $r = $stmt2->fetch();
                     $reasonId = $r['id'] ?? null;
                 }
 
-                $appointmentDate = self::sanitizeDatetime($appt['appointementdate'] ?? '');
+                $appointmentDate = self::sanitizeDatetime($appt['apointementdate'] ?? '');
                 if (!$appointmentDate) {
-                    $failed[] = ['id' => $id, 'error' => 'appointementdate invalide'];
+                    $failed[] = ['id' => $id, 'error' => 'apointementdate invalide'];
                     continue;
                 }
 
@@ -150,8 +149,8 @@ class SyncController {
                     'patientname'      => mb_substr(trim($appt['patientname'] ?? ''), 0, 100),
                     'birthdate'        => self::sanitizeDatetime($appt['birthdate'] ?? ''),
                     'phone'            => mb_substr(trim($appt['phone'] ?? ''), 0, 50),
-                    'appointementdate' => $appointmentDate,
-                    'note'             => mb_substr(trim($appt['note'] ?? ''), 0, 500),
+                    'apointementdate'  => $appointmentDate,
+                    'notes'            => mb_substr(trim($appt['note'] ?? ''), 0, 500),
                     'apointementcolor' => (int)($appt['apointementcolor'] ?? 0),
                     'weight'           => self::sanitizeDouble($appt['weight'] ?? null),
                     'height'           => self::sanitizeDouble($appt['height'] ?? null),
@@ -160,30 +159,28 @@ class SyncController {
                     'pac'              => self::sanitizeDouble($appt['pac'] ?? null),
                     'oxygen'           => self::sanitizeDouble($appt['oxygen'] ?? null),
                     'heartbeats'       => self::sanitizeDouble($appt['heartbeats'] ?? null),
-                    'doctorsreason_id' => $reasonId,
+                    'reason_id'        => $reasonId,
                     'clinicsdoctor_id' => $clinicDoctor['clinicsdoctor_id'] ?? null,
-                    'doctor_id'        => $doctor_id,
-                    'source'           => 'local',
-                    'isdelete'         => 0,
-                    'syncedat'         => date('Y-m-d H:i:s'),
+                    'status'           => 0, // Pending/New
+                    'updatedat'        => date('Y-m-d H:i:s'),
                 ];
 
                 if (!$existing) {
                     // INSERT
                     $pdo->prepare("
                         INSERT INTO apointements 
-                            (id, patientname, birthdate, phone, appointementdate, note,
+                            (id, patientname, birthdate, phone, apointementdate, note,
                              apointementcolor, weight, height, imc, pas, pac, oxygen, heartbeats,
-                             doctorsreason_id, clinicsdoctor_id, doctor_id, source, isdelete, syncedat)
+                             reason_id, clinicsdoctor_id, status, updatedat)
                         VALUES 
-                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ")->execute([
                         $id,
                         $data['patientname'],
                         $data['birthdate'],
                         $data['phone'],
-                        $data['appointementdate'],
-                        $data['note'],
+                        $data['apointementdate'],
+                        $data['notes'],
                         $data['apointementcolor'],
                         $data['weight'],
                         $data['height'],
@@ -192,22 +189,20 @@ class SyncController {
                         $data['pac'],
                         $data['oxygen'],
                         $data['heartbeats'],
-                        $data['doctorsreason_id'],
+                        $data['reason_id'],
                         $data['clinicsdoctor_id'],
-                        $data['doctor_id'],
-                        $data['source'],
-                        $data['syncedat'],
+                        $data['status'],
+                        $data['updatedat'],
                     ]);
                     $created++;
                 } else {
-                    // UPDATE (ne pas écraser les données web avec des données locales vides)
+                    // UPDATE
                     $pdo->prepare("
                         UPDATE apointements SET
                             patientname      = COALESCE(NULLIF(?, ''), patientname),
                             birthdate        = COALESCE(?, birthdate),
                             phone            = COALESCE(NULLIF(?, ''), phone),
-                            appointementdate = ?,
-                            note             = ?,
+                            apointementdate  = ?,
                             apointementcolor = ?,
                             weight           = COALESCE(?, weight),
                             height           = COALESCE(?, height),
@@ -216,16 +211,15 @@ class SyncController {
                             pac              = COALESCE(?, pac),
                             oxygen           = COALESCE(?, oxygen),
                             heartbeats       = COALESCE(?, heartbeats),
-                            doctorsreason_id = COALESCE(?, doctorsreason_id),
-                            doctor_id        = ?,
-                            syncedat         = NOW()
+                            reason_id        = COALESCE(?, reason_id),
+                            note             = ?,
+                            updatedat        = NOW()
                         WHERE id = ?
                     ")->execute([
                         $data['patientname'],
                         $data['birthdate'],
                         $data['phone'],
-                        $data['appointementdate'],
-                        $data['note'],
+                        $data['apointementdate'],
                         $data['apointementcolor'],
                         $data['weight'],
                         $data['height'],
@@ -234,8 +228,8 @@ class SyncController {
                         $data['pac'],
                         $data['oxygen'],
                         $data['heartbeats'],
-                        $data['doctorsreason_id'],
-                        $data['doctor_id'],
+                        $data['reason_id'],
+                        $data['notes'],
                         $id,
                     ]);
                     $updated++;
@@ -297,19 +291,14 @@ class SyncController {
         if ($since) {
             $sinceClean = self::sanitizeDatetime($since);
             if ($sinceClean) {
-                $where[]  = "(a.createdat > ? OR a.syncedat > ?)";
-                $params[] = $sinceClean;
+                $where[]  = "(a.updatedat > ?)";
                 $params[] = $sinceClean;
             }
         }
 
         if (!$inclDeleted) {
-            $where[] = "a.isdelete = 0";
+            $where[] = "a.status != 1";
         }
-
-        // source = web uniquement pour le download
-        // (les appointments source=local ont déjà été envoyés par Delphi)
-        $where[] = "a.source = 'web'";
 
         $whereSQL = implode(' AND ', $where);
 
@@ -333,7 +322,7 @@ class SyncController {
                 COALESCE(p.fullname, a.patientname)   AS patientname,
                 COALESCE(p.phone,    a.phone)          AS phone,
                 COALESCE(p.birthdate, a.birthdate)    AS birthdate,
-                a.appointementdate,
+                a.apointementdate,
                 a.note,
                 COALESCE(a.apointementcolor, 0)        AS apointementcolor,
                 a.weight,
@@ -343,25 +332,21 @@ class SyncController {
                 a.pac,
                 a.oxygen,
                 a.heartbeats,
-                a.isdelete,
-                a.source,
-                a.createdat,
-                a.syncedat,
-                -- reason_id: retourner le BaseReasonId pour correspondre à la DB locale
-                COALESCE(dr.reason_id, a.doctorsreason_id) AS reason_id,
-                dr.reason_name,
+                a.status,
+                a.updatedat as syncedat,
+                a.reason_id,
+                r.namear as reason_name,
                 cd.doctor_id  AS doctor_id,
                 cd.clinic_id  AS clinic_id,
                 a.clinicsdoctor_id,
-                a.doctorsreason_id,
                 a.patient_id,
                 p.email       AS PatientEmail
             FROM apointements a
             LEFT JOIN clinicsdoctors cd ON cd.id  = a.clinicsdoctor_id
-            LEFT JOIN doctorsreasons  dr ON dr.id = a.doctorsreason_id
+            LEFT JOIN reasons         r ON r.id = a.reason_id
             LEFT JOIN patients         p ON p.id  = a.patient_id
             WHERE $whereSQL
-            ORDER BY a.appointementdate ASC
+            ORDER BY a.apointementdate ASC
             LIMIT ? OFFSET ?
         ");
         $stmt->execute($params);
@@ -416,18 +401,17 @@ class SyncController {
 
             // Vérifier ownership
             $stmt2 = $pdo->prepare("
-                SELECT a.id FROM apointements a
-                LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
-                WHERE a.id = ? AND (cd.doctor_id = ? OR a.doctor_id = ?)
+                SELECT id FROM apointements
+                WHERE id = ? AND clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
                 LIMIT 1
             ");
-            $stmt2->execute([$cleanId, $doctor['id'], $doctor['id']]);
+            $stmt2->execute([$cleanId, $doctor['id']]);
             if (!$stmt2->fetch()) {
                 $notFound[] = $cleanId;
                 continue;
             }
 
-            $pdo->prepare("UPDATE apointements SET isdelete=1, syncedat=NOW() WHERE id=?")
+            $pdo->prepare("UPDATE apointements SET status = 1, updatedat = NOW() WHERE id = ?")
                 ->execute([$cleanId]);
             $deleted++;
         }
@@ -460,29 +444,24 @@ class SyncController {
         $stmt = $pdo->prepare("
             SELECT
                 COUNT(*) as total,
-                SUM(CASE WHEN source='web'   AND isdelete=0 THEN 1 ELSE 0 END) as web_active,
-                SUM(CASE WHEN source='local' AND isdelete=0 THEN 1 ELSE 0 END) as local_active,
-                SUM(CASE WHEN isdelete=1 THEN 1 ELSE 0 END) as deleted,
-                SUM(CASE WHEN source='web' AND isdelete=0 AND syncedat IS NULL THEN 1 ELSE 0 END) as pending_download,
-                MAX(syncedat) as last_sync
+                SUM(CASE WHEN a.status != 0 THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN a.status = 0  THEN 1 ELSE 0 END) as deleted,
+                MAX(a.updatedat) as last_sync
             FROM apointements a
-            LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
-            WHERE cd.doctor_id = ? OR a.doctor_id = ?
+            WHERE a.clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
         ");
-        $stmt->execute([$did, $did]);
+        $stmt->execute([$did]);
         $stats = $stmt->fetch();
 
         // Prochains rendez-vous web (non synchronisés)
         $stmt2 = $pdo->prepare("
             SELECT COUNT(*) as count
             FROM apointements a
-            LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
-            WHERE (cd.doctor_id = ? OR a.doctor_id = ?)
-              AND source = 'web'
-              AND isdelete = 0
-              AND appointementdate >= NOW()
+            WHERE a.clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+              AND a.status != 0
+              AND a.apointementdate >= NOW()
         ");
-        $stmt2->execute([$did, $did]);
+        $stmt2->execute([$did]);
         $upcoming = $stmt2->fetchColumn();
 
         // Dernier log
@@ -499,9 +478,8 @@ class SyncController {
             'doctor'       => ['id' => $did, 'name' => $doctor['fullname']],
             'stats'        => [
                 'total_appointments'  => (int)$stats['total'],
-                'web_active'          => (int)$stats['web_active'],
-                'local_active'        => (int)$stats['local_active'],
-                'deleted'             => (int)$stats['deleted'],
+                'active'              => (int)($stats['active'] ?? 0),
+                'deleted'             => (int)($stats['deleted'] ?? 0),
                 'upcoming_web'        => (int)$upcoming,
                 'last_sync'           => $stats['last_sync'],
             ],
@@ -555,17 +533,14 @@ class SyncController {
 
         $stmt2 = $pdo->prepare("
             SELECT 
-                dr.id          as doctorsreason_id,
-                dr.reason_name,
-                dr.reason_time,
-                dr.reason_color,
-                dr.reason_id   as BaseReason_id,
-                r.name         as BaseReasonName,
-                dr.clinic_id
-            FROM doctorsreasons dr
-            LEFT JOIN reasons r ON r.id = dr.reason_id
-            WHERE dr.doctor_id = ?
-            ORDER BY dr.reason_name
+                id,
+                name as namear,
+                name as namefr,
+                NULL as time,
+                NULL as color
+            FROM reasons
+            WHERE specialtie_id = (SELECT specialtie_id FROM clinicsdoctors WHERE doctor_id = ? LIMIT 1)
+            ORDER BY name
         ");
         $stmt2->execute([$doctor['id']]);
 
