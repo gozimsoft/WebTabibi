@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { App as CapacitorApp } from '@capacitor/app';
@@ -260,7 +260,7 @@ const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {}, fallback
       display: "flex", alignItems: "center", justifyContent: "center",
       flexShrink: 0, ...style
     }}>
-      <Icon size={size * 0.5} color="var(--brand)" />
+      {Icon && <Icon size={size * 0.5} color="var(--brand)" />}
     </div>
   );
 };
@@ -1287,6 +1287,7 @@ function RegisterPage({ onRegister, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: SEARCH
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── PAGE: SEARCH ──────────────────────────────────────────────
 function SearchPage({ navigate, qs, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
@@ -1315,9 +1316,11 @@ function SearchPage({ navigate, qs, user }) {
       setR(d.items || []); setT(d.total || 0);
     } catch (e) { show(e.message, "error"); setR([]); }
     finally { setL(false); }
-  }, []);
+  }, [show]);
 
   useEffect(() => { doSearch(q, sp, wi); }, [sp, wi]);
+
+  const filteredResults = user?.user_type === 1 ? results.filter(r => r.ResultType === 'CLINIC') : results;
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
@@ -1353,128 +1356,283 @@ function SearchPage({ navigate, qs, user }) {
             {total > 0 ? `${total} ${t("results")}` : t("no_results")}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px,1fr))", gap: 16 }}>
-            {(user?.user_type === 1 ? results.filter(r => r.ResultType === 'CLINIC') : results).map(r => (
-              <div key={r.ResultId + r.ResultType}
-                onClick={() => r.ResultType === 'CLINIC' ? navigate(`/clinic/${r.clinicid}`) : navigate(`/doctor/${r.doctor_id}`)}
-                style={{
-                  background: "#fff", borderRadius: 22, border: "1px solid var(--border)", padding: isMobile ? 12 : 16,
-                  cursor: "pointer", transition: "all 0.3s",
-                  display: "flex", flexDirection: "column", gap: 8,
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.03)"
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = "var(--brand)";
-                  e.currentTarget.style.boxShadow = "0 15px 35px rgba(0,146,162,0.12)";
-                  e.currentTarget.style.transform = "translateY(-5px)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = "var(--border)";
-                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.03)";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
-                {r.ResultType === 'CLINIC' ? (
-                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <DoctorImage photo={r.photoprofile} size={80} borderRadius={20} fallbackIcon={Building} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20, display: 'inline-block', marginBottom: 6 }}>عيادة</div>
-                      <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.clinicname}</h3>
-                      <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
-                        <MapPin size={12} /> {r.ClinicAddress}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(360px,1fr))", gap: 16 }}>
+            {filteredResults.map(r => {
+              const type = (r.ResultType || "").toUpperCase();
+              const isDoctor = type === 'DOCTOR';
+              const name = isDoctor ? r.doctorname : (r.clinicname || r.name || r.ClinicName || r.title);
+              const photo = isDoctor ? r.photoprofile : (r.logo || r.image || r.ClinicLogo || r.photoprofile);
+              const phone = r.phone || r.Phone || r.telephone || r.clinic_phone || r.ClinicPhone || r.mobile;
+              const email = r.email || r.Email || r.clinic_email || r.ClinicEmail || r.mail;
+              const address = isDoctor ? r.ClinicAddress : (r.address || r.ClinicAddress || r.clinic_address || r.location);
+              const avgRating = r.AvgRating || r.avg_rating || r.rating || r.avgRating || r.clinic_avg_rating || 0;
+              const ratingCount = r.RatingCount || r.rating_count || r.reviews_count || r.ratingCount || 0;
+              const specialty = isDoctor ? (i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) : (r.activitysector || t("medical_center"));
+
+              return (
+                <div key={type + r.ResultId}
+                  onClick={() => isDoctor ? navigate(`/doctor/${r.doctor_id}`) : navigate(`/clinic/${r.clinicid}`)}
+                  style={{ 
+                    background: "#fff", 
+                    borderRadius: 22, 
+                    border: "1px solid var(--border)", 
+                    borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid #6366f1", 
+                    padding: 16, 
+                    cursor: "pointer", 
+                    transition: "0.3s",
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 16,
+                    boxShadow: "rgba(0, 0, 0, 0.03) 0px 2px 10px",
+                    transform: "translateY(0px)",
+                    position: "relative",
+                    overflow: "hidden"
+                  }}
+                  onMouseEnter={e => { 
+                    e.currentTarget.style.boxShadow = `0 6px 20px ${isDoctor ? "rgba(8,145,178,0.12)" : "rgba(99,102,241,0.12)"}`; 
+                    e.currentTarget.style.borderColor = isDoctor ? "#0891b2" : "#6366f1"; 
+                    e.currentTarget.style.transform = "translateY(-3px)"; 
+                  }}
+                  onMouseLeave={e => { 
+                    e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px"; 
+                    e.currentTarget.style.borderColor = "var(--border)"; 
+                    e.currentTarget.style.transform = "none"; 
+                  }}
+                >
+                  <div style={{ flexShrink: 0, position: "relative" }}>
+                    <DoctorImage 
+                      photo={photo} 
+                      size={isMobile ? 80 : 100} 
+                      borderRadius={16} 
+                      fallbackIcon={isDoctor ? undefined : Building} 
+                      style={{ border: "1px solid #f1f5f9" }}
+                    />
+                    {!isDoctor && +r.emergency === 1 && (
+                      <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(0,0,0,0.1)" }}>
+                        🚨
                       </div>
-                      {user?.user_type === 1 && (
-                        <div style={{ marginTop: 8 }}>
-                          {r.relationstatus === 'ACCEPTED' ? (
-                            <Badge color="#059669">مرتبط بالعيادة</Badge>
-                          ) : r.relationstatus === 'PENDING' ? (
-                            <Badge color="#f59e0b">بانتظار الموافقة</Badge>
-                          ) : null}
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 17, color: "#0c4a6e", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {name}
+                        </div>
+                        <Badge color={isDoctor ? "#0891b2" : "#8b5cf6"}>
+                          {specialty}
+                        </Badge>
+                      </div>
+                      <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
+                        {isDoctor ? t("doctor") : (r.typeclinic || t("clinic"))}
+                      </Badge>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 13, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
+                        {isDoctor ? <Building size={14} color="#64748b" /> : <Phone size={14} color="#6366f1" />}
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: isDoctor ? 400 : 600 }}>
+                          {isDoctor ? r.clinicname : (phone || t("no_phone") || "N/A")}
+                        </span>
+                      </div>
+
+                      {!isDoctor ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "#f5f3ff", padding: "8px 10px", borderRadius: 12, border: "1px solid #ede9fe" }}>
+                          {email && (
+                            <div style={{ fontSize: 11, color: "#4b5563", display: "flex", alignItems: "center", gap: 6 }}>
+                              <Mail size={12} color="#6366f1" /> {email}
+                            </div>
+                          )}
+                          <div style={{ fontSize: 11, color: "#4b5563", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                            <MapPin size={12} color="#6366f1" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
+                              {address || t("no_address")}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                          <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                          <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                            {address}
+                          </span>
                         </div>
                       )}
                     </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f3f4f6", paddingTop: 8, marginTop: "auto" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <Stars rating={Math.round(+avgRating)} size={13} color={isDoctor ? "#0A85A4" : "#f59e0b"} />
+                        <span style={{ fontSize: 11, color: "#6b7280" }}>({ratingCount})</span>
+                      </div>
+                      {isDoctor && +r.pricing > 0 && (
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0A85A4" }}>
+                          {r.pricing} {t("da")}
+                        </span>
+                      )}
+                      {!isDoctor && (
+                         <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1" }}>
+                           {t("view_details")}
+                         </span>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", gap: 16 }}>
-                      <div style={{ position: "relative", flexShrink: 0 }}>
-                        <DoctorImage photo={r.photoprofile} size={120} borderRadius={24} />
-                        {+r.AvgRating >= 4.5 && (
-                          <div style={{
-                            position: "absolute", top: -8, right: -8, background: "#f59e0b",
-                            color: "#fff", borderRadius: "50%", width: 28, height: 28,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            border: "3px solid #fff", boxShadow: "0 3px 8px rgba(0,0,0,0.15)"
-                          }}>
-                            <Award size={15} />
-                          </div>
-                        )}
+                </div>
+                    borderRadius: 22, 
+                    border: "1px solid var(--border)", 
+                    borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid #6366f1", 
+                    padding: 16, 
+                    cursor: "pointer", 
+                    transition: "0.3s",
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 16,
+                    boxShadow: "rgba(0, 0, 0, 0.03) 0px 2px 10px",
+                    transform: "translateY(0px)",
+                    position: "relative",
+                    overflow: "hidden"
+                  }}
+                  onMouseEnter={e => { 
+                    e.currentTarget.style.boxShadow = `0 6px 20px ${isDoctor ? "rgba(8,145,178,0.12)" : "rgba(99,102,241,0.12)"}`; 
+                    e.currentTarget.style.borderColor = isDoctor ? "#0891b2" : "#6366f1"; 
+                    e.currentTarget.style.transform = "translateY(-3px)"; 
+                  }}
+                  onMouseLeave={e => { 
+                    e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px"; 
+                    e.currentTarget.style.borderColor = "var(--border)"; 
+                    e.currentTarget.style.transform = "none"; 
+                  }}
+                >
+                  {/* Left Side: Photo */}
+                  <div style={{ flexShrink: 0, position: "relative" }}>
+                    <DoctorImage 
+                      photo={photo} 
+                      size={isMobile ? 80 : 100} 
+                      borderRadius={16} 
+                      fallbackIcon={isDoctor ? undefined : Building} 
+                      style={{ border: "1px solid #f1f5f9" }}
+                    />
+                    {!isDoctor && +r.emergency === 1 && (
+                      <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(0,0,0,0.1)" }}>
+                        🚨
                       </div>
+                    )}
+                  </div>
+
+                  {/* Right Side: Content */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", background: "var(--brand-light)", padding: "3px 12px", borderRadius: 20 }}>{i18n.language === 'ar' ? r.specialtyar : r.specialtyfr}</span>
-                          {+r.experience > 0 && (
-                            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                              <Clock size={12} /> {r.experience} {t("years")}
+                        <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 17, color: "#0c4a6e", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {name}
+                        </div>
+                        <Badge color={isDoctor ? "#0891b2" : "#8b5cf6"}>
+                          {specialty}
+                        </Badge>
+                      </div>
+                      <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
+                        {isDoctor ? t("doctor") : (r.typeclinic || t("clinic"))}
+                      </Badge>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 13, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
+                        {isDoctor ? <Building size={14} color="#64748b" /> : <Phone size={14} color="#6366f1" />}
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: isDoctor ? 400 : 600 }}>
+                          {isDoctor ? r.clinicname : (phone || t("no_phone") || "N/A")}
+                        </span>
+                      </div>
+
+                      {!isDoctor ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "#f5f3ff", padding: "8px 10px", borderRadius: 12, border: "1px solid #ede9fe" }}>
+                          {email && (
+                            <div style={{ fontSize: 11, color: "#4b5563", display: "flex", alignItems: "center", gap: 6 }}>
+                              <Mail size={12} color="#6366f1" /> {email}
                             </div>
                           )}
-                        </div>
-                        <h3 style={{ fontSize: 19, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{r.doctorname}</h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <div onClick={(e) => { e.stopPropagation(); navigate(`/clinic/${r.clinicid}`); }}
-                            style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, cursor: "pointer", transition: "color 0.2s" }}
-                            onMouseEnter={e => e.currentTarget.style.color = "var(--brand)"}
-                            onMouseLeave={e => e.currentTarget.style.color = "#334155"}
-                          >
-                            <Building size={14} color="var(--brand)" /> {r.clinicname}
+                          <div style={{ fontSize: 11, color: "#4b5563", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                            <MapPin size={12} color="#6366f1" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
+                              {address || t("no_address")}
+                            </span>
                           </div>
-                          {r.ClinicAddress && (
-                            <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
-                              <MapPin size={12} /> {r.ClinicAddress.split(",")[0]}
-                            </div>
-                          )}
-                          {user?.user_type === 2 && (
-                            <div style={{ marginTop: 8 }}>
-                              {r.relationstatus === 'ACCEPTED' ? (
-                                <Badge color="#059669">مرتبط بالعيادة</Badge>
-                              ) : r.relationstatus === 'PENDING' ? (
-                                <Badge color="#f59e0b">بانتظار الموافقة</Badge>
-                              ) : (
-                                <Btn onClick={(e) => {
-                                  e.stopPropagation();
-                                  api.relations.request({ target_id: r.doctor_id })
-                                    .then(() => show("تم إرسال دعوة الانضمام للطبيب", "success"))
-                                    .catch(err => show(err.message, "error"));
-                                }} style={{ alignSelf: "flex-start", padding: "6px 12px", fontSize: 12 }}>
-                                  <Plus size={14} style={{ marginLeft: 4 }} /> دعوة للعيادة
-                                </Btn>
-                              )}
-                            </div>
-                          )}
                         </div>
-                      </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                          <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                          <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                            {address}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#fff9eb", padding: "5px 10px", borderRadius: 10 }}>
-                          <Stars rating={Math.round(+r.AvgRating)} size={13} />
-                          <span style={{ fontSize: 13, fontWeight: 900, color: "#b45309" }}>{(+r.AvgRating || 0).toFixed(1)}</span>
-                        </div>
-                        <span style={{ fontSize: 12, color: "#94a3b8" }}>({r.RatingCount} {t("reviews")})</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f3f4f6", paddingTop: 8, marginTop: "auto" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <Stars rating={Math.round(+avgRating)} size={13} color={isDoctor ? "#0A85A4" : "#f59e0b"} />
+                        <span style={{ fontSize: 11, color: "#6b7280" }}>({ratingCount})</span>
                       </div>
-
-                      <div style={{ textAlign: i18n.language === 'ar' ? "left" : "right" }}>
-                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{t("consultation_price") || "سعر الكشف"}</div>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: "#059669" }}>
-                          {+r.pricing > 0 ? `${r.pricing} ${t("currency")}` : t("not_specified")}
-                        </div>
-                      </div>
+                      {isDoctor && +r.pricing > 0 && (
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0A85A4" }}>
+                          {r.pricing} {t("da")}
+                        </span>
+                      )}
+                      {!isDoctor && (
+                         <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1" }}>
+                           {t("view_details")}
+                         </span>
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
-            ))}
+                  </div>
+                </div>
+ fournie"}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                        <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                        <span style={{ lineHeight: 1.4 }}>{address?.slice(0, 70)}</span>
+                      </div>
+                    )}
+
+                    {!isDoctor && (
+                      <div style={{ display: "flex", gap: 12, marginTop: 4, alignItems: "center" }}>
+                        <div style={{ fontSize: 11, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
+                          <Clock size={12} color="#0092a2" /> {r.experience || 7} {i18n.language === 'ar' ? "سنوات" : "ans"}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                          <CreditCard size={12} /> {r.pricing || 1000} {t("da") || "دج"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f3f4f6", paddingTop: 10, marginTop: "auto" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <Stars rating={Math.round(+avgRating)} size={13} color={isDoctor ? "#0A85A4" : "#f59e0b"} />
+                      <span style={{ fontSize: 11, color: "#6b7280" }}>({ratingCount})</span>
+                      {!isDoctor && (
+                        <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                          {+r.ambulances === 1 && <span title={t("ambulance")}>🚑</span>}
+                          {+r.hospitalization === 1 && <span title={t("hospitalization")}>🏥</span>}
+                        </div>
+                      )}
+                    </div>
+                    {isDoctor && +r.pricing > 0 && (
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0A85A4" }}>
+                        {r.pricing} {t("da")}
+                      </span>
+                    )}
+                    {!isDoctor && (
+                       <span style={{ fontSize: 11, fontWeight: 700, color: "#0092a2" }}>
+                         {t("view_details") || "Voir détails"}
+                       </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           {results.length === 0 && !loading && (
             <div style={{ textAlign: "center", padding: "60px 24px", color: "#9ca3af" }}>
@@ -1499,13 +1657,14 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
   const [loading, setL] = useState(true);
   const [relStatus, setRelStatus] = useState(null);
   const [requesting, setReq] = useState(false);
+  const [tab, setTab] = useState("info");
   const { show, Toast } = useToast();
 
   const sendJoinRequest = async () => {
     setReq(true);
     try {
       await api.relations.request({ target_id: clinicid });
-      show("تم إرسال طلب الانضمام بنجاح", "success");
+      show(i18n.language === 'ar' ? "تم إرسال طلب الانضمام بنجاح" : "Demande d'adhésion envoyée", "success");
       setRelStatus('PENDING');
     } catch (e) {
       show(e.message, "error");
@@ -1525,89 +1684,299 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
     })
       .catch(e => show(e.message, "error"))
       .finally(() => setL(false));
-  }, [clinicid]);
+  }, [clinicid, user]);
 
   if (loading) return <div style={{ padding: 100 }}><Spinner /></div>;
-  if (!clinic) return <div style={{ padding: 100, textAlign: "center" }}>clinique non trouvée</div>;
+  if (!clinic) return (
+    <div style={{ padding: 100, textAlign: "center", color: "#94a3b8" }}>
+      <AlertCircle size={48} style={{ marginBottom: 16 }} />
+      <div>{t("clinic_not_found") || "Clinique non trouvée"}</div>
+      <Btn onClick={() => navigate("/")} style={{ marginTop: 16 }}>{t("back_to_home")}</Btn>
+    </div>
+  );
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: isMobile ? "16px" : "28px 24px" }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
       <Toast />
       <button onClick={() => navigate(-1)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "var(--brand)", fontWeight: 700, marginBottom: 20 }}>
-        <ArrowRight size={18} style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} /> {t("back")}
+        {i18n.language === 'ar' ? <ArrowRight size={18} /> : <ArrowLeft size={18} />} {t("back")}
       </button>
 
-      <Card style={{ padding: isMobile ? 20 : 32, marginBottom: 24, background: "linear-gradient(135deg, #fff, #f8fafc)" }}>
-        <div style={{ display: "flex", gap: 24, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start" }}>
-          <DoctorImage photo={clinic.logo} size={120} borderRadius={24} fallbackIcon={Building} style={{ border: "4px solid #fff", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }} />
-          <div style={{ flex: 1, textAlign: isMobile ? "center" : "right" }}>
-            <h1 style={{ fontSize: 32, fontWeight: 950, color: "#0c4a6e", marginBottom: 12 }}>{clinic.clinicname}</h1>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", justifyContent: isMobile ? "center" : "flex-end" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
-                <MapPin size={16} color="var(--brand)" /> {clinic.address}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
-                <Phone size={16} color="var(--brand)" /> {clinic.phone}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: 14 }}>
-                <Mail size={16} color="var(--brand)" /> {clinic.email}
-              </div>
-            </div>
-            {clinic.notes && <p style={{ marginTop: 20, color: "#64748b", lineHeight: 1.6 }}>{clinic.notes}</p>}
+      {/* Header Card */}
+      <Card style={{
+        background: "rgb(255, 255, 255)",
+        borderRadius: 20,
+        border: "1px solid var(--border)",
+        boxShadow: "rgba(0, 0, 0, 0.04) 0px 4px 20px",
+        padding: isMobile ? 24 : 28,
+        cursor: "default",
+        marginBottom: 20,
+        position: "relative",
+        overflow: "hidden"
+      }}>
+        <div style={{ position: "absolute", top: -20, right: -20, width: 120, height: 120, background: "var(--brand-light)", borderRadius: "50%", opacity: 0.5 }} />
 
-            <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: isMobile ? "center" : "flex-end" }}>
-              {user?.user_type === 1 && (
-                <>
-                  {relStatus === 'ACCEPTED' ? (
-                    <Badge color="#059669">مرتبط بالعيادة</Badge>
-                  ) : relStatus === 'PENDING' ? (
-                    <Badge color="#f59e0b">بانتظار الموافقة</Badge>
-                  ) : (
-                    <Btn onClick={sendJoinRequest} loading={requesting}>
-                      <Plus size={18} /> طلب انضمام للعيادة
-                    </Btn>
-                  )}
-                </>
-              )}
-              {user?.user_type === 0 && (
-                <Btn variant="secondary" onClick={() => navigate(`/tickets/new?clinic_id=${clinicid}`)}>
-                  <MessageSquare size={18} /> {t("contact") || "تواصل"}
-                </Btn>
-              )}
+        <div style={{ display: "flex", gap: isMobile ? 20 : 32, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start", position: "relative" }}>
+          <div style={{ position: "relative" }}>
+            <DoctorImage photo={clinic.logo} size={isMobile ? 120 : 160} borderRadius={24} fallbackIcon={Building} style={{ border: "4px solid #fff", boxShadow: "0 15px 35px rgba(0,0,0,0.1)" }} />
+            {+clinic.emergency === 1 && (
+              <div style={{ position: "absolute", bottom: -5, right: -5, background: "#ef4444", color: "#fff", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
+                <Flame size={18} />
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, textAlign: isMobile ? "center" : (i18n.language === 'ar' ? "right" : "left") }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, justifyContent: isMobile ? "center" : "flex-start" }}>
+              <Badge color="#6366f1">{clinic.typeclinic || t("clinic")}</Badge>
+              {clinic.activitysector && <Badge color="#8b5cf6">{clinic.activitysector}</Badge>}
+              {+clinic.ambulances === 1 && <Badge color="#4f46e5">🚑 {t("ambulance") || "Ambulance"}</Badge>}
+              {+clinic.hospitalization === 1 && <Badge color="#7c3aed">🏥 {t("hospitalization") || "Hôpital"}</Badge>}
             </div>
+
+            <h1 style={{ fontSize: isMobile ? 26 : 34, fontWeight: 950, color: "#1e1b4b", margin: "0 0 12px", lineHeight: 1.2 }}>{clinic.clinicname}</h1>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 20px", justifyContent: isMobile ? "center" : "flex-start", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#475569", fontSize: 14 }}>
+                <MapPin size={16} color="#6366f1" /> {clinic.address} {clinic.postcode && `(${clinic.postcode})`}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start", marginTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <Stars rating={Math.round(+(clinic.AvgRating || 4.5))} size={15} color="#f59e0b" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(clinic.AvgRating || 4.5)).toFixed(1)}</span>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>({clinic.RatingCount || 2} {t("reviews")})</span>
+              </div>
+
+              <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
+                <Clock size={14} color="#6366f1" />
+                <span>{clinic.experience || 7} {t("years_experience") || "سنوات من الخبرة"}</span>
+              </div>
+
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 4 }}>
+                <CreditCard size={14} />
+                <span>{clinic.pricing || 1000} {t("currency") || "دج"}</span>
+              </div>
+            </div>
+
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, width: isMobile ? "100%" : "auto" }}>
+            {user?.user_type === 0 || !user ? (
+              <>
+                <Btn onClick={() => { setTab("doctors"); document.getElementById('clinic-tabs')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ padding: "12px 24px", justifyContent: "center" }}>
+                  <Calendar size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("book_appointment") || "حجز موعد"}
+                </Btn>
+                <Btn
+                  variant="secondary"
+                  onClick={() => { setTab("doctors"); document.getElementById('clinic-tabs')?.scrollIntoView({ behavior: 'smooth' }); }}
+                  style={{ padding: "10px 24px", fontSize: 13, background: "#f0fdfa", borderColor: "#ccfbf1", color: "#0d9488", justifyContent: "center" }}
+                >
+                  <Users size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("book_for_relative") || "حجز لمرافق / شخص آخر"}
+                </Btn>
+              </>
+            ) : null}
+
+            {user?.user_type === 1 && (
+              <>
+                {relStatus === 'ACCEPTED' ? (
+                  <Badge color="#059669" style={{ padding: "12px 20px", justifyContent: "center" }}>✅ مرتبط بالعيادة</Badge>
+                ) : relStatus === 'PENDING' ? (
+                  <Badge color="#f59e0b" style={{ padding: "12px 20px", justifyContent: "center" }}>⏳ بانتظار الموافقة</Badge>
+                ) : (
+                  <Btn onClick={sendJoinRequest} loading={requesting} style={{ padding: "12px 24px", justifyContent: "center" }}>
+                    <Plus size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> طلب انضمام للعيادة
+                  </Btn>
+                )}
+              </>
+            )}
+
+            <Btn
+              variant="secondary"
+              onClick={() => navigate(`/tickets/new?clinic_id=${clinicid}`)}
+              style={{ padding: "10px 24px", fontSize: 13, justifyContent: "center" }}
+            >
+              <MessageSquare size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("contact") || "تواصل"}
+            </Btn>
           </div>
         </div>
       </Card>
 
-      {user?.user_type !== 1 && (
-        <>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", marginBottom: 20, textAlign: "right" }}>الأطباء المتوفرون ({clinic.doctors?.length || 0})</h2>
+      {/* Tabs */}
+      <div id="clinic-tabs" style={{ display: "flex", gap: 0, borderBottom: "2px solid #e5e7eb", marginBottom: 24, overflowX: "auto" }}>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+        {[
+          ["info", i18n.language === 'ar' ? "معلومات" : "Informations", <Info size={16} />],
+          ["doctors", `الأطباء (${clinic.doctors?.length || 0})`, <Users size={16} />],
+          ["services", i18n.language === 'ar' ? "الخدمات" : "Services", <ClipboardList size={16} />],
+          ["location", i18n.language === 'ar' ? "الموقع" : "Localisation", <MapPin size={16} />]
+        ].map(([k, l, icon]) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            padding: "12px 20px", background: "none", border: "none", cursor: "pointer",
+            fontWeight: 700, fontSize: 14, color: tab === k ? "var(--brand)" : "#64748b",
+            borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent",
+            marginBottom: -2, transition: "all 0.2s", display: "flex", alignItems: "center", gap: 8,
+            whiteSpace: "nowrap"
+          }}>
+            {icon} {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div style={{ minHeight: 300 }}>
+        {tab === "info" && (
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <Card style={{ padding: 24 }}>
+                <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
+                  <Info size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "عن العيادة" : "About Clinic"}
+                </h3>
+                <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 15 }}>
+                  {clinic.aboutclinic || clinic.notes || t("no_description")}
+                </p>
+              </Card>
+
+              {clinic.services && (
+                <Card style={{ padding: 24 }}>
+                  <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
+                    <ClipboardList size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "الخدمات المتوفرة" : "Services Offered"}
+                  </h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    {clinic.services.split(',').map((s, i) => (
+                      <div key={i} style={{ background: "#f1f5f9", padding: "8px 16px", borderRadius: 10, fontSize: 14, color: "#475569", fontWeight: 600 }}>
+                        {s.trim()}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <Card style={{ padding: 24 }}>
+                <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 16, fontWeight: 800 }}>{i18n.language === 'ar' ? "معلومات التواصل" : "Contact Details"}</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14 }}>
+                  {clinic.email && <div style={{ display: "flex", gap: 10 }}><span>✉️</span> <span style={{ color: "#475569" }}>{clinic.email}</span></div>}
+                  {clinic.phone && <div style={{ display: "flex", gap: 10 }}><span>📞</span> <span style={{ color: "#475569" }}>{clinic.phone}</span></div>}
+                  {clinic.fax && <div style={{ display: "flex", gap: 10 }}><span>📠</span> <span style={{ color: "#475569" }}>{clinic.fax}</span></div>}
+                  {clinic.website && <div style={{ display: "flex", gap: 10 }}><span>🌐</span> <a href={clinic.website} target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>{clinic.website}</a></div>}
+                </div>
+              </Card>
+
+              <Card style={{ padding: 24, background: "linear-gradient(135deg, #f0fdfa, #fff)" }}>
+                <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 16, fontWeight: 800 }}>{i18n.language === 'ar' ? "الحالة" : "Statut"}</h3>
+                <div style={{ fontSize: 14, color: "#0f766e", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                  <CheckCircle size={18} /> {clinic.status === 'APPROVED' ? "عيادة معتمدة" : clinic.status}
+                </div>
+                {clinic.approvedat && <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>تم الاعتماد في: {new Date(clinic.approvedat).toLocaleDateString()}</div>}
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {tab === "doctors" && (
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
             {clinic.doctors?.map(d => (
               <div key={d.doctor_id}
                 onClick={() => navigate(`/clinic/${clinicid}/doctor/${d.doctor_id}`)}
                 style={{
-                  background: "#fff", borderRadius: 20, padding: 16, border: "1px solid var(--border)", cursor: "pointer",
-                  transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+                  background: "#fff", borderRadius: 22, padding: 20, border: "1.5px solid var(--border)", cursor: "pointer",
+                  transition: "all 0.3s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 15px rgba(0,0,0,0.03)"
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.03)"; }}
               >
-                <DoctorImage photo={d.photoprofile} size={70} borderRadius={16} />
+                <DoctorImage photo={d.photoprofile} size={80} borderRadius={18} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{d.doctorname}</div>
-                  <div style={{ fontSize: 13, color: "var(--brand)", fontWeight: 700 }}>{i18n.language === 'ar' ? d.specialtyar : d.specialtyfr}</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#0c4a6e", marginBottom: 4 }}>{d.doctorname}</div>
+                  <Badge color="var(--brand)">{i18n.language === 'ar' ? d.specialtyar : d.specialtyfr}</Badge>
                 </div>
-                <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />
+                <div style={{ color: "var(--brand)", opacity: 0.5 }}>
+                  {i18n.language === 'ar' ? <ArrowLeft size={24} /> : <ArrowRight size={24} />}
+                </div>
               </div>
             ))}
+            {(!clinic.doctors || clinic.doctors.length === 0) && (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 60, color: "#94a3b8" }}>
+                <Users size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                <div>{t("no_doctors_found") || "لا يوجد أطباء مسجلين في هذه العيادة حالياً"}</div>
+              </div>
+            )}
           </div>
-        </>
-      )}
+        )}
+
+        {tab === "services" && (
+          <Card style={{ padding: 32 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 24px", fontSize: 20, fontWeight: 900 }}>{i18n.language === 'ar' ? "الخدمات والمرافق" : "Services and Facilities"}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: +clinic.emergency === 1 ? "#fee2e2" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Flame size={20} color={+clinic.emergency === 1 ? "#ef4444" : "#94a3b8"} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#1e293b" }}>{i18n.language === 'ar' ? "خدمة الطوارئ" : "Emergency Service"}</div>
+                    <div style={{ fontSize: 13, color: "#64748b" }}>{+clinic.emergency === 1 ? "متوفرة على مدار الساعة" : "غير متوفرة"}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: +clinic.ambulances === 1 ? "#dbeafe" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Activity size={20} color={+clinic.ambulances === 1 ? "#3b82f6" : "#94a3b8"} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#1e293b" }}>{i18n.language === 'ar' ? "سيارات الإسعاف" : "Ambulance Service"}</div>
+                    <div style={{ fontSize: 13, color: "#64748b" }}>{+clinic.ambulances === 1 ? "متوفرة للنقل الطبي" : "غير متوفرة"}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: +clinic.hospitalization === 1 ? "#f5f3ff" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Building size={20} color={+clinic.hospitalization === 1 ? "#8b5cf6" : "#94a3b8"} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#1e293b" }}>{i18n.language === 'ar' ? "الإقامة والمبيت" : "Hospitalisation"}</div>
+                    <div style={{ fontSize: 13, color: "#64748b" }}>{+clinic.hospitalization === 1 ? "متوفرة للحالات التي تتطلب مبيت" : "غير متوفرة"}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Shield size={20} color="#10b981" />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#1e293b" }}>{i18n.language === 'ar' ? "عيادة معتمدة" : "Certified Clinic"}</div>
+                    <div style={{ fontSize: 13, color: "#64748b" }}>مسجلة ومعتمدة من وزارة الصحة</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {tab === "location" && (
+          <Card style={{ padding: 24 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
+              <MapPin size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "الموقع على الخريطة" : "Location on Map"}
+            </h3>
+            <div style={{ background: "#f8fafc", borderRadius: 16, height: 400, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #e2e8f0", flexDirection: "column", gap: 16 }}>
+              <MapPin size={48} color="var(--brand)" style={{ opacity: 0.3 }} />
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 700, color: "#475569" }}>{clinic.cliniccoordinates || `${clinic.latitude}, ${clinic.longitude}`}</div>
+                <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>{clinic.address}</div>
+              </div>
+              <Btn variant="secondary" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${clinic.latitude},${clinic.longitude}`, '_blank')}>
+                فتح في خرائط جوجل
+              </Btn>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
+
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: DOCTOR DETAIL
@@ -1778,9 +2147,14 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
         </div>
       </Card>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20 }}>
-        {[["info", t("tab_info")], ["reasons", t("tab_reasons")], ["clinics", "العيادات"], ["schedule", t("tab_schedule")], ["ratings", t("tab_ratings")]].map(([k, l]) => (
+      <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20, overflowX: "auto" }}>
+        {[
+          ["info", i18n.language === 'ar' ? "معلومات" : "Info"],
+          ["reasons", i18n.language === 'ar' ? "الأسباب" : "Raisons"],
+          ["clinics", i18n.language === 'ar' ? "العيادات" : "Cliniques"],
+          ["schedule", i18n.language === 'ar' ? "المواعيد" : "Horaires"],
+          ["ratings", i18n.language === 'ar' ? "التقييمات" : "Avis"]
+        ].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 18px", background: "none", border: "none", cursor: "pointer",
             fontWeight: 700, fontSize: 13, color: tab === k ? "#0891b2" : "#6b7280",

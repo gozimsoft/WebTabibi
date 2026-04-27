@@ -3,6 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
+import { MapPin, Phone } from "lucide-react";
+
 
 export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
@@ -137,15 +139,48 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
               <div key={c.id} 
                 onClick={() => setSelectedClinicId(c.id)}
                 style={{ 
-                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", cursor: "pointer", transition: "all 0.2s",
-                  background: "#fff"
+                  padding: 16, 
+                  borderRadius: 22, 
+                  border: "1.5px solid var(--border)", 
+                  cursor: "pointer", 
+                  transition: "all 0.3s",
+                  background: "#fff",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  boxShadow: "rgba(0, 0, 0, 0.03) 0px 2px 10px",
+                  position: "relative",
+                  overflow: "hidden"
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdfa"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
+                onMouseEnter={e => { 
+                  e.currentTarget.style.borderColor = "var(--brand)"; 
+                  e.currentTarget.style.background = "var(--brand-light)";
+                  e.currentTarget.style.transform = "translateY(-3px)";
+                  e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 146, 162, 0.12)";
+                }}
+                onMouseLeave={e => { 
+                  e.currentTarget.style.borderColor = "var(--border)"; 
+                  e.currentTarget.style.background = "#fff";
+                  e.currentTarget.style.transform = "none";
+                  e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px";
+                }}
               >
-                <div style={{ fontWeight: 700, color: "#0c4a6e", marginBottom: 4 }}>{c.clinicname}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>📍 {c.address}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>📞 {c.phone}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{c.clinicname}</div>
+                  <Badge color="var(--brand)">{t("select") || "Select"}</Badge>
+                </div>
+                
+                <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "flex-start", gap: 5 }}>
+                  <MapPin size={14} style={{ marginTop: 2 }} />
+                  <span>{c.address}</span>
+                </div>
+                
+                {c.phone && (
+                  <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5 }}>
+                    <Phone size={14} />
+                    <span>{c.phone}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
