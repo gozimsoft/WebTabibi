@@ -37,10 +37,6 @@ export default function LoginPage({ onLogin, navigate }) {
             {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "#0891b2", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
           </p>
         </Card>
-        <div style={{ marginTop: 16, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "11px 14px", fontSize: 12 }}>
-          <strong style={{ color: "#ea580c" }}>🔑 {t("demo_account")}</strong>
-          <div style={{ color: "#92400e", marginTop: 3 }}>{t("username")}: <code>Kaioran</code> | {t("password")}: <code>FJHajf552:</code></div>
-        </div>
       </div>
     </div>
   );

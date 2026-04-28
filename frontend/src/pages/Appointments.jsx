@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { Info, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { Btn, Card, Spinner, DoctorImage, Badge, useToast } from "../components/SharedUI";
 
 export default function AppointmentsPage({ navigate }) {
@@ -9,6 +10,7 @@ export default function AppointmentsPage({ navigate }) {
   const [appts, setAppts] = useState([]);
   const [loading, setL] = useState(true);
   const [filter, setFilter] = useState("upcoming");
+  const [expandedId, setExpandedId] = useState(null);
   const { show, Toast } = useToast();
   const now = new Date();
 
@@ -96,11 +98,59 @@ export default function AppointmentsPage({ navigate }) {
                     </div>
                     {!isPast && (
                       <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                        <Btn variant="secondary" onClick={() => setExpandedId(expandedId === a.id ? null : a.id)} style={{ padding: "6px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                          <Info size={14} /> {t("step_instructions") || "تعليمات"}
+                          {expandedId === a.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </Btn>
                         <Btn variant="danger" onClick={() => cancel(a.id)} style={{ padding: "6px 14px", fontSize: 12 }}>{t("cancel_btn")}</Btn>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* EXPANDABLE INSTRUCTIONS */}
+                {expandedId === a.id && !isPast && (
+                  <div style={{ background: "#f8fafc", borderRadius: 16, padding: "20px", border: "1px solid var(--border)", marginTop: 16 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 800, color: "#0c4a6e", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <Info size={16} color="var(--brand)" /> 
+                      {i18n.language === 'ar' ? "تعليمات الاستشارة" : "Consignes de consultation"}
+                    </h3>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {(i18n.language === 'ar' ? [
+                          { title: "احضر مبكراً", desc: "يرجى الحضور قبل 10 إلى 15 دقيقة من موعدك لتجنب أي تأخير." },
+                          { title: "أحضر مستنداتك الضرورية", desc: "يرجى إحضار بطاقة هويتك، بطاقة الشفاء (إن وجدت)، بالإضافة إلى فحوصاتك أو وصفاتك الطبية القديمة." },
+                          { title: "جهّز معلوماتك الطبية", desc: "قم بتدوين الأعراض والأدوية التي تتناولها حالياً لتسهيل الاستشارة." },
+                          { title: "احترم موعدك", desc: "في حال عدم قدرتك على الحضور، يرجى إلغاء أو تأجيل الموعد مسبقاً للسماح لمرضى آخرين بالاستفادة منه." },
+                          { title: "احترم قواعد العيادة", desc: "يرجى احترام الهدوء ونظافة المكان وتعليمات الطاقم الطبي." },
+                          { title: "النظافة والوقاية", desc: "حسب الوضع، قد يُطلب منك ارتداء كمامة أو الالتزام ببعض تدابير النظافة." },
+                          { title: "المرافقة", desc: "إذا لزم الأمر، يمكنك اصطحاب مرافق، مع الالتزام بقواعد المؤسسة." },
+                          { title: "الالتزام بالوقت", desc: "أي تأخير كبير قد يؤدي إلى تأجيل الموعد احتراماً للمرضى الآخرين." },
+                          { title: "التواصل مع العيادة", desc: "لأي استفسار، يمكنك التواصل مع العيادة مباشرة عبر تطبيق Tabibi." }
+                        ] : [
+                          { title: "Présentez-vous à l’avance", desc: "Merci d’arriver 10 à 15 minutes avant l’heure de votre rendez-vous pour éviter tout retard." },
+                          { title: "Apportez vos documents nécessaires", desc: "Veuillez vous munir de votre pièce d’identité, de votre carte CNAS/CASNOS (si applicable), ainsi que de vos anciens examens ou ordonnances." },
+                          { title: "Préparez vos informations médicales", desc: "Notez vos symptômes et la liste des médicaments que vous prenez actuellement afin de faciliter la consultation." },
+                          { title: "Respectez votre rendez-vous", desc: "En cas d’empêchement, merci d’annuler ou reporter votre rendez-vous à l’avance pour permettre à d’autres patients d’en bénéficier." },
+                          { title: "Respectez les règles de la clinique", desc: "Merci de respecter le calme, la propreté des lieux et les consignes du personnel médical." },
+                          { title: "Hygiène et prévention", desc: "Selon la situation, il peut être demandé de porter un masque ou de respecter certaines mesures d’hygiène." },
+                          { title: "Accompagnement", desc: "Si nécessaire, vous pouvez être accompagné d’un proche, en respectant les règles de l’établissement." },
+                          { title: "Ponctualité et organisation", desc: "Tout retard important peut entraîner un report du rendez-vous afin de respecter les autres patients." },
+                          { title: "Communication avec le cabinet", desc: "En cas de question, vous pouvez contacter la clinique directement via l’application Tabibi." }
+                        ]
+                      ).map((item, i) => (
+                        <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>
+                            {i + 1}
+                          </div>
+                          <div style={{ flex: 1, paddingTop: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{item.title}</div>
+                            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{item.desc}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
             );
           })}
