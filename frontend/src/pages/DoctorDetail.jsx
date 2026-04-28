@@ -97,8 +97,8 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>
-                ⚠️ {t("select_clinic_to_book") || "Please select a clinic to book"}
+              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>
+                🏥 {t("select_clinic_to_book") || "يمكنك اختيار العيادة عند الحجز"}
               </div>
             )}
 
@@ -116,8 +116,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
             {user ? (
               <Btn 
-                onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}`)} 
-                disabled={!selectedClinicId}
+                onClick={() => navigate(`/book/${selectedClinicId || 0}/${doctor_id}`)}
                 style={{ padding: "11px 24px" }}
               >
                 {t("book_appointment")}

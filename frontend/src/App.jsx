@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { App as CapacitorApp } from '@capacitor/app';
@@ -65,7 +65,24 @@ const api = {
     profile: () => req("GET", "/patients/profile"),
     update: b => req("PUT", "/patients/profile", b),
     appointments: () => req("GET", "/patients/appointments"),
-    family: () => Promise.resolve([]), // req("GET", "/patients/family"),
+    family: () => {
+      const stored = localStorage.getItem("tabibi_family");
+      return Promise.resolve(stored ? JSON.parse(stored) : []);
+    },
+    addFamily: b => {
+      const stored = localStorage.getItem("tabibi_family");
+      const list = stored ? JSON.parse(stored) : [];
+      const newItem = { ...b, id: Date.now() };
+      list.push(newItem);
+      localStorage.setItem("tabibi_family", JSON.stringify(list));
+      return Promise.resolve(newItem);
+    },
+    deleteFamily: id => {
+      const stored = localStorage.getItem("tabibi_family");
+      const list = (stored ? JSON.parse(stored) : []).filter(m => m.id !== id);
+      localStorage.setItem("tabibi_family", JSON.stringify(list));
+      return Promise.resolve();
+    },
   },
   doctor: {
     profile: () => req("GET", "/doctors/profile"),
@@ -230,6 +247,28 @@ function useToast() {
     </div>
   ) : null;
   return { show, Toast };
+}
+
+function useRandomAnimation(intervalSec = 30) {
+  const [animType, setAnimType] = useState("");
+  useEffect(() => {
+    let timer;
+    const types = ["flip-right", "flip-left", "flip-up", "flip-down"];
+    const schedule = (first = false) => {
+      const delay = first ? 2000 : intervalSec * 1000;
+      timer = setTimeout(() => {
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        setAnimType(randomType);
+        setTimeout(() => {
+          setAnimType("");
+          schedule();
+        }, 1100);
+      }, delay);
+    };
+    schedule(true);
+    return () => clearTimeout(timer);
+  }, [intervalSec]);
+  return animType;
 }
 
 // rating Stars
@@ -438,6 +477,7 @@ function Navbar({ user, navigate, onLogout }) {
   const [scrolled, setScrolled] = useState(false);
   const isMobile = useIsMobile();
   const name = user?.profile?.fullname?.split(" ")[0] || user?.profile?.clinicname?.split(" ")[0] || user?.username || "U";
+  const animClass = useRandomAnimation(30);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -515,7 +555,7 @@ function Navbar({ user, navigate, onLogout }) {
                 background: "var(--bg)", border: "1px solid var(--border)",
                 borderRadius: 50, padding: isMobile ? 4 : (i18n.language === 'ar' ? "6px 6px 6px 14px" : "6px 14px 6px 6px"), cursor: "pointer",
               }}>
-                <div style={{
+                <div className={`random-flip-container ${animClass}`} style={{
                   width: 32, height: 32, borderRadius: "50%",
                   background: "linear-gradient(135deg, var(--brand), var(--brand-dark))",
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -808,7 +848,7 @@ function HomePage({ user, navigate }) {
             },
             {
               num: "+800", label: t("stats_clinics"),
-              icon: <Building size={20} />,
+              icon: <Building2 size={20} />,
               img: `${import.meta.env.BASE_URL}stats_clinics_custom.jpg`,
               color: "#0092a2",
             },
@@ -1600,7 +1640,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
 
         <div style={{ display: "flex", gap: isMobile ? 20 : 32, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start", position: "relative" }}>
           <div style={{ position: "relative" }}>
-            <DoctorImage photo={clinic.logo} size={isMobile ? 120 : 160} borderRadius={24} fallbackIcon={Building} style={{ border: "4px solid #fff", boxShadow: "0 15px 35px rgba(0,0,0,0.1)" }} />
+            <DoctorImage photo={clinic.logo} size={isMobile ? 120 : 160} borderRadius={24} fallbackIcon={Building2} style={{ border: "4px solid #fff", boxShadow: "0 15px 35px rgba(0,0,0,0.1)" }} />
             {+clinic.emergency === 1 && (
               <div style={{ position: "absolute", bottom: -5, right: -5, background: "#ef4444", color: "#fff", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
                 <Flame size={18} />
@@ -1805,7 +1845,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: +clinic.ambulances === 1 ? "#dbeafe" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Activity size={20} color={+clinic.ambulances === 1 ? "#3b82f6" : "#94a3b8"} />
+                    <Ambulance size={20} color={+clinic.ambulances === 1 ? "#3b82f6" : "#94a3b8"} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, color: "#1e293b" }}>{i18n.language === 'ar' ? "سيارات الإسعاف" : "Ambulance Service"}</div>
@@ -1816,7 +1856,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: +clinic.hospitalization === 1 ? "#f5f3ff" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Building size={20} color={+clinic.hospitalization === 1 ? "#8b5cf6" : "#94a3b8"} />
+                    <Hospital size={20} color={+clinic.hospitalization === 1 ? "#8b5cf6" : "#94a3b8"} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, color: "#1e293b" }}>{i18n.language === 'ar' ? "الإقامة والمبيت" : "Hospitalisation"}</div>
@@ -1940,7 +1980,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
       <Card style={{ marginBottom: 20, padding: isMobile ? "20px" : "28px" }}>
         <div style={{ display: "flex", gap: isMobile ? 20 : 32, flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "center" : "flex-start" }}>
           <DoctorImage photo={data.photoprofile} size={isMobile ? 140 : 200} borderRadius={isMobile ? 24 : 32} />
-          <div style={{ flex: 1, minWidth: 180, textAlign: isMobile ? "center" : "left" }}>
+          <div style={{ flex: 1, minWidth: 180, textAlign: isMobile ? "center" : (i18n.language === 'ar' ? "right" : "left") }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, justifyContent: isMobile ? "center" : "flex-start" }}>
               <Badge color="#0891b2">{i18n.language === 'ar' ? data.specialtyar : data.specialtyfr}</Badge>
               {data.degrees && <Badge color="#7c3aed">{data.degrees}</Badge>}
@@ -1950,10 +1990,8 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
             <h1 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 900, color: "#0c4a6e", margin: "0 0 8px" }}>{data.fullname}</h1>
 
             {selectedClinicId ? (
-              <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, justifyContent: isMobile ? "center" : "flex-start" }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Hospital size={16} /> {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
-                </div>
+              <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 6, justifyContent: isMobile ? "center" : "flex-start" }}>
+                <Building2 size={16} /> {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
                 {data.OtherClinics?.length > 1 && (
                   <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
                     ({t("change")})
@@ -1961,8 +1999,8 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: "#f59e0b", fontWeight: 600, marginBottom: 12, textAlign: isMobile ? "center" : "left" }}>
-                <AlertTriangle size={14} /> {t("select_clinic_to_book")}
+              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600, marginBottom: 12, textAlign: isMobile ? "center" : "left", display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                <Building2 size={16} color="var(--brand)" /> {t("select_clinic_optional") || "يمكنك اختيار العيادة أدناه أو المتابعة مباشرة"}
               </div>
             )}
 
@@ -1973,7 +2011,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                 {(data.address || data.ClinicAddress) && <div>{data.address || data.ClinicAddress}</div>}
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: isMobile ? "center" : (i18n.language === 'ar' ? "flex-start" : "flex-start") }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <Stars rating={Math.round(+(data.AvgRating || 0))} size={15} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(data.AvgRating || 0)).toFixed(1)}</span>
@@ -2007,16 +2045,14 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
               ) : user.user_type === 1 ? null : (
                 <>
                   <Btn
-                    onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}`)}
-                    disabled={!selectedClinicId}
+                    onClick={() => navigate(`/book/${selectedClinicId || 0}/${doctor_id}`)}
                     style={{ padding: "12px 24px", justifyContent: "center" }}
                   >
                     <Calendar size={18} /> {t("book_appointment")}
                   </Btn>
                   <Btn
                     variant="secondary"
-                    onClick={() => navigate(`/book/${selectedClinicId}/${doctor_id}?relative=1`)}
-                    disabled={!selectedClinicId}
+                    onClick={() => navigate(`/book/${selectedClinicId || 0}/${doctor_id}?relative=1`)}
                     style={{ padding: "10px 24px", fontSize: 13, background: "#f0f9ff", borderColor: "#bae6fd", color: "#0369a1", justifyContent: "center" }}
                   >
                     <Users size={16} /> {t("book_for_relative")}
@@ -2252,6 +2288,10 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const isMobile = useIsMobile();
   const [doctor, setDoctor] = useState(null);
   const [family, setFamily] = useState([]);
+  const [clinicList, setClinicList] = useState([]);
+  const needsClinicSelect = !clinicid || clinicid === "0" || +clinicid === 0;
+  const [selectedClinicId, setSelectedClinicId] = useState(needsClinicSelect ? null : clinicid);
+  const [docInfo, setDocInfo] = useState(null); // General doctor info
   const [step, setStep] = useState(1);
   const [selPatient, setSelPatient] = useState(null);   // {id,name,isSelf,gender}
   const [reason, setReason] = useState(null);   // optional
@@ -2273,17 +2313,44 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   };
 
   useEffect(() => {
-    Promise.all([
-      api.clinics.doctor(clinicid, doctor_id),
-      api.patient.family().catch(() => []),
-    ]).then(([d, fam]) => {
-      setDoctor(d);
-      setFamily(fam || []);
-    }).catch(e => setError(e.message))
-      .finally(() => setInitL(false));
+    const load = async () => {
+      try {
+        const fam = await api.patient.family().catch(() => []);
+        setFamily(fam || []);
+        
+        // Always fetch general doctor info first
+        const doc = await api.doctors.get(doctor_id);
+        setDocInfo(doc);
+        const clinics = doc.OtherClinics || [];
+        setClinicList(clinics);
+
+        if (needsClinicSelect) {
+          if (clinics.length === 1) {
+            setSelectedClinicId(clinics[0].id);
+            const d = await api.clinics.doctor(clinics[0].id, doctor_id);
+            setDoctor(d);
+          }
+        } else {
+          const d = await api.clinics.doctor(clinicid, doctor_id);
+          setDoctor(d);
+        }
+      } catch (e) { setError(e.message); }
+      finally { setInitL(false); }
+    };
+    load();
   }, [clinicid, doctor_id]);
 
-  const selfOption = { id: null, name: user?.profile?.fullname || user?.username || "أنا", isSelf: true };
+  const handleClinicSelect = async (cid) => {
+    setSelectedClinicId(cid);
+    setL(true);
+    try {
+      const d = await api.clinics.doctor(cid, doctor_id);
+      setDoctor(d);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  const selfOption = { id: null, name: t("self") || "أنا", isSelf: true };
   const allPatients = [selfOption, ...(family.map(f => ({ id: f.id, name: f.fullname, isSelf: false, gender: f.gender })))];
   const activePat = selPatient || selfOption;
 
@@ -2305,18 +2372,19 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
-      setStep(6);
+      setStep(7);
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
   };
 
   const STEPS = [
-    { n: 1, label: t("step_patient"), icon: <User size={16} /> },
-    { n: 2, label: t("step_reason"), icon: <Stethoscope size={16} /> },
-    { n: 3, label: t("step_date"), icon: <Calendar size={16} /> },
-    { n: 4, label: t("step_instructions"), icon: <ClipboardList size={16} /> },
-    { n: 5, label: t("step_confirm"), icon: <CheckCircle size={16} /> },
-    { n: 6, label: t("step_done"), icon: <Award size={16} /> },
+    { n: 1, label: t("step_patient"), icon: <UserPlus size={16} /> },
+    { n: 2, label: t("step_reason"), icon: <HeartPulse size={16} /> },
+    ...(clinicList.length > 1 ? [{ n: 3, label: t("step_clinic") || "العيادة", icon: <Hospital size={16} /> }] : []),
+    { n: 4, label: t("step_date"), icon: <Calendar size={16} /> },
+    { n: 5, label: t("step_instructions"), icon: <ClipboardList size={16} /> },
+    { n: 6, label: t("step_confirm"), icon: <ShieldCheck size={16} /> },
+    { n: 7, label: t("step_done"), icon: <Sparkles size={16} /> },
   ];
 
   const minDate = new Date().toISOString().split("T")[0];
@@ -2355,9 +2423,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     return dates;
   };
 
-  // Auto-select first date if none selected and step is 3
+  // Auto-select first date if none selected and step is 4
   useEffect(() => {
-    if (step === 3 && !date) {
+    if (step === 4 && !date) {
       const avail = getAvailableDates();
       if (avail.length > 0) {
         setDate(avail[0].full);
@@ -2376,7 +2444,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       <Btn onClick={() => navigate("/search")}>{t("back_to_search")}</Btn>
     </div>
   );
-  if (initLoad || !doctor) return <div style={{ padding: 60 }}><Spinner /></div>;
+  if (initLoad || (!doctor && !needsClinicSelect)) return <div style={{ padding: 60 }}><Spinner /></div>;
+  if (!docInfo) return <div style={{ padding: 60 }}><Spinner /></div>;
 
   // ─── Stepper bar ───────────────────────────────────────────
   const Stepper = () => (
@@ -2422,20 +2491,20 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   );
 
   // ─── Doctor mini header ─────────────────────────────────────
-  const DoctorBanner = () => step < 6 && (
+  const DoctorBanner = () => (docInfo && step < 7) && (
     <div style={{
       background: "linear-gradient(135deg,#0c4a6e,#0891b2,#06b6d4)",
       borderRadius: 16, padding: "16px 22px", marginBottom: 24,
       display: "flex", alignItems: "center", gap: 14, color: "#fff"
     }}>
-      <DoctorImage photo={doctor.photoprofile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
+      <DoctorImage photo={docInfo.photoprofile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 0.3 }}>{doctor.fullname}</div>
-        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{doctor.specialtyar || doctor.specialtyfr}</div>
+        <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 0.3 }}>{docInfo.fullname}</div>
+        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{docInfo.specialtyar || docInfo.specialtyfr}</div>
       </div>
-      {+doctor.pricing > 0 && (
+      {(+doctor?.pricing || +docInfo?.pricing) > 0 && (
         <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-          <CreditCard size={14} /> {doctor.pricing} DA
+          <CreditCard size={14} /> {doctor?.pricing || docInfo?.pricing} DA
         </div>
       )}
     </div>
@@ -2444,7 +2513,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 20px" }}>
       {/* Back button */}
-      <button onClick={() => navigate(`/clinic/${clinicid}/doctor/${doctor_id}`)}
+      <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
         style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
         {i18n.language === 'ar' ? "←" : "→"} {t("back_to_doctor")}
       </button>
@@ -2455,8 +2524,26 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       {/* ══════════ STEP 1 — Patient ══════════ */}
       {step === 1 && (
         <Card style={{ padding: "26px 28px" }}>
-          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}><User size={22} /> {t("patient_choice")}</h2>
-          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("patient_choice_desc")}</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}>
+                <User size={22} /> {t("patient_choice")}
+              </h2>
+              <p style={{ color: "#6b7280", fontSize: 13, margin: 0 }}>{t("patient_choice_desc")}</p>
+            </div>
+            <button onClick={() => navigate("/family")}
+              style={{ 
+                width: 40, height: 40, borderRadius: 12, background: "var(--brand-light)", color: "var(--brand)", 
+                border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--brand)"; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "var(--brand-light)"; e.currentTarget.style.color = "var(--brand)"; }}
+              title={t("family_management")}
+            >
+              <UserPlus size={22} />
+            </button>
+          </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {allPatients.map((p, i) => {
@@ -2495,7 +2582,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 </div>
               );
             })}
-          </div>
+        </div>
 
           <div style={{ marginTop: 24 }}>
             <Btn onClick={() => setStep(2)} style={{ width: "100%", justifyContent: "center", padding: 14, fontSize: 15, borderRadius: 12 }}>
@@ -2512,7 +2599,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>
             {t("reason_choice_desc") || "اختر سبب زيارتك إن وجد — اختياري، يمكنك التخطي"}
           </p>
-          {(!doctor.reasons || doctor.reasons.length === 0) ? (
+          {(!(doctor?.reasons || docInfo?.reasons) || (doctor?.reasons || docInfo?.reasons).length === 0) ? (
             <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "var(--bg)", borderRadius: 12, marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
                 <FileText size={36} color="#cbd5e1" />
@@ -2521,7 +2608,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 4 }}>
-              {doctor.reasons.map(r => {
+              {(doctor?.reasons || docInfo?.reasons).map(r => {
                 const sel = reason?.id === r.id;
                 return (
                   <div key={r.id} onClick={() => setReason(sel ? null : r)}
@@ -2555,15 +2642,66 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(3)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn onClick={() => setStep(clinicList.length <= 1 ? 4 : 3)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
               {t("next")}
             </Btn>
           </div>
         </Card>
       )}
 
-      {/* ══════════ STEP 3 — Date & Time ══════════ */}
+      {/* ══════════ STEP 3 — Clinic Selection ══════════ */}
       {step === 3 && (
+        <Card style={{ padding: "26px 28px" }}>
+          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}><Building2 size={22} /> {t("step_clinic") || "اختيار العيادة"}</h2>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>
+            {t("select_clinic_desc") || "اختر العيادة التي تريد الحجز فيها"}
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {clinicList.map((c, i) => {
+              const sel = String(selectedClinicId) === String(c.id);
+              return (
+                <div key={i} onClick={() => handleClinicSelect(c.id)}
+                  style={{
+                    padding: "16px 18px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s",
+                    border: sel ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                    background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
+                    display: "flex", alignItems: "flex-start", gap: 14,
+                    boxShadow: sel ? "0 4px 18px rgba(8,145,178,0.14)" : "none",
+                    transform: sel ? "scale(1.01)" : "scale(1)"
+                  }}
+                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdff"; } }}
+                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
+                >
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12, background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                  }}>
+                    <Building2 size={24} color={sel ? "#fff" : "var(--brand)"} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: sel ? "#0c4a6e" : "#374151", marginBottom: 4 }}>{c.clinicname}</div>
+                    {c.address && <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} />{c.address}</div>}
+                    {c.phone && <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}><Phone size={12} />{c.phone}</div>}
+                  </div>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: "50%", background: sel ? "#0891b2" : "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 900, flexShrink: 0
+                  }}>{sel ? <Check size={14} /> : ""}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <Btn variant="secondary" onClick={() => setStep(2)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(4)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+              {t("next")}
+            </Btn>
+          </div>
+        </Card>
+      )}
+
+      {/* ══════════ STEP 4 — Date & Time ══════════ */}
+      {step === 4 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 8 }}><Calendar size={19} /> {t("step_date")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("select_date_time_desc") || "اختر التاريخ والوقت المناسب لك"}</p>
@@ -2639,7 +2777,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                   </div>
                   {slots.length === 0 && (
                     <div style={{ textAlign: "center", padding: "32px 0", color: "#9ca3af", background: "var(--bg)", borderRadius: 12, marginTop: 4 }}>
-                      <div style={{ fontSize: 34, marginBottom: 8 }}>📭</div>
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                        <Mail size={44} color="#cbd5e1" />
+                      </div>
                       <div style={{ fontWeight: 600 }}>{t("no_times_avail")}</div>
                       <div style={{ fontSize: 12, marginTop: 4 }}>{t("no_times_avail_desc")}</div>
                     </div>
@@ -2656,16 +2796,16 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => { setStep(2); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(4)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn variant="secondary" onClick={() => { setStep(clinicList.length <= 1 ? 2 : 3); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(5)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
               {t("next")}
             </Btn>
           </div>
         </Card>
       )}
 
-      {/* ══════════ STEP 4 — Instructions ══════════ */}
-      {step === 4 && (
+      {/* ══════════ STEP 5 — Instructions ══════════ */}
+      {step === 5 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}>
             <ClipboardList size={22} /> {t("step_instructions")}
@@ -2678,34 +2818,33 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {(i18n.language === 'ar' ? [
-                { title: "احضر مبكراً", desc: "يرجى الحضور قبل 10 إلى 15 دقيقة من موعدك لتجنب أي تأخير." },
-                { title: "أحضر مستنداتك الضرورية", desc: "يرجى إحضار بطاقة هويتك، بطاقة الشفاء (إن وجدت)، بالإضافة إلى فحوصاتك أو وصفاتك الطبية القديمة." },
-                { title: "جهّز معلوماتك الطبية", desc: "قم بتدوين الأعراض والأدوية التي تتناولها حالياً لتسهيل الاستشارة." },
-                { title: "احترم موعدك", desc: "في حال عدم قدرتك على الحضور، يرجى إلغاء أو تأجيل الموعد مسبقاً للسماح لمرضى آخرين بالاستفادة منه." },
-                { title: "احترم قواعد العيادة", desc: "يرجى احترام الهدوء ونظافة المكان وتعليمات الطاقم الطبي." },
-                { title: "النظافة والوقاية", desc: "حسب الوضع، قد يُطلب منك ارتداء كمامة أو الالتزام ببعض تدابير النظافة." },
-                { title: "المرافقة", desc: "إذا لزم الأمر، يمكنك اصطحاب مرافق، مع الالتزام بقواعد المؤسسة." },
-                { title: "الالتزام بالوقت", desc: "أي تأخير كبير قد يؤدي إلى تأجيل الموعد احتراماً للمرضى الآخرين." },
-                { title: "التواصل مع العيادة", desc: "لأي استفسار، يمكنك التواصل مع العيادة مباشرة عبر تطبيق Tabibi." }
+                "يرجى الحضور قبل 10 إلى 15 دقيقة من موعدك لتجنب أي تأخير.",
+                "يرجى إحضار بطاقة هويتك، بطاقة الشفاء (إن وجدت)، بالإضافة إلى فحوصاتك أو وصفاتك الطبية القديمة.",
+                "قم بتدوين الأعراض والأدوية التي تتناولها حالياً لتسهيل الاستشارة.",
+                "في حال عدم قدرتك على الحضور، يرجى إلغاء أو تأجيل الموعد مسبقاً للسماح لمرضى آخرين بالاستفادة منه.",
+                "يرجى احترام الهدوء ونظافة المكان وتعليمات الطاقم الطبي.",
+                "حسب الوضع، قد يُطلب منك ارتداء كمامة أو الالتزام ببعض تدابير النظافة.",
+                "إذا لزم الأمر، يمكنك اصطحاب مرافق، مع الالتزام بقواعد المؤسسة.",
+                "أي تأخير كبير قد يؤدي إلى تأجيل الموعد احتراماً للمرضى الآخرين.",
+                "لأي استفسار، يمكنك التواصل مع العيادة مباشرة عبر تطبيق Tabibi."
               ] : [
-                { title: "Présentez-vous à l’avance", desc: "Merci d’arriver 10 à 15 minutes avant l’heure de votre rendez-vous pour éviter tout retard." },
-                { title: "Apportez vos documents nécessaires", desc: "Veuillez vous munir de votre pièce d’identité, de votre carte CNAS/CASNOS (si applicable), ainsi que de vos anciens examens ou ordonnances." },
-                { title: "Préparez vos informations médicales", desc: "Notez vos symptômes et la liste des médicaments que vous prenez actuellement afin de faciliter la consultation." },
-                { title: "Respectez votre rendez-vous", desc: "En cas d’empêchement, merci d’annuler ou reporter votre rendez-vous à l’avance pour permettre à d’autres patients d’en bénéficier." },
-                { title: "Respectez les règles de la clinique", desc: "Merci de respecter le calme, la propreté des lieux et les consignes du personnel médical." },
-                { title: "Hygiène et prévention", desc: "Selon la situation, il peut être demandé de porter un masque ou de respecter certaines mesures d’hygiène." },
-                { title: "Accompagnement", desc: "Si nécessaire, vous pouvez être accompagné d’un proche, en respectant les règles de l’établissement." },
-                { title: "Ponctualité et organisation", desc: "Tout retard important peut entraîner un report du rendez-vous afin de respecter les autres patients." },
-                { title: "Communication avec le cabinet", desc: "En cas de question, vous pouvez contacter la clinique directement via l’application Tabibi." }
+                "Merci d’arriver 10 à 15 minutes avant l’heure de votre rendez-vous pour éviter tout retard.",
+                "Veuillez vous munir de votre pièce d’identité, de votre carte CNAS/CASNOS (si applicable), ainsi que de vos anciens examens ou ordonnances.",
+                "Notez vos symptômes et la liste des médicaments que vous prenez actuellement afin de faciliter la consultation.",
+                "En cas d’empêchement, merci d’annuler ou reporter votre rendez-vous à l’avance pour permettre à d’autres patients d’en bénéficier.",
+                "Merci de respecter le calme, la propreté des lieux et les consignes du personnel médical.",
+                "Selon la situation, il peut être demandé de porter un masque ou de respecter certaines mesures d’hygiène.",
+                "Si nécessaire, vous pouvez être accompagné d’un proche, en respectant les règles de l’établissement.",
+                "Tout retard important peut entraîner un report du rendez-vous afin de respecter les autres patients.",
+                "En cas de question, vous pouvez contacter la clinique directement via l’application Tabibi."
               ]
-              ).map((item, i) => (
+              ).map((text, i) => (
                 <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>
                     {i + 1}
                   </div>
-                  <div style={{ flex: 1, paddingTop: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: item.desc ? 800 : 600, color: "#0f172a", marginBottom: item.desc ? 4 : 0 }}>{item.title}</div>
-                    {item.desc && <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{item.desc}</div>}
+                  <div style={{ flex: 1, paddingTop: 3 }}>
+                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>{text}</div>
                   </div>
                 </div>
               ))}
@@ -2713,41 +2852,51 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(5)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn variant="secondary" onClick={() => setStep(4)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(6)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
               {t("next")}
             </Btn>
           </div>
         </Card>
       )}
 
-      {/* ══════════ STEP 5 — Confirmation Summary ══════════ */}
-      {step === 5 && (
+      {/* ══════════ STEP 6 — Confirmation Summary ══════════ */}
+      {step === 6 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("review_confirm")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("review_confirm_desc")}</p>
 
           <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
             background: "linear-gradient(135deg,#f0fdfa,#ecfeff)",
-            border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 22px", marginBottom: 20
+            border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 18px", marginBottom: 20
           }}>
             {[
-              [<Stethoscope size={18} />, t("doctor"), doctor.fullname],
-              [<Building size={18} />, t("specialty"), (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) || "—"],
+              [<Stethoscope size={18} />, t("doctor"), doctor?.fullname || docInfo?.fullname],
+              [<Briefcase size={18} />, t("specialty"), (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) || "—"],
               [<User size={18} />, t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
-              [<Stethoscope size={18} />, t("step_reason"), (reason?.reason_name || reason?.Reason || reason?.reasons || reason?.motif) || "—"],
+              [<ClipboardList size={18} />, t("step_reason"), (reason?.reason_name || reason?.Reason || reason?.reasons || reason?.motif) || "—"],
               [<Calendar size={18} />, t("date"), date],
               [<Clock size={18} />, t("time"), selSlot],
               ...(+doctor.pricing > 0 ? [[<CreditCard size={18} />, t("consultation_fee"), `${doctor.pricing} ${t("currency")}`]] : []),
             ].map(([ic, lbl, val], idx, arr) => (
               <div key={lbl} style={{
-                display: "flex", alignItems: "center", gap: 14, padding: "10px 0",
-                borderBottom: idx < arr.length - 1 ? "1px solid rgba(8,145,178,0.12)" : "none"
+                padding: "14px",
+                borderRadius: 12,
+                background: "#f8fafc",
+                border: "1px solid #eef2f6",
+                display: "flex", flexDirection: "column", gap: 6,
+                gridColumn: lbl === t("consultation_fee") ? "1 / -1" : "span 1"
               }}>
-                <span style={{ fontSize: 20, width: 28, textAlign: "center", flexShrink: 0 }}>{ic}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, marginBottom: 2 }}>{lbl}</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0c4a6e" }}>{val}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--brand)", background: "var(--brand-light)", padding: 6, borderRadius: 8, display: "flex" }}>{ic}</span>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>{lbl}</div>
+                </div>
+                <div style={{ 
+                  fontSize: 14, fontWeight: 900, color: "#0c4a6e", 
+                  [i18n.language === 'ar' ? "paddingRight" : "paddingLeft"]: 38 
+                }}>
+                  {val}
                 </div>
               </div>
             ))}
@@ -2771,7 +2920,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="secondary" onClick={() => setStep(4)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn variant="secondary" onClick={() => setStep(5)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center", padding: 14, borderRadius: 10, fontSize: 15 }}>
               <Award size={18} style={{ marginLeft: 8 }} /> {t("confirm_final")}
             </Btn>
@@ -2779,8 +2928,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
         </Card>
       )}
 
-      {/* ══════════ STEP 6 — Success ══════════ */}
-      {step === 6 && (
+      {/* ══════════ STEP 7 — Success ══════════ */}
+      {step === 7 && (
         <Card style={{ padding: "44px 28px", textAlign: "center" }}>
           {/* Animated success icon */}
           <div style={{
@@ -2796,7 +2945,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </h2>
           <div style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.8, marginBottom: 28 }}>
             {t("success_msg")}{" "}
-            <strong style={{ color: "#0c4a6e" }}>{doctor.fullname}</strong>
+            <strong style={{ color: "#0c4a6e" }}>{doctor?.fullname || docInfo?.fullname}</strong>
             <br />
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, justifyContent: "center" }}>
               <Calendar size={16} color="#6b7280" />
@@ -3099,12 +3248,13 @@ function AboutPage({ navigate }) {
 // ── PAGE: REGISTER CLINIC (FOR doctors)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function RegisterClinicPage({ navigate }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const { show, Toast } = useToast();
+  const isAnimating = useRandomAnimation(30, 60);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ clinic_name: '', email: '', phone: '', password: '', address: '', notes: '' });
+  const [form, setForm] = useState({ clinic_name: '', email: '', phone: '', password: '', address: '', notes: '', latitude: 0, longitude: 0 });
   const [errors, setErrors] = useState({});
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
@@ -3117,6 +3267,23 @@ function RegisterClinicPage({ navigate }) {
     if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      show(t("browser_no_gps"), "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+        show(t("location_detected"), "success");
+      },
+      (err) => {
+        show(t("location_err") + err.message, "error");
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
   };
 
   const submit = async () => {
@@ -3132,12 +3299,12 @@ function RegisterClinicPage({ navigate }) {
   if (done) return (
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
-        <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+        <div className={isAnimating ? "random-flip" : ""} style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <CheckCircle size={40} color="#fff" />
         </div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>تم إرسال الطلب بنجاح!</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>{t("registration_success")}</h2>
         <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
-          تم إرسال طلب تسجيل العيادة بنجاح، سيتم مراجعته من طرف الإدارة وستصلك رسالة عند الموافقة.
+          {t("registration_success_desc")}
         </p>
         <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
           <div style={{ fontSize: 13, color: '#0f766e', fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -3155,25 +3322,41 @@ function RegisterClinicPage({ navigate }) {
     <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '16px' : '28px 24px' }}>
       <Toast />
       <div style={{ textAlign: 'center', marginBottom: 36 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <div className={isAnimating ? "random-flip" : ""} style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
           <Building size={36} color="var(--brand)" />
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>تسجيل عيادة جديدة</h1>
-        <p style={{ color: '#6b7280', fontSize: 15 }}>أرسل طلبك وسيتم مراجعته من طرف الإدارة خلال 24-48 ساعة</p>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>{t("register_clinic_title")}</h1>
+        <p style={{ color: '#6b7280', fontSize: 15 }}>{t("register_clinic_desc")}</p>
       </div>
 
       <Card style={{ padding: isMobile ? 20 : 36 }}>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
-          <Input label="اسم العيادة *" placeholder="عيادة الرحمة" value={form.clinic_name} onChange={e => set('clinic_name', e.target.value)} error={errors.clinic_name} />
-          <Input label="رقم الهاتف *" placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
+          <Input label={`${t("clinic_name_input")} *`} placeholder="عيادة الرحمة" value={form.clinic_name} onChange={e => set('clinic_name', e.target.value)} error={errors.clinic_name} />
+          <Input label={`${t("professional_phone")} *`} placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
         </div>
-        <Input label="البريد الإلكتروني *" type="email" placeholder="clinic@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
-        <Input label="كلمة المرور *" type="password" placeholder="6 أحرف على الأقل" value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
-        <Input label="العنوان" placeholder="شارع، مدينة، ولاية" value={form.address} onChange={e => set('address', e.target.value)} />
+        <Input label={`${t("email")} *`} type="email" placeholder="clinic@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
+        <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <Input label={t("full_address")} placeholder={t("address_placeholder")} value={form.address} onChange={e => set('address', e.target.value)} />
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>معلومات إضافية</label>
-          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="أي تفاصيل إضافية عن العيادة..."
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>{t("additional_info")}</label>
+          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder={t("additional_info_placeholder")}
             style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>{t("clinic_gps")}</label>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input type="number" step="any" placeholder="Latitude" value={form.latitude} onChange={e => set('latitude', parseFloat(e.target.value) || 0)}
+                style={{ width: '100%', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, color: '#475569', outline: 'none' }} />
+              <input type="number" step="any" placeholder="Longitude" value={form.longitude} onChange={e => set('longitude', parseFloat(e.target.value) || 0)}
+                style={{ width: '100%', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, color: '#475569', outline: 'none' }} />
+            </div>
+            <Btn variant="secondary" onClick={detectLocation} style={{ padding: '10px 16px', fontSize: 12 }}>
+              <MapPin size={14} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> {t("detect_location")}
+            </Btn>
+          </div>
+          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>{t("gps_hint")}</p>
         </div>
         <div style={{ background: '#f0fdfa', borderRadius: 12, border: '1px solid #ccfbf1', padding: '16px 20px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0f766e', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
@@ -3187,10 +3370,10 @@ function RegisterClinicPage({ navigate }) {
           </ul>
         </div>
         <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
-          <Send size={18} /> إرسال طلب التسجيل
+          <Send size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("submit_join_btn")}
         </Btn>
         <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 14 }}>
-          سيتم مراجعة طلبك من قبل فريق الإدارة وإشعارك بالنتيجة
+          {t("join_verification_msg")}
         </p>
       </Card>
     </div>
@@ -3366,8 +3549,8 @@ function AdminDashboardPage({ navigate, user }) {
 
   // ── Tab Bar
   const tabs = [
-    { key: 'overview', label: 'لوحة الإحصائيات', icon: <Activity size={16} /> },
-    { key: 'clinics', label: 'طلبات العيادات', icon: <Building size={16} /> },
+    { key: 'overview', label: 'لوحة الإحصائيات', icon: <LayoutDashboard size={16} /> },
+    { key: 'clinics', label: 'طلبات العيادات', icon: <Building2 size={16} /> },
     { key: 'doctors', label: 'طلبات الأطباء', icon: <Stethoscope size={16} /> },
   ];
 
@@ -4158,7 +4341,7 @@ function NewTicketPage({ navigate, user, qs }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: PROFILE (ACCOUNT SETTINGS)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function ProfilePage({ user }) {
+function ProfilePage({ user, navigate }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
 
@@ -4198,6 +4381,23 @@ function ProfilePage({ user }) {
     }
     catch (e) { show(e.message, "error"); }
     finally { setSaving(false); }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      show(t("browser_no_gps") || "متصفحك لا يدعم تحديد الموقع", "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+        show(t("location_detected") || "تم تحديد الموقع بنجاح", "success");
+      },
+      (err) => {
+        show((t("location_err") || "فشل تحديد الموقع: ") + err.message, "error");
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
   };
 
   const handlePhotoUpload = async e => {
@@ -4302,6 +4502,23 @@ function ProfilePage({ user }) {
               <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
             )}
 
+            {user?.user_type === 2 && (
+              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("clinic_gps")}</label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <input type="number" step="any" placeholder="Latitude" value={form.latitude || 0} onChange={e => f("latitude", parseFloat(e.target.value) || 0)}
+                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+                    <input type="number" step="any" placeholder="Longitude" value={form.longitude || 0} onChange={e => f("longitude", parseFloat(e.target.value) || 0)}
+                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+                  </div>
+                  <Btn variant="secondary" onClick={detectLocation} style={{ padding: "10px 16px", fontSize: 12 }}>
+                    <MapPin size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 6 }} /> {t("detect_location")}
+                  </Btn>
+                </div>
+              </div>
+            )}
+
             {user?.user_type === 0 && (
               <>
                 <Input label={t("birth_date")} type="date" value={(form.birthdate || "").substring(0, 10)} onChange={e => f("birthdate", e.target.value)} />
@@ -4342,6 +4559,33 @@ function ProfilePage({ user }) {
               <Input label="رقم التسجيل الطبي" value={form.numregister || ""} onChange={e => f("numregister", e.target.value)} />
               <Input label="الشهادات العلمية" value={form.degrees || ""} onChange={e => f("degrees", e.target.value)} />
               <Input label="الألقاب الأكاديمية" value={form.academytitles || ""} onChange={e => f("academytitles", e.target.value)} />
+            </div>
+          </Card>
+        )}
+
+        {user?.user_type === 0 && (
+          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("family_members")}</div>
+                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>{t("family_desc")}</div>
+                </div>
+              </div>
+              <button onClick={() => navigate("/family")}
+                style={{ 
+                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff", 
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <UserPlus size={20} />
+              </button>
             </div>
           </Card>
         )}
@@ -4686,6 +4930,115 @@ export default function App() {
   );
 }
 
+function FamilyPage({ navigate, user }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [members, setMembers] = useState([]);
+  const [loading, setL] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ fullname: "", gender: 0, birthdate: "" });
+  const { show, Toast } = useToast();
+
+  const load = async () => {
+    try {
+      setL(true);
+      const data = await api.patient.family();
+      setMembers(data || []);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const onAdd = async (e) => {
+    e.preventDefault();
+    if (!form.fullname.trim() || !form.birthdate) return;
+    setAdding(true);
+    try {
+      await api.patient.addFamily(form);
+      setForm({ fullname: "", gender: 0, birthdate: "" });
+      show(t("family_added_success") || "تمت إضافة فرد العائلة بنجاح", "success");
+      load();
+    } catch (e) { show(e.message, "error"); }
+    finally { setAdding(false); }
+  };
+
+  const onDelete = async (id) => {
+    if (!window.confirm(t("confirm_delete") || "هل أنت متأكد من الحذف؟")) return;
+    try {
+      await api.patient.deleteFamily(id);
+      show(t("deleted_success") || "تم الحذف بنجاح");
+      load();
+    } catch (e) { show(e.message, "error"); }
+  };
+
+  return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "28px 24px" }}>
+      <button onClick={() => navigate("/profile")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, marginBottom: 20 }}>
+        <ArrowRight size={18} /> {t("back_to_profile") || "العودة للملف الشخصي"}
+      </button>
+
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+        <Users size={28} /> {t("family_management") || "إدارة أفراد العائلة"}
+      </h1>
+      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 28 }}>
+        {t("family_management_desc") || "أضف أفراد عائلتك (الأبناء، الوالدين، الزوج...) لتتمكن من حجز مواعيد لهم بسهولة."}
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
+        {/* ADD FORM */}
+        <div>
+          <Card style={{ padding: 24 }}>
+            <h3 style={{ margin: "0 0 16px", color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("add_family_member") || "إضافة فرد جديد"}</h3>
+            <form onSubmit={onAdd}>
+              <Input label={t("fullname")} value={form.fullname} onChange={e => setForm(f => ({ ...f, fullname: e.target.value }))} required />
+              <Input label={t("birth_date")} type="date" value={form.birthdate} onChange={e => setForm(f => ({ ...f, birthdate: e.target.value }))} required />
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: +e.target.value }))} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                  <option value={0}>{t("male")}</option>
+                  <option value={1}>{t("female")}</option>
+                </select>
+              </div>
+              <Btn type="submit" loading={adding} style={{ width: "100%", justifyContent: "center" }}>
+                <Plus size={18} /> {t("add_btn") || "إضافة الفرد"}
+              </Btn>
+            </form>
+          </Card>
+        </div>
+
+        {/* LIST */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h3 style={{ margin: "0 0 4px", color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("existing_members") || "أفراد العائلة المضافين"}</h3>
+          {loading ? <Spinner /> : members.map(m => (
+            <Card key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: m.gender === 1 ? "#fdf2f8" : "#f0f9ff", display: "flex", alignItems: "center", justifyContent: "center", color: m.gender === 1 ? "#db2777" : "#0284c7" }}>
+                  {m.gender === 1 ? <Baby size={20} /> : <User size={20} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 14 }}>{m.fullname}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{new Date(m.birthdate).toLocaleDateString(i18n.language)}</div>
+                </div>
+              </div>
+              <button onClick={() => onDelete(m.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", padding: 8 }}>
+                <Trash2 size={18} />
+              </button>
+            </Card>
+          ))}
+          {!loading && members.length === 0 && (
+            <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 16, border: "1.5px dashed var(--border)", color: "#94a3b8", fontSize: 13 }}>
+              {t("no_family_members") || "لم يتم إضافة أي أفراد عائلة بعد."}
+            </div>
+          )}
+        </div>
+      </div>
+      <Toast />
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────
 function MainApp() {
   const { t, i18n } = useTranslation();
   const { route, qs, navigate } = useRoute();
@@ -4717,8 +5070,13 @@ function MainApp() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-          <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(0,146,162,0.1)" }}>
-            <Building size={40} color="var(--brand)" />
+          <div className="random-flip-container" style={{ 
+            width: 80, height: 80, borderRadius: 20, background: "var(--brand)", 
+            display: "flex", alignItems: "center", justifyContent: "center", 
+            boxShadow: "0 10px 25px rgba(0,146,162,0.2)",
+            animation: "flipRight 3s infinite linear"
+          }}>
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="logo" style={{ width: "60%", height: "60%", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
           </div>
         </div>
         <Spinner size={34} />
@@ -4785,7 +5143,10 @@ function MainApp() {
         return <AppointmentsPage key="appts" navigate={navigate} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <ProfilePage key="profile" user={user} />;
+        return <ProfilePage key="profile" user={user} navigate={navigate} />;
+      case "/family":
+        if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
+        return <FamilyPage navigate={navigate} user={user} />;
       case "/requests":
         if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }
         return <RequestsPage key="requests" navigate={navigate} user={user} />;

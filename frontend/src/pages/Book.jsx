@@ -3,11 +3,15 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, useToast } from "../components/SharedUI";
+import { MapPin, Phone } from "lucide-react";
 
 export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
   const [doctor, setDoctor] = useState(null);
   const [family, setFamily] = useState([]);
+  const [clinicList, setClinicList] = useState([]);
+  const needsClinicSelect = !clinicid || clinicid === "0" || +clinicid === 0;
+  const [selectedClinicId, setSelectedClinicId] = useState(needsClinicSelect ? null : clinicid);
   const [step, setStep] = useState(1);
   const [selPatient, setSelPatient] = useState(null);
   const [reason, setReason] = useState(null);
@@ -22,14 +26,29 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const { show, Toast } = useToast();
 
   useEffect(() => {
-    Promise.all([
-      api.clinics.doctor(clinicid, doctor_id),
-      api.patient.family().catch(() => []),
-    ]).then(([d, fam]) => {
-      setDoctor(d);
-      setFamily(fam || []);
-    }).catch(e => setError(e.message))
-      .finally(() => setInitL(false));
+    const load = async () => {
+      try {
+        const fam = await api.patient.family().catch(() => []);
+        setFamily(fam || []);
+        if (needsClinicSelect) {
+          const doc = await api.doctors.get(doctor_id);
+          const clinics = doc.OtherClinics || [];
+          setClinicList(clinics);
+          if (clinics.length === 1) {
+            setSelectedClinicId(clinics[0].id);
+            const d = await api.clinics.doctor(clinics[0].id, doctor_id);
+            setDoctor(d);
+          }
+        } else {
+          const d = await api.clinics.doctor(clinicid, doctor_id);
+          setDoctor(d);
+          const doc = await api.doctors.get(doctor_id).catch(() => null);
+          if (doc?.OtherClinics) setClinicList(doc.OtherClinics);
+        }
+      } catch (e) { setError(e.message); }
+      finally { setInitL(false); }
+    };
+    load();
   }, [clinicid, doctor_id]);
 
   const selfOption = { id: null, name: user?.profile?.fullname || user?.username || t("self"), isSelf: true };
@@ -47,6 +66,16 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
     finally { setSL(false); }
   };
 
+  const handleClinicSelect = async (cid) => {
+    setSelectedClinicId(cid);
+    setL(true);
+    try {
+      const d = await api.clinics.doctor(cid, doctor_id);
+      setDoctor(d);
+    } catch (e) { show(e.message, "error"); }
+    finally { setL(false); }
+  };
+
   const confirmBook = async () => {
     setL(true);
     try {
@@ -54,7 +83,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
-      setStep(5);
+      setStep(6);
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
   };
@@ -62,9 +91,10 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const STEPS = [
     { n: 1, label: t("step_patient"), icon: "👤" },
     { n: 2, label: t("step_reason"), icon: "🩺" },
-    { n: 3, label: t("step_date"), icon: "📅" },
-    { n: 4, label: t("step_confirm"), icon: "✅" },
-    { n: 5, label: t("step_done"), icon: "🎉" },
+    { n: 3, label: t("step_clinic") || "العيادة", icon: "🏥" },
+    { n: 4, label: t("step_date"), icon: "📅" },
+    { n: 5, label: t("step_confirm"), icon: "✅" },
+    { n: 6, label: t("step_done"), icon: "🎉" },
   ];
 
   const getAvailableDates = () => {
@@ -94,7 +124,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   };
 
   useEffect(() => {
-    if (step === 3 && !date) {
+    if (step === 4 && !date) {
       const avail = getAvailableDates();
       if (avail.length > 0) { setDate(avail[0].full); fetchSlots(avail[0].full); }
     }
@@ -107,7 +137,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       <Btn onClick={() => navigate("/search")}>{t("back_to_search")}</Btn>
     </div>
   );
-  if (initLoad || !doctor) return <div style={{ padding: 60 }}><Spinner /></div>;
+  if (initLoad) return <div style={{ padding: 60 }}><Spinner /></div>;
 
   const Stepper = () => (
     <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 36, position: "relative" }}>
@@ -119,16 +149,16 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
               left: i18n.language === 'ar' ? "50%" : "-50%",
               right: i18n.language === 'ar' ? "-50%" : "50%",
               height: 3, zIndex: 0, transition: "all 0.4s",
-              background: (step > s.n || (step === 5 && s.n === 5)) ? "linear-gradient(to left, #059669, #10b981)" : step === s.n ? "linear-gradient(to left, #0891b2 60%, #e5e7eb 100%)" : "#e5e7eb"
+              background: (step > s.n || (step === 6 && s.n === 6)) ? "linear-gradient(to left, #059669, #10b981)" : step === s.n ? "linear-gradient(to left, #0891b2 60%, #e5e7eb 100%)" : "#e5e7eb"
             }} />
           )}
           <div style={{
             width: 38, height: 38, borderRadius: "50%", zIndex: 1, flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontWeight: 900, fontSize: step > s.n ? 16 : 14, transition: "all 0.35s",
-            background: (step > s.n || (step === 5 && s.n === 5)) ? "linear-gradient(135deg,#059669,#10b981)" : step === s.n ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#e5e7eb",
+            background: (step > s.n || (step === 6 && s.n === 6)) ? "linear-gradient(135deg,#059669,#10b981)" : step === s.n ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#e5e7eb",
             color: (step >= s.n) ? "#fff" : "#9ca3af",
-            boxShadow: step === s.n ? "0 4px 16px rgba(8,145,178,0.4)" : (step > s.n || (step === 5 && s.n === 5)) ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
+            boxShadow: step === s.n ? "0 4px 16px rgba(8,145,178,0.4)" : (step > s.n || (step === 6 && s.n === 6)) ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
             transform: step === s.n ? "scale(1.12)" : "scale(1)"
           }}>{(step > s.n) ? "✓" : s.icon}</div>
           <div style={{ fontSize: 10, fontWeight: 700, marginTop: 6, whiteSpace: "nowrap", color: step > s.n ? "#059669" : step === s.n ? "#0891b2" : "#9ca3af" }}>{s.label}</div>
@@ -137,7 +167,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
     </div>
   );
 
-  const DoctorBanner = () => step < 5 && (
+  const DoctorBanner = () => (doctor && step < 6) && (
     <div style={{ background: "linear-gradient(135deg,#0c4a6e,#0891b2,#06b6d4)", borderRadius: 16, padding: "16px 22px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14, color: "#fff" }}>
       <DoctorImage photo={doctor.photoprofile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
       <div style={{ flex: 1 }}>
@@ -150,7 +180,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px" }}>
-      <button onClick={() => navigate(`/clinic/${clinicid}/doctor/${doctor_id}`)}
+      <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
         style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>{t("back_to_doctor")}</button>
       <DoctorBanner /><Stepper />
 
@@ -217,6 +247,41 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
       {step === 3 && (
         <Card style={{ padding: "26px 28px" }}>
+          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_clinic") || "اختيار العيادة"}</h2>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("select_clinic_desc") || "اختر العيادة التي تريد الحجز فيها"}</p>
+          {loading ? <Spinner /> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 4 }}>
+              {clinicList.map(c => {
+                const sel = String(selectedClinicId) === String(c.id);
+                return (
+                  <div key={c.id} onClick={() => handleClinicSelect(c.id)} style={{
+                    padding: "16px 18px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s",
+                    border: sel ? "2.5px solid #0891b2" : "1.5px solid #e5e7eb",
+                    background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fafafa",
+                    display: "flex", alignItems: "flex-start", gap: 14,
+                    boxShadow: sel ? "0 4px 18px rgba(8,145,178,0.14)" : "none"
+                  }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 10, background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🏥</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: sel ? "#0c4a6e" : "#374151", marginBottom: 4 }}>{c.clinicname}</div>
+                      {c.address && <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} />{c.address}</div>}
+                      {c.phone && <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}><Phone size={12} />{c.phone}</div>}
+                    </div>
+                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: sel ? "#0891b2" : "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>{sel ? "✓" : ""}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <Btn variant="secondary" onClick={() => setStep(2)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(4)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center" }}>{t("next_date") || "التالي"}</Btn>
+          </div>
+        </Card>
+      )}
+
+      {step === 4 && (
+        <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_date")}</h2>
           <div style={{ marginBottom: 26 }}>
             <label style={{ display: "block", marginBottom: 12, fontWeight: 700, fontSize: 14 }}>{t("avail_days")}</label>
@@ -252,13 +317,13 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
             </div>
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => setStep(2)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(4)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center" }}>{t("next_date")}</Btn>
+            <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(5)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center" }}>{t("next_date")}</Btn>
           </div>
         </Card>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("review_confirm")}</h2>
           <div style={{ background: "#f0fdfa", border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
@@ -289,13 +354,13 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
             </label>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
+            <Btn variant="secondary" onClick={() => setStep(4)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
             <Btn onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center" }}>{t("confirm_final")}</Btn>
           </div>
         </Card>
       )}
 
-      {step === 5 && (
+      {step === 6 && (
         <Card style={{ padding: "44px 28px", textAlign: "center" }}>
           <div style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 24px", background: "#059669", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, color: "#fff" }}>✅</div>
           <h2 style={{ color: "#059669", fontSize: 24, fontWeight: 900 }}>{t("success_title")}</h2>
