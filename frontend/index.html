@@ -33,6 +33,35 @@
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: var(--bg); background: var(--bg); }
       *, input, button, select, textarea { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
 
+      @keyframes flipRight {
+        0% { transform: perspective(400px) rotateY(0deg); }
+        100% { transform: perspective(400px) rotateY(360deg); }
+      }
+      @keyframes flipLeft {
+        0% { transform: perspective(400px) rotateY(0deg); }
+        100% { transform: perspective(400px) rotateY(-360deg); }
+      }
+      @keyframes flipUp {
+        0% { transform: perspective(400px) rotateX(0deg); }
+        100% { transform: perspective(400px) rotateX(360deg); }
+      }
+      @keyframes flipDown {
+        0% { transform: perspective(400px) rotateX(0deg); }
+        100% { transform: perspective(400px) rotateX(-360deg); }
+      }
+      .flip-right { animation: flipRight 1s ease-in-out; }
+      .flip-left  { animation: flipLeft 1s ease-in-out; }
+      .flip-up    { animation: flipUp 1s ease-in-out; }
+      .flip-down  { animation: flipDown 1s ease-in-out; }
+      
+      .random-flip-container {
+        display: inline-block;
+        transform-style: preserve-3d;
+        -webkit-transform-style: preserve-3d;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        will-change: transform;
+      }
     </style>
   </head>
   <body>

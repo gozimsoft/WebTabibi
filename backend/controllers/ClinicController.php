@@ -6,13 +6,16 @@ require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
-class ClinicController {
+class ClinicController
+{
 
     // GET /api/clinics/profile
-    public static function getProfile(): void {
+    public static function getProfile(): void
+    {
         $session = AuthMiddleware::authenticate();
-        if ($session['usertype'] != 2) Response::error('Non autorisé', 403);
-        
+        if ($session['usertype'] != 2)
+            Response::error('Non autorisé', 403);
+
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("
             SELECT c.*, u.username 
@@ -23,9 +26,10 @@ class ClinicController {
         ");
         $stmt->execute([$session['user_id']]);
         $clinic = $stmt->fetch();
-        
-        if (!$clinic) Response::notFound('Profil clinique non trouvé');
-        
+
+        if (!$clinic)
+            Response::notFound('Profil clinique non trouvé');
+
         if (!empty($clinic['logo'])) {
             $clinic['logo'] = base64_encode($clinic['logo']);
         }
@@ -34,12 +38,14 @@ class ClinicController {
     }
 
     // PUT /api/clinics/profile
-    public static function updateProfile(): void {
+    public static function updateProfile(): void
+    {
         $session = AuthMiddleware::authenticate();
-        if ($session['usertype'] != 2) Response::error('Non autorisé', 403);
-        
+        if ($session['usertype'] != 2)
+            Response::error('Non autorisé', 403);
+
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $pdo  = Database::getInstance();
+        $pdo = Database::getInstance();
 
         // 1. Update users table
         $userFields = [];
@@ -47,7 +53,8 @@ class ClinicController {
         if (!empty($data['username'])) {
             $check = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
             $check->execute([$data['username'], $session['user_id']]);
-            if ($check->fetchColumn()) Response::error("Nom d'utilisateur déjà pris", 409);
+            if ($check->fetchColumn())
+                Response::error("Nom d'utilisateur déjà pris", 409);
             $userFields[] = "`username` = ?";
             $userValues[] = $data['username'];
         }
@@ -82,26 +89,29 @@ class ClinicController {
     }
 
     // POST /api/clinics/profile  (Delphi desktop sync)
-    public static function uploadProfile(): void {
+    public static function uploadProfile(): void
+    {
         $session = AuthMiddleware::authenticate();
-        if ((int)$session['usertype'] !== 2) Response::error('Non autorisé', 403);
+        if ((int) $session['usertype'] !== 2)
+            Response::error('Non autorisé', 403);
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $pdo  = Database::getInstance();
+        $pdo = Database::getInstance();
 
         // Resolve clinic_id from session user
         $clinicid = self::getClinicId($session['user_id']);
-        if (!$clinicid) Response::notFound('Profil clinique non trouvé');
+        if (!$clinicid)
+            Response::notFound('Profil clinique non trouvé');
 
         // Map of incoming JSON keys → DB columns
         $map = [
-            'clinicname'        => 'clinicname',
-            'phone'             => 'phone',
-            'fax'               => 'fax',
-            'address'           => 'address',
-            'email'             => 'email',
-            'webSite'           => 'website',
-            'typeclinic'        => 'typeclinic',
+            'clinicname' => 'clinicname',
+            'phone' => 'phone',
+            'fax' => 'fax',
+            'address' => 'address',
+            'email' => 'email',
+            'webSite' => 'website',
+            'typeclinic' => 'typeclinic',
             'cliniccoordinates' => 'cliniccoordinates',
             'latitude'          => 'latitude',
             'longitude'         => 'longitude',
@@ -141,15 +151,18 @@ class ClinicController {
     }
 
     // POST /api/clinics/logo (Self upload — multipart OR base64 JSON)
-    public static function uploadSelfLogo(): void {
+    public static function uploadSelfLogo(): void
+    {
         $session = AuthMiddleware::authenticate();
-        if ((int)$session['usertype'] !== 2) Response::error('Non autorisé', 403);
+        if ((int) $session['usertype'] !== 2)
+            Response::error('Non autorisé', 403);
 
         $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
-        if (!$clinicid) Response::error('Profil non trouvé', 404);
+        if (!$clinicid)
+            Response::error('Profil non trouvé', 404);
 
         $imageData = null;
-        $maxSize   = 5 * 1024 * 1024; // 5 MB
+        $maxSize = 5 * 1024 * 1024; // 5 MB
 
         // Option 1: multipart file upload (field "photo")
         if (!empty($_FILES['photo'])) {
@@ -197,15 +210,16 @@ class ClinicController {
     }
 
     // GET /api/clinics?q=&specialty=&wilaya=&page=1&limit=20
-    public static function search(): void {
+    public static function search(): void
+    {
         $pdo = Database::getInstance();
 
-        $q         = $_GET['q']         ?? '';
+        $q = $_GET['q'] ?? '';
         $specialty = $_GET['specialty'] ?? '';
-        $wilaya    = $_GET['wilaya']    ?? '';
-        $page      = max(1, (int)($_GET['page']  ?? 1));
-        $limit     = min(50, max(1, (int)($_GET['limit'] ?? 20)));
-        $offset    = ($page - 1) * $limit;
+        $wilaya = $_GET['wilaya'] ?? '';
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
+        $offset = ($page - 1) * $limit;
 
         $params = [];
         $whereQ = "1=1";
@@ -219,8 +233,10 @@ class ClinicController {
         $myDoctorId = null;
         $myClinicId = null;
         if ($user) {
-            if ($user['usertype'] == 1) $myDoctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
-            if ($user['usertype'] == 2) $myClinicId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
+            if ($user['usertype'] == 1)
+                $myDoctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            if ($user['usertype'] == 2)
+                $myClinicId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
         }
 
         // Add specialty/wilaya filters to whereQ
@@ -317,10 +333,10 @@ class ClinicController {
         }
 
         Response::success([
-            'items'       => $results,
-            'total'       => $total,
-            'page'        => $page,
-            'limit'       => $limit,
+            'items' => $results,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
             'total_pages' => ceil($total / $limit),
         ]);
     }
@@ -347,27 +363,28 @@ class ClinicController {
         $stmt->execute([$id]);
         $clinic = $stmt->fetch();
 
-        if (!$clinic) Response::notFound('clinique non trouvée');
+        if (!$clinic)
+            Response::notFound('clinique non trouvée');
 
         // Parse doctors list
         $doctors = [];
         if (!empty($clinic['DoctorsList'])) {
             foreach (explode(';;', $clinic['DoctorsList']) as $row) {
                 [$did, $dname, $sfr, $sar, $cdid, $sid] = explode('|', $row);
-                
+
                 // Fetch photo separately (or we could have joined but this is safer for BLOBs)
                 $pStmt = $pdo->prepare("SELECT photoprofile FROM doctors WHERE id = ?");
                 $pStmt->execute([$did]);
                 $photo = $pStmt->fetchColumn();
-                
+
                 $doctors[] = [
-                    'doctor_id'          => $did,
-                    'doctorname'        => $dname,
-                    'specialtyfr'       => $sfr,
-                    'specialtyar'       => $sar,
-                    'clinicsdoctor_id'  => $cdid,
-                    'specialtyid'       => $sid,
-                    'photoprofile'      => $photo ? base64_encode($photo) : null
+                    'doctor_id' => $did,
+                    'doctorname' => $dname,
+                    'specialtyfr' => $sfr,
+                    'specialtyar' => $sar,
+                    'clinicsdoctor_id' => $cdid,
+                    'specialtyid' => $sid,
+                    'photoprofile' => $photo ? base64_encode($photo) : null
                 ];
             }
         }
@@ -381,8 +398,9 @@ class ClinicController {
     }
 
     // GET /api/clinics/{clinicid}/doctors/{doctor_id}
-    public static function getDoctorAtClinic(string $clinicid, string $doctor_id): void {
-        $pdo  = Database::getInstance();
+    public static function getDoctorAtClinic(string $clinicid, string $doctor_id): void
+    {
+        $pdo = Database::getInstance();
 
         // Doctor basic info
         $stmt = $pdo->prepare("
@@ -410,7 +428,7 @@ class ClinicController {
         if (!$doctor) {
             Response::notFound('Médecin non trouvé dans cette clinique');
         }
-        
+
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
         } else {
@@ -471,32 +489,36 @@ class ClinicController {
 
 
     // GET /api/specialties
-    public static function getSpecialties(): void {
-        $pdo  = Database::getInstance();
+    public static function getSpecialties(): void
+    {
+        $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM specialties ORDER BY namefr");
         $stmt->execute();
         Response::success($stmt->fetchAll());
     }
 
     // GET /api/wilayas
-    public static function getWilayas(): void {
-        $pdo  = Database::getInstance();
+    public static function getWilayas(): void
+    {
+        $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM wilayas ORDER BY Num");
         $stmt->execute();
         Response::success($stmt->fetchAll());
     }
 
-// GET /api/baladiya
-    public static function getBaladiyas(): void {
-        $pdo  = Database::getInstance();
+    // GET /api/baladiya
+    public static function getBaladiyas(): void
+    {
+        $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM baladiyas ORDER BY postcode ");
         $stmt->execute();
         Response::success($stmt->fetchAll());
     }
 
-// GET /api/reasons
-    public static function getReasons(): void {
-        $pdo  = Database::getInstance();
+    // GET /api/reasons
+    public static function getReasons(): void
+    {
+        $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM reasons ORDER BY name  ");
         $stmt->execute();
         Response::success($stmt->fetchAll());
@@ -504,17 +526,19 @@ class ClinicController {
 
     // POST /api/clinics/{id}/photo
     // Accepts multipart file upload (field "photo") or JSON { "photo": "base64..." }
-    public static function uploadPhoto(string $clinicid): void {
-     //   $session = AuthMiddleware::doctorOnly();
-        $pdo     = Database::getInstance();
- 
+    public static function uploadPhoto(string $clinicid): void
+    {
+        //   $session = AuthMiddleware::doctorOnly();
+        $pdo = Database::getInstance();
+
         // Check clinic exists
         $stmt3 = $pdo->prepare("SELECT id FROM clinics WHERE id = ? LIMIT 1");
         $stmt3->execute([$clinicid]);
-        if (!$stmt3->fetch()) Response::notFound('clinique non trouvée');
+        if (!$stmt3->fetch())
+            Response::notFound('clinique non trouvée');
 
         $imageData = null;
-        $maxSize   = 5 * 1024 * 1024; // 5 MB
+        $maxSize = 5 * 1024 * 1024; // 5 MB
 
         // Option 1: multipart file upload
         if (!empty($_FILES['photo'])) {
@@ -563,8 +587,9 @@ class ClinicController {
 
     // GET /api/clinics/{id}/photo
     // Returns the raw clinic logo image
-    public static function getPhoto(string $clinicid): void {
-        $pdo  = Database::getInstance();
+    public static function getPhoto(string $clinicid): void
+    {
+        $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT logo FROM clinics WHERE id = ? LIMIT 1");
         $stmt->execute([$clinicid]);
         $row = $stmt->fetch();
@@ -591,14 +616,16 @@ class ClinicController {
         exit;
     }
 
-    public static function getDoctorId(string $userId): string {
+    public static function getDoctorId(string $userId): string
+    {
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id=? LIMIT 1");
         $stmt->execute([$userId]);
         return $stmt->fetchColumn() ?: '';
     }
 
-    public static function getClinicId(string $userId): string {
+    public static function getClinicId(string $userId): string
+    {
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT id FROM clinics WHERE user_id=? LIMIT 1");
         $stmt->execute([$userId]);
@@ -606,7 +633,8 @@ class ClinicController {
     }
 
     // GET /api/doctors/{id}
-    public static function getDoctorPublicProfile(string $id): void {
+    public static function getDoctorPublicProfile(string $id): void
+    {
         $pdo = Database::getInstance();
 
         // 1. Doctor basic info
@@ -630,7 +658,8 @@ class ClinicController {
         $stmt->execute([$id]);
         $doctor = $stmt->fetch();
 
-        if (!$doctor) Response::notFound('Médecin non trouvé');
+        if (!$doctor)
+            Response::notFound('Médecin non trouvé');
 
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
