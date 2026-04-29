@@ -63,7 +63,7 @@ class ClinicController {
         // 2. Update clinics table
         $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
         if ($clinicid) {
-            $allowed = ['clinicname', 'email', 'phone', 'address', 'notes', 'fax', 'website', 'typeclinic', 'cliniccoordinates'];
+            $allowed = ['clinicname', 'email', 'phone', 'address', 'notes', 'fax', 'website', 'typeclinic', 'cliniccoordinates', 'latitude', 'longitude', 'services', 'postcode', 'aboutclinic', 'hospitalization', 'hiderating', 'emergency', 'ambulances'];
             $fields = [];
             $values = [];
             foreach ($allowed as $field) {
@@ -103,6 +103,15 @@ class ClinicController {
             'webSite'           => 'website',
             'typeclinic'        => 'typeclinic',
             'cliniccoordinates' => 'cliniccoordinates',
+            'latitude'          => 'latitude',
+            'longitude'         => 'longitude',
+            'services'          => 'services',
+            'postcode'          => 'postcode',
+            'aboutclinic'       => 'aboutclinic',
+            'hospitalization'   => 'hospitalization',
+            'hiderating'        => 'hiderating',
+            'emergency'         => 'emergency',
+            'ambulances'        => 'ambulances',
         ];
 
         $fields = [];
