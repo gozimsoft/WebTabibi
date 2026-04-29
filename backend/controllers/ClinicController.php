@@ -274,7 +274,7 @@ class ClinicController
                     0 as RatingCount,
                     (SELECT status FROM clinicsdoctors WHERE clinic_id = c.id AND doctor_id = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as relationstatus
                 FROM clinics c
-                WHERE UPPER(c.status) = 'APPROVED' AND c.clinicname LIKE ?
+                WHERE   c.clinicname LIKE ?
                 GROUP BY c.id
             )
             UNION ALL
@@ -302,9 +302,7 @@ class ClinicController
                 LEFT JOIN clinics c ON c.id = cd.clinic_id
                 LEFT JOIN specialties s ON s.id = COALESCE(d.specialtie_id, cd.specialtie_id)
                 LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-                WHERE UPPER(d.status) = 'APPROVED'
-                AND (c.status IS NULL OR UPPER(c.status) = 'APPROVED')
-                AND (cd.status IS NULL OR UPPER(cd.status) IN ('APPROVED', 'ACCEPTED'))
+                WHERE   (cd.status IS NULL OR UPPER(cd.status) IN ('APPROVED', 'ACCEPTED'))
                 AND $whereQ
                 GROUP BY d.id
             )
@@ -354,10 +352,7 @@ class ClinicController
             LEFT JOIN doctors d         ON d.id = cd.doctor_id
             LEFT JOIN specialties s     ON s.id = cd.specialtie_id
             LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-            WHERE c.id = ? 
-              AND UPPER(c.status) = 'APPROVED' 
-              AND (UPPER(d.status) = 'APPROVED' OR d.status IS NULL)
-              AND (UPPER(cd.status) IN ('APPROVED', 'ACCEPTED') OR cd.status IS NULL)
+            WHERE c.id = ?                 
             GROUP BY c.id
         ");
         $stmt->execute([$id]);
@@ -466,7 +461,7 @@ class ClinicController
             SELECT c.id, c.clinicname, c.address, c.phone
             FROM clinics c
             JOIN clinicsdoctors cd ON cd.clinic_id = c.id
-            WHERE cd.doctor_id = ? AND c.status = 'APPROVED' AND cd.status IN ('APPROVED', 'ACCEPTED')
+            WHERE cd.doctor_id = ?  AND cd.status IN ('APPROVED', 'ACCEPTED')
         ");
         $stmtClinics->execute([$doctor_id]);
         $doctor['OtherClinics'] = $stmtClinics->fetchAll();
