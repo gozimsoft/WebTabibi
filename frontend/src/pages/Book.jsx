@@ -90,8 +90,8 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   const STEPS = [
     { n: 1, label: t("step_patient"), icon: "👤" },
-    { n: 2, label: t("step_reason"), icon: "🩺" },
-    { n: 3, label: t("step_clinic") || "العيادة", icon: "🏥" },
+    { n: 2, label: t("step_clinic") || "العيادة", icon: "🏥" },
+    { n: 3, label: t("step_reason"), icon: "🩺" },
     { n: 4, label: t("step_date"), icon: "📅" },
     { n: 5, label: t("step_confirm"), icon: "✅" },
     { n: 6, label: t("step_done"), icon: "🎉" },
@@ -142,7 +142,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const Stepper = () => (
     <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 36, position: "relative" }}>
       {STEPS.map((s, i) => (
-        <div key={s.n} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+        <div key={s.n} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
           {i > 0 && (
             <div style={{
               position: "absolute", top: 18,
@@ -161,7 +161,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
             boxShadow: step === s.n ? "0 4px 16px rgba(8,145,178,0.4)" : (step > s.n || (step === 6 && s.n === 6)) ? "0 4px 12px rgba(5,150,105,0.3)" : "none",
             transform: step === s.n ? "scale(1.12)" : "scale(1)"
           }}>{(step > s.n) ? "✓" : s.icon}</div>
-          <div style={{ fontSize: 10, fontWeight: 700, marginTop: 6, whiteSpace: "nowrap", color: step > s.n ? "#059669" : step === s.n ? "#0891b2" : "#9ca3af" }}>{s.label}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, marginTop: 6, textAlign: "center", lineHeight: 1.2, wordBreak: "break-word", color: step > s.n ? "#059669" : step === s.n ? "#0891b2" : "#9ca3af" }}>{s.label}</div>
         </div>
       ))}
     </div>
@@ -209,43 +209,11 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
               );
             })}
           </div>
-          <div style={{ marginTop: 24 }}><Btn onClick={() => setStep(2)} style={{ width: "100%", justifyContent: "center", padding: 14 }}>{t("next_reason")}</Btn></div>
+          <div style={{ marginTop: 24 }}><Btn onClick={() => setStep(2)} style={{ width: "100%", justifyContent: "center", padding: 14 }}>{t("next") || "التالي"}</Btn></div>
         </Card>
       )}
 
       {step === 2 && (
-        <Card style={{ padding: "26px 28px" }}>
-          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_reason")}</h2>
-          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("comment_optional")}</p>
-          {(!doctor.reasons || doctor.reasons.length === 0) ? (
-            <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "#f9fafb", borderRadius: 12, marginBottom: 20 }}>📋 {t("no_reasons_defined")}</div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
-              {doctor.reasons.map(r => {
-                const sel = reason?.id === r.id;
-                return (
-                  <div key={r.id} onClick={() => setReason(sel ? null : r)} style={{
-                    padding: "14px 16px", borderRadius: 11, cursor: "pointer", transition: "all 0.2s",
-                    border: sel ? "2.5px solid #0891b2" : "1.5px solid #e5e7eb", background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fafafa", transform: sel ? "scale(1.02)" : "scale(1)"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ fontWeight: 700, color: sel ? "#0c4a6e" : "#374151", fontSize: 14 }}>{r.reason_name}</div>
-                      {sel && <span style={{ color: "#0891b2", fontWeight: 900 }}>✓</span>}
-                    </div>
-                    {+r.reason_time > 0 && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 5 }}>⏱ {r.reason_time} {t("minutes")}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(3)} style={{ flex: 2, justifyContent: "center" }}>{reason ? t("next_date") : t("skip_date")}</Btn>
-          </div>
-        </Card>
-      )}
-
-      {step === 3 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_clinic") || "اختيار العيادة"}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("select_clinic_desc") || "اختر العيادة التي تريد الحجز فيها"}</p>
@@ -274,8 +242,40 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
             </div>
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(3)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center" }}>{t("next") || "التالي"}</Btn>
+          </div>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card style={{ padding: "26px 28px" }}>
+          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_reason")}</h2>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("comment_optional")}</p>
+          {(!doctor.reasons || doctor.reasons.length === 0) ? (
+            <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "#f9fafb", borderRadius: 12, marginBottom: 20 }}>📋 {t("no_reasons_defined")}</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
+              {doctor.reasons.map(r => {
+                const sel = reason?.id === r.id;
+                return (
+                  <div key={r.id} onClick={() => setReason(sel ? null : r)} style={{
+                    padding: "14px 16px", borderRadius: 11, cursor: "pointer", transition: "all 0.2s",
+                    border: sel ? "2.5px solid #0891b2" : "1.5px solid #e5e7eb", background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fafafa", transform: sel ? "scale(1.02)" : "scale(1)"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ fontWeight: 700, color: sel ? "#0c4a6e" : "#374151", fontSize: 14 }}>{r.reason_name}</div>
+                      {sel && <span style={{ color: "#0891b2", fontWeight: 900 }}>✓</span>}
+                    </div>
+                    {+r.reason_time > 0 && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 5 }}>⏱ {r.reason_time} {t("minutes")}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(2)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(4)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center" }}>{t("next_date") || "التالي"}</Btn>
+            <Btn onClick={() => setStep(4)} style={{ flex: 2, justifyContent: "center" }}>{reason ? t("next_date") : t("skip_date")}</Btn>
           </div>
         </Card>
       )}

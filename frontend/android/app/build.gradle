@@ -16,8 +16,17 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file("tabibi.jks")
+            storePassword "tabibi123"
+            keyAlias "tabibi"
+            keyPassword "tabibi123"
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -33,7 +42,7 @@ android {
             def versionCode = variant.versionCode
             def date = new Date().format("yyyy-MM-dd")
 
-            def newName = "${appName}-v${versionName}(${versionCode})-${date}.apk"
+            def newName = "tabibi-release.apk"
             output.outputFileName = newName
         }
     }

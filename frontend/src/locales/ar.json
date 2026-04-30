@@ -143,6 +143,9 @@
     "review_confirm_desc": "تحقق من التفاصيل قبل إتمام الحجز النهائي",
     "doctor": "الطبيب",
     "clinic": "عيادة",
+    "type_0": "طبيب",
+    "type_1": "عيادة",
+    "type_2": "مستشفى",
     "specialty": "التخصص",
     "patient": "المريض",
     "date": "التاريخ",
@@ -373,6 +376,8 @@
     "registration_success": "تم إرسال الطلب بنجاح!",
     "registration_success_desc": "سيتم مراجعة طلبك من قبل الإدارة خلال 24-48 ساعة.",
     "clinic_details": "تفاصيل العيادة",
-    "responsible_dr": "الطبيب المسؤول"
+    "responsible_dr": "الطبيب المسؤول",
+    "join_as_doctor": "انضم كطبيب",
+    "footer_links_title": "روابط هامة"
   }
 }

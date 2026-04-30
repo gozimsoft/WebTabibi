@@ -105,7 +105,12 @@ export default function SearchPage({ navigate, qs }) {
                 >
                   <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -15, position: "relative", zIndex: 1 }}>
                     <Badge color={isDoctor ? "#0891b2" : "#0092a2"}>
-                      {isDoctor ? t("doctor") : (r.typeclinic || t("clinic"))}
+                      {isDoctor ? t("doctor") : (
+                         +r.typeclinic === 0 ? t("type_0", "Médecin") : 
+                         +r.typeclinic === 1 ? t("type_1", "Clinique") : 
+                         +r.typeclinic === 2 ? t("type_2", "Hôpital") : 
+                         (r.typeclinic || t("clinic"))
+                      )}
                     </Badge>
                   </div>
 

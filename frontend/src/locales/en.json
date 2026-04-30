@@ -143,6 +143,9 @@
     "review_confirm_desc": "Check details before final booking",
     "doctor": "Doctor",
     "clinic": "Clinic",
+    "type_0": "Doctor's Office",
+    "type_1": "Clinic",
+    "type_2": "Hospital",
     "specialty": "specialty",
     "patient": "Patient",
     "date": "Date",
@@ -373,6 +376,8 @@
     "registration_success": "Registration request sent successfully!",
     "registration_success_desc": "Your request will be reviewed by the administration within 24-48 hours.",
     "clinic_details": "Clinic Details",
-    "responsible_dr": "Responsible Doctor"
+    "responsible_dr": "Responsible Doctor",
+    "join_as_doctor": "Join as a doctor",
+    "footer_links_title": "Useful Links"
   }
 }

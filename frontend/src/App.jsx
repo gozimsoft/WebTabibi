@@ -1489,7 +1489,12 @@ function SearchPage({ navigate, qs, user }) {
                           </Badge>
                         </div>
                         <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
-                          {isDoctor ? t("doctor") : (r.typeclinic || t("clinic"))}
+                          {isDoctor ? t("doctor") : (
+                            +r.typeclinic === 0 ? t("type_0", "Médecin") :
+                              +r.typeclinic === 1 ? t("type_1", "Clinique") :
+                                +r.typeclinic === 2 ? t("type_2", "Hôpital") :
+                                  (r.typeclinic || t("clinic"))
+                          )}
                         </Badge>
                       </div>
 
@@ -1650,7 +1655,12 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
 
           <div style={{ flex: 1, textAlign: isMobile ? "center" : (i18n.language === 'ar' ? "right" : "left") }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, justifyContent: isMobile ? "center" : "flex-start" }}>
-              <Badge color="#6366f1">{clinic.typeclinic || t("clinic")}</Badge>
+              <Badge color="#6366f1">
+                {+clinic.typeclinic === 0 ? t("type_0", "Médecin") :
+                  +clinic.typeclinic === 1 ? t("type_1", "Clinique") :
+                    +clinic.typeclinic === 2 ? t("type_2", "Hôpital") :
+                      (clinic.typeclinic || t("clinic"))}
+              </Badge>
               {clinic.activitysector && <Badge color="#8b5cf6">{clinic.activitysector}</Badge>}
               {+clinic.ambulances === 1 && <Badge color="#4f46e5"><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Ambulance size={14} /> {t("ambulance") || "Ambulance"}</span></Badge>}
               {+clinic.hospitalization === 1 && <Badge color="#7c3aed"><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Hospital size={14} /> {t("hospitalization") || "Hôpital"}</span></Badge>}
@@ -1665,20 +1675,17 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start", marginTop: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <Stars rating={Math.round(+(clinic.AvgRating || 4.5))} size={15} color="#f59e0b" />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(clinic.AvgRating || 4.5)).toFixed(1)}</span>
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>({clinic.RatingCount || 2} {t("reviews")})</span>
-              </div>
+              {+clinic.disable_rating !== 1 && clinic.disable_rating !== true && clinic.show_rating !== 0 && clinic.show_rating !== false && clinic.hiderating !== 1 && clinic.HideRating !== 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Stars rating={Math.round(+(clinic.AvgRating || 4.5))} size={15} color="#f59e0b" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(clinic.AvgRating || 4.5)).toFixed(1)}</span>
+                  <span style={{ fontSize: 11, color: "#9ca3af" }}>({clinic.RatingCount || 2} {t("reviews")})</span>
+                </div>
+              )}
 
               <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
                 <Clock size={14} color="#6366f1" />
                 <span>{clinic.experience || 7} {t("years_experience") || "سنوات من الخبرة"}</span>
-              </div>
-
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 4 }}>
-                <CreditCard size={14} />
-                <span>{clinic.pricing || 1000} {t("currency") || "دج"}</span>
               </div>
             </div>
 
@@ -1730,8 +1737,9 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
 
         {[
           ["info", i18n.language === 'ar' ? "معلومات" : "Informations", <Info size={16} />],
-          ["doctors", `الأطباء (${clinic.doctors?.length || 0})`, <Users size={16} />],
-          ["services", i18n.language === 'ar' ? "الخدمات" : "Services", <ClipboardList size={16} />],
+          ["doctors", `${t("stats_doctors") || "الأطباء"} (${clinic.doctors?.length || 0})`, <Users size={16} />],
+          ["facilities", i18n.language === 'ar' ? "المرافق" : "Équipements", <Building2 size={16} />],
+          ["services", i18n.language === 'ar' ? "الخدمات الطبية" : "Services Médicaux", <Activity size={16} />],
           ["location", i18n.language === 'ar' ? "الموقع" : "Localisation", <MapPin size={16} />]
         ].map(([k, l, icon]) => (
           <button key={k} onClick={() => setTab(k)} style={{
@@ -1759,21 +1767,6 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
                   {clinic.aboutclinic || clinic.notes || t("no_description")}
                 </p>
               </Card>
-
-              {clinic.services && (
-                <Card style={{ padding: 24 }}>
-                  <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
-                    <ClipboardList size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "الخدمات المتوفرة" : "Services Offered"}
-                  </h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                    {clinic.services.split(',').map((s, i) => (
-                      <div key={i} style={{ background: "#f1f5f9", padding: "8px 16px", borderRadius: 10, fontSize: 14, color: "#475569", fontWeight: 600 }}>
-                        {s.trim()}
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -1829,9 +1822,9 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
           </div>
         )}
 
-        {tab === "services" && (
+        {tab === "facilities" && (
           <Card style={{ padding: 32 }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 24px", fontSize: 20, fontWeight: 900 }}>{i18n.language === 'ar' ? "الخدمات والمرافق" : "Services and Facilities"}</h3>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 24px", fontSize: 20, fontWeight: 900 }}>{i18n.language === 'ar' ? "المرافق" : "Équipements et infrastructures"}</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1877,20 +1870,59 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
           </Card>
         )}
 
+        {tab === "services" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+            {clinic.services ? clinic.services.split(',').map((s, i) => (
+              <div key={i} style={{
+                background: "#fff", borderRadius: 16, padding: "20px 24px",
+                border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", gap: 16,
+                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)", transition: "all 0.2s"
+              }} onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 15px rgba(0,0,0,0.05)"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.02)"; }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #f0fdfa, #ccfbf1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d9488" }}>
+                  <Activity size={22} />
+                </div>
+                <div style={{ fontWeight: 800, color: "#1e293b", fontSize: 15 }}>{s.trim()}</div>
+              </div>
+            )) : (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 60, color: "#94a3b8" }}>
+                <ClipboardList size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                <div>{i18n.language === 'ar' ? "لا توجد خدمات مسجلة حالياً" : "Aucun service enregistré pour le moment"}</div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === "location" && (
           <Card style={{ padding: 24 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
               <MapPin size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "الموقع على الخريطة" : "Location on Map"}
             </h3>
-            <div style={{ background: "#f8fafc", borderRadius: 16, height: 400, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #e2e8f0", flexDirection: "column", gap: 16 }}>
-              <MapPin size={48} color="var(--brand)" style={{ opacity: 0.3 }} />
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontWeight: 700, color: "#475569" }}>{clinic.cliniccoordinates || `${clinic.latitude}, ${clinic.longitude}`}</div>
-                <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>{clinic.address}</div>
+            <div style={{ position: "relative", borderRadius: 16, height: 400, overflow: "hidden", border: "1px solid #e2e8f0" }}>
+              {(clinic.latitude && clinic.longitude) ? (
+                <iframe
+                  title="Clinic Location"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  src={`https://maps.google.com/maps?q=${clinic.latitude},${clinic.longitude}&hl=${i18n.language}&z=15&output=embed`}
+                  allowFullScreen
+                />
+              ) : (
+                <div style={{ background: "#f8fafc", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+                  <MapPin size={48} color="var(--brand)" style={{ opacity: 0.3 }} />
+                  <div style={{ color: "#94a3b8" }}>{i18n.language === 'ar' ? "لا توجد إحداثيات متوفرة" : "Aucune coordonnée disponible"}</div>
+                </div>
+              )}
+
+              <div style={{ position: "absolute", bottom: 20, left: 20, right: 20, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", padding: 16, borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 15px rgba(0,0,0,0.08)" }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{clinic.address || (i18n.language === 'ar' ? "موقع العيادة" : "Emplacement de la clinique")}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{clinic.cliniccoordinates || `${clinic.latitude || ''}, ${clinic.longitude || ''}`}</div>
+                </div>
+                <Btn onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${clinic.latitude},${clinic.longitude}`, '_blank')}>
+                  {i18n.language === 'ar' ? "فتح في خرائط جوجل" : "Ouvrir sur Maps"}
+                </Btn>
               </div>
-              <Btn variant="secondary" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${clinic.latitude},${clinic.longitude}`, '_blank')}>
-                فتح في خرائط جوجل
-              </Btn>
             </div>
           </Card>
         )}
@@ -2317,7 +2349,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       try {
         const fam = await api.patient.family().catch(() => []);
         setFamily(fam || []);
-        
+
         // Always fetch general doctor info first
         const doc = await api.doctors.get(doctor_id);
         setDocInfo(doc);
@@ -2379,8 +2411,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   const STEPS = [
     { n: 1, label: t("step_patient"), icon: <UserPlus size={16} /> },
-    { n: 2, label: t("step_reason"), icon: <HeartPulse size={16} /> },
-    ...(clinicList.length > 1 ? [{ n: 3, label: t("step_clinic") || "العيادة", icon: <Hospital size={16} /> }] : []),
+    ...(clinicList.length > 1 ? [{ n: 2, label: t("step_clinic") || "العيادة", icon: <Hospital size={16} /> }] : []),
+    { n: 3, label: t("step_reason"), icon: <HeartPulse size={16} /> },
     { n: 4, label: t("step_date"), icon: <Calendar size={16} /> },
     { n: 5, label: t("step_instructions"), icon: <ClipboardList size={16} /> },
     { n: 6, label: t("step_confirm"), icon: <ShieldCheck size={16} /> },
@@ -2454,12 +2486,14 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
         <div key={s.n} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
           {i > 0 && (
             <div style={{
-              position: "absolute", top: 18, right: "-50%", left: "50%",
+              position: "absolute", top: 18,
+              left: i18n.language === 'ar' ? "50%" : "-50%",
+              right: i18n.language === 'ar' ? "-50%" : "50%",
               height: 3, zIndex: 0, transition: "all 0.4s",
               background: (step > s.n || (step === 6 && s.n === 6))
-                ? "linear-gradient(to left, #059669, #10b981)"
+                ? `linear-gradient(to ${i18n.language === 'ar' ? 'right' : 'left'}, #059669, #10b981)`
                 : step === s.n
-                  ? "linear-gradient(to left, #0891b2 60%, var(--border) 100%)"
+                  ? `linear-gradient(to ${i18n.language === 'ar' ? 'right' : 'left'}, #0891b2 60%, var(--border) 100%)`
                   : "var(--border)"
             }} />
           )}
@@ -2532,8 +2566,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               <p style={{ color: "#6b7280", fontSize: 13, margin: 0 }}>{t("patient_choice_desc")}</p>
             </div>
             <button onClick={() => navigate("/family")}
-              style={{ 
-                width: 40, height: 40, borderRadius: 12, background: "var(--brand-light)", color: "var(--brand)", 
+              style={{
+                width: 40, height: 40, borderRadius: 12, background: "var(--brand-light)", color: "var(--brand)",
                 border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "all 0.2s"
               }}
@@ -2582,18 +2616,18 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 </div>
               );
             })}
-        </div>
+          </div>
 
           <div style={{ marginTop: 24 }}>
-            <Btn onClick={() => setStep(2)} style={{ width: "100%", justifyContent: "center", padding: 14, fontSize: 15, borderRadius: 12 }}>
-              {t("next_reason")}
+            <Btn onClick={() => setStep(clinicList.length <= 1 ? 3 : 2)} style={{ width: "100%", justifyContent: "center", padding: 14, fontSize: 15, borderRadius: 12 }}>
+              {t("next")}
             </Btn>
           </div>
         </Card>
       )}
 
-      {/* ══════════ STEP 2 — Reason ══════════ */}
-      {step === 2 && (
+      {/* ══════════ STEP 3 — Reason ══════════ */}
+      {step === 3 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}><Stethoscope size={22} /> {t("step_reason")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>
@@ -2641,16 +2675,16 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(clinicList.length <= 1 ? 4 : 3)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn variant="secondary" onClick={() => setStep(clinicList.length <= 1 ? 1 : 2)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(4)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
               {t("next")}
             </Btn>
           </div>
         </Card>
       )}
 
-      {/* ══════════ STEP 3 — Clinic Selection ══════════ */}
-      {step === 3 && (
+      {/* ══════════ STEP 2 — Clinic Selection ══════════ */}
+      {step === 2 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}><Building2 size={22} /> {t("step_clinic") || "اختيار العيادة"}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>
@@ -2692,8 +2726,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => setStep(2)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(4)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn onClick={() => setStep(3)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
               {t("next")}
             </Btn>
           </div>
@@ -2796,7 +2830,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => { setStep(clinicList.length <= 1 ? 2 : 3); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn onClick={() => setStep(5)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
               {t("next")}
             </Btn>
@@ -2867,7 +2901,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("review_confirm_desc")}</p>
 
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+            display: "flex", flexDirection: "column", gap: 10,
             background: "linear-gradient(135deg,#f0fdfa,#ecfeff)",
             border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 18px", marginBottom: 20
           }}>
@@ -2879,27 +2913,36 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               [<Calendar size={18} />, t("date"), date],
               [<Clock size={18} />, t("time"), selSlot],
               ...(+doctor.pricing > 0 ? [[<CreditCard size={18} />, t("consultation_fee"), `${doctor.pricing} ${t("currency")}`]] : []),
-            ].map(([ic, lbl, val], idx, arr) => (
-              <div key={lbl} style={{
-                padding: "14px",
-                borderRadius: 12,
-                background: "#f8fafc",
-                border: "1px solid #eef2f6",
-                display: "flex", flexDirection: "column", gap: 6,
-                gridColumn: lbl === t("consultation_fee") ? "1 / -1" : "span 1"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: "var(--brand)", background: "var(--brand-light)", padding: 6, borderRadius: 8, display: "flex" }}>{ic}</span>
-                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>{lbl}</div>
-                </div>
-                <div style={{ 
-                  fontSize: 14, fontWeight: 900, color: "#0c4a6e", 
-                  [i18n.language === 'ar' ? "paddingRight" : "paddingLeft"]: 38 
+            ].map(([ic, lbl, val]) => {
+              const isLtr = i18n.language !== 'ar';
+              return (
+                <div key={lbl} style={{
+                  padding: "14px 18px",
+                  borderRadius: 12,
+                  background: "#f8fafc",
+                  border: "1px solid #eef2f6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isLtr ? "flex-start" : "space-between",
+                  gap: 12,
                 }}>
-                  {val}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                    <span style={{ color: "var(--brand)", background: "var(--brand-light)", padding: 6, borderRadius: 8, display: "flex" }}>{ic}</span>
+                    <div style={{ fontSize: 13, color: "#64748b", fontWeight: 700 }}>{lbl}</div>
+                  </div>
+                  <div style={{
+                    fontSize: 14,
+                    fontWeight: 900,
+                    color: "#0c4a6e",
+                    textAlign: isLtr ? "left" : "right",
+                    marginLeft: isLtr ? 0 : "auto",
+                    paddingLeft: isLtr ? 10 : 0
+                  }}>
+                    {val}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 10, padding: "11px 16px", marginBottom: 22, fontSize: 13, color: "#854d0e", display: "flex", gap: 8, alignItems: "center" }}>
@@ -4082,11 +4125,6 @@ function TicketsPage({ navigate, user }) {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>الرسائل والمحادثات</h1>
-        {user.user_type === 0 && (
-          <Btn onClick={() => navigate("/tickets/new")}>
-            <Plus size={18} /> رسالة جديدة
-          </Btn>
-        )}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -4576,8 +4614,8 @@ function ProfilePage({ user, navigate }) {
                 </div>
               </div>
               <button onClick={() => navigate("/family")}
-                style={{ 
-                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff", 
+                style={{
+                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff",
                   border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
                 }}
@@ -4823,25 +4861,28 @@ function Footer({ navigate }) {
             {t("footer_copy")}
           </span>
         </div>
-        <div style={{ display: "flex", gap: isMobile ? 16 : 28, flexWrap: "wrap", justifyContent: "center" }}>
-          {[
-            { label: t("footer_privacy"), path: "/privacy" },
-            { label: t("footer_terms"), path: "/terms" },
-            { label: "انضم كطبيب", path: "/register-doctor" },
-            { label: t("footer_learn_more"), path: "/learn-more" }
-          ].map(link => (
-            <button
-              key={link.label}
-              onClick={() => link.path.startsWith("/") ? navigate(link.path) : null}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
-                transition: "color 0.2s", padding: 0
-              }}
-              onMouseEnter={e => e.target.style.color = "var(--brand)"}
-              onMouseLeave={e => e.target.style.color = "var(--text-secondary)"}
-            >{link.label}</button>
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: isMobile ? "center" : "flex-end", gap: 10 }}>
+
+          <div style={{ display: "flex", gap: isMobile ? 16 : 28, flexWrap: "wrap", justifyContent: "center" }}>
+            {[
+              { label: t("footer_privacy"), path: "/privacy" },
+              { label: t("footer_terms"), path: "/terms" },
+              { label: t("join_as_doctor"), path: "/register-doctor" },
+              { label: t("footer_learn_more"), path: "/learn-more" }
+            ].map(link => (
+              <button
+                key={link.label}
+                onClick={() => link.path.startsWith("/") ? navigate(link.path) : null}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
+                  transition: "color 0.2s", padding: 0
+                }}
+                onMouseEnter={e => e.target.style.color = "var(--brand)"}
+                onMouseLeave={e => e.target.style.color = "var(--text-secondary)"}
+              >{link.label}</button>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
@@ -5070,9 +5111,9 @@ function MainApp() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-          <div className="random-flip-container" style={{ 
-            width: 80, height: 80, borderRadius: 20, background: "var(--brand)", 
-            display: "flex", alignItems: "center", justifyContent: "center", 
+          <div className="random-flip-container" style={{
+            width: 80, height: 80, borderRadius: 20, background: "var(--brand)",
+            display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 10px 25px rgba(0,146,162,0.2)",
             animation: "flipRight 3s infinite linear"
           }}>

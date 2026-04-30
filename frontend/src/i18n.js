@@ -16,7 +16,10 @@ i18n
       en: enTranslation,
     },
     fallbackLng: 'ar',
-    lng: 'ar', // Set default language to Arabic
+    detection: {
+      order: ['localStorage', 'cookie', 'navigator', 'htmlTag', 'path', 'subdomain'],
+      caches: ['localStorage'],
+    },
     interpolation: {
       escapeValue: false,
     },
@@ -28,8 +31,9 @@ i18n.on('languageChanged', (lng) => {
   document.documentElement.lang = lng;
 });
 
-// Set initial direction
-document.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
-document.documentElement.lang = i18n.language;
+// Set initial direction and language
+const currentLng = i18n.language || 'ar';
+document.dir = currentLng === 'ar' ? 'rtl' : 'ltr';
+document.documentElement.lang = currentLng;
 
 export default i18n;
