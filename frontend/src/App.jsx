@@ -14,12 +14,13 @@ import { useTranslation } from "react-i18next";
 import { App as CapacitorApp } from '@capacitor/app';
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import ContactPage from "./pages/Contact";
+import GoogleCalendarButton from "./components/GoogleCalendarButton";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BASE = "https://tabibi.dz/api";
-//const BASE = "http://localhost:8000/api";
+const BASE = "/api";
+//const BASE = "https://tabibi.dz/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -1470,11 +1471,9 @@ function SearchPage({ navigate, qs, user }) {
                         fallbackIcon={isDoctor ? undefined : Building}
                         style={{ border: "1px solid #f1f5f9" }}
                       />
-                      {!isDoctor && +r.emergency === 1 && (
-                        <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(0,0,0,0.1)" }}>
-                          🚨
+                        <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(239,68,68,0.3)" }}>
+                          <Flame size={12} />
                         </div>
-                      )}
                     </div>
 
                     {/* Right Side: Content */}
@@ -2990,9 +2989,22 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             {t("success_msg")}{" "}
             <strong style={{ color: "#0c4a6e" }}>{doctor?.fullname || docInfo?.fullname}</strong>
             <br />
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, justifyContent: "center" }}>
-              <Calendar size={16} color="#6b7280" />
-              <span>{t("day")} <strong style={{ color: "#0891b2" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "#0891b2" }}>{selSlot}</strong></span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, justifyContent: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={16} color="#6b7280" />
+                <span>{t("day")} <strong style={{ color: "#0891b2" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "#0891b2" }}>{selSlot}</strong></span>
+              </div>
+              <GoogleCalendarButton 
+                appointment={{
+                  doctorname: doctor?.fullname || docInfo?.fullname,
+                  clinicname: doctor?.clinicname || docInfo?.clinicname,
+                  apointementdate: `${date}T${selSlot}:00`,
+                  ReasonName: reason?.reason_name || reason?.Reason || reason?.reasons || reason?.motif,
+                  patientname: activePat.name
+                }} 
+                iconOnly={true}
+                style={{ width: 28, height: 28, background: "#f0fdf4", color: "#059669" }}
+              />
             </div>
           </div>
 
@@ -3036,7 +3048,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: APPOINTMENTS (MY BOOKINGS)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function AppointmentsPage({ navigate }) {
+function AppointmentsPage({ navigate, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const [appts, setAppts] = useState([]);
@@ -3158,6 +3170,16 @@ function AppointmentsPage({ navigate }) {
                     <Clock size={14} color="rgba(255,255,255,0.9)" />
                     <span>{d.toLocaleTimeString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
+                  {!isPast && (a.status != 1 && a.status != 2) && (
+                    <GoogleCalendarButton 
+                      appointment={{
+                        ...a,
+                        patientname: user?.profile?.fullname || user?.username || a.patient_name || a.patientname
+                      }} 
+                      iconOnly={true}
+                      style={{ marginLeft: i18n.language === 'ar' ? 0 : "auto", marginRight: i18n.language === 'ar' ? "auto" : 0 }}
+                    />
+                  )}
                 </div>
 
                 <div style={{ padding: "12px" }}>
@@ -5181,7 +5203,7 @@ function MainApp() {
         return <TermsOfUsePage navigate={navigate} />;
       case "/appointments":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <AppointmentsPage key="appts" navigate={navigate} />;
+        return <AppointmentsPage key="appts" navigate={navigate} user={user} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ProfilePage key="profile" user={user} navigate={navigate} />;

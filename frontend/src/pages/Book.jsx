@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, useToast } from "../components/SharedUI";
-import { MapPin, Phone } from "lucide-react";
+import GoogleCalendarButton from "../components/GoogleCalendarButton";
+import { MapPin, Phone, User, Building, HeartPulse, Calendar as CalendarIcon, CheckCircle, Award, Stethoscope, Clock, CreditCard, UserPlus } from "lucide-react";
 
 export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
@@ -89,12 +90,12 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   };
 
   const STEPS = [
-    { n: 1, label: t("step_patient"), icon: "👤" },
-    { n: 2, label: t("step_clinic") || "العيادة", icon: "🏥" },
-    { n: 3, label: t("step_reason"), icon: "🩺" },
-    { n: 4, label: t("step_date"), icon: "📅" },
-    { n: 5, label: t("step_confirm"), icon: "✅" },
-    { n: 6, label: t("step_done"), icon: "🎉" },
+    { n: 1, label: t("step_patient"), icon: <UserPlus size={18} /> },
+    { n: 2, label: t("step_clinic") || "العيادة", icon: <Building size={18} /> },
+    { n: 3, label: t("step_reason"), icon: <HeartPulse size={18} /> },
+    { n: 4, label: t("step_date"), icon: <CalendarIcon size={18} /> },
+    { n: 5, label: t("step_confirm"), icon: <CheckCircle size={18} /> },
+    { n: 6, label: t("step_done"), icon: <Award size={18} /> },
   ];
 
   const getAvailableDates = () => {
@@ -199,7 +200,9 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
                   display: "flex", alignItems: "center", gap: 14,
                   boxShadow: sel ? "0 4px 18px rgba(8,145,178,0.14)" : "none", transform: sel ? "scale(1.01)" : "scale(1)"
                 }}>
-                  <div style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center", background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#f3f4f6,#e5e7eb)" }}>{p.isSelf ? "😊" : (p.gender === 1 ? "👩" : "👨")}</div>
+                  <div style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#f3f4f6,#e5e7eb)" }}>
+                    <User size={24} color={sel ? "#fff" : "#9ca3af"} />
+                  </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 800, fontSize: 15, color: sel ? "#0c4a6e" : "#374151" }}>{p.name}</div>
                     <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{p.isSelf ? t("self") : t("family_member")}</div>
@@ -229,7 +232,9 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
                     display: "flex", alignItems: "flex-start", gap: 14,
                     boxShadow: sel ? "0 4px 18px rgba(8,145,178,0.14)" : "none"
                   }}>
-                    <div style={{ width: 42, height: 42, borderRadius: 10, background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🏥</div>
+                    <div style={{ width: 42, height: 42, borderRadius: 10, background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Building size={20} color={sel ? "#fff" : "#9ca3af"} />
+                    </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, fontSize: 15, color: sel ? "#0c4a6e" : "#374151", marginBottom: 4 }}>{c.clinicname}</div>
                       {c.address && <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} />{c.address}</div>}
@@ -253,7 +258,10 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_reason")}</h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("comment_optional")}</p>
           {(!doctor.reasons || doctor.reasons.length === 0) ? (
-            <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "#f9fafb", borderRadius: 12, marginBottom: 20 }}>📋 {t("no_reasons_defined")}</div>
+            <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "#f9fafb", borderRadius: 12, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <Stethoscope size={32} color="#cbd5e1" />
+              {t("no_reasons_defined")}
+            </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
               {doctor.reasons.map(r => {
@@ -328,13 +336,13 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("review_confirm")}</h2>
           <div style={{ background: "#f0fdfa", border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
             {[
-              ["👨‍⚕️", t("doctor"), doctor.fullname],
-              ["🏥", t("specialty"), (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) || "—"],
-              ["👤", t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
-              ["🩺", t("step_reason"), reason?.reason_name || "—"],
-              ["📅", t("date"), date],
-              ["⏰", t("time"), selSlot],
-              ...(+doctor.pricing > 0 ? [["💰", t("consultation_fee"), `${doctor.pricing} ${t("da")}`]] : []),
+              [<User size={18} />, t("doctor"), doctor.fullname],
+              [<Stethoscope size={18} />, t("specialty"), (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) || "—"],
+              [<UserPlus size={18} />, t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
+              [<HeartPulse size={18} />, t("step_reason"), reason?.reason_name || "—"],
+              [<CalendarIcon size={18} />, t("date"), date],
+              [<Clock size={18} />, t("time"), selSlot],
+              ...(+doctor.pricing > 0 ? [[<CreditCard size={18} />, t("consultation_fee"), `${doctor.pricing} ${t("da")}`]] : []),
             ].map(([ic, lbl, val], idx, arr) => (
               <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(8,145,178,0.12)" : "none" }}>
                 <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>{ic}</span>
@@ -362,9 +370,27 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
       {step === 6 && (
         <Card style={{ padding: "44px 28px", textAlign: "center" }}>
-          <div style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 24px", background: "#059669", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, color: "#fff" }}>✅</div>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 24px", background: "linear-gradient(135deg,#059669,#10b981)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px rgba(5,150,105,0.2)" }}>
+            <CheckCircle size={44} color="#fff" />
+          </div>
           <h2 style={{ color: "#059669", fontSize: 24, fontWeight: 900 }}>{t("success_title")}</h2>
-          <p style={{ color: "#6b7280", marginBottom: 28 }}>{t("success_msg")} <strong>{doctor.fullname}</strong><br />{t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong></p>
+          <p style={{ color: "#6b7280", marginBottom: 28 }}>
+            {t("success_msg")} <strong>{doctor.fullname}</strong><br />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginTop: 8 }}>
+              <span>{t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong></span>
+              <GoogleCalendarButton 
+                appointment={{
+                  doctorname: doctor.fullname,
+                  clinicname: doctor.clinicname,
+                  apointementdate: `${date}T${selSlot}:00`,
+                  ReasonName: reason?.reason_name,
+                  patientname: activePat.name
+                }}
+                iconOnly={true}
+                style={{ width: 28, height: 28, background: "#f0fdf4", color: "#059669" }}
+              />
+            </div>
+          </p>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <Btn variant="secondary" onClick={() => navigate("/")}>{t("home")}</Btn>
             <Btn onClick={() => navigate("/appointments")}>{t("view_my_appts")}</Btn>

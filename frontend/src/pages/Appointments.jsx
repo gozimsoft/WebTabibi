@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { Info, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { Info, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Stethoscope, Building, Search } from "lucide-react";
 import { Btn, Card, Spinner, DoctorImage, Badge, useToast } from "../components/SharedUI";
+import GoogleCalendarButton from "../components/GoogleCalendarButton";
 
-export default function AppointmentsPage({ navigate }) {
+export default function AppointmentsPage({ navigate, user }) {
   const { t, i18n } = useTranslation();
   const [appts, setAppts] = useState([]);
   const [loading, setL] = useState(true);
@@ -62,7 +63,7 @@ export default function AppointmentsPage({ navigate }) {
 
       {loading ? <Spinner /> : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 24px" }}>
-          <div style={{ fontSize: 44, marginBottom: 10 }}>📭</div>
+          <div style={{ marginBottom: 12 }}><Search size={44} color="#cbd5e1" /></div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "#374151", marginBottom: 16 }}>
             {filter === "upcoming" ? t("no_upcoming") : t("no_results")}
           </div>
@@ -81,16 +82,28 @@ export default function AppointmentsPage({ navigate }) {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
                       <div>
                         <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{a.doctorname || t("doctor")}</div>
-                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>🏥 {a.clinicname || "—"}</div>
-                        {a.ReasonName && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 3 }}>🩺 {a.ReasonName}</div>}
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}><Building size={12} /> {a.clinicname || "—"}</div>
+                        {a.ReasonName && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}><Stethoscope size={12} /> {a.ReasonName}</div>}
                       </div>
                       <div style={{ textAlign: i18n.language === 'ar' ? "right" : "left" }}>
                         <div style={{ fontWeight: 800, color: "#0891b2", fontSize: 14 }}>
                           {d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { day: "2-digit", month: "2-digit", year: "numeric" })}
                         </div>
-                        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>
-                          ⏰ {d.toLocaleTimeString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { hour: "2-digit", minute: "2-digit" })}
+                        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
+                          <Clock size={12} /> {d.toLocaleTimeString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { hour: "2-digit", minute: "2-digit" })}
                         </div>
+                        {!isPast && (
+                          <div style={{ marginTop: 8, display: "flex", justifyContent: i18n.language === 'ar' ? "flex-start" : "flex-end" }}>
+                            <GoogleCalendarButton 
+                              appointment={{
+                                ...a,
+                                patientname: user?.profile?.fullname || user?.username || a.patient_name || a.patientname
+                              }} 
+                              iconOnly={true}
+                              style={{ background: "#f3f4f6", color: "#0092a2" }}
+                            />
+                          </div>
+                        )}
                         <div style={{ marginTop: 6 }}>
                           {isPast ? <Badge color="#6b7280">{t("past_badge")}</Badge> : <Badge color="#059669">{t("upcoming_badge")}</Badge>}
                         </div>

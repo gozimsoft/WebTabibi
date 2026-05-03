@@ -3,6 +3,10 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card } from "../components/SharedUI";
+import { 
+  Stethoscope, Heart, Baby, Brain, Activity, Droplets, 
+  ShieldCheck, Zap, HeartPulse, User, Building, Users 
+} from "lucide-react";
 
 export default function HomePage({ user, navigate }) {
   const { t, i18n } = useTranslation();
@@ -10,7 +14,20 @@ export default function HomePage({ user, navigate }) {
   const [specialties, setSP] = useState([]);
   useEffect(() => { api.specialties().then(setSP).catch(() => { }); }, []);
 
-  const icons = { "Médecine générale": "🩺", "Dentisterie": "🦷", "Cardiologie": "❤️", "Ophtalmologie": "👁️", "Pédiatrie": "👶", "Gynécologie-obstétrique": "🤰", "Dermatologie": "🧴", "Neurologie": "🧠", "Orthopédie et traumatologie": "🦴", "Psychiatrie": "🧘", "Gastro-entérologie": "🫀", "Oncologie": "🎗️" };
+  const icons = { 
+    "Médecine générale": <Stethoscope size={32} />, 
+    "Dentisterie": <Activity size={32} />, 
+    "Cardiologie": <Heart size={32} />, 
+    "Ophtalmologie": <Zap size={32} />, 
+    "Pédiatrie": <Baby size={32} />, 
+    "Gynécologie-obstétrique": <Users size={32} />, 
+    "Dermatologie": <Droplets size={32} />, 
+    "Neurologie": <Brain size={32} />, 
+    "Orthopédie et traumatologie": <Activity size={32} />, 
+    "Psychiatrie": <HeartPulse size={32} />, 
+    "Gastro-entérologie": <Activity size={32} />, 
+    "Oncologie": <ShieldCheck size={32} /> 
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
@@ -133,7 +150,9 @@ export default function HomePage({ user, navigate }) {
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(8,145,178,0.1)"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
             >
-              <div style={{ fontSize: 26, marginBottom: 6 }}>{icons[s.namefr] || "🩺"}</div>
+              <div style={{ color: "var(--brand)", marginBottom: 8, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {icons[s.namefr] || <Stethoscope size={32} />}
+              </div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", lineHeight: 1.3 }}>{s.namear}</div>
             </div>
           ))}

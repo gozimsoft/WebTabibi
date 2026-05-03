@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
-import { MapPin, Phone } from "lucide-react";
+import { MapPin, Phone, Building, Clock, CreditCard, Mail, Languages, Calendar, History, Activity, AlertCircle, User, Info } from "lucide-react";
 
 
 export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user }) {
@@ -62,7 +62,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
   if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
   if (!data) return (
     <div style={{ padding: 60, textAlign: "center", color: "#9ca3af" }}>
-      <div style={{ fontSize: 44, marginBottom: 12 }}>😔</div>
+      <div style={{ marginBottom: 12 }}><AlertCircle size={44} color="#cbd5e1" /></div>
       <div style={{ fontWeight: 600, marginBottom: 16 }}>{t("doctor_not_found")}</div>
       <Btn onClick={() => navigate("/search")}>{t("back_to_search")}</Btn>
     </div>
@@ -89,7 +89,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
             
             {selectedClinicId ? (
               <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                🏥 {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
+                <Building size={14} /> {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
                 {data.OtherClinics?.length > 1 && (
                   <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
                     ({t("change") || "change"})
@@ -97,20 +97,20 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>
-                🏥 {t("select_clinic_to_book") || "يمكنك اختيار العيادة عند الحجز"}
+              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                <Building size={14} /> {t("select_clinic_to_book") || "يمكنك اختيار العيادة عند الحجز"}
               </div>
             )}
 
-            {data.BaladiyaName && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6 }}>📍 {data.BaladiyaName}</div>}
+            {data.BaladiyaName && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><MapPin size={14} /> {data.BaladiyaName}</div>}
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <Stars rating={Math.round(+(data.AvgRating || 0))} size={15} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{(+(data.AvgRating || 0)).toFixed(1)}</span>
                 <span style={{ fontSize: 11, color: "#9ca3af" }}>({data.RatingCount || 0})</span>
               </div>
-              {+data.experience > 0 && <span style={{ fontSize: 12, color: "#6b7280" }}>⏱ {data.experience} {t("experience")}</span>}
-              {+data.pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>💰 {data.pricing} {t("da")}</span>}
+              {+data.experience > 0 && <span style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}><Clock size={12} /> {data.experience} {t("experience")}</span>}
+              {+data.pricing > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 4 }}><CreditCard size={13} /> {data.pricing} {t("da")}</span>}
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
@@ -216,10 +216,10 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           <Card style={{ padding: "18px 20px" }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 15 }}>{t("contact_info")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 13 }}>
-              {data.phone && <div>📱 <strong>{t("phone_label")}</strong> {data.phone}</div>}
-              {data.email && <div>✉️ <strong>{t("email_label")}</strong> {data.email}</div>}
-              {data.speakinglanguage && <div>🗣 <strong>{t("languages")}</strong> {data.speakinglanguage}</div>}
-              {data.PayementMethods && <div>💳 <strong>{t("payment")}</strong> {data.PayementMethods}</div>}
+              {data.phone && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Phone size={14} /> <strong>{t("phone_label")}</strong> {data.phone}</div>}
+              {data.email && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Mail size={14} /> <strong>{t("email_label")}</strong> {data.email}</div>}
+              {data.speakinglanguage && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Languages size={14} /> <strong>{t("languages")}</strong> {data.speakinglanguage}</div>}
+              {data.PayementMethods && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><CreditCard size={14} /> <strong>{t("payment")}</strong> {data.PayementMethods}</div>}
             </div>
           </Card>
         </div>
@@ -231,7 +231,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           {(data.reasons || []).map(r => (
             <Card key={r.id} style={{ padding: "14px 16px" }}>
               <div style={{ fontWeight: 700, color: "#0c4a6e", fontSize: 14, marginBottom: 4 }}>{r.reason_name}</div>
-              {+r.reason_time > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>⏱ {r.reason_time} {t("minutes")}</div>}
+              {+r.reason_time > 0 && <div style={{ fontSize: 11, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><Clock size={11} /> {r.reason_time} {t("minutes")}</div>}
             </Card>
           ))}
           {(!data.reasons || data.reasons.length === 0) && <p style={{ color: "#9ca3af" }}>{t("no_reasons_defined")}</p>}
@@ -243,7 +243,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
         data.Schedule ? (
           <Card>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span>🗓️</span> {t("schedule_days_title")}
+              <Calendar size={18} /> {t("schedule_days_title")}
             </h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {(() => {
@@ -271,19 +271,19 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
             <div style={{ background: "#f8fafc", borderRadius: 12, padding: "16px", border: "1px dashed #cbd5e1" }}>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>⏰</span>
+                  <Clock size={18} color="#0891b2" />
                   <span style={{ fontSize: 14, color: "#334155" }}>
                     <strong>{t("from")}</strong> {(data.Schedule.daytimestart || "").match(/\d{2}:\d{2}/)?.[0] || "08:00"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>⌛</span>
+                  <History size={18} color="#0891b2" />
                   <span style={{ fontSize: 14, color: "#334155" }}>
                     <strong>{t("to")}</strong> {(data.Schedule.daytimeend || "").match(/\d{2}:\d{2}/)?.[0] || "17:00"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>⏱️</span>
+                  <Activity size={18} color="#0891b2" />
                   <span style={{ fontSize: 14, color: "#334155" }}>
                     <strong>{t("appt_duration")}</strong> {data.Schedule.timescale} {t("minutes")}
                   </span>
@@ -293,7 +293,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           </Card>
         ) : (
           <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
-            <div style={{ fontSize: 44, marginBottom: 12 }}>🗓️</div>
+            <div style={{ marginBottom: 12 }}><Calendar size={44} color="#cbd5e1" /></div>
             <h3 style={{ margin: "0 0 8px", color: "#0c4a6e" }}>{t("no_schedule")}</h3>
             <p style={{ margin: 0, fontSize: 14 }}>{t("no_schedule_desc")}</p>
           </div>
