@@ -212,6 +212,21 @@ class AuthController {
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
             unset($profile['photoprofile']);
+            
+            // Fetch clinics for the doctor
+            if (!empty($profile['id'])) {
+                $stmtClinics = $pdo->prepare("
+                    SELECT c.id, c.clinicname, c.address, c.phone, cd.specialtie_id,
+                           s.namefr as specialtyfr, s.namear as specialtyar
+                    FROM clinicsdoctors cd
+                    JOIN clinics c ON c.id = cd.clinic_id
+                    LEFT JOIN specialties s ON s.id = cd.specialtie_id
+                    WHERE cd.doctor_id = ? AND cd.status IN ('APPROVED', 'ACCEPTED')
+                    ORDER BY c.clinicname
+                ");
+                $stmtClinics->execute([$profile['id']]);
+                $profile['clinics'] = $stmtClinics->fetchAll();
+            }
         } elseif ($usertype === 2) {
             $stmt = $pdo->prepare("SELECT * FROM clinics WHERE user_id = ? LIMIT 1");
             $stmt->execute([$userId]);

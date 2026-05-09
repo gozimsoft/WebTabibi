@@ -1,0 +1,14 @@
+J'ai généré le fichier keystore pour signer votre application Android en vue d'une publication.
+
+Le fichier a été créé ici : frontend/tabibi-release.jks
+
+🔑 Informations de sécurité (À conserver précieusement) :
+Fichier : tabibi-release.jks
+Mot de passe du Keystore : tabibi2026
+Alias de la clé : tabibi-key
+Mot de passe de la clé : tabibi2026
+Comment l'utiliser dans Android Studio :
+Allez dans Build > Generate Signed Bundle / APK.
+Choisissez APK ou Android App Bundle.
+Cliquez sur Choose existing et sélectionnez le fichier tabibi-release.jks.
+Entrez les mots de passe et l'alias ci-dessus.

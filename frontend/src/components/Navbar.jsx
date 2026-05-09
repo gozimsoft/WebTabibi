@@ -3,21 +3,22 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { Btn } from "./SharedUI";
+import analytics from "../utils/analytics";
 
 const ANIM_KEYS = ["right", "left", "flip", "pulse", "bounce"];
 
 const ANIM_MAP = {
-  right:  "nb-rot-r 1s ease-in-out",
-  left:   "nb-rot-l 1s ease-in-out",
-  flip:   "nb-flip-y 1s ease-in-out",
-  pulse:  "nb-pulse 1s ease-in-out",
+  right: "nb-rot-r 1s ease-in-out",
+  left: "nb-rot-l 1s ease-in-out",
+  flip: "nb-flip-y 1s ease-in-out",
+  pulse: "nb-pulse 1s ease-in-out",
   bounce: "nb-bounce 1s ease-in-out",
 };
 
 export default function Navbar({ user, navigate, onLogout }) {
   const { t, i18n } = useTranslation();
-  const [open, setOpen]         = useState(false);
-  const [animKey, setAnimKey]   = useState(null); // null = no animation
+  const [open, setOpen] = useState(false);
+  const [animKey, setAnimKey] = useState(null); // null = no animation
   const [textAnim, setTextAnim] = useState({});
   const menuRef = useRef(null);
   const name = user?.profile?.fullname?.split(" ")[0] || user?.username || "U";

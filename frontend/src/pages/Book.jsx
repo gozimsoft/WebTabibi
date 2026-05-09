@@ -1,10 +1,12 @@
 // src/pages/Book.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, useToast } from "../components/SharedUI";
 import GoogleCalendarButton from "../components/GoogleCalendarButton";
 import { MapPin, Phone, User, Building, HeartPulse, Calendar as CalendarIcon, CheckCircle, Award, Stethoscope, Clock, CreditCard, UserPlus } from "lucide-react";
+import analytics from "../utils/analytics";
+
 
 export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const { t, i18n } = useTranslation();
@@ -25,6 +27,42 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const [error, setError] = useState("");
   const [agreed, setAgreed] = useState(false);
   const { show, Toast } = useToast();
+  const completedRef = useRef(false);
+
+  // Analytics: Step Viewed
+  useEffect(() => {
+    const stepObj = STEPS.find(s => s.n === step);
+    analytics.track("booking_step_viewed", {
+      step_index: step,
+      step_name: stepObj?.label,
+      doctor_id: doctor_id,
+      clinic_id: selectedClinicId,
+      specialty: doctor ? (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) : null
+    });
+  }, [step, doctor]);
+
+  // Analytics: Abandonment Tracking
+  useEffect(() => {
+    return () => {
+      if (!completedRef.current && step < 6) {
+        analytics.track("booking_abandoned", {
+          last_step_index: step,
+          last_step_name: STEPS.find(s => s.n === step)?.label,
+          doctor_id: doctor_id,
+          clinic_id: selectedClinicId
+        });
+      }
+    };
+  }, [step, doctor_id, selectedClinicId]);
+
+  const trackNext = (currentStepName) => {
+    analytics.track("booking_step_next_clicked", {
+      from_step: currentStepName,
+      step_index: step,
+      doctor_id: doctor_id
+    });
+  };
+
 
   useEffect(() => {
     const load = async () => {
@@ -79,13 +117,23 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   const confirmBook = async () => {
     setL(true);
+    analytics.track("booking_confirm_clicked", { doctor_id, date, time: selSlot });
     try {
       const body = { clinics_doctor_id: doctor.clinicsdoctor_id, date, time: selSlot };
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
+      completedRef.current = true;
+      analytics.track("booking_completed", { 
+        doctor_id, 
+        clinic_id: selectedClinicId,
+        specialty: i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr
+      });
       setStep(6);
-    } catch (e) { show(e.message, "error"); }
+    } catch (e) { 
+      analytics.track("booking_error", { error: e.message });
+      show(e.message, "error"); 
+    }
     finally { setL(false); }
   };
 
@@ -140,6 +188,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   );
   if (initLoad) return <div style={{ padding: 60 }}><Spinner /></div>;
 
+
   const Stepper = () => (
     <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 36, position: "relative" }}>
       {STEPS.map((s, i) => (
@@ -183,12 +232,13 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px" }}>
       <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
         style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>{t("back_to_doctor")}</button>
+
       <DoctorBanner /><Stepper />
 
       {step === 1 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("patient_choice")}</h2>
-          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("patient_choice_desc")}</p>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 14px" }}>{t("patient_choice_desc")}</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {allPatients.map((p, i) => {
               const sel = activePat.id === p.id && activePat.isSelf === p.isSelf;
@@ -212,14 +262,14 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
               );
             })}
           </div>
-          <div style={{ marginTop: 24 }}><Btn onClick={() => setStep(2)} style={{ width: "100%", justifyContent: "center", padding: 14 }}>{t("next") || "التالي"}</Btn></div>
+          <div style={{ marginTop: 24 }}><Btn onClick={() => { trackNext("patient_choice"); setStep(2); }} label={t("next") || "التالي"} style={{ width: "100%", justifyContent: "center" }} /></div>
         </Card>
       )}
 
       {step === 2 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_clinic") || "اختيار العيادة"}</h2>
-          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("select_clinic_desc") || "اختر العيادة التي تريد الحجز فيها"}</p>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 14px" }}>{t("select_clinic_desc") || "اختر العيادة التي تريد الحجز فيها"}</p>
           {loading ? <Spinner /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 4 }}>
               {clinicList.map(c => {
@@ -248,7 +298,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(1)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(3)} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center" }}>{t("next") || "التالي"}</Btn>
+            <Btn variant="primary" onClick={() => { trackNext("clinic_choice"); setStep(3); }} disabled={!selectedClinicId || !doctor} style={{ flex: 2, justifyContent: "center" }}>{t("next") || "التالي"}</Btn>
           </div>
         </Card>
       )}
@@ -256,7 +306,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       {step === 3 && (
         <Card style={{ padding: "26px 28px" }}>
           <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900 }}>{t("step_reason")}</h2>
-          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("comment_optional")}</p>
+          <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 14px" }}>{t("comment_optional")}</p>
           {(!doctor.reasons || doctor.reasons.length === 0) ? (
             <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "#f9fafb", borderRadius: 12, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
               <Stethoscope size={32} color="#cbd5e1" />
@@ -283,7 +333,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(2)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(4)} style={{ flex: 2, justifyContent: "center" }}>{reason ? t("next_date") : t("skip_date")}</Btn>
+            <Btn variant="primary" onClick={() => { trackNext("reason_choice"); setStep(4); }} style={{ flex: 2, justifyContent: "center" }}>{reason ? t("next_date") : t("skip_date")}</Btn>
           </div>
         </Card>
       )}
@@ -326,7 +376,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(3)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(5)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center" }}>{t("next_date")}</Btn>
+            <Btn variant="primary" onClick={() => { trackNext("date_choice"); setStep(5); }} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center" }}>{t("next_date")}</Btn>
           </div>
         </Card>
       )}
@@ -363,31 +413,23 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <Btn variant="secondary" onClick={() => setStep(4)} style={{ flex: 1, justifyContent: "center" }}>{t("prev")}</Btn>
-            <Btn onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center" }}>{t("confirm_final")}</Btn>
+            <Btn variant="primary" onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center" }}>{t("confirm_final")}</Btn>
           </div>
         </Card>
       )}
 
       {step === 6 && (
-        <Card style={{ padding: "44px 28px", textAlign: "center" }}>
-          <div style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 24px", background: "linear-gradient(135deg,#059669,#10b981)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px rgba(5,150,105,0.2)" }}>
-            <CheckCircle size={44} color="#fff" />
+        <Card style={{ padding: "40px 24px", textAlign: "center" }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+            <CheckCircle size={48} color="#10b981" />
           </div>
-          <h2 style={{ color: "#059669", fontSize: 24, fontWeight: 900 }}>{t("success_title")}</h2>
-          <p style={{ color: "#6b7280", marginBottom: 28 }}>
+          <h2 style={{ color: "#10b981", margin: "0 0 8px" }}>{t("congrats")}</h2>
+          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 24 }}>
             {t("success_msg")} <strong>{doctor.fullname}</strong><br />
-            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginTop: 8 }}>
-              <span>{t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong></span>
-              <GoogleCalendarButton 
-                appointment={{
-                  doctorname: doctor.fullname,
-                  clinicname: doctor.clinicname,
-                  apointementdate: `${date}T${selSlot}:00`,
-                  ReasonName: reason?.reason_name,
-                  patientname: activePat.name
-                }}
-                iconOnly={true}
-                style={{ width: 28, height: 28, background: "#f0fdf4", color: "#059669" }}
+            {t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong>
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "center" }}>
+              <GoogleCalendarButton
+                appointment={{ doctorname: doctor.fullname, clinicname: doctor.clinicname, apointementdate: `${date}T${selSlot}:00`, ReasonName: reason?.reason_name, patientname: activePat.name }}
               />
             </div>
           </p>

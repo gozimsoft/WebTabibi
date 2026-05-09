@@ -86,7 +86,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
               {+data.casnos === 1 && <Badge color="#0891b2">casnos ✓</Badge>}
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{data.fullname}</h1>
-            
+
             {selectedClinicId ? (
               <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
                 <Building size={14} /> {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
@@ -115,7 +115,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
             {user ? (
-              <Btn 
+              <Btn
                 onClick={() => navigate(`/book/${selectedClinicId || 0}/${doctor_id}`)}
                 style={{ padding: "11px 24px" }}
               >
@@ -135,13 +135,13 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           <h3 style={{ color: "#0c4a6e", margin: "0 0 14px", fontSize: 16, fontWeight: 800 }}>{t("select_clinic_title") || "Select Clinic"}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
             {data.OtherClinics.map(c => (
-              <div key={c.id} 
+              <div key={c.id}
                 onClick={() => setSelectedClinicId(c.id)}
-                style={{ 
-                  padding: 16, 
-                  borderRadius: 22, 
-                  border: "1.5px solid var(--border)", 
-                  cursor: "pointer", 
+                style={{
+                  padding: 16,
+                  borderRadius: 22,
+                  border: "1.5px solid var(--border)",
+                  cursor: "pointer",
                   transition: "all 0.3s",
                   background: "#fff",
                   display: "flex",
@@ -151,14 +151,14 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                   position: "relative",
                   overflow: "hidden"
                 }}
-                onMouseEnter={e => { 
-                  e.currentTarget.style.borderColor = "var(--brand)"; 
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "var(--brand)";
                   e.currentTarget.style.background = "var(--brand-light)";
                   e.currentTarget.style.transform = "translateY(-3px)";
                   e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 146, 162, 0.12)";
                 }}
-                onMouseLeave={e => { 
-                  e.currentTarget.style.borderColor = "var(--border)"; 
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "var(--border)";
                   e.currentTarget.style.background = "#fff";
                   e.currentTarget.style.transform = "none";
                   e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px";
@@ -168,12 +168,12 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                   <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{c.clinicname}</div>
                   <Badge color="var(--brand)">{t("select") || "Select"}</Badge>
                 </div>
-                
+
                 <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "flex-start", gap: 5 }}>
                   <MapPin size={14} style={{ marginTop: 2 }} />
                   <span>{c.address}</span>
                 </div>
-                
+
                 {c.phone && (
                   <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5 }}>
                     <Phone size={14} />

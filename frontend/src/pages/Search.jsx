@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
 import { MapPin, Phone, Building, Globe, Activity, Heart, Shield } from "lucide-react";
+import analytics from "../utils/analytics";
 
 
 export default function SearchPage({ navigate, qs }) {
@@ -75,7 +76,16 @@ export default function SearchPage({ navigate, qs }) {
 
               return (
                 <div key={type + r.ResultId}
-                  onClick={() => navigate(isDoctor ? `/doctor/${r.doctor_id}` : `/clinic/${r.clinicid}`)}
+                  onClick={() => {
+                    const eventName = isDoctor ? "doctor_selected" : "clinic_selected";
+                    analytics.track(eventName, { 
+                      id: isDoctor ? r.doctor_id : r.clinicid,
+                      name: name,
+                      specialty: specialty,
+                      type: type
+                    });
+                    navigate(isDoctor ? `/doctor/${r.doctor_id}` : `/clinic/${r.clinicid}`);
+                  }}
                   style={{
                     background: "#fff",
                     borderRadius: 22,
@@ -106,10 +116,10 @@ export default function SearchPage({ navigate, qs }) {
                   <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -15, position: "relative", zIndex: 1 }}>
                     <Badge color={isDoctor ? "#0891b2" : "#0092a2"}>
                       {isDoctor ? t("doctor") : (
-                         +r.typeclinic === 0 ? t("type_0", "Médecin") : 
-                         +r.typeclinic === 1 ? t("type_1", "Clinique") : 
-                         +r.typeclinic === 2 ? t("type_2", "Hôpital") : 
-                         (r.typeclinic || t("clinic"))
+                        +r.typeclinic === 0 ? t("type_0", "Médecin") :
+                          +r.typeclinic === 1 ? t("type_1", "Clinique") :
+                            +r.typeclinic === 2 ? t("type_2", "Hôpital") :
+                              (r.typeclinic || t("clinic"))
                       )}
                     </Badge>
                   </div>

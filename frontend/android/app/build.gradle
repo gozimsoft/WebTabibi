@@ -8,7 +8,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,10 +18,10 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file("tabibi.jks")
-            storePassword "tabibi123"
-            keyAlias "tabibi"
-            keyPassword "tabibi123"
+            storeFile file("../../tabibi-release.jks")
+            storePassword "tabibi2026"
+            keyAlias "tabibi-key"
+            keyPassword "tabibi2026"
         }
     }
     buildTypes {
@@ -31,25 +31,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-   applicationVariants.all { variant ->
-    variant.outputs.all { output ->
-        def buildType = variant.buildType.name
-
-        // ⚠️ Ne pas toucher au debug (Capacitor en a besoin)
-        if (buildType == "release") {
-            def appName = "tabibi"
-            def versionName = variant.versionName
-            def versionCode = variant.versionCode
-            def date = new Date().format("yyyy-MM-dd")
-
-            def newName = "tabibi-release.apk"
-            output.outputFileName = newName
-        }
-    }
 }
-}
-
-
 
 repositories {
     flatDir{

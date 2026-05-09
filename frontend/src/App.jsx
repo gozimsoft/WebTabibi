@@ -15,12 +15,14 @@ import { App as CapacitorApp } from '@capacitor/app';
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import ContactPage from "./pages/Contact";
 import GoogleCalendarButton from "./components/GoogleCalendarButton";
+import analytics from "./utils/analytics";
+import AppointmentManager from "./pages/AppointmentManager";
+import UserGuide from "./pages/UserGuide";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BASE = "/api";
-//const BASE = "https://tabibi.dz/api";
+const BASE = "https://tabibi.dz/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -149,6 +151,13 @@ const api = {
     get: id => req("GET", `/tickets/${id}`),
     reply: (id, b) => req("POST", `/tickets/${id}/reply`, b),
     close: id => req("POST", `/tickets/${id}/close`, {}),
+  },
+  sync: {
+    download: p => req("GET", `/apointements/sync?${new URLSearchParams(p)}`),
+    upload: b => req("POST", "/apointements/sync", b),
+    delete: ids => req("POST", "/sync/delete", { ids }),
+    status: () => req("GET", "/sync/status"),
+    reasons: () => req("GET", "/sync/reasons"),
   },
 };
 
@@ -311,14 +320,16 @@ const Badge = ({ children, color = "#0891b2" }) => (
 );
 
 // Wrapper Card
-const Card = ({ children, style = {}, onClick }) => {
+const Card = ({ children, style = {}, onClick, className }) => {
   const isMobile = useIsMobile();
   return (
-    <div onClick={onClick} style={{
+    <div onClick={onClick} className={className} style={{
       background: "#fff", borderRadius: 20, border: "1px solid var(--border)",
       boxShadow: "0 4px 20px rgba(0,0,0,0.04)", padding: isMobile ? 16 : 24,
-      cursor: onClick ? "pointer" : "default", ...style
-    }}>{children}</div>
+      ...style
+    }}>
+      {children}
+    </div>
   );
 };
 
@@ -353,22 +364,27 @@ const Select = ({ label, error, children, ...p }) => (
 );
 
 // Modern Button Component
-const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, ...p }) => {
+const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, className, ...p }) => {
   const variants = {
     primary: { background: "linear-gradient(135deg,#0891b2,#0e7490)", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
     secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid var(--border)" },
     danger: { background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" },
     ghost: { background: "transparent", color: "#0891b2", border: "1px solid #0891b2" },
-    success: { background: "linear-gradient(135deg,#059669,#047857)", color: "#fff" },
+    outline: { background: "transparent", color: "#64748b", border: "1.5px solid var(--border)" }
   };
   return (
-    <button {...p} disabled={ld || disabled} style={{
-      padding: "10px 24px", borderRadius: 10, fontWeight: 700, fontSize: 14, border: "none",
-      cursor: (ld || disabled) ? "not-allowed" : "pointer", transition: "all 0.2s",
-      display: "inline-flex", alignItems: "center", gap: 8, opacity: (ld || disabled) ? 0.7 : 1,
-      ...variants[variant], ...style
-    }}>
-      {ld && <Spinner size={14} />}{children}
+    <button
+      className={className}
+      disabled={disabled || ld}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+        borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: (disabled || ld) ? "not-allowed" : "pointer",
+        transition: "all 0.2s", opacity: (disabled || ld) ? 0.6 : 1, border: "none",
+        ...variants[variant], ...style
+      }}
+      {...p}
+    >
+      {ld ? <Spinner size={18} color={variant === "primary" ? "#fff" : "var(--brand)"} /> : children}
     </button>
   );
 };
@@ -490,7 +506,10 @@ function Navbar({ user, navigate, onLogout }) {
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
-    ...(user?.user_type === 1 || user?.user_type === 2 ? [{ label: "طلبات الانضمام", icon: <Check size={18} />, path: "/requests", private: true }] : [])
+    ...(user?.user_type === 1 || user?.user_type === 2 ? [
+      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true },
+      { label: "طلبات الانضمام", icon: <Check size={18} />, path: "/requests", private: true }
+    ] : [])
   ];
 
   return (
@@ -500,7 +519,8 @@ function Navbar({ user, navigate, onLogout }) {
       backdropFilter: scrolled ? "blur(12px)" : "none",
       borderBottom: "1px solid var(--border)",
       transition: "all 0.3s ease",
-      height: isMobile ? 64 : 80,
+      minHeight: isMobile ? 64 : 80,
+      padding: isMobile ? "8px 0" : "12px 0",
       display: "flex", alignItems: "center"
     }}>
       <div style={{
@@ -526,17 +546,24 @@ function Navbar({ user, navigate, onLogout }) {
 
         {/* Desktop Links */}
         {!isMobile && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <LanguageSwitcher />
             <div style={{ borderLeft: "1px solid var(--border)", height: 24, margin: "0 12px" }} />
             {navLinks.map(link => {
               if (link.private && !user) return null;
               return (
-                <button key={link.path} onClick={() => navigate(link.path)} style={{
-                  background: "none", border: "none", cursor: "pointer", padding: "10px 16px",
-                  borderRadius: 12, color: "var(--text-secondary)", fontWeight: 700, fontSize: 14,
-                  transition: "all 0.2s", display: "flex", alignItems: "center", gap: 8
-                }}
+                <button
+                  key={link.path}
+                  onClick={() => {
+                    analytics.track("nav_click_" + link.label.toLowerCase().replace(/\s+/g, '_'), { path: link.path });
+                    navigate(link.path);
+                  }}
+                  className={link.path === "/search" ? "navbar-search" : ""}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer", padding: "10px 16px",
+                    borderRadius: 12, color: "var(--text-secondary)", fontWeight: 700, fontSize: 14,
+                    transition: "all 0.2s", display: "flex", alignItems: "center", gap: 8
+                  }}
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--brand-light)"; e.currentTarget.style.color = "var(--brand)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
                   <span style={{ opacity: 0.8, display: "flex" }}>{link.icon}</span>
@@ -578,7 +605,7 @@ function Navbar({ user, navigate, onLogout }) {
                     top: "calc(100% + 12px)",
                     background: "#fff", border: "1px solid var(--border)",
                     borderRadius: 16, boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
-                    minWidth: 220, overflow: "hidden", zIndex: 1001,
+                    minWidth: 220, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
                   }}>
                     <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>{user.profile?.fullname || user.profile?.clinicname || user.username}</div>
@@ -589,14 +616,21 @@ function Navbar({ user, navigate, onLogout }) {
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                       (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                       { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets" },
+                      { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                     ].filter(Boolean).map(item => (
-                      <button key={item.path} onClick={() => { navigate(item.path); setOpen(false); }} style={{
+                      <button key={item.path} onClick={() => { 
+                        analytics.track("nav_click_user_menu", { label: item.label, path: item.path });
+                        navigate(item.path); 
+                        setOpen(false); 
+                      }} style={{
                         width: "100%", padding: "12px 16px", background: "none", border: "none",
                         cursor: "pointer", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center",
-                        gap: 12, fontSize: 14, color: "var(--text-secondary)"
-                      }}>
-                        {item.icon} {item.label}
+                        gap: 12, fontSize: 15, color: "var(--text-secondary)", transition: "background 0.2s"
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                        {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
                       </button>
                     ))}
                     <button onClick={() => { onLogout(); setOpen(false); }} style={{ width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#dc2626", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center", gap: 12 }}>
@@ -624,28 +658,31 @@ function Navbar({ user, navigate, onLogout }) {
       {/* Mobile Menu Overlay */}
       {isMobile && mobileMenu && (
         <div style={{
-          position: "fixed", top: 64, left: 0, right: 0, bottom: 0,
-          background: "#fff", zIndex: 999,
-          padding: 20, display: "flex", flexDirection: "column", gap: 12,
-          animation: "fadeIn 0.2s ease"
+          position: "absolute", top: "100%", left: 0, right: 0, height: "calc(100vh - 100%)",
+          background: "#fff", zIndex: 1001,
+          padding: "20px 20px 80px", display: "flex", flexDirection: "column", gap: 12,
+          animation: "fadeIn 0.2s ease",
+          overflowY: "auto",
+          boxShadow: "0 10px 20px rgba(0,0,0,0.1)"
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
             <span style={{ fontWeight: 800, color: "#0c4a6e" }}>{t("menu")}</span>
             <LanguageSwitcher />
           </div>
           <div style={{ borderBottom: "1px solid var(--border)", marginBottom: 10 }} />
-          {navLinks.map(link => {
-            if (link.private && !user) return null;
-            return (
-              <button key={link.path} onClick={() => { navigate(link.path); setMobileMenu(false); }} style={{
+          {navLinks.map(link => (
+              <button key={link.path} onClick={() => { 
+                analytics.track("nav_click_mobile_menu", { label: link.label, path: link.path });
+                navigate(link.path); 
+                setMobileMenu(false); 
+              }} style={{
                 background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px", borderRadius: 12,
                 textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 700, color: "var(--text-primary)",
                 display: "flex", alignItems: "center", gap: 12
               }}>
                 {link.icon} {link.label}
               </button>
-            );
-          })}
+          ))}
           {!user && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
               <button onClick={() => { navigate("/login"); setMobileMenu(false); }} style={{ padding: 16, background: "var(--brand)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 700 }}>{t("login")}</button>
@@ -807,6 +844,7 @@ function HomePage({ user, navigate }) {
             />
             <button
               onClick={() => handleSearch()}
+              className="navbar-search"
               style={{
                 background: "var(--brand)", border: "none", borderRadius: 10,
                 color: "#fff", fontSize: 14, fontWeight: 700,
@@ -973,7 +1011,7 @@ function HomePage({ user, navigate }) {
             <button onClick={() => navigate("/search")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--brand)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>{t("view_all")} <ArrowLeft size={14} style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} /></button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, 1fr)", gap: isMobile ? 8 : 14 }}>
             {specialties.slice(0, 8).map((s, i) => (
               <div key={s.id}
                 onClick={() => navigate(`/search?specialty=${s.id}`)}
@@ -982,17 +1020,18 @@ function HomePage({ user, navigate }) {
                 style={{
                   background: "#fff",
                   borderRadius: "var(--radius-lg)",
-                  padding: "20px 18px",
-                  display: "flex", alignItems: "center", gap: 14,
+                  padding: isMobile ? "12px 10px" : "20px 18px",
+                  display: "flex", alignItems: "center", gap: isMobile ? 8 : 14,
                   border: hoveredSpec === i ? "1.5px solid var(--brand)" : "1px solid var(--border)",
                   cursor: "pointer",
                   transition: "all 0.2s",
                   transform: hoveredSpec === i ? "translateY(-2px)" : "none",
                   boxShadow: hoveredSpec === i ? "0 8px 24px rgba(0,146,162,0.12)" : "none",
+                  overflow: "hidden"
                 }}
               >
                 <div style={{
-                  width: 46, height: 46, borderRadius: 13,
+                  width: isMobile ? 36 : 46, height: isMobile ? 36 : 46, borderRadius: isMobile ? 10 : 13,
                   background: hoveredSpec === i ? "var(--brand)" : "var(--brand-light)",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   transition: "background 0.2s",
@@ -1001,9 +1040,28 @@ function HomePage({ user, navigate }) {
                     {getIcon(s.namefr)}
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{i18n.language === 'ar' ? s.namear : s.namefr}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500, marginTop: 2 }}>{i18n.language === 'ar' ? s.namefr : s.namear}</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ 
+                    fontSize: isMobile ? 12 : 14, 
+                    fontWeight: 700, 
+                    color: "var(--text-primary)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis"
+                  }}>
+                    {i18n.language === 'ar' ? s.namear : s.namefr}
+                  </div>
+                  <div style={{ 
+                    fontSize: isMobile ? 10 : 12, 
+                    color: "var(--text-muted)", 
+                    fontWeight: 500, 
+                    marginTop: 2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis"
+                  }}>
+                    {i18n.language === 'ar' ? s.namefr : s.namear}
+                  </div>
                 </div>
               </div>
             ))}
@@ -1206,7 +1264,7 @@ function HomePage({ user, navigate }) {
               onMouseEnter={e => e.currentTarget.style.opacity = "0.92"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}
             >
-              <Stethoscope size={18} /> انضم كطبيب
+              <Stethoscope size={18} /> {t("join_as_doctor")}
             </button>
             <button onClick={() => navigate("/register-clinic")} style={{
               background: "rgba(255,255,255,0.15)",
@@ -1220,7 +1278,7 @@ function HomePage({ user, navigate }) {
               onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
               onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.15)"}
             >
-              <Building size={18} /> سجل عيادتك
+              <Building size={18} /> {t("register_clinic_btn")}
             </button>
           </div>
         </div>
@@ -1242,8 +1300,16 @@ function LoginPage({ onLogin, navigate }) {
 
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
-    try { await onLogin(form.username, form.password); navigate("/"); }
-    catch (e) { setError(e.message); }
+    analytics.track("login_attempt", { username: form.username });
+    try { 
+      await onLogin(form.username, form.password); 
+      analytics.track("login_success", { username: form.username });
+      navigate("/"); 
+    }
+    catch (e) { 
+      analytics.track("login_failed", { username: form.username, error: e.message });
+      setError(e.message); 
+    }
     finally { setL(false); }
   };
 
@@ -1289,8 +1355,16 @@ function RegisterPage({ onRegister, navigate }) {
 
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
-    try { await onRegister(form); navigate("/"); }
-    catch (e) { setError(e.message); }
+    analytics.track("register_attempt", { username: form.username, email: form.email });
+    try { 
+      await onRegister(form); 
+      analytics.track("register_success", { username: form.username, email: form.email });
+      navigate("/"); 
+    }
+    catch (e) { 
+      analytics.track("register_failed", { username: form.username, error: e.message });
+      setError(e.message); 
+    }
     finally { setL(false); }
   };
 
@@ -1365,10 +1439,15 @@ function SearchPage({ navigate, qs, user }) {
 
   const doSearch = useCallback(async (qv, spv, wiv) => {
     setL(true);
+    analytics.track("search_performed", { query: qv, specialty_id: spv, wilaya_id: wiv });
     try {
       const d = await api.clinics.search({ q: qv, specialty: spv, wilaya_id: wiv, limit: 24 });
       setR(d.items || []); setT(d.total || 0);
-    } catch (e) { show(e.message, "error"); setR([]); }
+      analytics.track("search_results", { count: (d.items || []).length, total: d.total });
+    } catch (e) { 
+      analytics.track("search_failed", { error: e.message });
+      show(e.message, "error"); setR([]); 
+    }
     finally { setL(false); }
   }, [show]);
 
@@ -1392,14 +1471,14 @@ function SearchPage({ navigate, qs, user }) {
             placeholder={t("search_placeholder")}
             style={{ flex: 2, padding: "12px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }}
           />
-          <div style={{ display: "flex", gap: 10, flex: 1 }}>
+          <div style={{ display: "flex", gap: 10, flex: 1, minWidth: 0 }}>
             <select value={wi} onChange={e => setWI(e.target.value)}
-              style={{ flex: 1, padding: "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box" }}>
+              style={{ flex: 1, padding: isMobile ? "12px 4px" : "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box", minWidth: 0 }}>
               <option value="">{t("all_wilayas")}</option>
               {wiList.map(w => <option key={w.id} value={w.id}>{i18n.language === 'ar' ? w.namear : w.namefr}</option>)}
             </select>
             <select value={sp} onChange={e => setSP(e.target.value)}
-              style={{ flex: 1, padding: "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box" }}>
+              style={{ flex: 1, padding: isMobile ? "12px 4px" : "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box", minWidth: 0 }}>
               <option value="">{t("all_specialties")}</option>
               {spList.map(s => <option key={s.id} value={s.id}>{i18n.language === 'ar' ? s.namear : s.namefr}</option>)}
             </select>
@@ -1436,6 +1515,7 @@ function SearchPage({ navigate, qs, user }) {
               return (
                 <div key={type + r.ResultId}
                   onClick={() => isDoctor ? navigate(`/doctor/${r.doctor_id}`) : navigate(`/clinic/${r.clinicid}`)}
+                  className={filteredResults.indexOf(r) === 0 && isDoctor ? "doctor-card" : ""}
                   style={{
                     background: "#fff",
                     borderRadius: 22,
@@ -1471,9 +1551,9 @@ function SearchPage({ navigate, qs, user }) {
                         fallbackIcon={isDoctor ? undefined : Building}
                         style={{ border: "1px solid #f1f5f9" }}
                       />
-                        <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(239,68,68,0.3)" }}>
-                          <Flame size={12} />
-                        </div>
+                      <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(239,68,68,0.3)" }}>
+                        <Flame size={12} />
+                      </div>
                     </div>
 
                     {/* Right Side: Content */}
@@ -1487,14 +1567,19 @@ function SearchPage({ navigate, qs, user }) {
                             {specialty}
                           </Badge>
                         </div>
-                        <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
-                          {isDoctor ? t("doctor") : (
-                            +r.typeclinic === 0 ? t("type_0", "Médecin") :
-                              +r.typeclinic === 1 ? t("type_1", "Clinique") :
-                                +r.typeclinic === 2 ? t("type_2", "Hôpital") :
-                                  (r.typeclinic || t("clinic"))
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {filteredResults.indexOf(r) === 0 && isDoctor && (
+                            <Badge color="#f59e0b">✨ {i18n.language === 'ar' ? "موصى به" : "Recommandé"}</Badge>
                           )}
-                        </Badge>
+                          <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
+                            {isDoctor ? t("doctor") : (
+                              +r.typeclinic === 0 ? t("type_0", "Médecin") :
+                                +r.typeclinic === 1 ? t("type_1", "Clinique") :
+                                  +r.typeclinic === 2 ? t("type_2", "Hôpital") :
+                                    (r.typeclinic || t("clinic"))
+                            )}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1606,6 +1691,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
 
     Promise.all(p).then(([c, rel]) => {
       setClinic(c);
+      analytics.track("clinic_viewed", { clinic_id: clinicid, clinic_name: c.clinicname });
       if (rel) setRelStatus(rel.status);
     })
       .catch(e => show(e.message, "error"))
@@ -1963,6 +2049,8 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
         const [d, r, rel] = await Promise.all(promises);
         setData(d);
         setR(r);
+        analytics.track("doctor_viewed", { doctor_id, doctor_name: d.fullname || d.doctorname });
+        
         if (rel) setRelStatus(rel.status);
 
         if (!selectedClinicId && d.OtherClinics?.length === 1) {
@@ -1981,12 +2069,17 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
     if (!user) { navigate("/login"); return; }
     if (myRating < 1) { show(t("choose_rating"), "error"); return; }
     setSav(true);
+    analytics.track("rating_submitted_attempt", { doctor_id, rating: myRating });
     try {
       await api.ratings.add({ doctor_id: doctor_id, rating: myRating, comment: myComment, hide_patient: false });
+      analytics.track("rating_submitted_success", { doctor_id, rating: myRating });
       const r = await api.ratings.getForDoctor(doctor_id);
       setR(r); setMR(0); setMC("");
       show(t("rating_added_success"));
-    } catch (e) { show(e.message, "error"); }
+    } catch (e) { 
+      analytics.track("rating_submitted_failed", { doctor_id, error: e.message });
+      show(e.message, "error"); 
+    }
     finally { setSav(false); }
   };
 
@@ -2030,8 +2123,8 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600, marginBottom: 12, textAlign: isMobile ? "center" : "left", display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                <Building2 size={16} color="var(--brand)" /> {t("select_clinic_optional") || "يمكنك اختيار العيادة أدناه أو المتابعة مباشرة"}
+              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600, marginBottom: 12, textAlign: isMobile ? "center" : (i18n.language === 'ar' ? "right" : "left"), display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                <Building2 size={16} color="var(--brand)" /> {t("select_clinic_optional")}
               </div>
             )}
 
@@ -2077,6 +2170,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                 <>
                   <Btn
                     onClick={() => navigate(`/book/${selectedClinicId || 0}/${doctor_id}`)}
+                    className="book-btn"
                     style={{ padding: "12px 24px", justifyContent: "center" }}
                   >
                     <Calendar size={18} /> {t("book_appointment")}
@@ -2288,7 +2382,10 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
               <textarea value={myComment} onChange={e => setMC(e.target.value)} rows={3}
                 placeholder={t("add_comment_placeholder")}
                 style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", marginBottom: 10 }} />
-              <Btn onClick={submitRating} loading={saving} disabled={myRating < 1} style={{ padding: "9px 22px" }}>{t("send_rating")}</Btn>
+              <Btn onClick={() => {
+                analytics.track("rating_submitted", { doctor_id, rating: myRating });
+                submitRating();
+              }} loading={saving} disabled={myRating < 1} style={{ padding: "9px 22px" }}>{t("send_rating")}</Btn>
             </Card>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2311,7 +2408,6 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
   );
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: BOOK APPOINTMENT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function BookPage({ clinicid, doctor_id, navigate, user }) {
@@ -2336,6 +2432,18 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const [agreed, setAgreed] = useState(false);
   const { show, Toast } = useToast();
   const daysRef = useRef();
+
+  // Analytics: Track booking start
+  useEffect(() => {
+    analytics.track("booking_started", { doctor_id, clinicid });
+  }, []);
+
+  // Analytics: Track step changes
+  useEffect(() => {
+    if (step > 1) {
+      analytics.track("booking_step_reached", { step, doctor_id, selectedClinicId });
+    }
+  }, [step]);
 
   const scrollDays = (dir) => {
     if (daysRef.current) {
@@ -2372,6 +2480,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   }, [clinicid, doctor_id]);
 
   const handleClinicSelect = async (cid) => {
+    analytics.track("booking_clinic_selected", { clinic_id: cid, doctor_id });
     setSelectedClinicId(cid);
     setL(true);
     try {
@@ -2392,6 +2501,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       const s = await api.appointments.slots({ clinics_doctor_id: doctor.clinicsdoctor_id, date: d });
       setSlots(s.slots || []);
       if (!(s.slots || []).length) show("لا توجد أوقات متاحة في هذا اليوم — جرب تاريخًا آخر", "error");
+
     } catch (e) { show(e.message, "error"); }
     finally { setSL(false); }
   };
@@ -2403,8 +2513,12 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
+      analytics.track("booking_completed", { doctor_id, clinic_id: selectedClinicId, date });
       setStep(7);
-    } catch (e) { show(e.message, "error"); }
+    } catch (e) { 
+      analytics.track("booking_failed", { error: e.message, doctor_id, clinic_id: selectedClinicId });
+      show(e.message, "error"); 
+    }
     finally { setL(false); }
   };
 
@@ -2454,16 +2568,6 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     return dates;
   };
 
-  // Auto-select first date if none selected and step is 4
-  useEffect(() => {
-    if (step === 4 && !date) {
-      const avail = getAvailableDates();
-      if (avail.length > 0) {
-        setDate(avail[0].full);
-        fetchSlots(avail[0].full);
-      }
-    }
-  }, [step, doctor]);
 
   // ─── Error / Loading guards ─────────────────────────────────
   if (error) return (
@@ -2830,7 +2934,11 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(5)} disabled={!selSlot || !date} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn
+              onClick={() => setStep(5)}
+              disabled={!selSlot || !date}
+              style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}
+            >
               {t("next")}
             </Btn>
           </div>
@@ -2886,7 +2994,10 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
           <div style={{ display: "flex", gap: 10 }}>
             <Btn variant="secondary" onClick={() => setStep(4)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={() => setStep(6)} style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}>
+            <Btn
+              onClick={() => setStep(6)}
+              style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}
+            >
               {t("next")}
             </Btn>
           </div>
@@ -2963,9 +3074,16 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
           <div style={{ display: "flex", gap: 10 }}>
             <Btn variant="secondary" onClick={() => setStep(5)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
-            <Btn onClick={confirmBook} loading={loading} disabled={!agreed} style={{ flex: 2, justifyContent: "center", padding: 14, borderRadius: 10, fontSize: 15 }}>
-              <Award size={18} style={{ marginLeft: 8 }} /> {t("confirm_final")}
-            </Btn>
+            <div style={{ flex: 2, position: 'relative' }}>
+              <Btn
+                onClick={confirmBook}
+                loading={loading}
+                disabled={!agreed}
+                style={{ width: '100%', justifyContent: "center", padding: 14, borderRadius: 10, fontSize: 15 }}
+              >
+                <Award size={18} style={{ marginLeft: 8 }} /> {t("confirm_final")}
+              </Btn>
+            </div>
           </div>
         </Card>
       )}
@@ -2994,14 +3112,14 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 <Calendar size={16} color="#6b7280" />
                 <span>{t("day")} <strong style={{ color: "#0891b2" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "#0891b2" }}>{selSlot}</strong></span>
               </div>
-              <GoogleCalendarButton 
+              <GoogleCalendarButton
                 appointment={{
                   doctorname: doctor?.fullname || docInfo?.fullname,
                   clinicname: doctor?.clinicname || docInfo?.clinicname,
                   apointementdate: `${date}T${selSlot}:00`,
                   ReasonName: reason?.reason_name || reason?.Reason || reason?.reasons || reason?.motif,
                   patientname: activePat.name
-                }} 
+                }}
                 iconOnly={true}
                 style={{ width: 28, height: 28, background: "#f0fdf4", color: "#059669" }}
               />
@@ -3171,11 +3289,11 @@ function AppointmentsPage({ navigate, user }) {
                     <span>{d.toLocaleTimeString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                   {!isPast && (a.status != 1 && a.status != 2) && (
-                    <GoogleCalendarButton 
+                    <GoogleCalendarButton
                       appointment={{
                         ...a,
                         patientname: user?.profile?.fullname || user?.username || a.patient_name || a.patientname
-                      }} 
+                      }}
                       iconOnly={true}
                       style={{ marginLeft: i18n.language === 'ar' ? 0 : "auto", marginRight: i18n.language === 'ar' ? "auto" : 0 }}
                     />
@@ -3326,10 +3444,10 @@ function RegisterClinicPage({ navigate }) {
 
   const validate = () => {
     const e = {};
-    if (!form.clinic_name.trim()) e.clinic_name = 'اسم العيادة مطلوب';
-    if (!form.email.trim()) e.email = 'البريد الإلكتروني مطلوب';
-    if (!form.phone.trim()) e.phone = 'رقم الهاتف مطلوب';
-    if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    if (!form.clinic_name.trim()) e.clinic_name = t("clinic_name_required");
+    if (!form.email.trim()) e.email = t("email_required");
+    if (!form.phone.trim()) e.phone = t("phone_required");
+    if (form.password.length < 6) e.password = t("password_min_6");
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -3371,14 +3489,14 @@ function RegisterClinicPage({ navigate }) {
         <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
           {t("registration_success_desc")}
         </p>
-        <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
+        <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
           <div style={{ fontSize: 13, color: '#0f766e', fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <AlertCircle size={14} /> تفاصيل الطلب
+            <AlertCircle size={14} /> {t("request_details")}
           </div>
-          <div style={{ fontSize: 14, color: '#134e4a' }}>العيادة: <strong>{form.clinic_name}</strong></div>
-          <div style={{ fontSize: 14, color: '#134e4a' }}>البريد: <strong>{form.email}</strong></div>
+          <div style={{ fontSize: 14, color: '#134e4a' }}>{t("stats_clinics")}: <strong>{form.clinic_name}</strong></div>
+          <div style={{ fontSize: 14, color: '#134e4a' }}>{t("email")}: <strong>{form.email}</strong></div>
         </div>
-        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>العودة إلى الرئيسية</Btn>
+        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>{t("back_to_home")}</Btn>
       </div>
     </div>
   );
@@ -3425,13 +3543,13 @@ function RegisterClinicPage({ navigate }) {
         </div>
         <div style={{ background: '#f0fdfa', borderRadius: 12, border: '1px solid #ccfbf1', padding: '16px 20px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0f766e', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
-            <Shield size={16} /> لماذا تنضم إلى طبيبي؟
+            <Shield size={16} /> {t("why_join_tabibi")}
           </div>
-          <ul style={{ margin: 0, paddingRight: 20, fontSize: 13, color: '#134e4a', lineHeight: 2 }}>
-            <li>إدارة المواعيد والحجوزات بسهولة تامة</li>
-            <li>الوصول لآلاف المرضى في الجزائر</li>
-            <li>لوحة تحكم متكاملة للعيادة</li>
-            <li>دعم فني متواصل</li>
+          <ul style={{ margin: 0, [i18n.language === 'ar' ? 'paddingRight' : 'paddingLeft']: 20, fontSize: 13, color: '#134e4a', lineHeight: 2, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
+            <li>{t("why_join_1")}</li>
+            <li>{t("why_join_2")}</li>
+            <li>{t("why_join_3")}</li>
+            <li>{t("why_join_4")}</li>
           </ul>
         </div>
         <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
@@ -3464,11 +3582,11 @@ function RegisterDoctorPage({ navigate }) {
 
   const validate = () => {
     const e = {};
-    if (!form.fullname.trim()) e.fullname = 'الاسم الكامل مطلوب';
-    if (!form.speciality.trim()) e.speciality = 'التخصص مطلوب';
-    if (!form.email.trim()) e.email = 'البريد الإلكتروني مطلوب';
-    if (!form.phone.trim()) e.phone = 'رقم الهاتف مطلوب';
-    if (form.password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    if (!form.fullname.trim()) e.fullname = t("fullname_required");
+    if (!form.speciality.trim()) e.speciality = t("specialty_required");
+    if (!form.email.trim()) e.email = t("email_required");
+    if (!form.phone.trim()) e.phone = t("phone_required");
+    if (form.password.length < 6) e.password = t("password_min_6");
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -3489,16 +3607,16 @@ function RegisterDoctorPage({ navigate }) {
         <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <CheckCircle size={40} color="#fff" />
         </div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>تم إرسال الطلب بنجاح!</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>{t("registration_success")}</h2>
         <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
-          تم إرسال طلب تسجيل الطبيب بنجاح، بانتظار موافقة الإدارة. سيتم إشعارك عند قبول طلبك.
+          {t("registration_success_desc")}
         </p>
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: 'right' }}>
-          <div style={{ fontSize: 14, color: '#1e40af' }}>الطبيب: <strong>{form.fullname}</strong></div>
-          <div style={{ fontSize: 14, color: '#1e40af' }}>التخصص: <strong>{form.speciality}</strong></div>
-          <div style={{ fontSize: 14, color: '#1e40af' }}>البريد: <strong>{form.email}</strong></div>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>{t("fullname")}: <strong>{form.fullname}</strong></div>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>{t("specialty_title")}: <strong>{form.speciality}</strong></div>
+          <div style={{ fontSize: 14, color: '#1e40af' }}>{t("email")}: <strong>{form.email}</strong></div>
         </div>
-        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>العودة إلى الرئيسية</Btn>
+        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>{t("back_to_home")}</Btn>
       </div>
     </div>
   );
@@ -3510,14 +3628,14 @@ function RegisterDoctorPage({ navigate }) {
         <div style={{ width: 72, height: 72, borderRadius: 22, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
           <Stethoscope size={36} color="#2563eb" />
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>تسجيل طبيب جديد</h1>
-        <p style={{ color: '#6b7280', fontSize: 15 }}>أرسل طلبك وسيتم مراجعته من طرف الإدارة</p>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>{t("register_doctor_title")}</h1>
+        <p style={{ color: '#6b7280', fontSize: 15 }}>{t("register_doctor_desc")}</p>
       </div>
       <Card style={{ padding: isMobile ? 20 : 36 }}>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
-          <Input label="الاسم الكامل *" placeholder="د. محمد أمين" value={form.fullname} onChange={e => set('fullname', e.target.value)} error={errors.fullname} />
-          <Select label="التخصص *" value={form.speciality} onChange={e => set('speciality', e.target.value)} error={errors.speciality}>
-            <option value="">اختر التخصص...</option>
+          <Input label={`${t("fullname")} *`} placeholder="د. محمد أمين" value={form.fullname} onChange={e => set('fullname', e.target.value)} error={errors.fullname} />
+          <Select label={`${t("specialty_title")} *`} value={form.speciality} onChange={e => set('speciality', e.target.value)} error={errors.speciality}>
+            <option value="">{t("select_specialty")}</option>
             {specs.map(s => (
               <option key={s.id} value={i18n.language === 'ar' ? s.namear : s.namefr}>
                 {i18n.language === 'ar' ? s.namear : s.namefr}
@@ -3526,20 +3644,20 @@ function RegisterDoctorPage({ navigate }) {
           </Select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
-          <Input label="البريد الإلكتروني *" type="email" placeholder="doctor@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
-          <Input label="رقم الهاتف *" placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
+          <Input label={`${t("email")} *`} type="email" placeholder="doctor@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
+          <Input label={`${t("phone")} *`} placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
         </div>
-        <Input label="كلمة المرور *" type="password" placeholder="6 أحرف على الأقل" value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
         <div style={{ background: '#eff6ff', borderRadius: 12, border: '1px solid #bfdbfe', padding: '16px 20px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e40af', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
-            <AlertCircle size={16} /> ملاحظة مهمة
+            <AlertCircle size={16} /> {t("important_note")}
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: '#1e3a8a', lineHeight: 1.8 }}>
-            بعد الموافقة على طلبك ستتمكن من تسجيل الدخول باستخدام بريدك الإلكتروني وكلمة المرور المُدخلة.
+          <p style={{ margin: 0, fontSize: 13, color: '#1e3a8a', lineHeight: 1.8, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
+            {t("doctor_join_hint")}
           </p>
         </div>
         <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
-          <Send size={18} /> إرسال طلب التسجيل
+          <Send size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("submit_join_btn")}
         </Btn>
       </Card>
     </div>
@@ -4876,7 +4994,7 @@ function Footer({ navigate }) {
         display: "flex", flexDirection: isMobile ? "column" : "row",
         alignItems: "center", justifyContent: "space-between", gap: isMobile ? 16 : 0
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
           <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Tabibi" style={{ width: 32, height: 32, objectFit: "contain" }} />
           <span style={{ fontSize: 16, fontWeight: 900, color: "var(--brand)" }}>{t("app_name")}</span>
           <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500, [i18n.language === 'ar' ? "marginRight" : "marginLeft"]: 8 }}>
@@ -5113,6 +5231,18 @@ function MainApp() {
     document.documentElement.lang = i18n.language;
   }, [i18n.language]);
 
+  // Analytics: Set User ID
+  useEffect(() => {
+    if (user?.id) {
+      analytics.setUserId(user.id);
+    }
+  }, [user]);
+
+  // Analytics: Track Page Views
+  useEffect(() => {
+    analytics.track("page_view", { route, query: qs });
+  }, [route, qs]);
+
   useEffect(() => {
     const backHandler = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       // In hash-based routing, the root is usually "" or "/"
@@ -5203,6 +5333,7 @@ function MainApp() {
         return <TermsOfUsePage navigate={navigate} />;
       case "/appointments":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+        if (user.user_type === 1 || user.user_type === 2) { setTimeout(() => navigate("/appointmanager"), 0); return null; }
         return <AppointmentsPage key="appts" navigate={navigate} user={user} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
@@ -5219,12 +5350,17 @@ function MainApp() {
       case "/tickets/new":
         if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
         return <NewTicketPage key="new_ticket" navigate={navigate} user={user} qs={qs} />;
+      case "/appointmanager":
+      case "appointmanager":
+        if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }
+        return <AppointmentManager navigate={navigate} user={user} />;
       default:
         if (route.startsWith("/tickets/")) {
           if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
           const tid = route.split("/")[2];
           return <TicketConversationPage key={tid} ticketId={tid} navigate={navigate} user={user} />;
         }
+        if (route === "/guide") return <UserGuide navigate={navigate} />;
         return (
           <div key="404" style={{ textAlign: "center", padding: "80px 24px" }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
@@ -5233,6 +5369,7 @@ function MainApp() {
               </div>
             </div>
             <h1 style={{ color: "#0c4a6e", fontWeight: 900 }}>{t("page_not_found")}</h1>
+            <div style={{ fontSize: 14, color: "#64748b", marginTop: 8 }}>Route: <span style={{ fontFamily: "monospace", background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>{route}</span></div>
             <Btn onClick={() => navigate("/")} style={{ marginTop: 20 }}>{t("back_to_home")}</Btn>
           </div>
         );
@@ -5251,19 +5388,20 @@ function MainApp() {
     }}>
 
       <style>{`
-        * { box-sizing:border-box; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        @keyframes popIn {
-          0%   { transform:scale(0); opacity:0; }
-          70%  { transform:scale(1.15); opacity:1; }
-          100% { transform:scale(1); }
-        }
-        body { margin:0; padding:0; }
-        input,select,textarea,button { font-family:inherit; }
-        ::-webkit-scrollbar { width:5px; }
-        ::-webkit-scrollbar-track { background:#f3f4f6; }
-        ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
-      `}</style>
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          * { box-sizing:border-box; }
+          @keyframes spin { to { transform:rotate(360deg); } }
+          @keyframes popIn {
+            0%   { transform:scale(0); opacity:0; }
+            70%  { transform:scale(1.15); opacity:1; }
+            100% { transform:scale(1); }
+          }
+          body { margin:0; padding:0; }
+          input,select,textarea,button { font-family:inherit; }
+          ::-webkit-scrollbar { width:5px; }
+          ::-webkit-scrollbar-track { background:#f3f4f6; }
+          ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
+        `}</style>
       <Navbar user={user} navigate={navigate} onLogout={logout} />
       <BackgroundDecoration />
       <div style={{ flex: 1, paddingBottom: 80, position: "relative", zIndex: 1 }}>
