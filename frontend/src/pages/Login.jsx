@@ -17,7 +17,7 @@ export default function LoginPage({ onLogin, navigate }) {
   };
 
   return (
-    <div style={{ minHeight: "90vh", background: "linear-gradient(135deg,#ecfeff,#f0fdfa)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 44, marginBottom: 8 }}>🏥</div>

@@ -18,7 +18,7 @@ export default function RegisterPage({ onRegister, navigate }) {
   };
 
   return (
-    <div style={{ minHeight: "90vh", background: "linear-gradient(135deg,#ecfeff,#f0fdfa)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 460 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 44, marginBottom: 8 }}>🤝</div>

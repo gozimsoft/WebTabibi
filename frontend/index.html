@@ -17,22 +17,138 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
       :root {
-        --brand:        #0092a2;
-        --brand-dark:   #007585;
-        --brand-light:  #e6f7f9;
-        --border:       #0092a2;
-        --text-primary: #0c2340;
+        /* Light Mode (Default) — Tabibi Green: rgb(0, 146, 162) */
+        --brand:          #0891b2;
+        --brand-dark:     #0e7490;
+        --brand-light:    rgba(8, 145, 178, 0.1);
+        --border:         #0891b2;
+        --bg:             #e5e7eb;
+        --card-bg:        #ffffff;
+        --text-main:      #111827;
         --text-secondary: #4b5563;
-        --text-muted:   #9ca3af;
-        --bg:           #e5e7e9;
+        --text-muted:     #9ca3af;
+        --nav-bg:         rgba(255, 255, 255, 0.85);
+        --glass-border:   rgba(0, 146, 162, 0.2);
+        --heading-color:  #0c4a6e;
+        --btn-text:       #ffffff;
+        --input-bg:       #ffffff;
+
         --radius:       16px;
         --radius-sm:    10px;
         --radius-lg:    20px;
         --radius-xl:    32px;
+        --shadow:       0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg:    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+
+      [data-theme="dark"] {
+        /* Dark Mode — Using the requested Tabibi Green: #0092a2 */
+        --brand:          #0092a2;
+        --brand-dark:     #007b8a;
+        --brand-light:    rgba(0, 146, 162, 0.15);
+        --border:         #2d3748;
+        --bg:             #0f1923;
+        --card-bg:        #1a2535;
+        --text-main:      #f0f4f8;
+        --text-secondary: #a0aec0;
+        --text-muted:     #718096;
+        --nav-bg:         rgba(15, 25, 35, 0.9);
+        --glass-border:   rgba(0, 146, 162, 0.3);
+        --heading-color:  #e2f0ff;
+        --btn-text:       #ffffff;
+        --input-bg:       #1e2d3d;
+        --shadow:         0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        --shadow-lg:      0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
       }
       * { box-sizing: border-box; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: var(--bg); background: var(--bg); }
       *, input, button, select, textarea { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+
+      /* ── Dark Mode Global Overrides ── */
+      [data-theme="dark"] input,
+      [data-theme="dark"] select,
+      [data-theme="dark"] textarea {
+        background: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border-color: var(--border) !important;
+      }
+      [data-theme="dark"] input::placeholder,
+      [data-theme="dark"] textarea::placeholder { color: var(--text-muted) !important; }
+
+      /* Danger button in dark mode */
+      [data-theme="dark"] {
+        --danger-bg:     #2d1515;
+        --danger-text:   #f87171;
+        --danger-border: #7f1d1d;
+      }
+
+      /* Ensure search result cards and hardcoded white backgrounds adapt */
+      [data-theme="dark"] .search-card-bg { background: var(--card-bg) !important; }
+
+      /* Fix hardcoded heading colors that appear across many components */
+      [data-theme="dark"] h1, [data-theme="dark"] h2,
+      [data-theme="dark"] h3, [data-theme="dark"] h4 {
+        color: var(--heading-color);
+      }
+
+      /* Fix white card backgrounds used inline across the app */
+      [data-theme="dark"] [style*="background: #fff"],
+      [data-theme="dark"] [style*="background:#fff"],
+      [data-theme="dark"] [style*="background: white"],
+      [data-theme="dark"] [style*="background-color: #fff"],
+      [data-theme="dark"] [style*="background-color:#fff"] {
+        background: var(--card-bg) !important;
+      }
+
+      /* Fix hardcoded dark text on buttons and labels */
+      [data-theme="dark"] button[style*="color: #0c4a6e"],
+      [data-theme="dark"] div[style*="color: #0c4a6e"],
+      [data-theme="dark"] h1[style*="color: #0c4a6e"],
+      [data-theme="dark"] h2[style*="color: #0c4a6e"],
+      [data-theme="dark"] h3[style*="color: #0c4a6e"],
+      [data-theme="dark"] span[style*="color: #0c4a6e"] {
+        color: var(--heading-color) !important;
+      }
+      [data-theme="dark"] div[style*="color: #1e293b"],
+      [data-theme="dark"] div[style*="color: #0f172a"],
+      [data-theme="dark"] div[style*="color: #111827"] {
+        color: var(--text-main) !important;
+      }
+
+      /* Fix all remaining hardcoded dark text colors — comprehensive audit */
+      [data-theme="dark"] [style*="color: #374151"],
+      [data-theme="dark"] [style*="color: #334155"],
+      [data-theme="dark"] [style*="color: #1e293b"],
+      [data-theme="dark"] [style*="color: #1f2937"],
+      [data-theme="dark"] [style*="color: #0f172a"],
+      [data-theme="dark"] [style*="color: #111827"],
+      [data-theme="dark"] [style*="color: #0c4a6e"],
+      [data-theme="dark"] [style*="color: #4b5563"],
+      [data-theme="dark"] [style*="color: #475569"] {
+        color: var(--text-secondary) !important;
+      }
+
+      /* Fix --text-primary (typo/non-existent variable) — replace with correct var */
+      [data-theme="dark"] [style*="--text-primary"] {
+        color: var(--text-main) !important;
+      }
+
+      /* Fix hardcoded light backgrounds that disappear on dark */
+      [data-theme="dark"] [style*="background: #f3f4f6"],
+      [data-theme="dark"] [style*="background: #f1f5f9"],
+      [data-theme="dark"] [style*="background: #f8fafc"],
+      [data-theme="dark"] [style*="background: #f9fafb"],
+      [data-theme="dark"] [style*="background-color: #f3f4f6"],
+      [data-theme="dark"] [style*="background-color: #f9fafb"] {
+        background: var(--bg) !important;
+      }
+
+      /* Fix hardcoded borders */
+      [data-theme="dark"] [style*="border: 1px solid #f3f4f6"],
+      [data-theme="dark"] [style*="border-bottom: 1px solid #f3f4f6"],
+      [data-theme="dark"] [style*="borderBottom: 1px solid #f3f4f6"] {
+        border-color: var(--border) !important;
+      }
 
       @keyframes flipRight {
         0% { transform: perspective(400px) rotateY(0deg); }

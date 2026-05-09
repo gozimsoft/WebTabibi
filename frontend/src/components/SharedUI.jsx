@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 
 export const Spinner = ({ size = 24 }) => (
   <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-    <div style={{ width: size, height: size, border: `3px solid #e2f4f4`, borderTopColor: "#0891b2", borderRadius: "50%", animation: "logo-rotate 0.7s linear infinite" }} />
+    <div style={{ width: size, height: size, border: `3px solid var(--brand-light)`, borderTopColor: "var(--brand)", borderRadius: "50%", animation: "logo-rotate 0.7s linear infinite" }} />
   </div>
 );
 
@@ -58,13 +58,13 @@ export const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} })
   );
 };
 
-export const Badge = ({ children, color = "#0891b2" }) => (
+export const Badge = ({ children, color = "var(--brand)" }) => (
   <span style={{ background: color + "15", color, border: `1px solid ${color}30`, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{children}</span>
 );
 
 export const Card = ({ children, style = {}, onClick }) => (
   <div onClick={onClick} style={{
-    background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb",
+    background: "#fff", borderRadius: 16, border: "1px solid var(--border)",
     boxShadow: "0 1px 4px rgba(0,0,0,0.05)", padding: 24,
     cursor: onClick ? "pointer" : "default", ...style
   }}>{children}</div>
@@ -74,12 +74,12 @@ export const Input = ({ label, error, ...p }) => (
   <div style={{ marginBottom: 16 }}>
     {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
     <input {...p} style={{
-      width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "#e5e7eb"}`,
+      width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
       borderRadius: 10, fontSize: 14, outline: "none", background: "#fafafa",
       boxSizing: "border-box", transition: "border 0.2s", ...p.style
     }}
-      onFocus={e => e.target.style.borderColor = "#0891b2"}
-      onBlur={e => e.target.style.borderColor = error ? "#f87171" : "#e5e7eb"}
+      onFocus={e => e.target.style.borderColor = "var(--brand)"}
+      onBlur={e => e.target.style.borderColor = error ? "#f87171" : "var(--border)"}
     />
     {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>⚠ {error}</div>}
   </div>
@@ -87,10 +87,10 @@ export const Input = ({ label, error, ...p }) => (
 
 export const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, ...p }) => {
   const variants = {
-    primary: { background: "linear-gradient(135deg,#0891b2,#0e7490)", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
-    secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid #e5e7eb" },
+    primary: { background: "linear-gradient(135deg,var(--brand),var(--brand-dark))", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
+    secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid var(--border)" },
     danger: { background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" },
-    ghost: { background: "transparent", color: "#0891b2", border: "1px solid #0891b2" },
+    ghost: { background: "transparent", color: "var(--brand)", border: "1px solid var(--brand)" },
     success: { background: "linear-gradient(135deg,#059669,#047857)", color: "#fff" },
   };
   return (

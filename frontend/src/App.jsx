@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Search, Calendar, MessageSquare, User, LogOut,
+  Search, Calendar, MessageSquare, User, LogOut, Sun, Moon,
   ChevronDown, ChevronRight, ChevronLeft, Menu, X, Bell, LayoutDashboard,
   Settings, CreditCard, Heart, MapPin, Clock, Star,
   ShieldCheck, Phone, Mail, Languages, Info, ArrowLeft, ArrowRight,
@@ -11,8 +11,9 @@ import {
   FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { motion, AnimatePresence } from "framer-motion";
 import { App as CapacitorApp } from '@capacitor/app';
-import LanguageSwitcher from "./components/LanguageSwitcher";
+// LanguageSwitcher is now defined locally to avoid hook context issues
 import ContactPage from "./pages/Contact";
 import GoogleCalendarButton from "./components/GoogleCalendarButton";
 import analytics from "./utils/analytics";
@@ -231,7 +232,7 @@ function useIsMobile() {
 // ── Shared UI ─────────────────────────────────────────────────
 const Spinner = ({ size = 24 }) => (
   <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-    <div style={{ width: size, height: size, border: `3px solid #e2f4f4`, borderTopColor: "#0891b2", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+    <div style={{ width: size, height: size, border: `3px solid #e2f4f4`, borderTopColor: "var(--brand)", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
   </div>
 );
 
@@ -315,34 +316,39 @@ const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {}, fallback
 };
 
 // Decorative Badge
-const Badge = ({ children, color = "#0891b2" }) => (
+const Badge = ({ children, color = "var(--brand)" }) => (
   <span style={{ background: color + "15", color, border: `1px solid ${color}30`, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{children}</span>
 );
 
 // Wrapper Card
-const Card = ({ children, style = {}, onClick, className }) => {
+const Card = ({ children, style = {}, onClick, className, animate = false }) => {
   const isMobile = useIsMobile();
   return (
-    <div onClick={onClick} className={className} style={{
-      background: "#fff", borderRadius: 20, border: "1px solid var(--border)",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.04)", padding: isMobile ? 16 : 24,
-      ...style
-    }}>
+    <motion.div
+      onClick={onClick}
+      className={className}
+      whileHover={(animate && !isMobile) ? { y: -5, boxShadow: "var(--shadow-lg)" } : {}}
+      transition={animate ? { duration: 0.2 } : { duration: 0 }}
+      style={{
+        background: "var(--card-bg)", borderRadius: "var(--radius)", border: "1px solid var(--border)",
+        boxShadow: "var(--shadow)", padding: isMobile ? 16 : 24,
+        ...style
+      }}>
       {children}
-    </div>
+    </motion.div>
   );
 };
 
 // Custom Form Input
 const Input = ({ label, error, ...p }) => (
   <div style={{ marginBottom: 16 }}>
-    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
+    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</label>}
     <input {...p} style={{
       width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
-      borderRadius: 10, fontSize: 14, outline: "none", background: "#fff",
-      boxSizing: "border-box", transition: "border 0.2s", ...p.style
+      borderRadius: 10, fontSize: 14, outline: "none", background: "var(--card-bg)", color: "var(--text-main)",
+      boxSizing: "border-box", transition: "all 0.2s", ...p.style
     }}
-      onFocus={e => e.target.style.borderColor = "#0891b2"}
+      onFocus={e => e.target.style.borderColor = "var(--brand)"}
       onBlur={e => e.target.style.borderColor = error ? "#f87171" : "var(--border)"}
     />
     {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={14} /> {error}</div>}
@@ -351,12 +357,15 @@ const Input = ({ label, error, ...p }) => (
 
 const Select = ({ label, error, children, ...p }) => (
   <div style={{ marginBottom: 16 }}>
-    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
+    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</label>}
     <select {...p} style={{
       width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
-      borderRadius: 10, fontSize: 14, outline: "none", background: "#fff",
-      boxSizing: "border-box", transition: "border 0.2s", ...p.style
-    }}>
+      borderRadius: 10, fontSize: 14, outline: "none", background: "var(--card-bg)", color: "var(--text-main)",
+      boxSizing: "border-box", transition: "all 0.2s", ...p.style
+    }}
+      onFocus={e => e.target.style.borderColor = "var(--brand)"}
+      onBlur={e => e.target.style.borderColor = error ? "#f87171" : "var(--border)"}
+    >
       {children}
     </select>
     {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={14} /> {error}</div>}
@@ -366,14 +375,16 @@ const Select = ({ label, error, children, ...p }) => (
 // Modern Button Component
 const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, className, ...p }) => {
   const variants = {
-    primary: { background: "linear-gradient(135deg,#0891b2,#0e7490)", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
-    secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid var(--border)" },
-    danger: { background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" },
-    ghost: { background: "transparent", color: "#0891b2", border: "1px solid #0891b2" },
-    outline: { background: "transparent", color: "#64748b", border: "1.5px solid var(--border)" }
+    primary: { background: "linear-gradient(135deg, var(--brand), var(--brand-dark))", color: "var(--btn-text)", boxShadow: "var(--shadow)" },
+    secondary: { background: "var(--card-bg)", color: "var(--text-main)", border: "1px solid var(--border)" },
+    danger: { background: "var(--danger-bg, #fee2e2)", color: "var(--danger-text, #dc2626)", border: "1px solid var(--danger-border, #fca5a5)" },
+    ghost: { background: "transparent", color: "var(--brand)", border: "1px solid var(--brand)" },
+    outline: { background: "transparent", color: "var(--text-secondary)", border: "1.5px solid var(--border)" }
   };
   return (
-    <button
+    <motion.button
+      whileTap={(disabled || ld) ? {} : { scale: 0.97 }}
+      whileHover={(disabled || ld) ? {} : { y: -1 }}
       className={className}
       disabled={disabled || ld}
       style={{
@@ -385,7 +396,7 @@ const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled,
       {...p}
     >
       {ld ? <Spinner size={18} color={variant === "primary" ? "#fff" : "var(--brand)"} /> : children}
-    </button>
+    </motion.button>
   );
 };
 
@@ -449,12 +460,12 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
         ) : (
           <>
             <p style={{ color: "#6b7280", marginBottom: 16 }}>
-              أدخل الرمز المرسل إلى <strong style={{ color: "#0891b2" }}>{target}</strong>
+              أدخل الرمز المرسل إلى <strong style={{ color: "var(--brand)" }}>{target}</strong>
             </p>
             {devCode && (
               <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, padding: "12px 16px", marginBottom: 16, textAlign: "center" }}>
                 <div style={{ fontSize: 12, color: "#854d0e", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><AlertTriangle size={14} /> وضع التطوير — الرمز:</div>
-                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 8, color: "#0891b2" }}>{devCode}</div>
+                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 8, color: "var(--brand)" }}>{devCode}</div>
               </div>
             )}
             <div style={{ marginBottom: 16 }}>
@@ -466,7 +477,7 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
                 style={{
                   width: "100%", padding: "14px", textAlign: "center",
                   fontSize: 24, fontWeight: 900, letterSpacing: 10,
-                  border: "2px solid #0891b2", borderRadius: 12, outline: "none",
+                  border: "2px solid var(--brand)", borderRadius: 12, outline: "none",
                   boxSizing: "border-box", background: "#ecfeff"
                 }}
               />
@@ -487,7 +498,75 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
 }
 
 // ── Navbar ────────────────────────────────────────────────────
-function Navbar({ user, navigate, onLogout }) {
+// ── COMPONENT: LANGUAGE SWITCHER
+function LanguageSwitcher() {
+  const { i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const langs = [
+    { code: "ar", label: "العربية", flag: "🇩🇿" },
+    { code: "fr", label: "Français", flag: "🇫🇷" },
+    { code: "en", label: "English", flag: "🇺🇸" },
+  ];
+  const current = langs.find((l) => l.code === i18n.language) || langs[0];
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          background: "var(--bg)", border: "1.5px solid var(--border)",
+          borderRadius: 12, padding: "10px 14px", cursor: "pointer",
+          fontSize: 16, fontWeight: 700, color: "var(--text-main)",
+          transition: "all 0.2s"
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--brand)"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+      >
+        <span>{current.flag}</span>
+        <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 4 }}>▼</span>
+      </button>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            position: "absolute", top: 50,
+            right: i18n.language === 'ar' ? 'auto' : 0,
+            left: i18n.language === 'ar' ? 0 : 'auto',
+            background: "var(--card-bg)", border: "1px solid var(--border)",
+            borderRadius: 16, boxShadow: "var(--shadow-lg)",
+            zIndex: 1000, minWidth: 160, overflow: "hidden",
+            padding: 6
+          }}
+        >
+          {langs.map((l) => (
+            <button
+              key={l.code}
+              onClick={() => {
+                i18n.changeLanguage(l.code);
+                setOpen(false);
+              }}
+              style={{
+                width: "100%", padding: "12px 14px",
+                background: i18n.language === l.code ? "var(--brand-light)" : "none",
+                border: "none", textAlign: i18n.language === 'ar' ? "right" : "left",
+                cursor: "pointer", fontSize: 14, borderRadius: 10,
+                fontWeight: i18n.language === l.code ? 800 : 500,
+                color: i18n.language === l.code ? "var(--brand)" : "var(--text-main)",
+                display: "flex", gap: 10, alignItems: "center", transition: "0.2s"
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{l.flag}</span> {l.label}
+            </button>
+          ))}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+function Navbar({ user, navigate, onLogout, theme, toggleTheme }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -515,8 +594,8 @@ function Navbar({ user, navigate, onLogout }) {
   return (
     <nav style={{
       position: "sticky", top: 0, zIndex: 1000,
-      background: scrolled ? "rgba(255, 255, 255, 0.95)" : "#fff",
-      backdropFilter: scrolled ? "blur(12px)" : "none",
+      background: scrolled ? "var(--nav-bg)" : "var(--card-bg)",
+      backdropFilter: "blur(12px)",
       borderBottom: "1px solid var(--border)",
       transition: "all 0.3s ease",
       minHeight: isMobile ? 64 : 80,
@@ -547,6 +626,31 @@ function Navbar({ user, navigate, onLogout }) {
         {/* Desktop Links */}
         {!isMobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={toggleTheme}
+              title={theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                width: 38, height: 38, borderRadius: 10,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--brand)", transition: "all 0.2s"
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--brand-light)"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={theme}
+                  initial={{ y: -10, opacity: 0, rotate: -20 }}
+                  animate={{ y: 0, opacity: 1, rotate: 0 }}
+                  exit={{ y: 10, opacity: 0, rotate: 20 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ display: "flex" }}
+                >
+                  {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+                </motion.div>
+              </AnimatePresence>
+            </button>
             <LanguageSwitcher />
             <div style={{ borderLeft: "1px solid var(--border)", height: 24, margin: "0 12px" }} />
             {navLinks.map(link => {
@@ -591,7 +695,7 @@ function Navbar({ user, navigate, onLogout }) {
                 }}>
                   {name[0].toUpperCase()}
                 </div>
-                {!isMobile && <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{name}</span>}
+                {!isMobile && <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)" }}>{name}</span>}
                 {!isMobile && <ChevronDown size={14} style={{ color: "var(--text-muted)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />}
               </button>
 
@@ -603,12 +707,12 @@ function Navbar({ user, navigate, onLogout }) {
                     left: i18n.language === 'ar' ? 0 : 'auto',
                     right: i18n.language === 'ar' ? 'auto' : 0,
                     top: "calc(100% + 12px)",
-                    background: "#fff", border: "1px solid var(--border)",
-                    borderRadius: 16, boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+                    background: "var(--card-bg)", border: "1px solid var(--border)",
+                    borderRadius: 16, boxShadow: "var(--shadow-lg)",
                     minWidth: 220, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
                   }}>
                     <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>{user.profile?.fullname || user.profile?.clinicname || user.username}</div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-main)" }}>{user.profile?.fullname || user.profile?.clinicname || user.username}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</div>
                     </div>
                     {[
@@ -619,17 +723,17 @@ function Navbar({ user, navigate, onLogout }) {
                       { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                     ].filter(Boolean).map(item => (
-                      <button key={item.path} onClick={() => { 
+                      <button key={item.path} onClick={() => {
                         analytics.track("nav_click_user_menu", { label: item.label, path: item.path });
-                        navigate(item.path); 
-                        setOpen(false); 
+                        navigate(item.path);
+                        setOpen(false);
                       }} style={{
                         width: "100%", padding: "12px 16px", background: "none", border: "none",
                         cursor: "pointer", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center",
                         gap: 12, fontSize: 15, color: "var(--text-secondary)", transition: "background 0.2s"
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "none"}>
                         {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
                       </button>
                     ))}
@@ -659,29 +763,42 @@ function Navbar({ user, navigate, onLogout }) {
       {isMobile && mobileMenu && (
         <div style={{
           position: "absolute", top: "100%", left: 0, right: 0, height: "calc(100vh - 100%)",
-          background: "#fff", zIndex: 1001,
+          background: "var(--card-bg)", zIndex: 1001,
           padding: "20px 20px 80px", display: "flex", flexDirection: "column", gap: 12,
           animation: "fadeIn 0.2s ease",
           overflowY: "auto",
           boxShadow: "0 10px 20px rgba(0,0,0,0.1)"
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
-            <span style={{ fontWeight: 800, color: "#0c4a6e" }}>{t("menu")}</span>
-            <LanguageSwitcher />
+            <span style={{ fontWeight: 800, color: "var(--text-main)" }}>{t("menu")}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                onClick={toggleTheme}
+                style={{
+                  background: "var(--bg)", border: "none", cursor: "pointer",
+                  width: 38, height: 38, borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--brand)"
+                }}
+              >
+                {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+              </button>
+              <LanguageSwitcher />
+            </div>
           </div>
           <div style={{ borderBottom: "1px solid var(--border)", marginBottom: 10 }} />
           {navLinks.map(link => (
-              <button key={link.path} onClick={() => { 
-                analytics.track("nav_click_mobile_menu", { label: link.label, path: link.path });
-                navigate(link.path); 
-                setMobileMenu(false); 
-              }} style={{
-                background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px", borderRadius: 12,
-                textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 700, color: "var(--text-primary)",
-                display: "flex", alignItems: "center", gap: 12
-              }}>
-                {link.icon} {link.label}
-              </button>
+            <button key={link.path} onClick={() => {
+              analytics.track("nav_click_mobile_menu", { label: link.label, path: link.path });
+              navigate(link.path);
+              setMobileMenu(false);
+            }} style={{
+              background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px", borderRadius: 12,
+              textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 700, color: "var(--text-main)",
+              display: "flex", alignItems: "center", gap: 12
+            }}>
+              {link.icon} {link.label}
+            </button>
           ))}
           {!user && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
@@ -769,7 +886,11 @@ function HomePage({ user, navigate }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", width: "100%", overflowX: "hidden" }}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      style={{ minHeight: "100vh", background: "var(--bg)", width: "100%", overflowX: "hidden" }}>
       {/* ── SECTION: HERO ── */}
       <section style={{ background: "transparent", position: "relative", overflow: "hidden" }}>
         {/* Teal bg */}
@@ -791,11 +912,15 @@ function HomePage({ user, navigate }) {
         <SyringeIcon size={isMobile ? 80 : 110} opacity={0.15} style={{ top: "8%", right: "32%", transform: "rotate(-30deg)" }} />
         <SyringeIcon size={isMobile ? 60 : 80} opacity={0.14} style={{ bottom: "20%", right: "30%", transform: "rotate(15deg)" }} />
 
-        <div style={{
-          maxWidth: 1200, margin: "0 auto", width: "100%",
-          padding: isMobile ? "24px 16px 60px" : "80px 24px 100px",
-          textAlign: "center", position: "relative", zIndex: 2,
-        }}>
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          style={{
+            maxWidth: 1200, margin: "0 auto", width: "100%",
+            padding: isMobile ? "24px 16px 60px" : "80px 24px 100px",
+            textAlign: "center", position: "relative", zIndex: 2,
+          }}>
           {/* Badge */}
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 8,
@@ -820,13 +945,17 @@ function HomePage({ user, navigate }) {
           </p>
 
           {/* Search bar */}
-          <div style={{
-            maxWidth: 800, margin: "0 auto",
-            background: "#fff", borderRadius: 16, padding: isMobile ? 8 : 10,
-            display: "flex", alignItems: "center", gap: 10,
-            boxShadow: focused ? "0 0 0 4px rgba(255,255,255,0.35)" : "0 8px 40px rgba(0,0,0,0.18)",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            style={{
+              maxWidth: 800, margin: "0 auto",
+              background: "var(--card-bg)", borderRadius: 16, padding: isMobile ? 8 : 10,
+              display: "flex", alignItems: "center", gap: 10,
+              boxShadow: focused ? "0 0 0 4px rgba(0,146,162,0.25)" : "var(--shadow-lg)",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}>
             {!isMobile && <Search size={20} style={{ flexShrink: 0, [i18n.language === 'ar' ? 'marginRight' : 'marginLeft']: 12, color: "#94a3b8" }} />}
             <input type="text" value={q}
               onChange={e => setQ(e.target.value)}
@@ -836,7 +965,7 @@ function HomePage({ user, navigate }) {
               placeholder={isMobile ? t("search") + "..." : t("home_hero_placeholder")}
               style={{
                 flex: 1, border: "none", outline: "none",
-                fontSize: 14, color: "#333", background: "transparent",
+                fontSize: 14, color: "var(--text-main)", background: "transparent",
                 textAlign: i18n.language === 'ar' ? "right" : "left",
                 direction: i18n.language === 'ar' ? "rtl" : "ltr",
                 padding: isMobile ? "12px 14px" : "14px 10px",
@@ -852,7 +981,7 @@ function HomePage({ user, navigate }) {
                 cursor: "pointer"
               }}
             >{t("search")}</button>
-          </div>
+          </motion.div>
 
           {/* Quick tags */}
           <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
@@ -864,7 +993,7 @@ function HomePage({ user, navigate }) {
               }}>{tag}</button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* ── BOTTOM SHAPE ── */}
         <div style={{ position: "absolute", bottom: -2, left: "-1%", width: "102%", zIndex: 3, height: isMobile ? 40 : 82, overflow: "visible" }}>
@@ -899,11 +1028,11 @@ function HomePage({ user, navigate }) {
             },
           ].map((s, i) => (
             <div key={i} style={{
-              background: "#fff",
+              background: "var(--card-bg)",
               borderRadius: 22,
               overflow: "hidden",
               border: "1px solid var(--border)",
-              boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
+              boxShadow: "var(--shadow)",
               display: "flex",
               flexDirection: "column",
               height: isMobile ? "auto" : 260,
@@ -942,7 +1071,7 @@ function HomePage({ user, navigate }) {
                   width: "100%", height: 44,
                   zIndex: 2
                 }} preserveAspectRatio="none">
-                  <path fill="#fff" d="M0,192L80,181.3C160,171,320,149,480,160C640,171,800,213,960,213.3C1120,213,1280,171,1360,149.3L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+                  <path fill="var(--card-bg)" d="M0,192L80,181.3C160,171,320,149,480,160C640,171,800,213,960,213.3C1120,213,1280,171,1360,149.3L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
                 </svg>
 
                 {/* Floating Icon — positioned INSIDE the photo */}
@@ -958,7 +1087,7 @@ function HomePage({ user, navigate }) {
                   transform: "translateX(-50%)",
                   zIndex: 10,
                   boxShadow: `0 6px 18px ${s.color}66`,
-                  border: "3px solid #fff"
+                  border: "3px solid var(--card-bg)"
                 }}>
                   {s.icon}
                 </div>
@@ -1007,7 +1136,7 @@ function HomePage({ user, navigate }) {
             <div style={{ position: "absolute", top: -40, right: -60, opacity: 0.05, color: "var(--brand)", transform: "rotate(10deg)" }}>
               <Activity size={isMobile ? 100 : 180} />
             </div>
-            <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "var(--text-primary)" }}>{t("specialties_title")}</h2>
+            <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "var(--text-main)" }}>{t("specialties_title")}</h2>
             <button onClick={() => navigate("/search")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--brand)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>{t("view_all")} <ArrowLeft size={14} style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} /></button>
           </div>
 
@@ -1018,7 +1147,7 @@ function HomePage({ user, navigate }) {
                 onMouseEnter={() => setHoveredSpec(i)}
                 onMouseLeave={() => setHoveredSpec(null)}
                 style={{
-                  background: "#fff",
+                  background: "var(--card-bg)",
                   borderRadius: "var(--radius-lg)",
                   padding: isMobile ? "12px 10px" : "20px 18px",
                   display: "flex", alignItems: "center", gap: isMobile ? 8 : 14,
@@ -1041,20 +1170,20 @@ function HomePage({ user, navigate }) {
                   </div>
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ 
-                    fontSize: isMobile ? 12 : 14, 
-                    fontWeight: 700, 
-                    color: "var(--text-primary)",
+                  <div style={{
+                    fontSize: isMobile ? 12 : 14,
+                    fontWeight: 700,
+                    color: "var(--text-main)",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis"
                   }}>
                     {i18n.language === 'ar' ? s.namear : s.namefr}
                   </div>
-                  <div style={{ 
-                    fontSize: isMobile ? 10 : 12, 
-                    color: "var(--text-muted)", 
-                    fontWeight: 500, 
+                  <div style={{
+                    fontSize: isMobile ? 10 : 12,
+                    color: "var(--text-muted)",
+                    fontWeight: 500,
                     marginTop: 2,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -1074,7 +1203,7 @@ function HomePage({ user, navigate }) {
       <section style={{ background: "transparent", padding: "80px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", marginBottom: 80 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
           <div style={{ position: "relative" }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", marginBottom: 32 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-main)", marginBottom: 32 }}>
               {t("how_it_works")}
             </h2>
           </div>
@@ -1085,7 +1214,7 @@ function HomePage({ user, navigate }) {
                 title: t("search_doctor"),
                 desc: t("search_doctor_desc"),
                 icon: <Search size={26} />,
-                color: "#0891B2",
+                color: "var(--brand)",
                 img: `${import.meta.env.BASE_URL}SearchDoctor.png`
               },
               {
@@ -1093,7 +1222,7 @@ function HomePage({ user, navigate }) {
                 title: t("book_instantly"),
                 desc: t("book_instantly_desc"),
                 icon: <Calendar size={26} />,
-                color: "#0891B2",
+                color: "var(--brand)",
                 img: `${import.meta.env.BASE_URL}calender.png?v=3`
               },
               {
@@ -1101,13 +1230,13 @@ function HomePage({ user, navigate }) {
                 title: t("attend_consult"),
                 desc: t("attend_consult_desc"),
                 icon: <CheckCircle size={26} />,
-                color: "#0891B2",
+                color: "var(--brand)",
                 img: `${import.meta.env.BASE_URL}consultation.png`
               },
             ].map((s, i) => (
               <div key={i} style={{
                 width: '100%',
-                background: '#ffffff',
+                background: 'var(--card-bg)',
                 borderRadius: '24px',
                 minHeight: '130px',
                 boxShadow: '0 10px 40px rgba(0, 0, 0, 0.04)',
@@ -1116,7 +1245,7 @@ function HomePage({ user, navigate }) {
                 position: 'relative',
                 overflow: 'hidden',
                 direction: i18n.language === 'ar' ? 'rtl' : 'ltr',
-                border: '1px solid #f1f5f9'
+                border: '1px solid var(--border)'
               }}>
                 {/* CONTENT AREA */}
                 <div style={{
@@ -1154,7 +1283,7 @@ function HomePage({ user, navigate }) {
                     <div style={{
                       fontSize: '18px',
                       fontWeight: '850',
-                      color: '#1e293b',
+                      color: 'var(--text-main)',
                       marginBottom: '6px',
                       lineHeight: 1.2
                     }}>
@@ -1162,7 +1291,7 @@ function HomePage({ user, navigate }) {
                     </div>
                     <div style={{
                       fontSize: '13px',
-                      color: '#64748b',
+                      color: 'var(--text-secondary)',
                       lineHeight: '1.5',
                       fontWeight: 500
                     }}>
@@ -1254,7 +1383,7 @@ function HomePage({ user, navigate }) {
             width: isMobile ? "100%" : "auto"
           }}>
             <button onClick={() => navigate("/register-doctor")} style={{
-              background: "#fff", border: "none",
+              background: "var(--card-bg)", border: "none",
               borderRadius: 10, padding: "12px 28px",
               color: "var(--brand)", fontSize: 14, fontWeight: 800,
               transition: "all 0.2s", cursor: "pointer",
@@ -1285,7 +1414,7 @@ function HomePage({ user, navigate }) {
       </div>
 
 
-    </div>
+    </motion.div>
   );
 }
 
@@ -1301,14 +1430,14 @@ function LoginPage({ onLogin, navigate }) {
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
     analytics.track("login_attempt", { username: form.username });
-    try { 
-      await onLogin(form.username, form.password); 
+    try {
+      await onLogin(form.username, form.password);
       analytics.track("login_success", { username: form.username });
-      navigate("/"); 
+      navigate("/");
     }
-    catch (e) { 
+    catch (e) {
       analytics.track("login_failed", { username: form.username, error: e.message });
-      setError(e.message); 
+      setError(e.message);
     }
     finally { setL(false); }
   };
@@ -1335,7 +1464,7 @@ function LoginPage({ onLogin, navigate }) {
             </Btn>
           </form>
           <p style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "#6b7280" }}>
-            {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "#0891b2", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
+            {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
           </p>
         </Card>
       </div>
@@ -1356,14 +1485,14 @@ function RegisterPage({ onRegister, navigate }) {
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
     analytics.track("register_attempt", { username: form.username, email: form.email });
-    try { 
-      await onRegister(form); 
+    try {
+      await onRegister(form);
       analytics.track("register_success", { username: form.username, email: form.email });
-      navigate("/"); 
+      navigate("/");
     }
-    catch (e) { 
+    catch (e) {
       analytics.track("register_failed", { username: form.username, error: e.message });
-      setError(e.message); 
+      setError(e.message);
     }
     finally { setL(false); }
   };
@@ -1402,7 +1531,7 @@ function RegisterPage({ onRegister, navigate }) {
             </Btn>
           </form>
           <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "#6b7280" }}>
-            {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "#0891b2", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login_btn")}</button>
+            {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login_btn")}</button>
           </p>
         </Card>
       </div>
@@ -1444,9 +1573,9 @@ function SearchPage({ navigate, qs, user }) {
       const d = await api.clinics.search({ q: qv, specialty: spv, wilaya_id: wiv, limit: 24 });
       setR(d.items || []); setT(d.total || 0);
       analytics.track("search_results", { count: (d.items || []).length, total: d.total });
-    } catch (e) { 
+    } catch (e) {
       analytics.track("search_failed", { error: e.message });
-      show(e.message, "error"); setR([]); 
+      show(e.message, "error"); setR([]);
     }
     finally { setL(false); }
   }, [show]);
@@ -1517,7 +1646,7 @@ function SearchPage({ navigate, qs, user }) {
                   onClick={() => isDoctor ? navigate(`/doctor/${r.doctor_id}`) : navigate(`/clinic/${r.clinicid}`)}
                   className={filteredResults.indexOf(r) === 0 && isDoctor ? "doctor-card" : ""}
                   style={{
-                    background: "#fff",
+                    background: "var(--card-bg)",
                     borderRadius: 22,
                     border: "1px solid var(--border)",
                     borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid #6366f1",
@@ -1525,14 +1654,14 @@ function SearchPage({ navigate, qs, user }) {
                     transition: "0.3s",
                     display: "flex",
                     flexDirection: "column",
-                    boxShadow: "rgba(0, 0, 0, 0.03) 0px 2px 10px",
+                    boxShadow: "var(--shadow)",
                     transform: "translateY(0px)",
                     position: "relative",
                     overflow: "hidden"
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.boxShadow = `0 6px 20px ${isDoctor ? "rgba(8,145,178,0.12)" : "rgba(99,102,241,0.12)"}`;
-                    e.currentTarget.style.borderColor = isDoctor ? "#0891b2" : "#6366f1";
+                    e.currentTarget.style.borderColor = isDoctor ? "var(--brand)" : "#6366f1";
                     e.currentTarget.style.transform = "translateY(-3px)";
                   }}
                   onMouseLeave={e => {
@@ -1560,10 +1689,10 @@ function SearchPage({ navigate, qs, user }) {
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 17, color: "#0c4a6e", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 17, color: "var(--heading-color)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {name}
                           </div>
-                          <Badge color={isDoctor ? "#0891b2" : "#8b5cf6"}>
+                          <Badge color={isDoctor ? "var(--brand)" : "#8b5cf6"}>
                             {specialty}
                           </Badge>
                         </div>
@@ -1571,7 +1700,7 @@ function SearchPage({ navigate, qs, user }) {
                           {filteredResults.indexOf(r) === 0 && isDoctor && (
                             <Badge color="#f59e0b">✨ {i18n.language === 'ar' ? "موصى به" : "Recommandé"}</Badge>
                           )}
-                          <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
+                          <Badge color={isDoctor ? "var(--brand)" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
                             {isDoctor ? t("doctor") : (
                               +r.typeclinic === 0 ? t("type_0", "Médecin") :
                                 +r.typeclinic === 1 ? t("type_1", "Clinique") :
@@ -1583,7 +1712,7 @@ function SearchPage({ navigate, qs, user }) {
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ fontSize: 13, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
                           {isDoctor ? <Building size={14} color="#64748b" /> : <Phone size={14} color="#6366f1" />}
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: isDoctor ? 400 : 600 }}>
                             {isDoctor ? r.clinicname : (phone || t("no_phone") || "N/A")}
@@ -1591,13 +1720,13 @@ function SearchPage({ navigate, qs, user }) {
                         </div>
 
                         {!isDoctor ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "#f5f3ff", padding: "8px 10px", borderRadius: 12, border: "1px solid #ede9fe" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--brand-light)", padding: "8px 10px", borderRadius: 12, border: "1px solid var(--border)" }}>
                             {email && (
-                              <div style={{ fontSize: 11, color: "#4b5563", display: "flex", alignItems: "center", gap: 6 }}>
+                              <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
                                 <Mail size={12} color="#6366f1" /> {email}
                               </div>
                             )}
-                            <div style={{ fontSize: 11, color: "#4b5563", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                            <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "flex-start", gap: 6 }}>
                               <MapPin size={12} color="#6366f1" style={{ marginTop: 2, flexShrink: 0 }} />
                               <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
                                 {address || t("no_address")}
@@ -1882,7 +2011,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
               <div key={d.doctor_id}
                 onClick={() => navigate(`/clinic/${clinicid}/doctor/${d.doctor_id}`)}
                 style={{
-                  background: "#fff", borderRadius: 22, padding: 20, border: "1.5px solid var(--border)", cursor: "pointer",
+                  background: "var(--card-bg)", borderRadius: 22, padding: 20, border: "1.5px solid var(--border)", cursor: "pointer",
                   transition: "all 0.3s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 15px rgba(0,0,0,0.03)"
                 }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.08)"; }}
@@ -1959,8 +2088,8 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {clinic.services ? clinic.services.split(',').map((s, i) => (
               <div key={i} style={{
-                background: "#fff", borderRadius: 16, padding: "20px 24px",
-                border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", gap: 16,
+                background: "var(--card-bg)", borderRadius: 16, padding: "20px 24px",
+                border: "1.5px solid var(--border)", display: "flex", alignItems: "center", gap: 16,
                 boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)", transition: "all 0.2s"
               }} onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 15px rgba(0,0,0,0.05)"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.02)"; }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #f0fdfa, #ccfbf1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d9488" }}>
@@ -2050,7 +2179,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
         setData(d);
         setR(r);
         analytics.track("doctor_viewed", { doctor_id, doctor_name: d.fullname || d.doctorname });
-        
+
         if (rel) setRelStatus(rel.status);
 
         if (!selectedClinicId && d.OtherClinics?.length === 1) {
@@ -2076,9 +2205,9 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
       const r = await api.ratings.getForDoctor(doctor_id);
       setR(r); setMR(0); setMC("");
       show(t("rating_added_success"));
-    } catch (e) { 
+    } catch (e) {
       analytics.track("rating_submitted_failed", { doctor_id, error: e.message });
-      show(e.message, "error"); 
+      show(e.message, "error");
     }
     finally { setSav(false); }
   };
@@ -2096,7 +2225,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
-      <button onClick={() => navigate("/search")} style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 5, fontSize: 14 }}>
+      <button onClick={() => navigate("/search")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--brand)", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 5, fontSize: 14 }}>
         {i18n.language === 'ar' ? "←" : "→"} {t("back_to_search")}
       </button>
 
@@ -2106,15 +2235,15 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
           <DoctorImage photo={data.photoprofile} size={isMobile ? 140 : 200} borderRadius={isMobile ? 24 : 32} />
           <div style={{ flex: 1, minWidth: 180, textAlign: isMobile ? "center" : (i18n.language === 'ar' ? "right" : "left") }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, justifyContent: isMobile ? "center" : "flex-start" }}>
-              <Badge color="#0891b2">{i18n.language === 'ar' ? data.specialtyar : data.specialtyfr}</Badge>
+              <Badge color="var(--brand)">{i18n.language === 'ar' ? data.specialtyar : data.specialtyfr}</Badge>
               {data.degrees && <Badge color="#7c3aed">{data.degrees}</Badge>}
               {+data.Cnas === 1 && <Badge color="#059669"><Check size={12} style={{ marginLeft: 4 }} /> CNAS</Badge>}
-              {+data.casnos === 1 && <Badge color="#0891b2"><Check size={12} style={{ marginLeft: 4 }} /> casnos</Badge>}
+              {+data.casnos === 1 && <Badge color="var(--brand)"><Check size={12} style={{ marginLeft: 4 }} /> casnos</Badge>}
             </div>
             <h1 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 900, color: "#0c4a6e", margin: "0 0 8px" }}>{data.fullname}</h1>
 
             {selectedClinicId ? (
-              <div style={{ fontSize: 13, color: "#0891b2", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 6, justifyContent: isMobile ? "center" : "flex-start" }}>
+              <div style={{ fontSize: 13, color: "var(--brand)", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 6, justifyContent: isMobile ? "center" : "flex-start" }}>
                 <Building2 size={16} /> {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
                 {data.OtherClinics?.length > 1 && (
                   <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
@@ -2129,7 +2258,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
             )}
 
             <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 6, justifyContent: isMobile ? "center" : "flex-start" }}>
-              <MapPin size={14} style={{ marginTop: 2, flexShrink: 0, color: "#0891b2" }} />
+              <MapPin size={14} style={{ marginTop: 2, flexShrink: 0, color: "var(--brand)" }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 {data.BaladiyaName && <div style={{ fontWeight: 600, color: "#374151" }}>{data.BaladiyaName}</div>}
                 {(data.address || data.ClinicAddress) && <div>{data.address || data.ClinicAddress}</div>}
@@ -2202,8 +2331,8 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
         ].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "9px 18px", background: "none", border: "none", cursor: "pointer",
-            fontWeight: 700, fontSize: 13, color: tab === k ? "#0891b2" : "#6b7280",
-            borderBottom: tab === k ? "3px solid #0891b2" : "3px solid transparent",
+            fontWeight: 700, fontSize: 13, color: tab === k ? "var(--brand)" : "#6b7280",
+            borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent",
             marginBottom: -2, transition: "all 0.15s"
           }}>{l}</button>
         ))}
@@ -2267,7 +2396,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                 }}
                 style={{
                   background: isSelected ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
-                  borderRadius: 20, padding: 16, border: isSelected ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                  borderRadius: 20, padding: 16, border: isSelected ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
                   cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16,
                   boxShadow: isSelected ? "0 8px 24px rgba(8,145,178,0.15)" : "0 4px 12px rgba(0,0,0,0.03)",
                   transform: isSelected ? "scale(1.02)" : "none"
@@ -2282,7 +2411,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 2 }}>{c.clinicname}</div>
                   <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}><MapPin size={12} /> {c.address}</div>
                 </div>
-                {isSelected ? <CheckCircle size={22} color="#0891b2" /> : <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />}
+                {isSelected ? <CheckCircle size={22} color="var(--brand)" /> : <ArrowLeft size={18} color="var(--border)" style={{ transform: i18n.language === 'ar' ? 'none' : 'rotate(180deg)' }} />}
               </div>
             );
           })}
@@ -2319,33 +2448,33 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   <div key={i} style={{
                     padding: "12px", borderRadius: 12, textAlign: "center",
                     background: d.works ? "#ecfeff" : "#f9fafb",
-                    border: `1.5px solid ${d.works ? "#0891b2" : "var(--border)"}`,
+                    border: `1.5px solid ${d.works ? "var(--brand)" : "var(--border)"}`,
                     opacity: d.works ? 1 : 0.6,
                     transition: "all 0.2s"
                   }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: d.works ? "#0891b2" : "#9ca3af", marginBottom: 4 }}>{d.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: d.works ? "var(--brand)" : "#9ca3af", marginBottom: 4 }}>{d.name}</div>
                     <div style={{ fontSize: 11, color: d.works ? "#0e7490" : "#d1d5db" }}>{d.works ? t("available") : t("not_available")}</div>
                   </div>
                 ));
               })()}
             </div>
-            <div style={{ background: "#fff", borderRadius: 12, padding: "16px", border: "1px dashed var(--border)" }}>
+            <div style={{ background: "var(--card-bg)", borderRadius: 12, padding: "16px", border: "1px dashed var(--border)" }}>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Clock size={18} color="#0891b2" />
+                  <Clock size={18} color="var(--brand)" />
                   <span style={{ fontSize: 14, color: "#334155" }}>
                     <strong>{t("from")}:</strong> {(data.Schedule.daytimestart || "").match(/\d{2}:\d{2}/)?.[0] || "08:00"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <History size={18} color="#0891b2" />
+                  <History size={18} color="var(--brand)" />
                   <span style={{ fontSize: 14, color: "#334155" }}>
                     <strong>{t("to")}:</strong> {(data.Schedule.daytimeend || "").match(/\d{2}:\d{2}/)?.[0] || "17:00"}
                   </span>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Activity size={18} color="#0891b2" />
+                  <Activity size={18} color="var(--brand)" />
                   <span style={{ fontSize: 14, color: "#334155" }}>
                     <strong>{t("appointment_duration")}:</strong> {data.Schedule.timescale} {t("minutes")}
                   </span>
@@ -2370,7 +2499,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
         <div>
           {ratings && (
             <Card style={{ marginBottom: 16, textAlign: "center", padding: "20px" }}>
-              <div style={{ fontSize: 44, fontWeight: 900, color: "#0891b2" }}>{ratings.average}</div>
+              <div style={{ fontSize: 44, fontWeight: 900, color: "var(--brand)" }}>{ratings.average}</div>
               <Stars rating={Math.round(ratings.average)} size={22} />
               <div style={{ color: "#6b7280", marginTop: 6, fontSize: 13 }}>{t("based_on")} {ratings.total} {t("reviews")}</div>
             </Card>
@@ -2515,9 +2644,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       await api.appointments.book(body);
       analytics.track("booking_completed", { doctor_id, clinic_id: selectedClinicId, date });
       setStep(7);
-    } catch (e) { 
+    } catch (e) {
       analytics.track("booking_failed", { error: e.message, doctor_id, clinic_id: selectedClinicId });
-      show(e.message, "error"); 
+      show(e.message, "error");
     }
     finally { setL(false); }
   };
@@ -2596,7 +2725,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               background: (step > s.n || (step === 6 && s.n === 6))
                 ? `linear-gradient(to ${i18n.language === 'ar' ? 'right' : 'left'}, #059669, #10b981)`
                 : step === s.n
-                  ? `linear-gradient(to ${i18n.language === 'ar' ? 'right' : 'left'}, #0891b2 60%, var(--border) 100%)`
+                  ? `linear-gradient(to ${i18n.language === 'ar' ? 'right' : 'left'}, var(--brand) 60%, var(--border) 100%)`
                   : "var(--border)"
             }} />
           )}
@@ -2606,7 +2735,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             fontWeight: 900, fontSize: step > s.n ? 16 : 14,
             transition: "all 0.35s",
             background: (step > s.n || (step === 6 && s.n === 6)) ? "linear-gradient(135deg,#059669,#10b981)"
-              : step === s.n ? "linear-gradient(135deg,#0891b2,#0e7490)"
+              : step === s.n ? "linear-gradient(135deg,var(--brand),#0e7490)"
                 : "var(--border)",
             color: (step >= s.n) ? "#fff" : "#9ca3af",
             boxShadow: step === s.n ? "0 4px 16px rgba(8,145,178,0.4)"
@@ -2617,7 +2746,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </div>
           <div style={{
             fontSize: isMobile ? 9 : 10, fontWeight: 700, marginTop: 6, whiteSpace: "nowrap",
-            color: step > s.n ? "#059669" : step === s.n ? "#0891b2" : "#9ca3af",
+            color: step > s.n ? "#059669" : step === s.n ? "var(--brand)" : "#9ca3af",
             display: isMobile && step !== s.n ? "none" : "block"
           }}>
             {s.label}
@@ -2630,7 +2759,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   // ─── Doctor mini header ─────────────────────────────────────
   const DoctorBanner = () => (docInfo && step < 7) && (
     <div style={{
-      background: "linear-gradient(135deg,#0c4a6e,#0891b2,#06b6d4)",
+      background: "linear-gradient(135deg,#0c4a6e,var(--brand),#06b6d4)",
       borderRadius: 16, padding: "16px 22px", marginBottom: 24,
       display: "flex", alignItems: "center", gap: 14, color: "#fff"
     }}>
@@ -2651,7 +2780,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 20px" }}>
       {/* Back button */}
       <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
-        style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--brand)", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
         {i18n.language === 'ar' ? "←" : "→"} {t("back_to_doctor")}
       </button>
 
@@ -2689,18 +2818,18 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 <div key={i} onClick={() => setSelPatient(p)}
                   style={{
                     padding: "14px 18px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s",
-                    border: sel ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                    border: sel ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
                     background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
                     display: "flex", alignItems: "center", gap: 14,
                     boxShadow: sel ? "0 4px 18px rgba(8,145,178,0.14)" : "none",
                     transform: sel ? "scale(1.01)" : "scale(1)"
                   }}
-                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdff"; } }}
+                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.background = "#f0fdff"; } }}
                   onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
                 >
                   <div style={{
                     width: 46, height: 46, borderRadius: "50%", flexShrink: 0, fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#f3f4f6,var(--border))"
+                    background: sel ? "linear-gradient(135deg,var(--brand),#0e7490)" : "linear-gradient(135deg,#f3f4f6,var(--border))"
                   }}>
                     {p.isSelf ? <User size={22} color={sel ? "#fff" : "#9ca3af"} /> : (p.gender === 1 ? <User size={22} color={sel ? "#fff" : "#9ca3af"} /> : <User size={22} color={sel ? "#fff" : "#9ca3af"} />)}
                   </div>
@@ -2712,7 +2841,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                   </div>
                   <div style={{
                     width: 24, height: 24, borderRadius: "50%", transition: "all 0.2s",
-                    background: sel ? "#0891b2" : "var(--border)",
+                    background: sel ? "var(--brand)" : "var(--border)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     color: "#fff", fontSize: 13, fontWeight: 900
                   }}>{sel ? <Check size={14} /> : ""}</div>
@@ -2751,17 +2880,17 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                   <div key={r.id} onClick={() => setReason(sel ? null : r)}
                     style={{
                       padding: "14px 16px", borderRadius: 11, cursor: "pointer", transition: "all 0.2s",
-                      border: sel ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                      border: sel ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
                       background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
                       boxShadow: sel ? "0 4px 14px rgba(8,145,178,0.14)" : "none",
                       transform: sel ? "scale(1.02)" : "scale(1)"
                     }}
-                    onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdff"; } }}
+                    onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.background = "#f0fdff"; } }}
                     onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontWeight: 700, color: sel ? "#0c4a6e" : "#374151", fontSize: 14 }}>{r.reason_name}</div>
-                      {sel && <span style={{ color: "#0891b2", fontSize: 16, fontWeight: 900 }}>✓</span>}
+                      {sel && <span style={{ color: "var(--brand)", fontSize: 16, fontWeight: 900 }}>✓</span>}
                     </div>
                     {+r.reason_time > 0 && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 5, display: "flex", alignItems: "center", gap: 5 }}><Clock size={11} /> {r.reason_time} {t("minutes")}</div>}
                   </div>
@@ -2801,17 +2930,17 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 <div key={i} onClick={() => handleClinicSelect(c.id)}
                   style={{
                     padding: "16px 18px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s",
-                    border: sel ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                    border: sel ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
                     background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
                     display: "flex", alignItems: "flex-start", gap: 14,
                     boxShadow: sel ? "0 4px 18px rgba(8,145,178,0.14)" : "none",
                     transform: sel ? "scale(1.01)" : "scale(1)"
                   }}
-                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#f0fdff"; } }}
+                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.background = "#f0fdff"; } }}
                   onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
                 >
                   <div style={{
-                    width: 44, height: 44, borderRadius: 12, background: sel ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                    width: 44, height: 44, borderRadius: 12, background: sel ? "linear-gradient(135deg,var(--brand),#0e7490)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
                   }}>
                     <Building2 size={24} color={sel ? "#fff" : "var(--brand)"} />
                   </div>
@@ -2821,7 +2950,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                     {c.phone && <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}><Phone size={12} />{c.phone}</div>}
                   </div>
                   <div style={{
-                    width: 24, height: 24, borderRadius: "50%", background: sel ? "#0891b2" : "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 900, flexShrink: 0
+                    width: 24, height: 24, borderRadius: "50%", background: sel ? "var(--brand)" : "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 900, flexShrink: 0
                   }}>{sel ? <Check size={14} /> : ""}</div>
                 </div>
               );
@@ -2869,16 +2998,16 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                   <div key={d.full} onClick={() => { setDate(d.full); fetchSlots(d.full); }}
                     style={{
                       flexShrink: 0, width: 80, padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
-                      border: sel ? "2.5px solid #0891b2" : "1.5px solid var(--border)",
+                      border: sel ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
                       background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
                       transition: "all 0.2s",
                       boxShadow: sel ? "0 4px 12px rgba(8,145,178,0.15)" : "none",
                       transform: sel ? "translateY(-2px)" : "none"
                     }}
                   >
-                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "#0891b2" : "#9ca3af", marginBottom: 4 }}>{d.weekday}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "var(--brand)" : "#9ca3af", marginBottom: 4 }}>{d.weekday}</div>
                     <div style={{ fontSize: 18, fontWeight: 900, color: sel ? "#0c4a6e" : "#374151" }}>{d.day}</div>
-                    <div style={{ fontSize: 11, color: sel ? "#0891b2" : "#9ca3af" }}>{d.month}</div>
+                    <div style={{ fontSize: 11, color: sel ? "var(--brand)" : "#9ca3af" }}>{d.month}</div>
                   </div>
                 );
               })}
@@ -2902,8 +3031,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                         style={{
                           padding: "10px 4px", borderRadius: 10, textAlign: "center", cursor: "pointer",
                           fontWeight: 700, fontSize: 13, transition: "all 0.18s",
-                          border: selSlot === s ? "2px solid #0891b2" : "1.5px solid var(--border)",
-                          background: selSlot === s ? "linear-gradient(135deg,#0891b2,#0e7490)" : "#fff",
+                          border: selSlot === s ? "2px solid var(--brand)" : "1.5px solid var(--border)",
+                          background: selSlot === s ? "linear-gradient(135deg,var(--brand),#0e7490)" : "#fff",
                           color: selSlot === s ? "#fff" : "#374151",
                           boxShadow: selSlot === s ? "0 4px 14px rgba(8,145,178,0.3)" : "none",
                           transform: selSlot === s ? "scale(1.06)" : "scale(1)"
@@ -3060,14 +3189,14 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             <span>{t("confirmation_email_msg")}</span>
           </div>
 
-          <div style={{ background: "#fff", border: "1.5px solid var(--border)", borderRadius: 14, padding: "20px", marginBottom: 22 }}>
+          <div style={{ background: "var(--card-bg)", border: "1.5px solid var(--border)", borderRadius: 14, padding: "20px", marginBottom: 22 }}>
             <h3 style={{ fontSize: 14, fontWeight: 900, color: "#0c4a6e", marginTop: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><FileText size={16} /> {t("privacy_title")}</h3>
             <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.6, maxHeight: 100, overflowY: "auto", paddingRight: 10, marginBottom: 15, textAlign: "justify" }}>
               {t("privacy_desc")}
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
-                style={{ width: 18, height: 18, accentColor: "#0891b2", cursor: "pointer" }} />
+                style={{ width: 18, height: 18, accentColor: "var(--brand)", cursor: "pointer" }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: agreed ? "#0c4a6e" : "#64748b" }}>{t("privacy_agree")}</span>
             </label>
           </div>
@@ -3110,7 +3239,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, justifyContent: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Calendar size={16} color="#6b7280" />
-                <span>{t("day")} <strong style={{ color: "#0891b2" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "#0891b2" }}>{selSlot}</strong></span>
+                <span>{t("day")} <strong style={{ color: "var(--brand)" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "var(--brand)" }}>{selSlot}</strong></span>
               </div>
               <GoogleCalendarButton
                 appointment={{
@@ -3220,9 +3349,9 @@ function AppointmentsPage({ navigate, user }) {
           <button key={v} onClick={() => setFilter(v)} style={{
             padding: "7px 16px", borderRadius: 20, border: "1.5px solid",
             fontWeight: 700, fontSize: 13, cursor: "pointer",
-            borderColor: filter === v ? "#0891b2" : "var(--border)",
+            borderColor: filter === v ? "var(--brand)" : "var(--border)",
             background: filter === v ? "#ecfeff" : "var(--bg)",
-            color: filter === v ? "#0891b2" : "#6b7280"
+            color: filter === v ? "var(--brand)" : "#6b7280"
           }}>{l} ({cnt(v)})</button>
         ))}
       </div>
@@ -3481,7 +3610,7 @@ function RegisterClinicPage({ navigate }) {
 
   if (done) return (
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+      <div style={{ background: 'var(--card-bg)', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
         <div className={isAnimating ? "random-flip" : ""} style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <CheckCircle size={40} color="#fff" />
         </div>
@@ -3603,7 +3732,7 @@ function RegisterDoctorPage({ navigate }) {
 
   if (done) return (
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+      <div style={{ background: 'var(--card-bg)', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
         <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <CheckCircle size={40} color="#fff" />
         </div>
@@ -3719,7 +3848,7 @@ function AdminDashboardPage({ navigate, user }) {
 
   // ── Stat Card
   const StatCard = ({ label, value, icon, color, bg }) => (
-    <div style={{ background: '#fff', borderRadius: 18, padding: '20px 24px', border: '1px solid #f0f0f0', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '20px 24px', border: '1px solid var(--border)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
       <div style={{ width: 52, height: 52, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
         {icon}
       </div>
@@ -3749,7 +3878,7 @@ function AdminDashboardPage({ navigate, user }) {
       {/* Reject Modal */}
       {rejectModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 440, width: '100%' }}>
+          <div style={{ background: 'var(--card-bg)', borderRadius: 20, padding: 32, maxWidth: 440, width: '100%' }}>
             <h3 style={{ margin: '0 0 16px', color: '#0c4a6e', fontWeight: 900 }}>سبب الرفض (اختياري)</h3>
             <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
               placeholder="أدخل سبب الرفض للإشعار..." style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }} />
@@ -3762,7 +3891,7 @@ function AdminDashboardPage({ navigate, user }) {
       )}
 
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg,#0c4a6e,#0891b2)', borderRadius: 20, padding: isMobile ? '20px 18px' : '28px 32px', marginBottom: 24, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: 'linear-gradient(135deg,#0c4a6e,var(--brand))', borderRadius: 20, padding: isMobile ? '20px 18px' : '28px 32px', marginBottom: 24, color: '#fff', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -3797,12 +3926,12 @@ function AdminDashboardPage({ navigate, user }) {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
                 <StatCard label="إجمالي العيادات" value={stats.total_clinics} icon={<Building size={22} />} color="#7c3aed" bg="#f5f3ff" />
-                <StatCard label="إجمالي الأطباء" value={stats.total_doctors} icon={<Stethoscope size={22} />} color="#0891b2" bg="#ecfeff" />
+                <StatCard label="إجمالي الأطباء" value={stats.total_doctors} icon={<Stethoscope size={22} />} color="var(--brand)" bg="#ecfeff" />
                 <StatCard label="إجمالي المرضى" value={stats.total_patients} icon={<Users size={22} />} color="#059669" bg="#f0fdf4" />
                 <StatCard label="إجمالي المواعيد" value={stats.total_appointments} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 14, marginBottom: 24 }}>
-                <StatCard label="مواعيد اليوم" value={stats.today_appointments} icon={<Clock size={22} />} color="#0891b2" bg="#ecfeff" />
+                <StatCard label="مواعيد اليوم" value={stats.today_appointments} icon={<Clock size={22} />} color="var(--brand)" bg="#ecfeff" />
                 <StatCard label="مواعيد هذا الشهر" value={stats.month_appointments} icon={<Activity size={22} />} color="#7c3aed" bg="#f5f3ff" />
                 <div style={{ display: 'grid', gap: 14 }}>
                   <div onClick={() => { setTab('clinics'); setSubTab('PENDING'); }}
@@ -3855,7 +3984,7 @@ function AdminDashboardPage({ navigate, user }) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {items.map(item => (
-                  <div key={item.id} style={{ background: '#fff', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid #f0f0f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                  <div key={item.id} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -3996,7 +4125,7 @@ function Law1807Page({ navigate }) {
         {isAr ? "← العودة إلى الخصوصية" : "← Retour à la confidentialité"}
       </button>
 
-      <div style={{ background: "linear-gradient(135deg, #0c4a6e, #0891b2)", borderRadius: 24, padding: "40px", color: "#fff", marginBottom: 32, boxShadow: "0 10px 30px rgba(8,145,178,0.15)", position: "relative", overflow: "hidden" }}>
+      <div style={{ background: "linear-gradient(135deg, #0c4a6e, var(--brand))", borderRadius: 24, padding: "40px", color: "#fff", marginBottom: 32, boxShadow: "0 10px 30px rgba(8,145,178,0.15)", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -20, right: -20, width: 150, height: 150, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
         <div style={{ position: "relative", zIndex: 1 }}>
           <div style={{ display: "inline-block", background: "rgba(255,255,255,0.15)", padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 800, marginBottom: 16, textTransform: "uppercase", letterSpacing: 1 }}>
@@ -4025,7 +4154,7 @@ function Law1807Page({ navigate }) {
         ))}
       </div>
 
-      <div style={{ background: "#fff", border: "1.5px dashed var(--border)", borderRadius: 20, padding: "30px", textAlign: "center" }}>
+      <div style={{ background: "var(--card-bg)", border: "1.5px dashed var(--border)", borderRadius: 20, padding: "30px", textAlign: "center" }}>
         <h4 style={{ margin: "0 0 8px", color: "#0c4a6e", fontWeight: 800 }}>{isAr ? "للاطلاع على النص الرسمي والمراجع المحدثة:" : "Pour consulter le texte officiel et les références :"}</h4>
         <div style={{ marginBottom: 20 }}>
           <a href="https://anpdp.dz/ar/storage/2025/08/18-07-Edited.pdf" target="_blank" rel="noopener noreferrer" style={{ fontSize: 18, fontWeight: 900, color: "var(--brand)", textDecoration: "none" }}>
@@ -4370,7 +4499,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
 
       <div ref={scrollRef} style={{
         flex: 1, overflowY: "auto", padding: "24px",
-        background: "#ffffff", // Messenger iconic chat background
+        background: "var(--card-bg)", // Messenger iconic chat background
         borderRadius: 24, border: "1px solid var(--border)",
         display: "flex", flexDirection: "column", marginBottom: 20,
         boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
@@ -4396,8 +4525,8 @@ function TicketConversationPage({ ticketId, navigate, user }) {
               borderRadius: 20,
               borderTopRightRadius: (isMe && isRTL) || (!isMe && !isRTL) ? 20 : (isFirstInGroup ? 4 : 20),
               borderTopLeftRadius: (!isMe && isRTL) || (isMe && !isRTL) ? 20 : (isFirstInGroup ? 4 : 20),
-              background: isMe ? "linear-gradient(135deg, var(--brand), #0e7490)" : "#f0f9ff",
-              color: isMe ? "#ffffff" : "#0c4a6e",
+              background: isMe ? "linear-gradient(135deg, var(--brand), var(--brand-dark))" : "var(--bg)",
+              color: isMe ? "#ffffff" : "var(--text-main)",
               boxShadow: "none",
               position: "relative",
               marginBottom: isLastInGroup ? 12 : 2,
@@ -4430,7 +4559,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
 
       {ticket.status !== 'CLOSED' ? (
         <form onSubmit={onSend} style={{
-          display: "flex", gap: 12, background: "#fff", padding: "12px 16px",
+          display: "flex", gap: 12, background: "var(--card-bg)", padding: "12px 16px",
           borderRadius: 24, border: "1px solid var(--border)", boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
           alignItems: "center"
         }}>
@@ -4605,7 +4734,7 @@ function ProfilePage({ user, navigate }) {
       <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 28 }}>
         <div
           onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
-          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,#0891b2,#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
+          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,var(--brand),#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
           {uploadingPhoto ? <Spinner size={24} /> : (
             (form.photoprofile || form.logo) ? (
               <img src={`data:image/jpeg;base64,${form.photoprofile || form.logo}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -4745,7 +4874,7 @@ function ProfilePage({ user, navigate }) {
           <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
                   <Users size={22} />
                 </div>
                 <div>
@@ -4852,7 +4981,7 @@ function ChatPage({ user }) {
       <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}><MessageSquare size={24} /> {t("chat_title")}</h1>
       <div style={{ display: isMobile ? "flex" : "grid", flexDirection: isMobile ? "column" : "row", gridTemplateColumns: isMobile ? "none" : "280px 1fr", gap: 14, height: isMobile ? "auto" : 580 }}>
         {/* Threads */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden", display: "flex", flexDirection: "column", height: isMobile ? 180 : "auto" }}>
+        <div style={{ background: "var(--card-bg)", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden", display: "flex", flexDirection: "column", height: isMobile ? 180 : "auto" }}>
           <div style={{ padding: "14px 16px", borderBottom: "1px solid #f3f4f6", fontWeight: 800, color: "#374151", fontSize: 13 }}>
             {t("conversations")} ({threads.length})
           </div>
@@ -4878,7 +5007,7 @@ function ChatPage({ user }) {
           </div>
         </div>
         {/* messages */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", height: isMobile ? 480 : "auto" }}>
+        <div style={{ background: "var(--card-bg)", borderRadius: 14, border: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", height: isMobile ? 480 : "auto" }}>
           {sel ? (
             <>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid #f3f4f6", fontWeight: 800, color: "#0c4a6e", display: "flex", alignItems: "center", gap: 8 }}>
@@ -4893,7 +5022,7 @@ function ChatPage({ user }) {
                   <div key={m.id} style={{ display: "flex", justifyContent: m.IsDoctor ? "flex-start" : "flex-end" }}>
                     <div style={{
                       maxWidth: "72%", padding: "9px 13px", borderRadius: 12, fontSize: 13, lineHeight: 1.5,
-                      background: m.IsDoctor ? "#f3f4f6" : "linear-gradient(135deg,#0891b2,#0e7490)",
+                      background: m.IsDoctor ? "#f3f4f6" : "linear-gradient(135deg,var(--brand),#0e7490)",
                       color: m.IsDoctor ? "#374151" : "#fff",
                       borderBottomRightRadius: !m.IsDoctor ? 3 : 12,
                       borderBottomLeftRadius: m.IsDoctor ? 3 : 12,
@@ -4980,7 +5109,7 @@ function Footer({ navigate }) {
   const isMobile = useIsMobile();
   return (
     <footer style={{
-      background: "#fff",
+      background: "var(--card-bg)",
       borderTop: "1px solid var(--border)",
       position: isMobile ? "relative" : "fixed",
       bottom: 0,
@@ -5208,7 +5337,7 @@ function FamilyPage({ navigate, user }) {
             </Card>
           ))}
           {!loading && members.length === 0 && (
-            <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 16, border: "1.5px dashed var(--border)", color: "#94a3b8", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: 40, background: "var(--card-bg)", borderRadius: 16, border: "1.5px dashed var(--border)", color: "#94a3b8", fontSize: 13 }}>
               {t("no_family_members") || "لم يتم إضافة أي أفراد عائلة بعد."}
             </div>
           )}
@@ -5225,6 +5354,14 @@ function MainApp() {
   const { route, qs, navigate } = useRoute();
   const { user, loading, login, register, logout } = useAuth();
   const [showExitModal, setShowExitModal] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("tabibi_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === "light" ? "dark" : "light");
 
   useEffect(() => {
     document.documentElement.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
@@ -5402,7 +5539,7 @@ function MainApp() {
           ::-webkit-scrollbar-track { background:#f3f4f6; }
           ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
         `}</style>
-      <Navbar user={user} navigate={navigate} onLogout={logout} />
+      <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} />
       <BackgroundDecoration />
       <div style={{ flex: 1, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {renderPage()}
@@ -5418,3 +5555,6 @@ function MainApp() {
     </div>
   );
 }
+
+
+

@@ -32,7 +32,8 @@ export default function SearchPage({ navigate, qs }) {
   useEffect(() => { doSearch(q, sp); }, [sp]);
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", direction: i18n.language === 'ar' ? 'rtl' : 'ltr', padding: "28px 24px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", marginBottom: 6 }}>{t("search_title")}</h1>
       <p style={{ color: "#6b7280", marginBottom: 20, fontSize: 13 }}>{t("search_subtitle")}</p>
 
@@ -41,10 +42,10 @@ export default function SearchPage({ navigate, qs }) {
           <input value={q} onChange={e => setQ(e.target.value)}
             onKeyDown={e => e.key === "Enter" && doSearch(q, sp)}
             placeholder={t("search_placeholder")}
-            style={{ flex: 2, minWidth: 180, padding: "10px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontSize: 14, outline: "none", direction: i18n.language === 'ar' ? "rtl" : "ltr", boxSizing: "border-box" }}
+            style={{ flex: 2, minWidth: 180, padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, outline: "none", direction: i18n.language === 'ar' ? "rtl" : "ltr", boxSizing: "border-box" }}
           />
           <select value={sp} onChange={e => setSP(e.target.value)}
-            style={{ flex: 1, minWidth: 150, padding: "10px 12px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontSize: 13, background: "#fafafa", boxSizing: "border-box" }}>
+            style={{ flex: 1, minWidth: 150, padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box" }}>
             <option value="">{t("all_specialties")}</option>
             {spList.map(s => <option key={s.id} value={s.id}>{i18n.language === 'ar' ? s.namear : s.namefr}</option>)}
           </select>
@@ -90,7 +91,7 @@ export default function SearchPage({ navigate, qs }) {
                     background: "#fff",
                     borderRadius: 22,
                     border: "1px solid var(--border)",
-                    borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid #0092a2",
+                    borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid var(--brand)",
                     padding: 16,
                     cursor: "pointer",
                     transition: "0.3s",
@@ -104,7 +105,7 @@ export default function SearchPage({ navigate, qs }) {
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.boxShadow = `0 6px 20px ${isDoctor ? "rgba(8,145,178,0.12)" : "rgba(0,146,162,0.12)"}`;
-                    e.currentTarget.style.borderColor = "#0092a2";
+                    e.currentTarget.style.borderColor = "var(--brand)";
                     e.currentTarget.style.transform = "translateY(-3px)";
                   }}
                   onMouseLeave={e => {
@@ -114,7 +115,7 @@ export default function SearchPage({ navigate, qs }) {
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -15, position: "relative", zIndex: 1 }}>
-                    <Badge color={isDoctor ? "#0891b2" : "#0092a2"}>
+                    <Badge color="var(--brand)">
                       {isDoctor ? t("doctor") : (
                         +r.typeclinic === 0 ? t("type_0", "Médecin") :
                           +r.typeclinic === 1 ? t("type_1", "Clinique") :
@@ -142,7 +143,7 @@ export default function SearchPage({ navigate, qs }) {
                       <div style={{ fontWeight: 800, fontSize: 16, color: "#0c4a6e", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {name}
                       </div>
-                      <Badge color={isDoctor ? "#0891b2" : "#6366f1"}>
+                      <Badge color="var(--brand)">
                         {specialty}
                       </Badge>
                     </div>

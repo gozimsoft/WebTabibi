@@ -32,6 +32,7 @@ spl_autoload_register(function (string $class): void {
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = rtrim($uri, '/');
+
 $uri = preg_replace('#^/api#', '', $uri);  // strip /api prefix
 $parts = array_values(array_filter(explode('/', ltrim($uri, '/'))));
 

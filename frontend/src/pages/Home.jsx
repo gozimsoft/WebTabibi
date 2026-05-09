@@ -3,9 +3,9 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card } from "../components/SharedUI";
-import { 
-  Stethoscope, Heart, Baby, Brain, Activity, Droplets, 
-  ShieldCheck, Zap, HeartPulse, User, Building, Users 
+import {
+  Stethoscope, Heart, Baby, Brain, Activity, Droplets,
+  ShieldCheck, Zap, HeartPulse, User, Building, Users
 } from "lucide-react";
 
 export default function HomePage({ user, navigate }) {
@@ -14,19 +14,19 @@ export default function HomePage({ user, navigate }) {
   const [specialties, setSP] = useState([]);
   useEffect(() => { api.specialties().then(setSP).catch(() => { }); }, []);
 
-  const icons = { 
-    "Médecine générale": <Stethoscope size={32} />, 
-    "Dentisterie": <Activity size={32} />, 
-    "Cardiologie": <Heart size={32} />, 
-    "Ophtalmologie": <Zap size={32} />, 
-    "Pédiatrie": <Baby size={32} />, 
-    "Gynécologie-obstétrique": <Users size={32} />, 
-    "Dermatologie": <Droplets size={32} />, 
-    "Neurologie": <Brain size={32} />, 
-    "Orthopédie et traumatologie": <Activity size={32} />, 
-    "Psychiatrie": <HeartPulse size={32} />, 
-    "Gastro-entérologie": <Activity size={32} />, 
-    "Oncologie": <ShieldCheck size={32} /> 
+  const icons = {
+    "Médecine générale": <Stethoscope size={32} />,
+    "Dentisterie": <Activity size={32} />,
+    "Cardiologie": <Heart size={32} />,
+    "Ophtalmologie": <Zap size={32} />,
+    "Pédiatrie": <Baby size={32} />,
+    "Gynécologie-obstétrique": <Users size={32} />,
+    "Dermatologie": <Droplets size={32} />,
+    "Neurologie": <Brain size={32} />,
+    "Orthopédie et traumatologie": <Activity size={32} />,
+    "Psychiatrie": <HeartPulse size={32} />,
+    "Gastro-entérologie": <Activity size={32} />,
+    "Oncologie": <ShieldCheck size={32} />
   };
 
   return (
@@ -59,7 +59,7 @@ export default function HomePage({ user, navigate }) {
           {/* Stat: Médecins — avec la photo */}
           <div style={{
             borderRadius: 16,
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--border)",
             boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             overflow: "hidden",
             position: "relative",
@@ -85,7 +85,7 @@ export default function HomePage({ user, navigate }) {
           {/* Stat: Cliniques — avec la photo */}
           <div style={{
             borderRadius: 16,
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--border)",
             boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             overflow: "hidden",
             position: "relative",
@@ -111,7 +111,7 @@ export default function HomePage({ user, navigate }) {
           {/* Stat: patients — avec la photo */}
           <div style={{
             borderRadius: 16,
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--border)",
             boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             overflow: "hidden",
             position: "relative",
@@ -146,9 +146,9 @@ export default function HomePage({ user, navigate }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))", gap: 10 }}>
           {specialties.slice(0, 12).map(s => (
             <div key={s.id} onClick={() => navigate(`/search?specialty=${s.id}`)}
-              style={{ background: "#fff", borderRadius: 12, padding: "14px 10px", textAlign: "center", cursor: "pointer", border: "1px solid #e5e7eb", transition: "all 0.2s" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(8,145,178,0.1)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
+              style={{ background: "#fff", borderRadius: 12, padding: "14px 10px", textAlign: "center", cursor: "pointer", border: "1px solid var(--border)", transition: "all 0.2s" }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(8,145,178,0.1)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
             >
               <div style={{ color: "var(--brand)", marginBottom: 8, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {icons[s.namefr] || <Stethoscope size={32} />}
