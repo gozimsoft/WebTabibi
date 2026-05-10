@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Info, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Stethoscope, Building, Search } from "lucide-react";
-import { Btn, Card, Spinner, DoctorImage, Badge, useToast } from "../components/SharedUI";
+import { Btn, Card, Spinner, ListSkeleton, DoctorImage, Badge, useToast } from "../components/SharedUI";
 import GoogleCalendarButton from "../components/GoogleCalendarButton";
 
 export default function AppointmentsPage({ navigate, user }) {
@@ -61,7 +61,7 @@ export default function AppointmentsPage({ navigate, user }) {
         ))}
       </div>
 
-      {loading ? <Spinner /> : filtered.length === 0 ? (
+      {loading ? <ListSkeleton count={3} /> : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 24px" }}>
           <div style={{ marginBottom: 12 }}><Search size={44} color="#cbd5e1" /></div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "#374151", marginBottom: 16 }}>

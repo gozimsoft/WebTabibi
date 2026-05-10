@@ -124,15 +124,15 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       if (activePat.id) body.patient_id = activePat.id;
       await api.appointments.book(body);
       completedRef.current = true;
-      analytics.track("booking_completed", { 
-        doctor_id, 
+      analytics.track("booking_completed", {
+        doctor_id,
         clinic_id: selectedClinicId,
         specialty: i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr
       });
       setStep(6);
-    } catch (e) { 
+    } catch (e) {
       analytics.track("booking_error", { error: e.message });
-      show(e.message, "error"); 
+      show(e.message, "error");
     }
     finally { setL(false); }
   };
@@ -225,6 +225,30 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
         <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr}</div>
       </div>
       {+doctor.pricing > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 800 }}>💰 {doctor.pricing} DA</div>}
+    </div>
+  );
+
+  const Confetti = () => (
+    <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1000, overflow: "hidden" }}>
+      {Array(50).fill(0).map((_, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          top: -20,
+          left: `${Math.random() * 100}%`,
+          width: Math.random() * 8 + 4,
+          height: Math.random() * 12 + 6,
+          background: ["#0891b2", "#10b981", "#fbbf24", "#ef4444", "#3b82f6"][Math.floor(Math.random() * 5)],
+          borderRadius: 2,
+          transform: `rotate(${Math.random() * 360}deg)`,
+          animation: `fall ${Math.random() * 2 + 2}s linear forwards`,
+          animationDelay: `${Math.random() * 3}s`
+        }} />
+      ))}
+      <style>{`
+        @keyframes fall {
+          to { transform: translateY(110vh) rotate(720deg); }
+        }
+      `}</style>
     </div>
   );
 
@@ -419,25 +443,65 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       )}
 
       {step === 6 && (
-        <Card style={{ padding: "40px 24px", textAlign: "center" }}>
-          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-            <CheckCircle size={48} color="#10b981" />
-          </div>
-          <h2 style={{ color: "#10b981", margin: "0 0 8px" }}>{t("congrats")}</h2>
-          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 24 }}>
-            {t("success_msg")} <strong>{doctor.fullname}</strong><br />
-            {t("day")} <strong>{date}</strong> {t("at_time")} <strong>{selSlot}</strong>
-            <div style={{ marginTop: 12, display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "relative" }}>
+          <Confetti />
+          <Card style={{ padding: "40px 24px", textAlign: "center", overflow: "hidden" }}>
+            <div style={{
+              width: 90, height: 90, borderRadius: "50%", background: "#f0fdf4",
+              display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px",
+              boxShadow: "0 10px 30px rgba(16,185,129,0.2)", animation: "bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+            }}>
+              <CheckCircle size={54} color="#10b981" />
+            </div>
+
+            <h2 style={{ color: "#059669", margin: "0 0 12px", fontSize: 26, fontWeight: 900 }}>{t("congrats")}</h2>
+            <p style={{ color: "#6b7280", fontSize: 15, marginBottom: 30 }}>{t("success_msg")} <strong>{doctor.fullname}</strong></p>
+
+            {/* Appointment Ticket */}
+            <div style={{
+              background: "var(--bg)", borderRadius: 20, padding: "24px", marginBottom: 30,
+              border: "2px dashed var(--border)", position: "relative", textAlign: i18n.language === 'ar' ? "right" : "left"
+            }}>
+              <div style={{ position: "absolute", top: "50%", left: -10, width: 20, height: 20, borderRadius: "50%", background: "var(--card-bg)", transform: "translateY(-50%)" }} />
+              <div style={{ position: "absolute", top: "50%", right: -10, width: 20, height: 20, borderRadius: "50%", background: "var(--card-bg)", transform: "translateY(-50%)" }} />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>{t("date")}</div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#0c4a6e" }}>{date}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>{t("at_time")}</div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#0c4a6e" }}>{selSlot}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>{t("patient")}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#334155" }}>{activePat.name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>{t("clinic")}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#334155" }}>{doctor.clinicname}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
               <GoogleCalendarButton
                 appointment={{ doctorname: doctor.fullname, clinicname: doctor.clinicname, apointementdate: `${date}T${selSlot}:00`, ReasonName: reason?.reason_name, patientname: activePat.name }}
               />
+              <div style={{ display: "flex", gap: 12, marginTop: 8, width: "100%" }}>
+                <Btn variant="secondary" onClick={() => navigate("/")} style={{ flex: 1, justifyContent: "center" }}>{t("home")}</Btn>
+                <Btn onClick={() => navigate("/appointments")} style={{ flex: 1, justifyContent: "center" }}>{t("view_my_appts")}</Btn>
+              </div>
             </div>
-          </p>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <Btn variant="secondary" onClick={() => navigate("/")}>{t("home")}</Btn>
-            <Btn onClick={() => navigate("/appointments")}>{t("view_my_appts")}</Btn>
-          </div>
-        </Card>
+          </Card>
+          <style>{`
+            @keyframes bounceIn {
+              from { transform: scale(0.5); opacity: 0; }
+              to { transform: scale(1); opacity: 1; }
+            }
+          `}</style>
+        </div>
       )}
       <Toast />
     </div>

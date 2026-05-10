@@ -46,7 +46,7 @@ export default function GoogleCalendarButton({ appointment, variant = "primary",
 
   if (iconOnly) {
     return (
-      <button 
+      <button
         onClick={addToCalendar}
         title={t("add_to_google_calendar")}
         style={{
@@ -77,13 +77,13 @@ export default function GoogleCalendarButton({ appointment, variant = "primary",
   }
 
   return (
-    <Btn 
-      variant={variant} 
-      onClick={addToCalendar} 
-      style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        gap: 12, 
+    <Btn
+      variant={variant}
+      onClick={addToCalendar}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
         padding: "12px 24px",
         borderRadius: "14px",
         background: variant === "primary" ? "linear-gradient(135deg, #0092a2, #007585)" : "#fff",
@@ -93,7 +93,7 @@ export default function GoogleCalendarButton({ appointment, variant = "primary",
         fontSize: "14px",
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         boxShadow: variant === "primary" ? "0 8px 20px rgba(0, 146, 162, 0.25)" : "0 4px 12px rgba(0,0,0,0.05)",
-        ...style 
+        ...style
       }}
       onMouseEnter={e => {
         e.currentTarget.style.transform = "translateY(-3px) scale(1.02)";
@@ -104,12 +104,12 @@ export default function GoogleCalendarButton({ appointment, variant = "primary",
         if (variant === "primary") e.currentTarget.style.boxShadow = "0 8px 20px rgba(0, 146, 162, 0.25)";
       }}
     >
-      <div style={{ 
-        background: variant === "primary" ? "rgba(255,255,255,0.2)" : "rgba(0,146,162,0.1)", 
-        borderRadius: "8px", 
-        padding: "6px", 
-        display: "flex", 
-        alignItems: "center", 
+      <div style={{
+        background: variant === "primary" ? "rgba(255,255,255,0.2)" : "rgba(0,146,162,0.1)",
+        borderRadius: "8px",
+        padding: "6px",
+        display: "flex",
+        alignItems: "center",
         justifyContent: "center"
       }}>
         <Calendar size={18} color={variant === "primary" ? "#fff" : "#0092a2"} />

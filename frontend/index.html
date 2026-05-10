@@ -8,8 +8,10 @@
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/png" href="logo.png?v=3" />
     <link rel="icon" type="image/png" href="favicon-32x32.png?v=3" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico?v=3" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0891b2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="طبيبي - منصة حجز المواعيد الطبية في الجزائر" />
     <title>طبيبي — Tabibi | حجز المواعيد الطبية</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -183,6 +185,17 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx?v=10"></script>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('SW registered:', reg);
+          }).catch(err => {
+            console.log('SW reg failed:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

@@ -2,7 +2,42 @@ import React, { useState, useCallback } from "react";
 
 export const Spinner = ({ size = 24 }) => (
   <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-    <div style={{ width: size, height: size, border: `3px solid var(--brand-light)`, borderTopColor: "var(--brand)", borderRadius: "50%", animation: "logo-rotate 0.7s linear infinite" }} />
+    <div style={{ width: size, height: size, border: `3px solid var(--brand-light)`, borderTopColor: "var(--brand)", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+  </div>
+);
+
+export const Skeleton = ({ width, height, borderRadius = 12, style = {} }) => (
+  <div style={{
+    width: width || "100%",
+    height: height || 20,
+    borderRadius,
+    background: "linear-gradient(90deg, var(--bg) 25%, var(--border) 50%, var(--bg) 75%)",
+    backgroundSize: "200% 100%",
+    animation: "shimmer 1.5s infinite linear",
+    ...style
+  }}>
+    <style>{`
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    `}</style>
+  </div>
+);
+
+export const CardSkeleton = () => (
+  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 20, display: "flex", gap: 14 }}>
+    <Skeleton width={50} height={50} borderRadius={12} />
+    <div style={{ flex: 1 }}>
+      <Skeleton width="60%" height={16} style={{ marginBottom: 10 }} />
+      <Skeleton width="40%" height={12} />
+    </div>
+  </div>
+);
+
+export const ListSkeleton = ({ count = 3 }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    {Array(count).fill(0).map((_, i) => <CardSkeleton key={i} />)}
   </div>
 );
 
@@ -29,12 +64,42 @@ export function useToast() {
   return { show, Toast };
 }
 
-export const Stars = ({ rating = 0, interactive, onChange, size = 18, color = "#f59e0b" }) => (
+export const Stars = ({ rating = 0, interactive, onChange, size = 16, color = "#fbbf24" }) => (
   <div style={{ display: "flex", gap: 2 }}>
     {[1, 2, 3, 4, 5].map(i => (
       <span key={i} onClick={() => interactive && onChange?.(i)}
-        style={{ fontSize: size, cursor: interactive ? "pointer" : "default", color: i <= rating ? color : "#d1d5db", transition: "color 0.1s" }}>★</span>
+        style={{ 
+          fontSize: size, 
+          cursor: interactive ? "pointer" : "default", 
+          color: i <= rating ? color : "#e2e8f0", 
+          transition: "all 0.2s",
+          textShadow: i <= rating ? `0 0 8px ${color}40` : "none"
+        }}>★</span>
     ))}
+  </div>
+);
+
+export const VerifiedBadge = ({ size = 16 }) => (
+  <div style={{ display: "inline-flex", alignItems: "center", color: "#3b82f6", background: "#eff6ff", borderRadius: 20, padding: "2px 8px", gap: 4, fontSize: 11, fontWeight: 700, border: "1px solid #dbeafe" }}>
+    <ShieldCheck size={size} /> {localStorage.getItem("tabibi_lang") === "ar" ? "موثق" : "Vérifié"}
+  </div>
+);
+
+export const AvailabilityPulse = () => (
+  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#059669", fontWeight: 700 }}>
+    <div style={{ position: "relative", width: 8, height: 8 }}>
+      <div style={{ position: "absolute", width: "100%", height: "100%", background: "#10b981", borderRadius: "50%" }} />
+      <div style={{ 
+        position: "absolute", width: "100%", height: "100%", background: "#10b981", borderRadius: "50%",
+        animation: "ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite"
+      }} />
+    </div>
+    <style>{`
+      @keyframes ping {
+        75%, 100% { transform: scale(2.5); opacity: 0; }
+      }
+    `}</style>
+    {localStorage.getItem("tabibi_lang") === "ar" ? "متاح اليوم" : "Disponible"}
   </div>
 );
 

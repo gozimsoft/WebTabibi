@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
+import { Btn, Card, Spinner, ListSkeleton, DoctorImage, Stars, Badge, useToast, VerifiedBadge, AvailabilityPulse } from "../components/SharedUI";
 import { MapPin, Phone, Building, Globe, Activity, Heart, Shield } from "lucide-react";
 import analytics from "../utils/analytics";
 
@@ -53,7 +53,7 @@ export default function SearchPage({ navigate, qs }) {
         </div>
       </Card>
 
-      {loading ? <Spinner /> : (
+      {loading ? <ListSkeleton count={4} /> : (
         <>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>
             {total > 0 ? `${total} ${t("results_count")}` : t("no_results")}
@@ -140,12 +140,20 @@ export default function SearchPage({ navigate, qs }) {
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#0c4a6e", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#0c4a6e", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6 }}>
                         {name}
+                        {!isDoctor && <VerifiedBadge size={12} />}
                       </div>
-                      <Badge color="var(--brand)">
-                        {specialty}
-                      </Badge>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <Badge color="var(--brand)">
+                          {specialty}
+                        </Badge>
+                        {isDoctor && <AvailabilityPulse />}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Stars rating={Math.round(avgRating)} />
+                        <span style={{ fontSize: 12, color: "#94a3b8" }}>({ratingCount})</span>
+                      </div>
                     </div>
                   </div>
 

@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -5542,7 +5542,18 @@ function MainApp() {
       <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} />
       <BackgroundDecoration />
       <div style={{ flex: 1, paddingBottom: 80, position: "relative", zIndex: 1 }}>
-        {renderPage()}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={route}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            style={{ width: "100%" }}
+          >
+            {renderPage()}
+          </motion.div>
+        </AnimatePresence>
       </div>
       <Footer navigate={navigate} />
 

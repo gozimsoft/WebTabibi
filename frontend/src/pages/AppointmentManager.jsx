@@ -7,7 +7,7 @@ import {
   LayoutDashboard, List, Activity, Info, CalendarDays,
   Download, Plus, RefreshCw, Stethoscope, Ruler, Weight, Droplets, Heart
 } from "lucide-react";
-import { Btn, Card, Spinner, Badge, useToast, DoctorImage } from "../components/SharedUI";
+import { Btn, Card, Spinner, ListSkeleton, Badge, useToast, DoctorImage } from "../components/SharedUI";
 
 // Reuse API from window if needed or pass via props. 
 // For consistency, we'll assume 'api' is available in the parent or we'll define a local one if needed.
@@ -412,7 +412,7 @@ export default function AppointmentManager({ navigate, user }) {
         {/* List View */}
         {viewMode === "list" && (
           <div style={{ overflowX: "auto" }}>
-            {loading ? <div style={{ padding: 40 }}><Spinner /></div> : (
+            {loading ? <div style={{ padding: 20 }}><ListSkeleton count={5} /></div> : (
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: i18n.language === 'ar' ? "right" : "left" }}>
                 <thead style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
                   <tr>
