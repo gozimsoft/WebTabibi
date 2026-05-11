@@ -26,7 +26,7 @@ export const Skeleton = ({ width, height, borderRadius = 12, style = {} }) => (
 );
 
 export const CardSkeleton = () => (
-  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 20, display: "flex", gap: 14 }}>
+  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 20, display: "flex", gap: 14 }}>
     <Skeleton width={50} height={50} borderRadius={12} />
     <div style={{ flex: 1 }}>
       <Skeleton width="60%" height={16} style={{ marginBottom: 10 }} />
@@ -44,7 +44,7 @@ export const ListSkeleton = ({ count = 3 }) => (
 export const DoctorDetailSkeleton = () => (
   <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
     <Skeleton width={120} height={20} style={{ marginBottom: 20 }} />
-    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 28, marginBottom: 20 }}>
+    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 28, marginBottom: 20 }}>
       <div style={{ display: "flex", gap: 32, flexDirection: "row" }}>
         <Skeleton width={200} height={200} borderRadius={32} />
         <div style={{ flex: 1 }}>
@@ -67,14 +67,14 @@ export const DoctorDetailSkeleton = () => (
       <Skeleton width={80} height={30} borderRadius={0} />
       <Skeleton width={80} height={30} borderRadius={0} />
     </div>
-    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 24 }}>
+    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 24 }}>
       <Skeleton width="100%" height={150} />
     </div>
   </div>
 );
 
 export const AppointmentSkeleton = () => (
-  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 20, marginBottom: 16 }}>
+  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 20, marginBottom: 16 }}>
     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
       <div style={{ display: "flex", gap: 12 }}>
         <Skeleton width={48} height={48} borderRadius={10} />
@@ -180,7 +180,7 @@ export const Badge = ({ children, color = "var(--brand)" }) => (
 
 export const Card = ({ children, style = {}, onClick }) => (
   <div onClick={onClick} style={{
-    background: "#fff", borderRadius: 16, border: "1px solid var(--border)",
+    background: "#fff", borderRadius: 16, border: "1px solid #0891b2",
     boxShadow: "0 1px 4px rgba(0,0,0,0.05)", padding: 24,
     cursor: onClick ? "pointer" : "default", ...style
   }}>{children}</div>
@@ -204,7 +204,7 @@ export const Input = ({ label, error, ...p }) => (
 export const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, ...p }) => {
   const variants = {
     primary: { background: "linear-gradient(135deg,var(--brand),var(--brand-dark))", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
-    secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid var(--border)" },
+    secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid #0891b2" },
     danger: { background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" },
     ghost: { background: "transparent", color: "var(--brand)", border: "1px solid var(--brand)" },
     success: { background: "linear-gradient(135deg,#059669,#047857)", color: "#fff" },

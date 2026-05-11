@@ -184,7 +184,7 @@ const UserGuide = ({ navigate }) => {
         gap: isMobile ? 24 : 36,
         alignItems: "center",
         background: "var(--card-bg)",
-        border: "1px solid var(--border)",
+        border: "1px solid #0891b2",
         padding: isMobile ? "12px 0" : "20px 24px",
         borderRadius: 20,
         boxShadow: "var(--shadow-lg)",
@@ -232,7 +232,7 @@ const UserGuide = ({ navigate }) => {
                 boxShadow: "0 4px 10px rgba(0,0,0,0.02)",
                 transition: "all 0.2s",
                 cursor: "default",
-                border: "1px solid var(--border)",
+                border: "1px solid #0891b2",
                 flexDirection: "row"
               }}
               onMouseEnter={e => {
@@ -308,7 +308,7 @@ const UserGuide = ({ navigate }) => {
              background: "var(--brand-light)",
              borderRadius: 48,
              backdropFilter: "blur(10px)",
-             border: "1px solid var(--border)",
+             border: "1px solid #0891b2",
              boxShadow: "var(--shadow-lg)",
              transform: isMobile ? "none" : (isRTL ? "rotateY(10deg) rotateX(5deg)" : "rotateY(-10deg) rotateX(5deg)"),
              transition: "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
@@ -370,7 +370,7 @@ const UserGuide = ({ navigate }) => {
             gap: 10,
             padding: isMobile ? "10px 16px" : "12px 24px",
             borderRadius: 16,
-            border: "2px solid var(--border)",
+            border: "2px solid #0891b2",
             background: "var(--card-bg)",
             color: activeStep === 0 ? "var(--text-muted)" : "var(--text-main)",
             fontWeight: 800,

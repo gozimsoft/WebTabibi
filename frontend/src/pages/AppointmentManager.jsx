@@ -353,7 +353,7 @@ export default function AppointmentManager({ navigate, user }) {
       </div>
 
       {/* Main Content Area */}
-      <Card style={{ padding: 0, overflow: "hidden", border: "1px solid #e2e8f0", background: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+      <Card style={{ padding: 0, overflow: "hidden", background: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
         {/* Toolbar */}
         <div style={{ padding: "20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
           <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 300 }}>

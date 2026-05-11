@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -419,7 +419,7 @@ function LanguageSwitcher() {
           transition: "all 0.2s"
         }}
         onMouseEnter={e => e.currentTarget.style.borderColor = "var(--brand)"}
-        onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = "#0891b2"}
       >
         <span>{current.flag}</span>
         <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 4 }}>▼</span>
@@ -432,7 +432,7 @@ function LanguageSwitcher() {
             position: "absolute", top: 50,
             right: i18n.language === 'ar' ? 'auto' : 0,
             left: i18n.language === 'ar' ? 0 : 'auto',
-            background: "var(--card-bg)", border: "1px solid var(--border)",
+            background: "var(--card-bg)", border: "1px solid #0891b2",
             borderRadius: 16, boxShadow: "var(--shadow-lg)",
             zIndex: 1000, minWidth: 160, overflow: "hidden",
             padding: 6
@@ -601,7 +601,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
             <div style={{ position: "relative" }}>
               <button onClick={() => setOpen(!open)} style={{
                 display: "flex", alignItems: "center", gap: 10,
-                background: "var(--bg)", border: "1px solid var(--border)",
+                background: "var(--bg)", border: "1px solid #0891b2",
                 borderRadius: 50, padding: isMobile ? 4 : (i18n.language === 'ar' ? "6px 6px 6px 14px" : "6px 14px 6px 6px"), cursor: "pointer",
               }}>
                 <div className={`random-flip-container ${animClass}`} style={{
@@ -624,7 +624,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                     left: i18n.language === 'ar' ? 0 : 'auto',
                     right: i18n.language === 'ar' ? 'auto' : 0,
                     top: "calc(100% + 12px)",
-                    background: "var(--card-bg)", border: "1px solid var(--border)",
+                    background: "var(--card-bg)", border: "1px solid #0891b2",
                     borderRadius: 16, boxShadow: "var(--shadow-lg)",
                     minWidth: 220, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
                   }}>
@@ -710,7 +710,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
               navigate(link.path);
               setMobileMenu(false);
             }} style={{
-              background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px", borderRadius: 12,
+              background: "var(--bg)", border: "1px solid #0891b2", padding: "14px 16px", borderRadius: 12,
               textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 700, color: "var(--text-main)",
               display: "flex", alignItems: "center", gap: 12
             }}>
@@ -948,7 +948,7 @@ function HomePage({ user, navigate }) {
               background: "var(--card-bg)",
               borderRadius: 22,
               overflow: "hidden",
-              border: "1px solid var(--border)",
+              border: "1px solid #0891b2",
               boxShadow: "var(--shadow)",
               display: "flex",
               flexDirection: "column",
@@ -1068,7 +1068,7 @@ function HomePage({ user, navigate }) {
                   borderRadius: "var(--radius-lg)",
                   padding: isMobile ? "12px 10px" : "20px 18px",
                   display: "flex", alignItems: "center", gap: isMobile ? 8 : 14,
-                  border: hoveredSpec === i ? "1.5px solid var(--brand)" : "1px solid var(--border)",
+                  border: hoveredSpec === i ? "1.5px solid var(--brand)" : "1px solid #0891b2",
                   cursor: "pointer",
                   transition: "all 0.2s",
                   transform: hoveredSpec === i ? "translateY(-2px)" : "none",
@@ -1162,7 +1162,7 @@ function HomePage({ user, navigate }) {
                 position: 'relative',
                 overflow: 'hidden',
                 direction: i18n.language === 'ar' ? 'rtl' : 'ltr',
-                border: '1px solid var(--border)'
+                border: '1px solid #0891b2'
               }}>
                 {/* CONTENT AREA */}
                 <div style={{
@@ -1565,8 +1565,8 @@ function SearchPage({ navigate, qs, user }) {
                   style={{
                     background: "var(--card-bg)",
                     borderRadius: 22,
-                    border: "1px solid var(--border)",
-                    borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid #6366f1",
+                    border: "1px solid #0891b2",
+                    borderLeft: isDoctor ? "1px solid #0891b2" : "5px solid #6366f1",
                     cursor: "pointer",
                     transition: "0.3s",
                     display: "flex",
@@ -1583,7 +1583,7 @@ function SearchPage({ navigate, qs, user }) {
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px";
-                    e.currentTarget.style.borderColor = "var(--border)";
+                    e.currentTarget.style.borderColor = "#0891b2";
                     e.currentTarget.style.transform = "none";
                   }}
                 >
@@ -1637,7 +1637,7 @@ function SearchPage({ navigate, qs, user }) {
                         </div>
 
                         {!isDoctor ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--brand-light)", padding: "8px 10px", borderRadius: 12, border: "1px solid var(--border)" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--brand-light)", padding: "8px 10px", borderRadius: 12, border: "1px solid #0891b2" }}>
                             {email && (
                               <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
                                 <Mail size={12} color="#6366f1" /> {email}
@@ -1764,7 +1764,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
       <Card style={{
         background: "rgb(255, 255, 255)",
         borderRadius: 20,
-        border: "1px solid var(--border)",
+        border: "1px solid #0891b2",
         boxShadow: "rgba(0, 0, 0, 0.04) 0px 4px 20px",
         padding: isMobile ? 24 : 28,
         cursor: "default",
@@ -1932,7 +1932,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
                   transition: "all 0.3s", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 15px rgba(0,0,0,0.03)"
                 }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.08)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.03)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.03)"; }}
               >
                 <DoctorImage photo={d.photoprofile} size={80} borderRadius={18} />
                 <div style={{ flex: 1 }}>
@@ -2354,7 +2354,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   transform: isSelected ? "scale(1.02)" : "none"
                 }}
                 onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateY(-3px)"; } }}
-                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; } }}
+                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.transform = "none"; } }}
               >
                 <div style={{ width: 50, height: 50, borderRadius: 12, background: isSelected ? "var(--brand)" : "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Building size={24} color={isSelected ? "#fff" : "var(--brand)"} />
@@ -2503,6 +2503,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const [step, setStep] = useState(1);
   const [selPatient, setSelPatient] = useState(null);   // {id,name,isSelf,gender}
   const [reason, setReason] = useState(null);   // optional
+  const [patientMessage, setPatientMessage] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [showMessageInput, setShowMessageInput] = useState(false);
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState([]);
   const [selSlot, setSlot] = useState("");
@@ -2602,6 +2605,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       const body = { clinics_doctor_id: doctor.clinicsdoctor_id, date, time: selSlot };
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
+      if (patientMessage) body.message = patientMessage;
       await api.appointments.book(body);
       analytics.track("booking_completed", { doctor_id, clinic_id: selectedClinicId, date });
       setStep(7);
@@ -2786,7 +2790,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                     transform: sel ? "scale(1.01)" : "scale(1)"
                   }}
                   onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.background = "#f0fdff"; } }}
-                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
+                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#fafafa"; } }}
                 >
                   <div style={{
                     width: 46, height: 46, borderRadius: "50%", flexShrink: 0, fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center",
@@ -2822,10 +2826,105 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       {/* ══════════ STEP 3 — Reason ══════════ */}
       {step === 3 && (
         <Card style={{ padding: "26px 28px" }}>
-          <h2 style={{ color: "#0c4a6e", margin: "0 0 5px", fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}><Stethoscope size={22} /> {t("step_reason")}</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+            <h2 style={{ color: "#0c4a6e", margin: 0, fontSize: 19, fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}>
+              <Stethoscope size={22} /> {t("step_reason")}
+            </h2>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button 
+                onClick={() => setShowMessageInput(!showMessageInput)}
+                title={i18n.language === 'ar' ? "رسالة" : "Message"}
+                style={{ 
+                  width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: showMessageInput ? "var(--brand)" : "#f8fafc",
+                  color: showMessageInput ? "#fff" : "#64748b",
+                  border: showMessageInput ? "none" : "1px solid #e2e8f0",
+                  cursor: "pointer", transition: "all 0.2s",
+                  boxShadow: showMessageInput ? "0 4px 12px rgba(8,145,178,0.3)" : "none"
+                }}
+              >
+                <MessageSquare size={18} />
+              </button>
+
+              <div style={{ position: "relative" }}>
+                <input 
+                  type="file" 
+                  id="scan-upload" 
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }} 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setAttachment(e.target.files[0]);
+                    }
+                  }}
+                />
+                <button 
+                  onClick={() => document.getElementById("scan-upload").click()}
+                  title={i18n.language === 'ar' ? "تصوير مستند" : "Scanner / Photo"}
+                  style={{ 
+                    width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: attachment && document.getElementById("scan-upload")?.value ? "#10b981" : "#f8fafc",
+                    color: attachment && document.getElementById("scan-upload")?.value ? "#fff" : "#64748b",
+                    border: "1px solid #e2e8f0",
+                    cursor: "pointer", transition: "all 0.2s"
+                  }}
+                >
+                  <Camera size={18} />
+                </button>
+              </div>
+              
+              <div style={{ position: "relative" }}>
+                <input 
+                  type="file" 
+                  id="doc-upload" 
+                  accept="image/*,.pdf"
+                  style={{ display: "none" }} 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setAttachment(e.target.files[0]);
+                    }
+                  }}
+                />
+                <button 
+                  onClick={() => document.getElementById("doc-upload").click()}
+                  title={i18n.language === 'ar' ? "إرفاق مستند" : "Joindre un document"}
+                  style={{ 
+                    width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: attachment && document.getElementById("doc-upload")?.value ? "#10b981" : "#f8fafc",
+                    color: attachment && document.getElementById("doc-upload")?.value ? "#fff" : "#64748b",
+                    border: attachment ? "none" : "1px solid #e2e8f0",
+                    cursor: "pointer", transition: "all 0.2s",
+                    boxShadow: attachment ? "0 4px 12px rgba(16,185,129,0.3)" : "none"
+                  }}
+                >
+                  <Paperclip size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>
             {t("reason_choice_desc") || "اختر سبب زيارتك إن وجد — اختياري، يمكنك التخطي"}
           </p>
+
+          {attachment && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px", marginBottom: 16, fontSize: 12, color: "#166534", display: "flex", alignItems: "center", gap: 8 }}>
+              <CheckCircle size={14} /> 
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {i18n.language === 'ar' ? "مرفق: " : "Attaché: "} <strong>{attachment.name}</strong>
+              </span>
+              <button 
+                onClick={() => { 
+                  setAttachment(null); 
+                  if(document.getElementById("doc-upload")) document.getElementById("doc-upload").value = ""; 
+                  if(document.getElementById("scan-upload")) document.getElementById("scan-upload").value = ""; 
+                }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontWeight: 700, fontSize: 14 }}
+              >×</button>
+            </div>
+          )}
+
           {(!(doctor?.reasons || docInfo?.reasons) || (doctor?.reasons || docInfo?.reasons).length === 0) ? (
             <div style={{ padding: "28px", textAlign: "center", color: "#9ca3af", background: "var(--bg)", borderRadius: 12, marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
@@ -2841,13 +2940,13 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                   <div key={r.id} onClick={() => setReason(sel ? null : r)}
                     style={{
                       padding: "14px 16px", borderRadius: 11, cursor: "pointer", transition: "all 0.2s",
-                      border: sel ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
+                      border: sel ? "2.5px solid var(--brand)" : "1.5px solid #0891b2",
                       background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
                       boxShadow: sel ? "0 4px 14px rgba(8,145,178,0.14)" : "none",
                       transform: sel ? "scale(1.02)" : "scale(1)"
                     }}
                     onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.background = "#f0fdff"; } }}
-                    onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
+                    onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#fafafa"; } }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontWeight: 700, color: sel ? "#0c4a6e" : "#374151", fontSize: 14 }}>{r.reason_name}</div>
@@ -2866,6 +2965,38 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               <button onClick={() => setReason(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 18, marginRight: "auto", lineHeight: 1 }}>×</button>
             </div>
           )}
+
+          {/* Conditional Message Input */}
+          <AnimatePresence>
+            {showMessageInput && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                style={{ overflow: "hidden", marginTop: 12 }}
+              >
+                <textarea 
+                  value={patientMessage}
+                  onChange={(e) => setPatientMessage(e.target.value)}
+                  placeholder={i18n.language === 'ar' ? "اكتب رسالتك للطبيب هنا (اختياري)..." : "Écrivez votre message au médecin ici (optionnel)..."}
+                  style={{ 
+                    width: "100%", 
+                    minHeight: 100, 
+                    padding: "14px", 
+                    borderRadius: 12, 
+                    border: "1.5px solid #0891b2", 
+                    fontSize: 14, 
+                    fontFamily: "inherit",
+                    outline: "none",
+                    resize: "vertical",
+                    boxSizing: "border-box"
+                  }}
+                  onFocus={e => e.target.style.borderColor = "var(--brand-dark)"}
+                  onBlur={e => e.target.style.borderColor = "#0891b2"}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <Btn variant="secondary" onClick={() => setStep(clinicList.length <= 1 ? 1 : 2)} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
@@ -2898,7 +3029,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                     transform: sel ? "scale(1.01)" : "scale(1)"
                   }}
                   onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.background = "#f0fdff"; } }}
-                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fafafa"; } }}
+                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = "#0891b2"; e.currentTarget.style.background = "#fafafa"; } }}
                 >
                   <div style={{
                     width: 44, height: 44, borderRadius: 12, background: sel ? "linear-gradient(135deg,var(--brand),#0e7490)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
@@ -3043,7 +3174,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           </h2>
           <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 22px" }}>{t("instructions_desc")}</p>
 
-          <div style={{ background: "#f8fafc", borderRadius: 16, padding: "24px", border: "1px solid var(--border)", marginBottom: 24 }}>
+          <div style={{ background: "#f8fafc", borderRadius: 16, padding: "24px", border: "1px solid #0891b2", marginBottom: 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
               <Info size={18} color="var(--brand)" /> {t("instructions_title")}
             </h3>
@@ -3113,6 +3244,8 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               [<Calendar size={18} />, t("date"), date],
               [<Clock size={18} />, t("time"), selSlot],
               ...(+doctor.pricing > 0 ? [[<CreditCard size={18} />, t("consultation_fee"), `${doctor.pricing} ${t("currency")}`]] : []),
+              ...(patientMessage ? [[<MessageSquare size={18} />, i18n.language === 'ar' ? "الرسالة" : "Message", patientMessage]] : []),
+              ...(attachment ? [[<Paperclip size={18} />, i18n.language === 'ar' ? "المرفقات" : "Pièce jointe", attachment.name]] : []),
             ].map(([ic, lbl, val]) => {
               const isLtr = i18n.language !== 'ar';
               return (
@@ -3346,7 +3479,7 @@ function AppointmentsPage({ navigate, user }) {
                 display: "flex",
                 flexDirection: "column",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                border: "1px solid var(--border)",
+                border: "1px solid #0891b2",
                 position: "relative",
                 overflow: "hidden"
               }}
@@ -3358,7 +3491,7 @@ function AppointmentsPage({ navigate, user }) {
                 onMouseLeave={e => {
                   e.currentTarget.style.transform = "translateY(0)";
                   e.currentTarget.style.boxShadow = "none";
-                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.borderColor = "#0891b2";
                 }}>
                 {/* Appointment Info Band */}
                 <div style={{
@@ -3507,7 +3640,7 @@ function AboutPage({ navigate }) {
         </Card>
       </div>
 
-      <div style={{ background: "var(--bg)", borderRadius: 24, border: "1px solid var(--border)", padding: 48, textAlign: "center" }}>
+      <div style={{ background: "var(--bg)", borderRadius: 24, border: "1px solid #0891b2", padding: 48, textAlign: "center" }}>
         <h2 style={{ fontSize: 28, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>{t("learn_more_prompt")}</h2>
         <p style={{ fontSize: 16, color: "#6b7280", marginBottom: 32 }}>{t("learn_more_subtitle")}</p>
         <Btn onClick={() => navigate("/contact")} style={{ padding: "14px 36px" }}>{t("start_journey_btn")}</Btn>
@@ -3813,7 +3946,7 @@ function AdminDashboardPage({ navigate, user }) {
 
   // ── Stat Card
   const StatCard = ({ label, value, icon, color, bg }) => (
-    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '20px 24px', border: '1px solid var(--border)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '20px 24px', border: '1px solid #0891b2', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
       <div style={{ width: 52, height: 52, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
         {icon}
       </div>
@@ -3949,7 +4082,7 @@ function AdminDashboardPage({ navigate, user }) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {items.map(item => (
-                  <div key={item.id} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                  <div key={item.id} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid #0891b2', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -4465,7 +4598,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
       <div ref={scrollRef} style={{
         flex: 1, overflowY: "auto", padding: "24px",
         background: "var(--card-bg)", // Messenger iconic chat background
-        borderRadius: 24, border: "1px solid var(--border)",
+        borderRadius: 24, border: "1px solid #0891b2",
         display: "flex", flexDirection: "column", marginBottom: 20,
         boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
       }}>
@@ -4525,7 +4658,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
       {ticket.status !== 'CLOSED' ? (
         <form onSubmit={onSend} style={{
           display: "flex", gap: 12, background: "var(--card-bg)", padding: "12px 16px",
-          borderRadius: 24, border: "1px solid var(--border)", boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+          borderRadius: 24, border: "1px solid #0891b2", boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
           alignItems: "center"
         }}>
           <input
@@ -4946,7 +5079,7 @@ function ChatPage({ user }) {
       <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}><MessageSquare size={24} /> {t("chat_title")}</h1>
       <div style={{ display: isMobile ? "flex" : "grid", flexDirection: isMobile ? "column" : "row", gridTemplateColumns: isMobile ? "none" : "280px 1fr", gap: 14, height: isMobile ? "auto" : 580 }}>
         {/* Threads */}
-        <div style={{ background: "var(--card-bg)", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden", display: "flex", flexDirection: "column", height: isMobile ? 180 : "auto" }}>
+        <div style={{ background: "var(--card-bg)", borderRadius: 14, border: "1px solid #0891b2", overflow: "hidden", display: "flex", flexDirection: "column", height: isMobile ? 180 : "auto" }}>
           <div style={{ padding: "14px 16px", borderBottom: "1px solid #f3f4f6", fontWeight: 800, color: "#374151", fontSize: 13 }}>
             {t("conversations")} ({threads.length})
           </div>
@@ -4972,7 +5105,7 @@ function ChatPage({ user }) {
           </div>
         </div>
         {/* messages */}
-        <div style={{ background: "var(--card-bg)", borderRadius: 14, border: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", height: isMobile ? 480 : "auto" }}>
+        <div style={{ background: "var(--card-bg)", borderRadius: 14, border: "1px solid #0891b2", display: "flex", flexDirection: "column", overflow: "hidden", height: isMobile ? 480 : "auto" }}>
           {sel ? (
             <>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid #f3f4f6", fontWeight: 800, color: "#0c4a6e", display: "flex", alignItems: "center", gap: 8 }}>
@@ -5474,7 +5607,7 @@ function MainApp() {
         return (
           <div key="404" style={{ textAlign: "center", padding: "80px 24px" }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-              <div style={{ width: 100, height: 100, borderRadius: "50%", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)" }}>
+              <div style={{ width: 100, height: 100, borderRadius: "50%", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #0891b2" }}>
                 <Search size={48} color="#94a3b8" />
               </div>
             </div>

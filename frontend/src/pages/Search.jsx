@@ -90,8 +90,8 @@ export default function SearchPage({ navigate, qs }) {
                   style={{
                     background: "#fff",
                     borderRadius: 22,
-                    border: "1px solid var(--border)",
-                    borderLeft: isDoctor ? "1px solid var(--border)" : "5px solid var(--brand)",
+                    border: "1px solid #0891b2",
+                    borderLeft: isDoctor ? "1px solid #0891b2" : "5px solid var(--brand)",
                     padding: 16,
                     cursor: "pointer",
                     transition: "0.3s",
@@ -110,7 +110,7 @@ export default function SearchPage({ navigate, qs }) {
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px";
-                    e.currentTarget.style.borderColor = "var(--border)";
+                    e.currentTarget.style.borderColor = "#0891b2";
                     e.currentTarget.style.transform = "none";
                   }}
                 >
@@ -242,6 +242,7 @@ export default function SearchPage({ navigate, qs }) {
         </>
       )}
       <Toast />
+    </div>
     </div>
   );
 }

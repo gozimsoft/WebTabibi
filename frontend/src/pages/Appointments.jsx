@@ -123,7 +123,7 @@ export default function AppointmentsPage({ navigate, user }) {
 
                 {/* EXPANDABLE INSTRUCTIONS */}
                 {expandedId === a.id && !isPast && (
-                  <div style={{ background: "#f8fafc", borderRadius: 16, padding: "20px", border: "1px solid var(--border)", marginTop: 16 }}>
+                  <div style={{ background: "#f8fafc", borderRadius: 16, padding: "20px", border: "1px solid #0891b2", marginTop: 16 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 800, color: "#0c4a6e", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
                       <Info size={16} color="var(--brand)" /> 
                       {i18n.language === 'ar' ? "تعليمات الاستشارة" : "Consignes de consultation"}

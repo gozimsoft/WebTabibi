@@ -74,7 +74,7 @@ export default function HomePage({ user, navigate }) {
                   position: "absolute", top: "calc(100% + 15px)", left: 0, right: 0,
                   background: "#fff", borderRadius: 16, boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
                   zIndex: 100, padding: 8, textAlign: i18n.language === 'ar' ? "right" : "left",
-                  maxHeight: 400, overflowY: "auto", border: "1px solid var(--border)"
+                  maxHeight: 400, overflowY: "auto", border: "1px solid #0891b2"
                 }}>
                   {/* Specialty Suggestions */}
                   {specialties.filter(s => s.namear.includes(q) || s.namefr.toLowerCase().includes(q.toLowerCase())).slice(0, 3).map(s => (
@@ -126,7 +126,7 @@ export default function HomePage({ user, navigate }) {
           {/* Stat: Médecins — avec la photo */}
           <div style={{
             borderRadius: 16,
-            border: "1px solid var(--border)",
+            border: "1px solid #0891b2",
             boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             overflow: "hidden",
             position: "relative",
@@ -152,7 +152,7 @@ export default function HomePage({ user, navigate }) {
           {/* Stat: Cliniques — avec la photo */}
           <div style={{
             borderRadius: 16,
-            border: "1px solid var(--border)",
+            border: "1px solid #0891b2",
             boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             overflow: "hidden",
             position: "relative",
@@ -178,7 +178,7 @@ export default function HomePage({ user, navigate }) {
           {/* Stat: patients — avec la photo */}
           <div style={{
             borderRadius: 16,
-            border: "1px solid var(--border)",
+            border: "1px solid #0891b2",
             boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             overflow: "hidden",
             position: "relative",
@@ -216,7 +216,7 @@ export default function HomePage({ user, navigate }) {
           ) : (
             specialties.slice(0, 12).map(s => (
               <div key={s.id} onClick={() => navigate(`/search?specialty=${s.id}`)}
-                style={{ background: "#fff", borderRadius: 12, padding: "14px 10px", textAlign: "center", cursor: "pointer", border: "1px solid var(--border)", transition: "all 0.2s" }}
+                style={{ background: "#fff", borderRadius: 12, padding: "14px 10px", textAlign: "center", cursor: "pointer", border: "1px solid #0891b2", transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(8,145,178,0.1)"; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
               >

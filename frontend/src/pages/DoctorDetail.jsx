@@ -158,7 +158,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                   e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 146, 162, 0.12)";
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.borderColor = "#0891b2";
                   e.currentTarget.style.background = "#fff";
                   e.currentTarget.style.transform = "none";
                   e.currentTarget.style.boxShadow = "rgba(0, 0, 0, 0.03) 0px 2px 10px";
