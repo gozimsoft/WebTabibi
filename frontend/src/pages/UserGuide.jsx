@@ -86,7 +86,7 @@ const UserGuide = ({ navigate }) => {
         <h1 style={{ 
           fontSize: isMobile ? 20 : 26, 
           fontWeight: 900, 
-          color: "var(--text-primary)",
+          color: "var(--text-main)",
           marginBottom: 4,
           lineHeight: 1.1
         }}>
@@ -102,10 +102,10 @@ const UserGuide = ({ navigate }) => {
         display: "flex", 
         justifyContent: "space-between", 
         alignItems: "center",
-        background: "#fff",
+        background: "var(--card-bg)",
         padding: isMobile ? "8px" : "12px 20px",
         borderRadius: 16,
-        boxShadow: "0 8px 25px rgba(0,0,0,0.05)",
+        boxShadow: "var(--shadow)",
         position: "relative",
         overflow: "hidden"
       }}>
@@ -130,7 +130,8 @@ const UserGuide = ({ navigate }) => {
               display: "flex", 
               alignItems: "center", 
               justifyContent: "center",
-              background: idx <= activeStep ? "var(--brand)" : "var(--brand-light)",
+              background: idx <= activeStep ? "#0e7490" : "var(--card-bg)", // Solid background
+              border: `2px solid ${idx <= activeStep ? "#0e7490" : "var(--border)"}`,
               color: idx <= activeStep ? "#fff" : "var(--brand)",
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
               transform: idx === activeStep ? "scale(1.15)" : "scale(1)",
@@ -155,20 +156,22 @@ const UserGuide = ({ navigate }) => {
         {/* Connecting line */}
         <div style={{ 
           position: "absolute", 
-          top: isMobile ? 26 : 35, 
+          top: isMobile ? 24 : 32, 
           left: "10%", 
           right: "10%", 
-          height: 3, 
-          background: "var(--brand-light)", 
+          height: 4, 
+          marginTop: -2, 
+          background: "var(--border)", 
           zIndex: 1 
         }} />
         <div style={{ 
           position: "absolute", 
-          top: isMobile ? 26 : 35, 
+          top: isMobile ? 24 : 32, 
           [isRTL ? 'right' : 'left']: "10%", 
           width: `${(activeStep / (steps.length - 1)) * 80}%`, 
-          height: 3, 
-          background: "var(--brand)", 
+          height: 4, 
+          marginTop: -2, 
+          background: "#0e7490", 
           zIndex: 1,
           transition: "width 0.4s ease" 
         }} />
@@ -180,10 +183,11 @@ const UserGuide = ({ navigate }) => {
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: isMobile ? 24 : 36,
         alignItems: "center",
-        background: "rgba(255,255,255,0.4)",
+        background: "var(--card-bg)",
+        border: "1px solid var(--border)",
         padding: isMobile ? "12px 0" : "20px 24px",
         borderRadius: 20,
-        backdropFilter: "blur(10px)",
+        boxShadow: "var(--shadow-lg)",
         textAlign: isRTL ? "right" : "left"
       }}>
         {/* Text Area */}
@@ -200,7 +204,7 @@ const UserGuide = ({ navigate }) => {
               {React.cloneElement(steps[activeStep].icon, { size: isMobile ? 24 : 32 })}
             </div>
             <div>
-              <h2 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, color: "var(--text-primary)", margin: 0 }}>
+              <h2 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, color: "var(--text-main)", margin: 0 }}>
                 {steps[activeStep].title}
               </h2>
               <p style={{ color: "var(--text-secondary)", fontSize: isMobile ? 12 : 14, marginTop: 2, fontWeight: 600 }}>
@@ -222,13 +226,13 @@ const UserGuide = ({ navigate }) => {
                 display: "flex", 
                 gap: 14, 
                 alignItems: "flex-start",
-                background: "#fff",
+                background: "var(--bg)",
                 padding: "10px 14px",
                 borderRadius: 14,
-                boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.02)",
                 transition: "all 0.2s",
                 cursor: "default",
-                border: "1px solid transparent",
+                border: "1px solid var(--border)",
                 flexDirection: "row"
               }}
               onMouseEnter={e => {
@@ -254,26 +258,26 @@ const UserGuide = ({ navigate }) => {
                   fontWeight: 900,
                   flexShrink: 0
                 }}>{i + 1}</div>
-                <span style={{ fontSize: isMobile ? 14 : 15, color: "var(--text-primary)", fontWeight: 700, lineHeight: 1.5, flex: 1 }}>{item}</span>
+                <span style={{ fontSize: isMobile ? 14 : 15, color: "var(--text-main)", fontWeight: 700, lineHeight: 1.5, flex: 1 }}>{item}</span>
               </li>
             ))}
           </ul>
 
           <div style={{ 
-            background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", 
+            background: "var(--brand-light)", 
             padding: "12px 16px", 
             borderRadius: 14,
-            border: "1.5px dashed #0ea5e9",
+            border: "1.5px dashed var(--brand)",
             display: "flex",
             gap: 10,
             alignItems: "center",
-            boxShadow: "0 8px 15px rgba(14, 165, 233, 0.1)",
+            boxShadow: "var(--shadow)",
             flexDirection: "row"
           }}>
-            <div style={{ background: "#fff", padding: 6, borderRadius: "50%", display: "flex" }}>
-              <Info size={20} color="#0284c7" />
+            <div style={{ background: "var(--card-bg)", padding: 6, borderRadius: "50%", display: "flex" }}>
+              <Info size={20} color="var(--brand)" />
             </div>
-            <p style={{ margin: 0, color: "#0369a1", fontSize: 13, fontWeight: 800, lineHeight: 1.4, flex: 1 }}>
+            <p style={{ margin: 0, color: "var(--text-main)", fontSize: 13, fontWeight: 800, lineHeight: 1.4, flex: 1 }}>
               {steps[activeStep].tip}
             </p>
           </div>
@@ -301,11 +305,11 @@ const UserGuide = ({ navigate }) => {
              position: "relative",
              zIndex: 1,
              padding: 10,
-             background: "rgba(255,255,255,0.2)",
+             background: "var(--brand-light)",
              borderRadius: 48,
              backdropFilter: "blur(10px)",
-             border: "1px solid rgba(255,255,255,0.4)",
-             boxShadow: "0 40px 100px rgba(0,0,0,0.15)",
+             border: "1px solid var(--border)",
+             boxShadow: "var(--shadow-lg)",
              transform: isMobile ? "none" : (isRTL ? "rotateY(10deg) rotateX(5deg)" : "rotateY(-10deg) rotateX(5deg)"),
              transition: "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
           }}
@@ -329,10 +333,10 @@ const UserGuide = ({ navigate }) => {
                 position: "absolute",
                 bottom: 20,
                 [isRTL ? 'left' : 'right']: -20,
-                background: "#fff",
+                background: "var(--card-bg)",
                 padding: "12px 20px",
                 borderRadius: 16,
-                boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                boxShadow: "var(--shadow-lg)",
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
@@ -341,7 +345,7 @@ const UserGuide = ({ navigate }) => {
                 flexDirection: "row"
              }}>
                 <CheckCircle size={20} color="var(--brand)" />
-                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>{t("guide_step_verified", { num: activeStep + 1 })}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-main)" }}>{t("guide_step_verified", { num: activeStep + 1 })}</span>
              </div>
           )}
         </div>
@@ -367,17 +371,17 @@ const UserGuide = ({ navigate }) => {
             padding: isMobile ? "10px 16px" : "12px 24px",
             borderRadius: 16,
             border: "2px solid var(--border)",
-            background: "#fff",
-            color: activeStep === 0 ? "var(--text-muted)" : "var(--text-primary)",
+            background: "var(--card-bg)",
+            color: activeStep === 0 ? "var(--text-muted)" : "var(--text-main)",
             fontWeight: 800,
             fontSize: isMobile ? 14 : 16,
             cursor: activeStep === 0 ? "not-allowed" : "pointer",
             transition: "all 0.2s",
-            boxShadow: activeStep === 0 ? "none" : "0 4px 10px rgba(0,0,0,0.05)",
+            boxShadow: activeStep === 0 ? "none" : "var(--shadow)",
             flexDirection: "row"
           }}
           onMouseEnter={e => { if(activeStep > 0) e.currentTarget.style.background = "var(--brand-light)"; }}
-          onMouseLeave={e => { if(activeStep > 0) e.currentTarget.style.background = "#fff"; }}
+          onMouseLeave={e => { if(activeStep > 0) e.currentTarget.style.background = "var(--card-bg)"; }}
         >
           {isRTL ? <ChevronRight size={20} /> : <ChevronLeft size={20} />} {isMobile ? "" : t("guide_prev")}
         </button>

@@ -19,18 +19,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
       :root {
-        /* Light Mode (Default) — Tabibi Green: rgb(0, 146, 162) */
+        /* Light Mode (Premium) */
         --brand:          #0891b2;
         --brand-dark:     #0e7490;
-        --brand-light:    rgba(8, 145, 178, 0.1);
-        --border:         #0891b2;
-        --bg:             #e5e7eb;
-        --card-bg:        #ffffff;
-        --text-main:      #111827;
-        --text-secondary: #4b5563;
-        --text-muted:     #9ca3af;
-        --nav-bg:         rgba(255, 255, 255, 0.85);
-        --glass-border:   rgba(0, 146, 162, 0.2);
+        --brand-light:    rgba(8, 145, 178, 0.08);
+        --border:         #e2e8f0;
+        --bg:             #f8fafc;
+        --card-bg:        rgba(255, 255, 255, 0.9);
+        --text-main:      #0f172a;
+        --text-secondary: #475569;
+        --text-muted:     #94a3b8;
+        --nav-bg:         rgba(255, 255, 255, 0.75);
+        --glass-bg:       rgba(255, 255, 255, 0.7);
+        --glass-border:   rgba(255, 255, 255, 0.4);
+        --glass-blur:     blur(12px);
         --heading-color:  #0c4a6e;
         --btn-text:       #ffffff;
         --input-bg:       #ffffff;
@@ -39,31 +41,45 @@
         --radius-sm:    10px;
         --radius-lg:    20px;
         --radius-xl:    32px;
-        --shadow:       0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        --shadow-lg:    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-sm:    0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow:       0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        --shadow-lg:    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        --shadow-brand: 0 10px 15px -3px rgba(8, 145, 178, 0.2);
       }
 
       [data-theme="dark"] {
-        /* Dark Mode — Using the requested Tabibi Green: #0092a2 */
-        --brand:          #0092a2;
-        --brand-dark:     #007b8a;
-        --brand-light:    rgba(0, 146, 162, 0.15);
-        --border:         #2d3748;
-        --bg:             #0f1923;
-        --card-bg:        #1a2535;
-        --text-main:      #f0f4f8;
-        --text-secondary: #a0aec0;
-        --text-muted:     #718096;
-        --nav-bg:         rgba(15, 25, 35, 0.9);
-        --glass-border:   rgba(0, 146, 162, 0.3);
-        --heading-color:  #e2f0ff;
-        --btn-text:       #ffffff;
-        --input-bg:       #1e2d3d;
-        --shadow:         0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-        --shadow-lg:      0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
+        /* Dark Mode (High-End iOS/Android Style) */
+        --brand:          #00d2df;
+        --brand-dark:     #0891b2;
+        --brand-light:    rgba(0, 210, 223, 0.1);
+        --border:         rgba(255, 255, 255, 0.08);
+        --bg:             #0a0f16;
+        --card-bg:        rgba(30, 41, 59, 0.6);
+        --text-main:      #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted:     #64748b;
+        --nav-bg:         rgba(10, 15, 22, 0.75);
+        --glass-bg:       rgba(30, 41, 59, 0.5);
+        --glass-border:   rgba(255, 255, 255, 0.1);
+        --glass-blur:     blur(16px);
+        --heading-color:  #ffffff;
+        --btn-text:       #000000;
+        --input-bg:       #1e293b;
+        --shadow:         0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        --shadow-lg:      0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        --shadow-brand:   0 10px 20px -5px rgba(0, 210, 223, 0.25);
       }
+      
+      /* Glassmorphism Utility Class */
+      .glass {
+        background: var(--glass-bg) !important;
+        backdrop-filter: var(--glass-blur) !important;
+        -webkit-backdrop-filter: var(--glass-blur) !important;
+        border: 1px solid var(--glass-border) !important;
+      }
+
       * { box-sizing: border-box; }
-      body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: var(--bg); background: var(--bg); }
+      body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: var(--bg); background: var(--bg); color: var(--text-main); }
       *, input, button, select, textarea { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
 
       /* ── Dark Mode Global Overrides ── */
@@ -73,6 +89,7 @@
         background: var(--input-bg) !important;
         color: var(--text-main) !important;
         border-color: var(--border) !important;
+        backdrop-filter: blur(8px);
       }
       [data-theme="dark"] input::placeholder,
       [data-theme="dark"] textarea::placeholder { color: var(--text-muted) !important; }
@@ -85,7 +102,7 @@
       }
 
       /* Ensure search result cards and hardcoded white backgrounds adapt */
-      [data-theme="dark"] .search-card-bg { background: var(--card-bg) !important; }
+      [data-theme="dark"] .search-card-bg { background: var(--card-bg) !important; backdrop-filter: blur(12px); }
 
       /* Fix hardcoded heading colors that appear across many components */
       [data-theme="dark"] h1, [data-theme="dark"] h2,
@@ -100,6 +117,7 @@
       [data-theme="dark"] [style*="background-color: #fff"],
       [data-theme="dark"] [style*="background-color:#fff"] {
         background: var(--card-bg) !important;
+        backdrop-filter: blur(12px);
       }
 
       /* Fix hardcoded dark text on buttons and labels */

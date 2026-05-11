@@ -41,6 +41,57 @@ export const ListSkeleton = ({ count = 3 }) => (
   </div>
 );
 
+export const DoctorDetailSkeleton = () => (
+  <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
+    <Skeleton width={120} height={20} style={{ marginBottom: 20 }} />
+    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 28, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 32, flexDirection: "row" }}>
+        <Skeleton width={200} height={200} borderRadius={32} />
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <Skeleton width={80} height={24} borderRadius={20} />
+            <Skeleton width={60} height={24} borderRadius={20} />
+          </div>
+          <Skeleton width="40%" height={32} style={{ marginBottom: 16 }} />
+          <Skeleton width="30%" height={20} style={{ marginBottom: 12 }} />
+          <Skeleton width="50%" height={20} style={{ marginBottom: 12 }} />
+          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+            <Skeleton width={100} height={15} />
+            <Skeleton width={100} height={15} />
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+      <Skeleton width={80} height={30} borderRadius={0} />
+      <Skeleton width={80} height={30} borderRadius={0} />
+      <Skeleton width={80} height={30} borderRadius={0} />
+    </div>
+    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 24 }}>
+      <Skeleton width="100%" height={150} />
+    </div>
+  </div>
+);
+
+export const AppointmentSkeleton = () => (
+  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid var(--border)", padding: 20, marginBottom: 16 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 12 }}>
+        <Skeleton width={48} height={48} borderRadius={10} />
+        <div>
+          <Skeleton width={120} height={16} style={{ marginBottom: 6 }} />
+          <Skeleton width={80} height={12} />
+        </div>
+      </div>
+      <Skeleton width={70} height={24} borderRadius={20} />
+    </div>
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", justifyContent: "space-between" }}>
+      <Skeleton width={150} height={14} />
+      <Skeleton width={100} height={14} />
+    </div>
+  </div>
+);
+
 export function useToast() {
   const [toast, setToast] = useState(null);
   const show = useCallback((msg, type = "success") => {
@@ -68,10 +119,10 @@ export const Stars = ({ rating = 0, interactive, onChange, size = 16, color = "#
   <div style={{ display: "flex", gap: 2 }}>
     {[1, 2, 3, 4, 5].map(i => (
       <span key={i} onClick={() => interactive && onChange?.(i)}
-        style={{ 
-          fontSize: size, 
-          cursor: interactive ? "pointer" : "default", 
-          color: i <= rating ? color : "#e2e8f0", 
+        style={{
+          fontSize: size,
+          cursor: interactive ? "pointer" : "default",
+          color: i <= rating ? color : "#e2e8f0",
           transition: "all 0.2s",
           textShadow: i <= rating ? `0 0 8px ${color}40` : "none"
         }}>★</span>
@@ -89,7 +140,7 @@ export const AvailabilityPulse = () => (
   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#059669", fontWeight: 700 }}>
     <div style={{ position: "relative", width: 8, height: 8 }}>
       <div style={{ position: "absolute", width: "100%", height: "100%", background: "#10b981", borderRadius: "50%" }} />
-      <div style={{ 
+      <div style={{
         position: "absolute", width: "100%", height: "100%", background: "#10b981", borderRadius: "50%",
         animation: "ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite"
       }} />

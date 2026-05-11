@@ -8,12 +8,18 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { App as CapacitorApp } from '@capacitor/app';
-// LanguageSwitcher is now defined locally to avoid hook context issues
+import confetti from "canvas-confetti";
+import { 
+  Spinner, Skeleton, CardSkeleton, ListSkeleton, 
+  DoctorDetailSkeleton, AppointmentSkeleton,
+  useToast, Stars, VerifiedBadge, AvailabilityPulse, 
+  DoctorImage, Badge, Card, Input, Btn 
+} from "./components/SharedUI.jsx";
 import ContactPage from "./pages/Contact";
 import GoogleCalendarButton from "./components/GoogleCalendarButton";
 import analytics from "./utils/analytics";
@@ -230,35 +236,10 @@ function useIsMobile() {
 }
 
 // ── Shared UI ─────────────────────────────────────────────────
-const Spinner = ({ size = 24 }) => (
-  <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-    <div style={{ width: size, height: size, border: `3px solid #e2f4f4`, borderTopColor: "var(--brand)", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-  </div>
-);
+
 
 // Custom Hook for Toast Notifications
-function useToast() {
-  const [toast, setToast] = useState(null);
-  const show = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 4500);
-  };
-  const Toast = () => toast ? (
-    <div style={{
-      position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-      background: toast.type === "error" ? "#fee2e2" : "#d1fae5",
-      color: toast.type === "error" ? "#991b1b" : "#065f46",
-      border: `1px solid ${toast.type === "error" ? "#fca5a5" : "#6ee7b7"}`,
-      borderRadius: 12, padding: "12px 20px", fontWeight: 600, fontSize: 14,
-      boxShadow: "0 8px 30px rgba(0,0,0,0.15)", display: "flex", gap: 12, alignItems: "center", maxWidth: 380
-    }}>
-      <span style={{ fontSize: 20, display: "flex" }}>{toast.type === "error" ? <AlertCircle size={20} /> : <CheckCircle size={20} />}</span>
-      <span style={{ flex: 1 }}>{toast.msg}</span>
-      <button onClick={() => setToast(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "inherit" }}>×</button>
-    </div>
-  ) : null;
-  return { show, Toast };
-}
+
 
 function useRandomAnimation(intervalSec = 30) {
   const [animType, setAnimType] = useState("");
@@ -283,77 +264,19 @@ function useRandomAnimation(intervalSec = 30) {
 }
 
 // rating Stars
-const Stars = ({ rating = 0, interactive, onChange, size = 18 }) => (
-  <div style={{ display: "flex", gap: 2 }}>
-    {[1, 2, 3, 4, 5].map(i => (
-      <span key={i} onClick={() => interactive && onChange?.(i)}
-        style={{ fontSize: size, cursor: interactive ? "pointer" : "default", color: i <= rating ? "#f59e0b" : "#d1d5db", transition: "color 0.1s" }}>★</span>
-    ))}
-  </div>
-);
+
 
 // Doctor Image Placeholder / Avatar
-const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {}, fallbackIcon: Icon = User }) => {
-  if (photo) {
-    return (
-      <img
-        src={`data:image/jpeg;base64,${photo}`}
-        alt="Profile"
-        style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }}
-      />
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius,
-      background: "linear-gradient(135deg,#ecfeff,#cffafe)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      flexShrink: 0, ...style
-    }}>
-      {Icon && <Icon size={size * 0.5} color="var(--brand)" />}
-    </div>
-  );
-};
+
 
 // Decorative Badge
-const Badge = ({ children, color = "var(--brand)" }) => (
-  <span style={{ background: color + "15", color, border: `1px solid ${color}30`, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{children}</span>
-);
+
 
 // Wrapper Card
-const Card = ({ children, style = {}, onClick, className, animate = false }) => {
-  const isMobile = useIsMobile();
-  return (
-    <motion.div
-      onClick={onClick}
-      className={className}
-      whileHover={(animate && !isMobile) ? { y: -5, boxShadow: "var(--shadow-lg)" } : {}}
-      transition={animate ? { duration: 0.2 } : { duration: 0 }}
-      style={{
-        background: "var(--card-bg)", borderRadius: "var(--radius)", border: "1px solid var(--border)",
-        boxShadow: "var(--shadow)", padding: isMobile ? 16 : 24,
-        ...style
-      }}>
-      {children}
-    </motion.div>
-  );
-};
+
 
 // Custom Form Input
-const Input = ({ label, error, ...p }) => (
-  <div style={{ marginBottom: 16 }}>
-    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</label>}
-    <input {...p} style={{
-      width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
-      borderRadius: 10, fontSize: 14, outline: "none", background: "var(--card-bg)", color: "var(--text-main)",
-      boxSizing: "border-box", transition: "all 0.2s", ...p.style
-    }}
-      onFocus={e => e.target.style.borderColor = "var(--brand)"}
-      onBlur={e => e.target.style.borderColor = error ? "#f87171" : "var(--border)"}
-    />
-    {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><AlertTriangle size={14} /> {error}</div>}
-  </div>
-);
+
 
 const Select = ({ label, error, children, ...p }) => (
   <div style={{ marginBottom: 16 }}>
@@ -373,32 +296,7 @@ const Select = ({ label, error, children, ...p }) => (
 );
 
 // Modern Button Component
-const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, className, ...p }) => {
-  const variants = {
-    primary: { background: "linear-gradient(135deg, var(--brand), var(--brand-dark))", color: "var(--btn-text)", boxShadow: "var(--shadow)" },
-    secondary: { background: "var(--card-bg)", color: "var(--text-main)", border: "1px solid var(--border)" },
-    danger: { background: "var(--danger-bg, #fee2e2)", color: "var(--danger-text, #dc2626)", border: "1px solid var(--danger-border, #fca5a5)" },
-    ghost: { background: "transparent", color: "var(--brand)", border: "1px solid var(--brand)" },
-    outline: { background: "transparent", color: "var(--text-secondary)", border: "1.5px solid var(--border)" }
-  };
-  return (
-    <motion.button
-      whileTap={(disabled || ld) ? {} : { scale: 0.97 }}
-      whileHover={(disabled || ld) ? {} : { y: -1 }}
-      className={className}
-      disabled={disabled || ld}
-      style={{
-        display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-        borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: (disabled || ld) ? "not-allowed" : "pointer",
-        transition: "all 0.2s", opacity: (disabled || ld) ? 0.6 : 1, border: "none",
-        ...variants[variant], ...style
-      }}
-      {...p}
-    >
-      {ld ? <Spinner size={18} color={variant === "primary" ? "#fff" : "var(--brand)"} /> : children}
-    </motion.button>
-  );
-};
+
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── MODALS & NAVBAR
@@ -566,7 +464,7 @@ function LanguageSwitcher() {
   );
 }
 
-function Navbar({ user, navigate, onLogout, theme, toggleTheme }) {
+function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -618,7 +516,9 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme }) {
           {!isMobile && (
             <div style={{ textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: "var(--brand)", lineHeight: 1 }}>{t("app_name")}</div>
-              <div style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: 2, fontWeight: 700 }}>TABIBI</div>
+              <div style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: i18n.language === 'ar' ? 2 : 0, fontWeight: 700 }}>
+                {i18n.language === 'ar' ? 'TABIBI' : 'طبيبي'}
+              </div>
             </div>
           )}
         </div>
@@ -680,6 +580,23 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme }) {
 
         {/* User Actions */}
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {user && (
+            <button
+              onClick={() => show("لديك تنبيه جديد: تم تأكيد موعدك مع الدكتور خلدون.", "success")}
+              style={{
+                background: "var(--brand-light)", border: "none", cursor: "pointer",
+                width: 38, height: 38, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--brand)", transition: "all 0.2s",
+                position: "relative"
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+            >
+              <Bell size={20} />
+              <div style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "#ef4444", borderRadius: "50%", border: "2px solid var(--card-bg)" }} />
+            </button>
+          )}
           {user ? (
             <div style={{ position: "relative" }}>
               <button onClick={() => setOpen(!open)} style={{
@@ -1616,7 +1533,7 @@ function SearchPage({ navigate, qs, user }) {
         </div>
       </Card>
 
-      {loading ? <Spinner /> : (
+      {loading ? <ListSkeleton count={4} /> : (
         <>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>{total > 0 ? `${filteredResults.length} ${t("results")}` : t("no_results")}</div>
@@ -2212,7 +2129,29 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
     finally { setSav(false); }
   };
 
-  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+  const shareDoctor = () => {
+    const url = window.location.href;
+    const name = data.fullname || data.doctorname;
+    const spec = i18n.language === 'ar' ? data.specialtyar : data.specialtyfr;
+    const text = `طبيبي - منصة حجز المواعيد: ${name} (${spec})\n${url}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'طبيبي - Tabibi',
+        text: text,
+        url: url,
+      }).catch(() => {
+        // Fallback if share cancelled/failed
+        navigator.clipboard.writeText(url);
+        show(t("link_copied"));
+      });
+    } else {
+      navigator.clipboard.writeText(url);
+      show(t("link_copied"));
+    }
+  };
+
+  if (loading) return <DoctorDetailSkeleton />;
   if (!data) return (
     <div style={{ padding: 60, textAlign: "center", color: "#9ca3af" }}>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
@@ -2317,6 +2256,19 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
               <Btn onClick={() => navigate("/login")} style={{ justifyContent: "center" }}>{t("login_to_book")}</Btn>
             )}
             <Btn variant="secondary" onClick={() => { navigate(`/tickets/new?doctor_id=${doctor_id}`); }} style={{ padding: "10px 24px", fontSize: 13, justifyContent: "center" }}><MessageSquare size={16} /> {t("contact")}</Btn>
+            <button
+              onClick={shareDoctor}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
+                padding: "10px 24px", borderRadius: 12, border: "1.5px solid var(--border)",
+                background: "var(--card-bg)", color: "var(--brand)", fontSize: 13, fontWeight: 700,
+                cursor: "pointer", transition: "all 0.2s"
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--brand-light)"}
+              onMouseLeave={e => e.currentTarget.style.background = "var(--card-bg)"}
+            >
+              <Share2 size={16} /> {t("share")}
+            </button>
           </div>
         </div>
       </Card>
@@ -2571,6 +2523,15 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   useEffect(() => {
     if (step > 1) {
       analytics.track("booking_step_reached", { step, doctor_id, selectedClinicId });
+    }
+    // Success Celebration
+    if (step === 7) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#0dd9c4', '#0e7490', '#ffffff']
+      });
     }
   }, [step]);
 
@@ -3356,7 +3317,11 @@ function AppointmentsPage({ navigate, user }) {
         ))}
       </div>
 
-      {loading ? <Spinner /> : filtered.length === 0 ? (
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 12 : 20 }}>
+          {Array(6).fill(0).map((_, i) => <AppointmentSkeleton key={i} />)}
+        </div>
+      ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 24px" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
             <FileText size={44} color="#cbd5e1" />
@@ -5353,8 +5318,16 @@ function MainApp() {
   const { t, i18n } = useTranslation();
   const { route, qs, navigate } = useRoute();
   const { user, loading, login, register, logout } = useAuth();
+  const isMobile = useIsMobile();
   const [showExitModal, setShowExitModal] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
+  const { show, Toast } = useToast();
+
+  useEffect(() => {
+    if (user && (user.profile?.fullname?.toLowerCase().includes("khaled") || user.username?.toLowerCase().includes("khaled"))) {
+      show(`مرحباً ${user.profile?.fullname?.split(" ")[0] || "خالد"}! لديك إشعار جديد بخصوص موعدك.`, "success");
+    }
+  }, [user]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -5539,7 +5512,7 @@ function MainApp() {
           ::-webkit-scrollbar-track { background:#f3f4f6; }
           ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
         `}</style>
-      <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} />
+      <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} show={show} />
       <BackgroundDecoration />
       <div style={{ flex: 1, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         <AnimatePresence mode="wait">
@@ -5563,6 +5536,7 @@ function MainApp() {
           onCancel={() => setShowExitModal(false)}
         />
       )}
+      <Toast />
     </div>
   );
 }

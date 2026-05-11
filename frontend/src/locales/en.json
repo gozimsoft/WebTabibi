@@ -459,6 +459,8 @@
       "Receive post-consultation advice safely.",
       "Consult your chat threads at any time."
     ],
-    "guide_chat_tip": "Note: Messaging is reserved for non-urgent questions."
+    "guide_chat_tip": "Note: Messaging is reserved for non-urgent questions.",
+    "share": "Share",
+    "link_copied": "Link copied successfully"
   }
 }

@@ -382,6 +382,8 @@
       "Recevez des conseils post-consultation en toute sécurité.",
       "Consultez vos fils de discussion à tout moment."
     ],
-    "guide_chat_tip": "Note : La messagerie est réservée aux questions non-urgentes."
+    "guide_chat_tip": "Note : La messagerie est réservée aux questions non-urgentes.",
+    "share": "Partager",
+    "link_copied": "Lien copié avec succès"
   }
 }
