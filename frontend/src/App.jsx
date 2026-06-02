@@ -30,6 +30,7 @@ import UserGuide from "./pages/UserGuide";
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const BASE = "https://tabibi.dz/api";
+//const BASE = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
