@@ -3,7 +3,7 @@
 // config/database.php  —  Tabibi API
 // ============================================================
 
-define('DB_HOST',     '178.32.109.176');
+define('DB_HOST',     '197.140.142.6'); 
 define('DB_PORT',     '3306');
 define('DB_NAME',     'uyyuppcc_DBTabibi');
 define('DB_USER',     'uyyuppcc_admin');          // ← change in production

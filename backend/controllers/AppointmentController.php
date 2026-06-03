@@ -333,6 +333,61 @@ class AppointmentController
         Response::success(null, 'Rendez-vous annulé');
     }
 
+    /**
+     * GET /doctor/appointments
+     * Returns appointments for the authenticated doctor within optional date range.
+     * Query params: from (YYYY-MM-DD), to (YYYY-MM-DD). If omitted, returns all upcoming.
+     */
+    public static function getDoctorAppointments(): void
+    {
+        // Ensure the caller is a doctor
+        $session = AuthMiddleware::doctorOnly();
+        $pdo = Database::getInstance();
+        $userId = $session['user_id'];
+
+        // Resolve doctor internal id
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $doctor = $stmt->fetch();
+        if (!$doctor) {
+            Response::error('Doctor not found', 404);
+        }
+        $doctorId = $doctor['id'];
+
+        // Optional date range filters
+        $from = trim($_GET['from'] ?? '');
+        $to   = trim($_GET['to'] ?? '');
+        $dateFilter = '';
+        $params = [$doctorId];
+        if ($from) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+                Response::error('Invalid from date format (YYYY-MM-DD)', 422);
+            }
+            $dateFilter .= " AND DATE(a.apointementdate) >= ?";
+            $params[] = $from;
+        }
+        if ($to) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+                Response::error('Invalid to date format (YYYY-MM-DD)', 422);
+            }
+            $dateFilter .= " AND DATE(a.apointementdate) <= ?";
+            $params[] = $to;
+        }
+
+        // Fetch appointments for this doctor
+        $stmt = $pdo->prepare(
+            "SELECT a.* FROM apointements a " .
+            "JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id " .
+            "WHERE cd.doctor_id = ?" .
+            $dateFilter .
+            " ORDER BY a.apointementdate ASC"
+        );
+        $stmt->execute($params);
+        $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        Response::success(['appointments' => $appointments]);
+    }
+
     // ── Delphi Sync — Delta Sync (مزامنة تفاضلية) ──────────────────
     // POST /api/apointements/sync
     // Headers: Authorization: Bearer <doctor_token> 
