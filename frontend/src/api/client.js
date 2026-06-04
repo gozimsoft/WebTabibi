@@ -32,6 +32,12 @@ export const api = {
     updateProfile: (body) => request('PUT', '/patients/profile', body),
     getAppointments: () => request('GET', '/patients/appointments'),
   },
+  doctor: {
+    getAppointments: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/doctor/appointments${qs ? '?' + qs : ''}`);
+    },
+  },
   clinics: {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
     getOne: (id) => request('GET', `/clinics/${id}`),

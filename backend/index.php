@@ -114,6 +114,12 @@ try {
         DoctorController::uploadDoctor();
     }
 
+    // GET /api/doctor/appointments — Doctor appointment manager
+    if ($uri === '/doctor/appointments' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::getDoctorAppointments();
+    }
+
     // ── Lookup ───────────────────────────────────────────────
     if ($uri === '/specialties' && $method === 'GET') {
         require_once __DIR__ . '/controllers/ClinicController.php';
