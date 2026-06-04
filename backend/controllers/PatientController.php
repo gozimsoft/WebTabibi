@@ -101,12 +101,13 @@ class PatientController {
                 cd.clinic_id as clinicid, cd.doctor_id, cd.specialtie_id,
                 d.fullname as doctorname, d.email as doctoremail, d.photoprofile,
                 c.clinicname, c.address as ClinicAddress,
-                r.name as ReasonName,
+                COALESCE(dr.reason_name, r.name) as ReasonName,
                 s.namefr as specialtyfr, s.namear as specialtyar
             FROM apointements a
             LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
             LEFT JOIN doctors d         ON d.id = cd.doctor_id
             LEFT JOIN clinics c         ON c.id = cd.clinic_id
+            LEFT JOIN doctorsreasons dr ON dr.id = a.reason_id
             LEFT JOIN reasons r         ON r.id = a.reason_id
             LEFT JOIN specialties s     ON s.id = cd.specialtie_id
             WHERE (a.patient_id = ? OR a.patient_id IN (SELECT proche_id FROM patientsproches WHERE patient_id = ?))

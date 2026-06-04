@@ -9,7 +9,7 @@ export default defineConfig({
     proxy: {
       '/api': {
        target: 'https://tabibi.dz',
-       //arget: 'http://localhost:8000',
+      // arget: 'http://localhost:8000',
         changeOrigin: true,
       }
     }

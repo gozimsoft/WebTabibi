@@ -10,6 +10,201 @@ require_once __DIR__ . '/../helpers/EmailHelper.php';
 
 class AppointmentController
 {
+    /**
+     * GET /doctor/appointments
+     * Returns appointments for the authenticated doctor within optional date range.
+     * Query params: from (YYYY-MM-DD), to (YYYY-MM-DD). If omitted, returns all upcoming.
+     */
+    public static function getDoctorAppointments(): void
+    {
+        // Ensure the caller is a doctor
+        $session = AuthMiddleware::doctorOnly();
+        $pdo = Database::getInstance();
+        $userId = $session['user_id'];
+
+        // Resolve doctor internal id
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $doctor = $stmt->fetch();
+        if (!$doctor) {
+            Response::error('Doctor not found', 404);
+        }
+        $doctorId = $doctor['id'];
+
+        // Optional date range filters
+        $from = trim($_GET['from'] ?? '');
+        $to   = trim($_GET['to'] ?? '');
+        $dateFilter = '';
+        $params = [$doctorId];
+        if ($from) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+                Response::error('Invalid from date format (YYYY-MM-DD)', 422);
+            }
+            $dateFilter .= " AND DATE(a.apointementdate) >= ?";
+            $params[] = $from;
+        }
+        if ($to) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+                Response::error('Invalid to date format (YYYY-MM-DD)', 422);
+            }
+            $dateFilter .= " AND DATE(a.apointementdate) <= ?";
+            $params[] = $to;
+        }
+
+        // Fetch appointments for this doctor with reason name
+        $stmt = $pdo->prepare(
+            "SELECT a.*,
+                    COALESCE(dr.reason_name, r.name) as reason_name,
+                    p.fullname as patient_fullname,
+                    c.clinicname
+             FROM apointements a
+             JOIN clinicsdoctors cd         ON cd.id = a.clinicsdoctor_id
+             LEFT JOIN doctorsreasons dr    ON dr.id = a.reason_id
+             LEFT JOIN reasons r            ON r.id  = a.reason_id
+             LEFT JOIN patients p           ON p.id  = a.patient_id
+             LEFT JOIN clinics c            ON c.id  = cd.clinic_id
+             WHERE cd.doctor_id = ?" .
+            $dateFilter .
+            " ORDER BY a.apointementdate ASC"
+        );
+        $stmt->execute($params);
+        $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        Response::success(['appointments' => $appointments]);
+    }
+
+    // ── GET /appointments/manager — Web dashboard for doctor ───────────
+    public static function getForManager(): void
+    {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo     = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctor = $stmt->fetch();
+        if (!$doctor) Response::notFound('Médecin introuvable');
+        $doctorId = $doctor['id'];
+
+        $from   = trim($_GET['from']   ?? date('Y-m-d'));
+        $to     = trim($_GET['to']     ?? date('Y-m-d', strtotime('+7 days')));
+        $status = isset($_GET['status']) ? (int)$_GET['status'] : null;
+
+        $where  = ["cd.doctor_id = ?"];
+        $params = [$doctorId];
+
+        if ($from) { $where[] = "DATE(a.apointementdate) >= ?"; $params[] = $from; }
+        if ($to)   { $where[] = "DATE(a.apointementdate) <= ?"; $params[] = $to; }
+        if ($status !== null) { $where[] = "a.status = ?"; $params[] = $status; }
+
+        $whereSQL = implode(' AND ', $where);
+
+        $stmt = $pdo->prepare("
+            SELECT
+                a.id, a.apointementdate, a.status, a.note,
+                COALESCE(p.fullname, a.patientname) as patientname,
+                COALESCE(p.phone,    a.phone)        as phone,
+                COALESCE(dr.reason_name, r.name)     as reason_name,
+                d.fullname  as doctorname,
+                c.clinicname,
+                a.apointementcolor,
+                a.clinicsdoctor_id,
+                a.patient_id
+            FROM apointements a
+            JOIN clinicsdoctors cd         ON cd.id = a.clinicsdoctor_id
+            JOIN doctors d                 ON d.id  = cd.doctor_id
+            LEFT JOIN clinics c            ON c.id  = cd.clinic_id
+            LEFT JOIN patients p           ON p.id  = a.patient_id
+            LEFT JOIN doctorsreasons dr    ON dr.id = a.reason_id
+            LEFT JOIN reasons r            ON r.id  = a.reason_id
+            WHERE $whereSQL
+            ORDER BY a.apointementdate ASC
+        ");
+        $stmt->execute($params);
+        $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        Response::success(['appointments' => $appointments]);
+    }
+
+    // ── PUT /appointments/:id/status — Update status from web dashboard ─
+    public static function updateStatus(string $id): void
+    {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo     = Database::getInstance();
+        $data    = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        if (!isset($data['status'])) Response::error('status requis', 422);
+        $newStatus = (int)$data['status'];
+
+        // Verify ownership
+        $stmt = $pdo->prepare("
+            SELECT a.id FROM apointements a
+            JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
+            JOIN doctors d         ON d.id  = cd.doctor_id
+            WHERE a.id = ? AND d.user_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$id, $session['user_id']]);
+        if (!$stmt->fetch()) Response::notFound('Rendez-vous introuvable');
+
+        $pdo->prepare("UPDATE apointements SET status = ?, updatedat = NOW() WHERE id = ?")
+            ->execute([$newStatus, $id]);
+
+        Response::success(null, 'Statut mis à jour');
+    }
+
+    // ── POST /appointments/manager/add — Add from web dashboard ────────
+    public static function addFromDashboard(): void
+    {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo     = Database::getInstance();
+        $data    = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctor = $stmt->fetch();
+        if (!$doctor) Response::notFound('Médecin introuvable');
+        $doctorId = $doctor['id'];
+
+        // Required fields
+        $clinicsdoctor_id = trim($data['clinics_doctor_id'] ?? '');
+        $date             = trim($data['date'] ?? '');
+        $time             = trim($data['time'] ?? '');
+        $patientname      = trim($data['patientname'] ?? '');
+
+        if (!$clinicsdoctor_id || !$date || !$time)
+            Response::error('clinics_doctor_id, date et time sont requis', 422);
+
+        // Verify this clinicsdoctor belongs to the doctor
+        $stmt = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE id = ? AND doctor_id = ? LIMIT 1");
+        $stmt->execute([$clinicsdoctor_id, $doctorId]);
+        if (!$stmt->fetch()) Response::error('clinics_doctor_id invalide', 403);
+
+        $reasonId   = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
+        $note       = trim($data['note'] ?? '');
+        $phone      = trim($data['phone'] ?? '');
+        $color      = (int)($data['apointementcolor'] ?? 0);
+        $appointmentDatetime = $date . ' ' . preg_replace('/[^0-9:]/', '', $time) . ':00';
+
+        $appointmentId = UUIDHelper::generate();
+
+        $pdo->prepare("
+            INSERT INTO apointements
+                (id, clinicsdoctor_id, apointementdate, patientname, phone, reason_id,
+                 note, status, apointementcolor, source, updatedat)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, 'web', NOW())
+        ")->execute([
+            $appointmentId,
+            $clinicsdoctor_id,
+            $appointmentDatetime,
+            $patientname,
+            $phone,
+            $reasonId,
+            $note,
+            $color,
+        ]);
+
+        Response::success(['appointment_id' => $appointmentId], 'Rendez-vous ajouté', 201);
+    }
 
     public static function getAvailableSlots(): void
     {
@@ -186,15 +381,33 @@ class AppointmentController
         $reasonId = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
         $reasonName = 'consultation';
         if ($reasonId) {
+            // Check if reason belongs to this doctor (any clinic) — reasons may be cross-clinic
             $stmt = $pdo->prepare(
-                "SELECT * FROM reasons WHERE id = ? AND specialtie_id = (SELECT specialtie_id FROM clinicsdoctors WHERE id = ? LIMIT 1)"
+                "SELECT dr.* FROM doctorsreasons dr
+                 JOIN clinicsdoctors cd ON cd.doctor_id = dr.doctor_id
+                 WHERE dr.id = ? AND cd.id = ?
+                 LIMIT 1"
             );
             $stmt->execute([$reasonId, $cdId]);
             $reasonRow = $stmt->fetch();
-            if (!$reasonRow)
-                Response::notFound('Motif introuvable pour ce médecin');
-            $reasonName = $reasonRow['name'] ?? 'consultation';
+
+            if ($reasonRow) {
+                $reasonName = $reasonRow['reason_name'] ?? 'consultation';
+            } else {
+                // Fallback: check global reasons table
+                $stmt = $pdo->prepare(
+                    "SELECT * FROM reasons WHERE id = ? AND specialtie_id = (SELECT specialtie_id FROM clinicsdoctors WHERE id = ? LIMIT 1)"
+                );
+                $stmt->execute([$reasonId, $cdId]);
+                $reasonRow = $stmt->fetch();
+                if (!$reasonRow) {
+                    Response::notFound('Motif introuvable pour ce médecin');
+                }
+                $reasonName = $reasonRow['name'] ?? 'consultation';
+            }
         }
+
+
 
         $time = preg_replace('/[^0-9:]/', '', trim($data['time']));
         if (!preg_match('/^\d{2}:\d{2}$/', $time))
@@ -266,12 +479,13 @@ class AppointmentController
             SELECT a.*,
                    d.fullname as doctorname, d.id as doctor_id,
                    c.clinicname, c.address as ClinicAddress, c.id as clinicid,
-                   r.name as ReasonName,
+                   COALESCE(dr.reason_name, r.name) as ReasonName,
                    s.namefr as specialtyfr
             FROM apointements a
             LEFT JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
             LEFT JOIN doctors d         ON d.id = cd.doctor_id
             LEFT JOIN clinics c         ON c.id = cd.clinic_id
+            LEFT JOIN doctorsreasons dr ON dr.id = a.reason_id
             LEFT JOIN reasons r         ON r.id = a.reason_id
             LEFT JOIN specialties s     ON s.id = cd.specialtie_id
             WHERE a.id = ?
@@ -333,62 +547,9 @@ class AppointmentController
         Response::success(null, 'Rendez-vous annulé');
     }
 
-    /**
-     * GET /doctor/appointments
-     * Returns appointments for the authenticated doctor within optional date range.
-     * Query params: from (YYYY-MM-DD), to (YYYY-MM-DD). If omitted, returns all upcoming.
-     */
-    public static function getDoctorAppointments(): void
-    {
-        // Ensure the caller is a doctor
-        $session = AuthMiddleware::doctorOnly();
-        $pdo = Database::getInstance();
-        $userId = $session['user_id'];
-
-        // Resolve doctor internal id
-        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
-        $stmt->execute([$userId]);
-        $doctor = $stmt->fetch();
-        if (!$doctor) {
-            Response::error('Doctor not found', 404);
-        }
-        $doctorId = $doctor['id'];
-
-        // Optional date range filters
-        $from = trim($_GET['from'] ?? '');
-        $to   = trim($_GET['to'] ?? '');
-        $dateFilter = '';
-        $params = [$doctorId];
-        if ($from) {
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
-                Response::error('Invalid from date format (YYYY-MM-DD)', 422);
-            }
-            $dateFilter .= " AND DATE(a.apointementdate) >= ?";
-            $params[] = $from;
-        }
-        if ($to) {
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
-                Response::error('Invalid to date format (YYYY-MM-DD)', 422);
-            }
-            $dateFilter .= " AND DATE(a.apointementdate) <= ?";
-            $params[] = $to;
-        }
-
-        // Fetch appointments for this doctor
-        $stmt = $pdo->prepare(
-            "SELECT a.* FROM apointements a " .
-            "JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id " .
-            "WHERE cd.doctor_id = ?" .
-            $dateFilter .
-            " ORDER BY a.apointementdate ASC"
-        );
-        $stmt->execute($params);
-        $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        Response::success(['appointments' => $appointments]);
-    }
 
     // ── Delphi Sync — Delta Sync (مزامنة تفاضلية) ──────────────────
+
     // POST /api/apointements/sync
     // Headers: Authorization: Bearer <doctor_token> 
     // Returns: { success, data: [...delta appointments...], SyncDate }
