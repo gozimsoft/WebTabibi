@@ -5,6 +5,12 @@
 Options -Indexes
 RewriteEngine On
 
+# ============================================================
+# إجبار Apache على تمرير Authorization header إلى PHP
+# ضروري على الاستضافات المشتركة (shared hosting / CGI / FastCGI)
+# ============================================================
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Remove trailing slashes
 RewriteRule ^(.+)/$ /$1 [R=301,L]
 

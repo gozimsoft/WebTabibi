@@ -29,8 +29,7 @@ import UserGuide from "./pages/UserGuide";
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BASE = "https://tabibi.dz/api";
-//const BASE = "http://localhost:8000/api";
+const BASE = import.meta.env.VITE_API_URL || "/api";
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
@@ -4920,12 +4919,12 @@ function ChatPage({ user }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    api.chat.threads().then(setThreads).catch(() => { }).finally(() => setL(false));
+    api.chat.getThreads().then(setThreads).catch(() => { }).finally(() => setL(false));
   }, []);
 
   useEffect(() => {
     if (!sel) return;
-    api.chat.messages(sel.id).then(setMsgs).catch(() => { });
+    api.chat.getMessages(sel.id).then(setMsgs).catch(() => { });
   }, [sel]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -4934,9 +4933,9 @@ function ChatPage({ user }) {
     if (!newMsg.trim() || !sel) return;
     setSending(true);
     try {
-      await api.chat.send(sel.id, { content: newMsg });
+      await api.chat.sendMessage(sel.id, { content: newMsg });
       setNewMsg("");
-      const msgs = await api.chat.messages(sel.id);
+      const msgs = await api.chat.getMessages(sel.id);
       setMsgs(msgs);
     } catch (e) { show(e.message, "error"); }
     finally { setSending(false); }
