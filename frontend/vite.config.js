@@ -5,10 +5,11 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   server: {
-    port: 82,
+    port: 80,
     proxy: {
       '/api': {
         target: 'https://tabibi.dz',
+      // target: 'http://localhost:8000',
         changeOrigin: true,
       }
     }

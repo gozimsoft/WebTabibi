@@ -181,8 +181,14 @@ class AuthController {
         require_once __DIR__ . '/../middleware/AuthMiddleware.php';
         $session = AuthMiddleware::authenticate();
 
-        $headers = getallheaders();
-        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        // متوافق مع Apache Module و CGI و FastCGI
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION']
+                   ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+                   ?? '';
+        if (!$authHeader && function_exists('getallheaders')) {
+            $hdrs = getallheaders();
+            $authHeader = $hdrs['Authorization'] ?? $hdrs['authorization'] ?? '';
+        }
         preg_match('/Bearer\s+(.+)/i', $authHeader, $matches);
         $token = trim($matches[1] ?? '');
 

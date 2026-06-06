@@ -12,8 +12,15 @@ class AuthMiddleware {
      * Returns user row or calls Response::unauthorized().
      */
     public static function authenticate(bool $required = true): ?array {
-        $headers  = getallheaders();
-        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        // متوافق مع Apache Module و CGI و FastCGI
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION']
+                   ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+                   ?? '';
+        // Fallback: getallheaders() إذا كانت متاحة ولم تُوجد القيمة بعد
+        if (!$authHeader && function_exists('getallheaders')) {
+            $hdrs = getallheaders();
+            $authHeader = $hdrs['Authorization'] ?? $hdrs['authorization'] ?? '';
+        }
 
         if (!preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
             if (!$required) return null;

@@ -128,15 +128,27 @@ class SyncController {
                 // Trouver le reason_id correspondant
                 $reasonId = null;
                 if (!empty($appt['reason_id'])) {
-                    // Chercher dans reasons par id
+                    // Chercher dans doctorsreasons d'abord
                     $stmt2 = $pdo->prepare("
-                        SELECT id FROM reasons 
+                        SELECT id FROM doctorsreasons 
                         WHERE id = ? 
                         LIMIT 1
                     ");
                     $stmt2->execute([$appt['reason_id']]);
                     $r = $stmt2->fetch();
                     $reasonId = $r['id'] ?? null;
+
+                    if (!$reasonId) {
+                        // Chercher dans reasons ensuite
+                        $stmt2 = $pdo->prepare("
+                            SELECT id FROM reasons 
+                            WHERE id = ? 
+                            LIMIT 1
+                        ");
+                        $stmt2->execute([$appt['reason_id']]);
+                        $r = $stmt2->fetch();
+                        $reasonId = $r['id'] ?? null;
+                    }
                 }
 
                 $appointmentDate = self::sanitizeDatetime($appt['apointementdate'] ?? '');
@@ -335,7 +347,7 @@ class SyncController {
                 a.status,
                 a.updatedat as syncedat,
                 a.reason_id,
-                r.namear as reason_name,
+                COALESCE(dr.reason_name, r.name) as reason_name,
                 cd.doctor_id  AS doctor_id,
                 cd.clinic_id  AS clinic_id,
                 a.clinicsdoctor_id,
@@ -343,6 +355,7 @@ class SyncController {
                 p.email       AS PatientEmail
             FROM apointements a
             LEFT JOIN clinicsdoctors cd ON cd.id  = a.clinicsdoctor_id
+            LEFT JOIN doctorsreasons dr ON dr.id = a.reason_id
             LEFT JOIN reasons         r ON r.id = a.reason_id
             LEFT JOIN patients         p ON p.id  = a.patient_id
             WHERE $whereSQL

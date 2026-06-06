@@ -1,630 +1,803 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { 
-  Calendar as CalendarIcon, Clock, User, Phone, 
-  Filter, Search, ChevronLeft, ChevronRight, 
-  MoreHorizontal, CheckCircle, XCircle, Clock4,
-  LayoutDashboard, List, Activity, Info, CalendarDays,
-  Download, Plus, RefreshCw, Stethoscope, Ruler, Weight, Droplets, Heart
+import { api } from "../api/client";
+import {
+  Calendar, Clock, User, Phone, CheckCircle,
+  XCircle, AlertCircle, RefreshCw, Filter, Search,
+  Activity, ClipboardList, Plus, X, FileText,
+  LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin
 } from "lucide-react";
-import { Btn, Card, Spinner, ListSkeleton, Badge, useToast, DoctorImage } from "../components/SharedUI";
+import { Btn, Spinner, useToast } from "../components/SharedUI";
 
-// Reuse API from window if needed or pass via props. 
-// For consistency, we'll assume 'api' is available in the parent or we'll define a local one if needed.
-// Given App.jsx structure, the 'api' object is likely not exported. 
-// But the USER said "use EXISTING backend APIs". I've extended 'api' in App.jsx.
+// ── New Appointment Modal ────────────────────────────────────────────────────
+function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
+  const { show } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [clinics, setClinics] = useState([]);
+  const [allReasons, setAllReasons] = useState([]);
+  const [loadingClinics, setLoadingClinics] = useState(true);
 
-export default function AppointmentManager({ navigate, user }) {
-  const { t, i18n } = useTranslation();
-  const { show, Toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [appointments, setAppointments] = useState([]);
-  const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, cancelled: 0 });
-  const [viewMode, setViewMode] = useState("list"); // list, calendar
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedAppt, setSelectedAppt] = useState(null);
-  const [clinicId, setClinicId] = useState(null);
-  const [doctors, setDoctors] = useState([]);
-  const [filterDoctor, setFilterDoctor] = useState("all");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newAppt, setNewAppt] = useState({ patientname: "", phone: "", date: new Date().toISOString().split('T')[0], time: "09:00", note: "", doctor_id: "" });
-
-  // Status mapping
-  const STATUS = {
-    PENDING: 0,
-    CANCELLED: 1,
-    COMPLETED: 2,
-    CONFIRMED: 3, 
-  };
+  const [form, setForm] = useState({
+    clinics_doctor_id: "",
+    date: new Date().toISOString().slice(0, 10),
+    time: "09:00",
+    patientname: "",
+    phone: "",
+    note: "",
+    doctors_reason_id: "",
+  });
 
   useEffect(() => {
-    // Determine clinic_id from user profile
-    if (user?.user_type === 1 && user?.profile?.clinics?.length > 0) {
-      setClinicId(user.profile.clinics[0].id || user.profile.clinics[0].clinic_id);
-    } else if (user?.user_type === 2) {
-      setClinicId(user.profile?.id);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (clinicId) {
-      fetchData();
-      if (user?.user_type === 2) fetchDoctors();
-    }
-  }, [clinicId]);
-
-  const fetchDoctors = async () => {
-    try {
-      const getToken = () => localStorage.getItem("tabibi_token");
-      const res = await fetch(`/api/clinics/${clinicId}`, {
-        headers: { "Authorization": `Bearer ${getToken()}` }
-      }).then(r => r.json());
-      if (res.success) {
-        setDoctors(res.data.doctors || []);
-        if (res.data.doctors?.length > 0) {
-          setNewAppt(prev => ({ ...prev, doctor_id: res.data.doctors[0].doctor_id }));
+    if (!visible) return;
+    setLoadingClinics(true);
+    api.doctor.getProfile()
+      .then(res => {
+        const docClinics = res.clinics || [];
+        setClinics(docClinics.map(c => ({ id: c.clinicsdoctor_id, name: c.clinicname, clinic_id: c.clinic_id })));
+        setAllReasons(res.reasons || []);
+        if (docClinics.length > 0) {
+          setForm(f => ({ ...f, clinics_doctor_id: docClinics[0].clinicsdoctor_id, doctors_reason_id: "" }));
         }
-      }
-    } catch (e) { console.error("Error fetching doctors", e); }
-  };
+      })
+      .catch(() => {})
+      .finally(() => setLoadingClinics(false));
+  }, [visible]);
 
-  const fetchData = async () => {
-    if (!clinicId) return;
-    setLoading(true);
+  const field = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.patientname.trim()) return show("اسم المريض مطلوب", "error");
+    if (!form.clinics_doctor_id) return show("الرجاء اختيار العيادة", "error");
+    setSaving(true);
     try {
-      const getToken = () => localStorage.getItem("tabibi_token");
-      const res = await fetch(`/api/apointements/sync?clinic_id=${clinicId}&limit=1000`, {
-        headers: { "Authorization": `Bearer ${getToken()}` }
-      }).then(r => r.json());
-
-      if (!res.success) throw new Error(res.message);
-      
-      const appts = res.data.appointments || [];
-      setAppointments(appts);
-      
-      const s = {
-        total: appts.length,
-        pending: appts.filter(a => a.status === 0).length,
-        confirmed: appts.filter(a => a.status === 3 || a.status === 0).length,
-        cancelled: appts.filter(a => a.status === 1).length,
-      };
-      setStats(s);
-    } catch (e) {
-      show(e.message, "error");
+      await api.doctor.addAppointment(form);
+      show("تم تسجيل الموعد بنجاح ✓", "success");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      show(err.message || "حدث خطأ أثناء التسجيل", "error");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleUpdateStatus = async (id, newStatus) => {
-    try {
-      const getToken = () => localStorage.getItem("tabibi_token");
-      const appt = appointments.find(a => a.id === id);
-      if (!appt) return;
+  if (!visible) return null;
 
-      const body = {
-        clinic_id: clinicId,
-        appointments: [
-          {
-            ...appt,
-            status: newStatus,
-            updatedat: new Date().toISOString()
-          }
-        ]
-      };
-
-      const res = await fetch(`/api/apointements/sync`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(body)
-      }).then(r => r.json());
-
-      if (!res.success) throw new Error(res.message);
-
-      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-      show(i18n.language === 'ar' ? "تم تحديث الحالة" : "Statut mis à jour");
-      setSelectedAppt(null);
-    } catch (e) {
-      show(e.message, "error");
-    }
+  const inp = {
+    width: "100%", padding: "10px 14px", borderRadius: 12,
+    border: "1.5px solid #e2e8f0", outline: "none", fontSize: 14,
+    fontFamily: "inherit", boxSizing: "border-box", color: "#1e293b",
+    transition: "border-color 0.2s",
   };
-
-  const handleSaveNewAppt = async () => {
-    if (!clinicId) {
-      return show(i18n.language === 'ar' ? "خطأ في تحديد العيادة" : "Erreur: Clinic ID manquant", "error");
-    }
-    if (!newAppt.patientname || !newAppt.date || !newAppt.time) {
-      return show(i18n.language === 'ar' ? "يرجى ملء الحقول المطلوبة" : "Veuillez remplir les champs obligatoires", "error");
-    }
-
-    setIsSaving(true);
-    try {
-      const getToken = () => localStorage.getItem("tabibi_token");
-      const apptDate = `${newAppt.date} ${newAppt.time}:00`;
-      
-      // Generate a simple UUID-like string
-      const id = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-      ).toUpperCase();
-
-      const body = {
-        clinic_id: clinicId,
-        appointments: [
-          {
-            id,
-            patientname: newAppt.patientname,
-            phone: newAppt.phone,
-            apointementdate: apptDate,
-            note: newAppt.note,
-            status: 3, // Directly confirm
-            updatedat: new Date().toISOString()
-          }
-        ]
-      };
-
-      const res = await fetch(`/api/apointements/sync`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(body)
-      }).then(r => r.json());
-
-      if (!res.success) throw new Error(res.message);
-
-      show(i18n.language === 'ar' ? "تم تسجيل الموعد بنجاح" : "Rendez-vous enregistré avec succès");
-      setShowAddModal(false);
-      setNewAppt({ patientname: "", phone: "", date: new Date().toISOString().split('T')[0], time: "09:00", note: "" });
-      fetchData();
-    } catch (e) {
-      show(e.message, "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const filteredAppts = useMemo(() => {
-    return appointments.filter(a => {
-      const matchesSearch = (a.patientname || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            (a.phone || "").includes(searchQuery);
-      const matchesStatus = filterStatus === "all" || a.status.toString() === filterStatus;
-      const matchesDoctor = filterDoctor === "all" || a.doctor_id === filterDoctor || a.clinicsdoctor_id === filterDoctor;
-      return matchesSearch && matchesStatus && matchesDoctor;
-    });
-  }, [appointments, searchQuery, filterStatus, filterDoctor]);
-
-  // Calendar Logic
-  const calendarDays = useMemo(() => {
-    const days = [];
-    const start = new Date(selectedDate);
-    start.setDate(start.getDate() - start.getDay()); // Start at Sunday
-    
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      days.push(d);
-    }
-    return days;
-  }, [selectedDate]);
-
-  const getApptsForDay = (date) => {
-    const dStr = date.toISOString().split("T")[0];
-    return appointments.filter(a => a.apointementdate.startsWith(dStr));
-  };
-
-  const statusLabel = (s) => {
-    if (s === 0) return { label: i18n.language === 'ar' ? "قيد الانتظار" : "En attente", color: "#f59e0b", bg: "#fef3c7" };
-    if (s === 1) return { label: i18n.language === 'ar' ? "ملغي" : "Annulé", color: "#ef4444", bg: "#fee2e2" };
-    if (s === 2) return { label: i18n.language === 'ar' ? "مكتمل" : "Terminé", color: "#10b981", bg: "#d1fae5" };
-    return { label: i18n.language === 'ar' ? "مؤكد" : "Confirmé", color: "#3b82f6", bg: "#dbeafe" };
-  };
+  const lbl = { fontSize: 13, fontWeight: 700, color: "#475569", marginBottom: 6, display: "block" };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px", minHeight: "90vh" }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>
-            {i18n.language === 'ar' ? "إدارة المواعيد" : "Appointment Manager"}
-          </h1>
-          <p style={{ color: "#64748b", fontSize: 14 }}>
-            {i18n.language === 'ar' ? "تابع ونسق مواعيدك الطبية بكل سهولة" : "Manage and coordinate your medical appointments with ease."}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <Btn variant="secondary" onClick={fetchData} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-            {i18n.language === 'ar' ? "تحديث" : "Rafraîchir"}
-          </Btn>
-          <Btn variant="primary" onClick={() => setShowAddModal(true)} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Plus size={18} />
-            {i18n.language === 'ar' ? "حجز جديد" : "Nouveau RDV"}
-          </Btn>
-        </div>
-      </div>
-
-      {/* Add Appointment Modal */}
-      {showAddModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
-          <Card style={{ maxWidth: 500, width: "100%", padding: 24 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", marginBottom: 20, textAlign: "center" }}>
-              {i18n.language === 'ar' ? "إضافة موعد جديد" : "Nouveau Rendez-vous"}
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>{i18n.language === 'ar' ? "اسم المريض" : "Nom du Patient"}</label>
-                <input 
-                  type="text" 
-                  value={newAppt.patientname} 
-                  onChange={e => setNewAppt({...newAppt, patientname: e.target.value})}
-                  style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 }}
-                  placeholder="Ex: Mohamed Amine"
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>{i18n.language === 'ar' ? "رقم الهاتف" : "Téléphone"}</label>
-                <input 
-                  type="text" 
-                  value={newAppt.phone} 
-                  onChange={e => setNewAppt({...newAppt, phone: e.target.value})}
-                  style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 }}
-                  placeholder="06..."
-                />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>{i18n.language === 'ar' ? "التاريخ" : "Date"}</label>
-                  <input 
-                    type="date" 
-                    value={newAppt.date} 
-                    onChange={e => setNewAppt({...newAppt, date: e.target.value})}
-                    style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>{i18n.language === 'ar' ? "الوقت" : "Heure"}</label>
-                  <input 
-                    type="time" 
-                    value={newAppt.time} 
-                    onChange={e => setNewAppt({...newAppt, time: e.target.value})}
-                    style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>{i18n.language === 'ar' ? "ملاحظات" : "Note"}</label>
-                <textarea 
-                  value={newAppt.note} 
-                  onChange={e => setNewAppt({...newAppt, note: e.target.value})}
-                  style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, minHeight: 80 }}
-                />
-              </div>
-
-              {user?.user_type === 2 && doctors.length > 0 && (
-                <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>{i18n.language === 'ar' ? "الطبيب" : "Médecin"}</label>
-                  <select 
-                    value={newAppt.doctor_id}
-                    onChange={e => setNewAppt({...newAppt, doctor_id: e.target.value})}
-                    style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, background: "#fff" }}
-                  >
-                    {doctors.map(d => (
-                      <option key={d.doctor_id} value={d.doctor_id}>{d.doctorname}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
-                <Btn variant="secondary" style={{ flex: 1 }} onClick={() => setShowAddModal(false)}>{i18n.language === 'ar' ? "إلغاء" : "Annuler"}</Btn>
-                <Btn variant="primary" style={{ flex: 1 }} onClick={handleSaveNewAppt} loading={isSaving}>
-                  {i18n.language === 'ar' ? "حفظ" : "Enregistrer"}
-                </Btn>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20, marginBottom: 32 }}>
-        {[
-          { label: i18n.language === 'ar' ? "إجمالي المواعيد" : "Total RDVs", value: stats.total, icon: <Activity color="#0891b2" />, color: "#0891b2" },
-          { label: i18n.language === 'ar' ? "بانتظار التأكيد" : "En attente", value: stats.pending, icon: <Clock4 color="#f59e0b" />, color: "#f59e0b" },
-          { label: i18n.language === 'ar' ? "المواعيد الملغاة" : "Annulés", value: stats.cancelled, icon: <XCircle color="#ef4444" />, color: "#ef4444" },
-          { label: i18n.language === 'ar' ? "مكتملة" : "Terminés", value: stats.confirmed, icon: <CheckCircle color="#10b981" />, color: "#10b981" },
-        ].map((s, i) => (
-          <Card key={i} style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16, borderLeft: `4px solid ${s.color}` }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: `${s.color}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {s.icon}
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)",
+      backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 1000, padding: 20,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 24, padding: 32, width: "100%",
+        maxWidth: 480, boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
+        position: "relative", animation: "slideUp 0.25s ease",
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#0ea5e9,#0284c7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Plus size={22} color="#fff" />
             </div>
             <div>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>{s.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>{s.value}</div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0f172a" }}>موعد جديد</h2>
+              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>تسجيل مريض بدون حساب</p>
             </div>
-          </Card>
-        ))}
-      </div>
+          </div>
+          <button onClick={onClose} style={{ background: "#f1f5f9", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={18} color="#64748b" />
+          </button>
+        </div>
 
-      {/* Main Content Area */}
-      <Card style={{ padding: 0, overflow: "hidden", background: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
-        {/* Toolbar */}
-        <div style={{ padding: "20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
-          <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 300 }}>
-            <div style={{ position: "relative", flex: 1 }}>
-              <Search size={18} color="#94a3b8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
-              <input 
-                type="text" 
-                placeholder={i18n.language === 'ar' ? "بحث عن مريض..." : "Chercher un patient..."}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: "100%", padding: "10px 12px 10px 40px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, outline: "none" }}
-              />
-            </div>
-            <select 
-              value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value)}
-              style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, background: "#fff", outline: "none" }}
-            >
-              <option value="all">{i18n.language === 'ar' ? "كل الحالات" : "Tous les statuts"}</option>
-              <option value="0">{i18n.language === 'ar' ? "قيد الانتظار" : "En attente"}</option>
-              <option value="3">{i18n.language === 'ar' ? "مؤكد" : "Confirmé"}</option>
-              <option value="1">{i18n.language === 'ar' ? "ملغي" : "Annulé"}</option>
-              <option value="2">{i18n.language === 'ar' ? "مكتمل" : "Terminé"}</option>
-            </select>
-
-            {user?.user_type === 2 && doctors.length > 0 && (
-              <select 
-                value={filterDoctor}
-                onChange={e => setFilterDoctor(e.target.value)}
-                style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, background: "#fff", outline: "none" }}
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Clinic */}
+          <div>
+            <label style={lbl}>العيادة / الموقع</label>
+            {loadingClinics ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", color: "#64748b", fontSize: 13 }}>
+                <Spinner size={16} /> جاري التحميل...
+              </div>
+            ) : clinics.length === 0 ? (
+              <p style={{ color: "#ef4444", fontSize: 13, margin: 0 }}>لا توجد عيادة مرتبطة بحسابك</p>
+            ) : (
+              <select
+                value={form.clinics_doctor_id}
+                onChange={e => {
+                  field("clinics_doctor_id", e.target.value);
+                  field("doctors_reason_id", "");
+                }}
+                style={inp}
+                required
               >
-                <option value="all">{i18n.language === 'ar' ? "كل الأطباء" : "Tous les médecins"}</option>
-                {doctors.map(d => (
-                  <option key={d.doctor_id} value={d.doctor_id}>{d.doctorname}</option>
-                ))}
+                {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
           </div>
-          
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
-            <button 
-              onClick={() => setViewMode("list")}
-              style={{ padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: viewMode === "list" ? "#fff" : "transparent", color: viewMode === "list" ? "#0f172a" : "#64748b", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 8, boxShadow: viewMode === "list" ? "0 2px 4px rgba(0,0,0,0.05)" : "none" }}
+
+          {/* Reason */}
+          <div>
+            <label style={lbl}><FileText size={13} style={{ marginLeft: 4 }} /> سبب الزيارة (اختياري)</label>
+            <select
+              value={form.doctors_reason_id}
+              onChange={e => field("doctors_reason_id", e.target.value)}
+              style={inp}
             >
-              <List size={16} /> {i18n.language === 'ar' ? "قائمة" : "Liste"}
+              <option value="">-- بدون تحديد --</option>
+              {(() => {
+                const selectedClinic = clinics.find(c => String(c.id) === String(form.clinics_doctor_id));
+                const targetClinicId = selectedClinic?.clinic_id;
+                // Show reasons matching the selected clinic, or all reasons if no match found
+                const filtered = targetClinicId
+                  ? allReasons.filter(r => String(r.clinic_id) === String(targetClinicId))
+                  : allReasons;
+                // Fallback: if filtered is empty, show all reasons
+                const toShow = filtered.length > 0 ? filtered : allReasons;
+                return toShow.map(r => (
+                  <option key={r.id} value={r.id}>{r.reason_name}</option>
+                ));
+              })()}
+            </select>
+          </div>
+
+          {/* Patient Name */}
+          <div>
+            <label style={lbl}><User size={13} style={{ marginLeft: 4 }} /> اسم المريض *</label>
+            <input
+              type="text"
+              placeholder="أدخل اسم المريض الكامل"
+              value={form.patientname}
+              onChange={e => field("patientname", e.target.value)}
+              style={inp}
+              required
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label style={lbl}><Phone size={13} style={{ marginLeft: 4 }} /> رقم الهاتف</label>
+            <input
+              type="tel"
+              placeholder="05XXXXXXXX"
+              value={form.phone}
+              onChange={e => field("phone", e.target.value)}
+              style={inp}
+            />
+          </div>
+
+          {/* Date & Time */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={lbl}><Calendar size={13} style={{ marginLeft: 4 }} /> التاريخ *</label>
+              <input type="date" value={form.date} onChange={e => field("date", e.target.value)} style={inp} required />
+            </div>
+            <div>
+              <label style={lbl}><Clock size={13} style={{ marginLeft: 4 }} /> الوقت *</label>
+              <input type="time" value={form.time} onChange={e => field("time", e.target.value)} style={inp} required />
+            </div>
+          </div>
+
+          {/* Note */}
+          <div>
+            <label style={lbl}><FileText size={13} style={{ marginLeft: 4 }} /> ملاحظة (اختياري)</label>
+            <textarea
+              placeholder="سبب الزيارة أو أي ملاحظة..."
+              value={form.note}
+              onChange={e => field("note", e.target.value)}
+              rows={3}
+              style={{ ...inp, resize: "vertical", lineHeight: 1.5 }}
+            />
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 14, border: "1.5px solid #e2e8f0", background: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#64748b" }}>
+              إلغاء
             </button>
-            <button 
-              onClick={() => setViewMode("calendar")}
-              style={{ padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: viewMode === "calendar" ? "#fff" : "transparent", color: viewMode === "calendar" ? "#0f172a" : "#64748b", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 8, boxShadow: viewMode === "calendar" ? "0 2px 4px rgba(0,0,0,0.05)" : "none" }}
+            <button
+              type="submit"
+              disabled={saving || loadingClinics || clinics.length === 0}
+              style={{
+                flex: 2, padding: "12px", borderRadius: 14, border: "none",
+                background: saving ? "#94a3b8" : "linear-gradient(135deg,#0ea5e9,#0284c7)",
+                color: "#fff", fontWeight: 800, fontSize: 14, cursor: saving ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                transition: "opacity 0.2s",
+              }}
             >
-              <CalendarDays size={16} /> {i18n.language === 'ar' ? "تقويم" : "تقويم"}
+              {saving ? <><Spinner size={16} /> جاري الحفظ...</> : <><Plus size={16} /> تسجيل الموعد</>}
             </button>
+          </div>
+        </form>
+      </div>
+      <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    </div>
+  );
+}
+
+// ── Weekly Schedule View ─────────────────────────────────────────────────────
+function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, STATUS_COLORS, STATUS_LABELS, onUpdateStatus, onAddNew }) {
+  const DAYS_AR = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+
+  const timescale  = parseInt(settings?.timescale  || 30);
+  const extractTime = (dt, fallback) => {
+    const m = (dt || "").match(/(\d{2}:\d{2})/);
+    return m ? m[1] : fallback;
+  };
+  const startTime  = extractTime(settings?.daytimestart, "08:00");
+  const endTime    = extractTime(settings?.daytimeend, "18:00");
+  const workingStr = settings?.workingdays   || "1111111";
+
+  const toMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const toStr  = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+
+  const slots = [];
+  for (let m = toMins(startTime); m < toMins(endTime); m += timescale) slots.push(toStr(m));
+
+  // Build 7-day array from weekStart (Monday)
+  const weekDays = Array.from({length: 7}, (_, i) => {
+    const d = new Date(weekStart + "T00:00:00");
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const fmt = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const today = fmt(new Date());
+
+  // Index appointments by "YYYY-MM-DD__HH:MM"
+  const bySlot = {};
+  appointments.forEach(a => {
+    const dt = a.apointementdate || a.date || "";
+    const key = `${dt.slice(0,10)}__${dt.slice(11,16)}`;
+    if (!bySlot[key]) bySlot[key] = [];
+    bySlot[key].push(a);
+  });
+
+  const prevWeek = () => { const d = new Date(weekStart+"T00:00:00"); d.setDate(d.getDate()-7); setWeekStart(fmt(d)); };
+  const nextWeek = () => { const d = new Date(weekStart+"T00:00:00"); d.setDate(d.getDate()+7); setWeekStart(fmt(d)); };
+  const goToday  = () => {
+    const d = new Date(); const day = d.getDay();
+    d.setDate(d.getDate() - day + (day===0 ? -6 : 1));
+    setWeekStart(fmt(d));
+  };
+
+  const COL_W = 130; // px per day column
+  const ROW_H = 52;  // px per time slot
+
+  return (
+    <div style={{background:"#fff", borderRadius:24, overflow:"hidden", boxShadow:"0 4px 20px rgba(0,0,0,0.06)"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)", padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12}}>
+        <button onClick={prevWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
+          <ChevronRight size={20} />
+        </button>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:16, fontWeight:900, color:"#fff"}}>
+            {weekDays[0].toLocaleDateString("ar-DZ",{day:"numeric",month:"long"})} — {weekDays[6].toLocaleDateString("ar-DZ",{day:"numeric",month:"long",year:"numeric"})}
+          </div>
+          <div style={{fontSize:11, color:"rgba(255,255,255,0.75)", marginTop:2}}>
+            {timescale} دقيقة/زيارة &nbsp;·&nbsp; {startTime} — {endTime}
           </div>
         </div>
+        <div style={{display:"flex", gap:8, alignItems:"center"}}>
+          <button onClick={goToday} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8, padding:"5px 12px", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>اليوم</button>
+          <button onClick={nextWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+      </div>
 
-        {/* List View */}
-        {viewMode === "list" && (
-          <div style={{ overflowX: "auto" }}>
-            {loading ? <div style={{ padding: 20 }}><ListSkeleton count={5} /></div> : (
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: i18n.language === 'ar' ? "right" : "left" }}>
-                <thead style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-                  <tr>
-                    <th style={{ padding: "16px 20px", fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{i18n.language === 'ar' ? "المريض" : "Patient"}</th>
-                    <th style={{ padding: "16px 20px", fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{i18n.language === 'ar' ? "التاريخ والوقت" : "Date & Heure"}</th>
-                    <th style={{ padding: "16px 20px", fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{i18n.language === 'ar' ? "الحالة" : "Statut"}</th>
-                    <th style={{ padding: "16px 20px", fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{i18n.language === 'ar' ? "إجراءات" : "Actions"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAppts.map((appt, i) => {
-                    const date = new Date(appt.apointementdate);
-                    const s = statusLabel(appt.status);
-                    return (
-                      <tr key={appt.id} style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.2s" }} className="hover:bg-slate-50">
-                        <td style={{ padding: "16px 20px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", color: "#0891b2", fontWeight: 800 }}>
-                              {appt.patientname?.[0]?.toUpperCase()}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 700, color: "#0f172a" }}>{appt.patientname}</div>
-                              <div style={{ fontSize: 12, color: "#64748b" }}>{appt.phone || "—"}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: "16px 20px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#0f172a", fontWeight: 600 }}>
-                            <CalendarIcon size={14} color="#64748b" /> {date.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR')}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 12, marginTop: 4 }}>
-                            <Clock size={14} color="#64748b" /> {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </td>
-                        <td style={{ padding: "16px 20px" }}>
-                          <span style={{ padding: "4px 12px", borderRadius: 20, background: s.bg, color: s.color, fontSize: 12, fontWeight: 700 }}>
-                            {s.label}
-                          </span>
-                        </td>
-                        <td style={{ padding: "16px 20px" }}>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button 
-                              onClick={() => setSelectedAppt(appt)}
-                              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}
-                            >
-                              <Info size={16} />
-                            </button>
-                            {appt.status === 0 && (
-                              <>
-                                <button 
-                                  onClick={() => handleUpdateStatus(appt.id, 3)}
-                                  style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#10b981", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
-                                >
-                                  <CheckCircle size={16} />
-                                </button>
-                                <button 
-                                  onClick={() => handleUpdateStatus(appt.id, 1)}
-                                  style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
-                                >
-                                  <XCircle size={16} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredAppts.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ padding: 60, textAlign: "center", color: "#94a3b8" }}>
-                        <CalendarIcon size={48} style={{ marginBottom: 12, opacity: 0.3 }} />
-                        <div>{i18n.language === 'ar' ? "لا توجد مواعيد حالياً" : "Aucun rendez-vous trouvé."}</div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
+      <div style={{overflowX:"auto", overflowY:"auto", maxHeight:"70vh"}}>
+        <div style={{minWidth: 80 + COL_W * 7}}>
+
+          {/* Day headers */}
+          <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"2px solid #e2e8f0", position:"sticky", top:0, background:"#fff", zIndex:10}}>
+            <div style={{padding:"10px 8px", fontSize:11, color:"#94a3b8", fontWeight:600, borderRight:"1px solid #f1f5f9", textAlign:"center"}}>الوقت</div>
+            {weekDays.map((d, i) => {
+              const ds = fmt(d);
+              const isToday = ds === today;
+              const jsDay = d.getDay(); // 0=Sun
+              const isWorking = workingStr[jsDay] === "1";
+              return (
+                <div key={i} style={{padding:"10px 6px", textAlign:"center", borderRight:"1px solid #f1f5f9", background: isToday ? "#f0f9ff" : !isWorking ? "#fafafa" : "#fff"}}>
+                  <div style={{fontSize:11, fontWeight:700, color: isToday ? "#0284c7" : "#64748b"}}>{DAYS_AR[jsDay]}</div>
+                  <div style={{fontSize:18, fontWeight:900, color: isToday ? "#0284c7" : "#334155", marginTop:2}}>{d.getDate()}</div>
+                  {isToday && <div style={{width:6, height:6, borderRadius:"50%", background:"#0284c7", margin:"4px auto 0"}}/>}
+                </div>
+              );
+            })}
           </div>
-        )}
 
-        {/* Calendar View */}
-        {viewMode === "calendar" && (
-          <div style={{ padding: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-              <button onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 7)))} style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2" }}><ChevronLeft /></button>
-              <h3 style={{ margin: 0, fontWeight: 800 }}>
-                {calendarDays[0].toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })}
-              </h3>
-              <button onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 7)))} style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2" }}><ChevronRight /></button>
-            </div>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 12 }}>
-              {calendarDays.map((day, i) => {
-                const dayAppts = getApptsForDay(day);
-                const isToday = day.toDateString() === new Date().toDateString();
+          {/* Time rows */}
+          {slots.map((slot, si) => (
+            <div key={si} style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"1px solid #f1f5f9", minHeight: ROW_H}}>
+              {/* Time label */}
+              <div style={{padding:"4px 8px", fontSize:11, fontWeight:700, color:"#94a3b8", borderRight:"1px solid #f1f5f9", display:"flex", alignItems:"center", justifyContent:"center", background:"#fafafa"}}>
+                {slot}
+              </div>
+              {weekDays.map((d, di) => {
+                const ds = fmt(d);
+                const key = `${ds}__${slot}`;
+                const appts = bySlot[key] || [];
+                const jsDay = d.getDay();
+                const isWorking = workingStr[jsDay] === "1";
+                const isToday = ds === today;
                 return (
-                  <div key={i} style={{ minHeight: 180, borderRadius: 12, border: "1px solid #e2e8f0", background: isToday ? "#f0fdfa" : "#fff", padding: 12 }}>
-                    <div style={{ textAlign: "center", marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>{day.toLocaleDateString(i18n.language, { weekday: 'short' })}</div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: isToday ? "#0891b2" : "#0f172a" }}>{day.getDate()}</div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {dayAppts.map(a => {
-                        const s = statusLabel(a.status);
-                        return (
-                          <div 
-                            key={a.id} 
-                            onClick={() => setSelectedAppt(a)}
-                            style={{ padding: "6px 8px", borderRadius: 6, background: s.bg, border: `1px solid ${s.color}30`, fontSize: 11, fontWeight: 700, color: s.color, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                          >
-                            {new Date(a.apointementdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {a.patientname}
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div key={di} style={{borderRight:"1px solid #f1f5f9", padding:"3px 4px", minHeight: ROW_H, background: isToday ? "#f8fbff" : !isWorking ? "#fafafa" : "#fff", position:"relative"}}>
+                    {appts.map((appt, ai) => {
+                      const sc = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
+                      return (
+                        <div key={ai} title={`${appt.patientname || "مريض"}\n${STATUS_LABELS[appt.status]}`}
+                          style={{background: sc.bg, border:`1px solid ${sc.border}`, borderRadius:8, padding:"3px 6px", marginBottom:2, cursor:"default"}}>
+                          <div style={{fontSize:10, fontWeight:800, color: sc.color, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.patientname || "مريض"}</div>
+                          {appt.reason_name && <div style={{fontSize:9, color:"#64748b", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.reason_name}</div>}
+                          {appt.status === 0 && (
+                            <div style={{display:"flex", gap:3, marginTop:3}}>
+                              <button onClick={() => onUpdateStatus(appt.id, 2)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"#d1fae5", color:"#065f46", fontWeight:700, fontSize:9, cursor:"pointer"}}>✓</button>
+                              <button onClick={() => onUpdateStatus(appt.id, 1)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"#fee2e2", color:"#991b1b", fontWeight:700, fontSize:9, cursor:"pointer"}}>✕</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer: legend + add button */}
+      <div style={{padding:"12px 20px", borderTop:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10}}>
+        <div style={{display:"flex", gap:12}}>
+          {Object.entries(STATUS_LABELS).map(([k, label]) => {
+            const sc = STATUS_COLORS[k] || {};
+            return (
+              <div key={k} style={{display:"flex", alignItems:"center", gap:5, fontSize:11, color:"#64748b"}}>
+                <div style={{width:10, height:10, borderRadius:3, background: sc.bg, border:`1px solid ${sc.border}`}}/>
+                {label}
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onAddNew} style={{display:"flex", alignItems:"center", gap:6, padding:"8px 16px", borderRadius:10, border:"none", background:"linear-gradient(135deg,#0ea5e9,#0284c7)", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>
+          <Plus size={13}/> موعد جديد
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+// ── Main Component ───────────────────────────────────────────────────────────
+export default function AppointmentManager({ navigate, user }) {
+  const { t, i18n } = useTranslation();
+  const { show, Toast } = useToast();
+
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [quickFilter, setQuickFilter] = useState(""); // today | week | month | 3months
+  const [showModal, setShowModal] = useState(false);
+  const [viewMode, setViewMode] = useState("list"); // list | calendar
+  const [calWeek, setCalWeek] = useState(() => {
+    const d = new Date();
+    const day = d.getDay(); // 0=Sun
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // start from Monday
+    const monday = new Date(d.setDate(diff));
+    return monday.toISOString().slice(0, 10);
+  });
+  const [scheduleSettings, setScheduleSettings] = useState(null);
+  const [clinics, setClinics] = useState([]);
+  const [selectedClinicId, setSelectedClinicId] = useState("all");
+
+  const applyQuickFilter = (key) => {
+    const today = new Date();
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    setQuickFilter(key);
+    if (key === "today") {
+      setDateFrom(fmt(today)); setDateTo(fmt(today));
+    } else if (key === "week") {
+      const end = new Date(today); end.setDate(today.getDate() + 7);
+      setDateFrom(fmt(today)); setDateTo(fmt(end));
+    } else if (key === "month") {
+      const end = new Date(today); end.setMonth(today.getMonth() + 1);
+      setDateFrom(fmt(today)); setDateTo(fmt(end));
+    } else if (key === "3months") {
+      const end = new Date(today); end.setMonth(today.getMonth() + 3);
+      setDateFrom(fmt(today)); setDateTo(fmt(end));
+    } else {
+      setDateFrom(""); setDateTo("");
+    }
+  };
+
+  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      let data = [];
+      if (user?.user_type === 1) {
+        const params = clinicId !== "all" ? { clinic_id: clinicId } : {};
+        const res = await api.doctor.getForManager(params);
+        data = res.appointments || [];
+        if (res.settings) setScheduleSettings(res.settings);
+      } else {
+        show("واجهة العيادة قيد التطوير", "error");
+      }
+      setAppointments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      show(err.message || t("error_occurred"), "error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    api.doctor.getProfile()
+      .then(res => {
+        const docClinics = res.clinics || [];
+        setClinics(docClinics.map(c => ({ id: c.clinicsdoctor_id, name: c.clinicname, clinic_id: c.clinic_id })));
+        if (docClinics.length > 0) {
+          setSelectedClinicId(docClinics[0].clinic_id);
+        } else {
+          fetchAppointments(false, "all");
+        }
+      })
+      .catch(() => {
+        fetchAppointments(false, "all");
+      });
+  }, []);
+
+  useEffect(() => {
+    if (selectedClinicId) {
+      fetchAppointments(false, selectedClinicId);
+    }
+  }, [selectedClinicId]);
+
+  const handleUpdateStatus = async (id, status) => {
+    try {
+      await api.doctor.updateAppointmentStatus(id, status);
+      show("تم تحديث الحالة بنجاح", "success");
+      fetchAppointments(true);
+    } catch (err) {
+      show(err.message || "حدث خطأ", "error");
+    }
+  };
+
+  const STATUS_LABELS = { 0: "محجوز", 1: "ملغي", 2: "مكتمل" };
+  const STATUS_COLORS = {
+    0: { bg: "#fef3c7", color: "#92400e", border: "#fde68a" },   // أصفر — بانتظار الزيارة
+    1: { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5" },   // أحمر — ملغي
+    2: { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7" },   // أخضر — مكتمل
+  };
+
+  const now = new Date();
+  const clinicFilter = (a) => selectedClinicId === "all" || String(a.clinic_id) === String(selectedClinicId);
+  const filtered = appointments.filter(a => {
+    const matchesFilter = filter === "all" ||
+      (filter === "booked"   && Number(a.status) === 0) ||
+      (filter === "done"     && Number(a.status) === 2) ||
+      (filter === "cancelled"&& Number(a.status) === 1);
+    const matchesSearch = !search ||
+      (a.patientname || "").toLowerCase().includes(search.toLowerCase()) ||
+      (a.phone || "").includes(search);
+    const apptDate = (a.apointementdate || a.date || "").slice(0, 10);
+    const matchesFrom = !dateFrom || apptDate >= dateFrom;
+    const matchesTo   = !dateTo   || apptDate <= dateTo;
+    return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a);
+  });
+
+  const stats = {
+    total:     appointments.filter(clinicFilter).length,
+    booked:    appointments.filter(a => clinicFilter(a) && Number(a.status) === 0).length,
+    done:      appointments.filter(a => clinicFilter(a) && Number(a.status) === 2).length,
+    cancelled: appointments.filter(a => clinicFilter(a) && Number(a.status) === 1).length,
+  };
+
+  const glassPanel = {
+    background: "rgba(255,255,255,0.75)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    border: "1px solid rgba(255,255,255,0.5)",
+    boxShadow: "0 8px 32px rgba(12,74,110,0.05)",
+    borderRadius: 24,
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%)", padding: "32px 24px", paddingBottom: 100 }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+
+        {/* Header */}
+        <div style={{ ...glassPanel, padding: "28px 32px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: "#0c4a6e", display: "flex", alignItems: "center", gap: 12 }}>
+              <Calendar size={32} color="#0284c7" /> إدارة المواعيد
+            </h1>
+            <p style={{ margin: "8px 0 0 0", color: "#475569", fontSize: 15 }}>
+              مرحباً د. {user?.profile?.fullname || user?.username}، تابع مواعيدك ومرضاك من هنا.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {/* View toggle */}
+            <div style={{ display: "flex", background: "#f1f5f9", borderRadius: 12, padding: 4, gap: 2 }}>
+              {[{ key: "list", Icon: LayoutList, label: "قائمة" }, { key: "calendar", Icon: CalendarDays, label: "تقويم" }].map(({ key, Icon, label }) => (
+                <button key={key} onClick={() => setViewMode(key)} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                  borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                  background: viewMode === key ? "#fff" : "transparent",
+                  color: viewMode === key ? "#0284c7" : "#64748b",
+                  boxShadow: viewMode === key ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.18s",
+                }}><Icon size={16} />{label}</button>
+              ))}
+            </div>
+
+            <button onClick={() => setShowModal(true)} style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "11px 20px", borderRadius: 14, border: "none", cursor: "pointer",
+              background: "linear-gradient(135deg,#0ea5e9,#0284c7)",
+              color: "#fff", fontWeight: 800, fontSize: 14,
+              boxShadow: "0 4px 16px rgba(2,132,199,0.3)", transition: "transform 0.15s",
+            }}
+              onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
+              onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+            ><Plus size={18} /> موعد جديد</button>
+
+            <Btn onClick={() => fetchAppointments(true)} disabled={refreshing || loading}
+              style={{ borderRadius: 14, padding: "11px 18px", background: "#fff", color: "#0284c7", border: "1px solid #bae6fd" }}
+            ><RefreshCw size={18} className={refreshing ? "spin-anim" : ""} /> تحديث</Btn>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: 24 }}>
+          {[
+            { title: "إجمالي المواعيد",  count: stats.total,     icon: <Activity size={24} />,      color: "#0284c7", bg: "linear-gradient(135deg,#e0f2fe,#bae6fd)" },
+            { title: "محجوزة (قيد الانتظار)", count: stats.booked, icon: <Clock size={24} />,         color: "#92400e", bg: "linear-gradient(135deg,#fef9c3,#fde68a)" },
+            { title: "مكتملة",            count: stats.done,      icon: <CheckCircle size={24} />,  color: "#059669", bg: "linear-gradient(135deg,#d1fae5,#a7f3d0)" },
+            { title: "ملغاة",             count: stats.cancelled, icon: <XCircle size={24} />,      color: "#991b1b", bg: "linear-gradient(135deg,#fee2e2,#fca5a5)" },
+          ].map((s, i) => (
+            <div key={i} style={{ background: "#fff", borderRadius: 20, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.02)" }}>
+              <div style={{ width: 60, height: 60, borderRadius: 16, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: "#0f172a", lineHeight: 1 }}>{s.count}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#64748b", marginTop: 8 }}>{s.title}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24 }}>
+
+          {/* Row 1 — Quick filter buttons */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            {[
+              { key: "",        label: "الكل" },
+              { key: "today",   label: "اليوم" },
+              { key: "week",    label: "الأسبوع القادم" },
+              { key: "month",   label: "الشهر القادم" },
+              { key: "3months", label: "3 أشهر القادمة" },
+            ].map(({ key, label }) => {
+              const active = quickFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => applyQuickFilter(key)}
+                  style={{
+                    padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700,
+                    border: active ? "none" : "1.5px solid #e2e8f0",
+                    background: active ? "linear-gradient(135deg,#0ea5e9,#0284c7)" : "#fff",
+                    color: active ? "#fff" : "#475569",
+                    cursor: "pointer",
+                    boxShadow: active ? "0 4px 12px rgba(2,132,199,0.25)" : "none",
+                    transition: "all 0.18s",
+                  }}
+                >{label}</button>
+              );
+            })}
+          </div>
+
+          {/* Row 2 — Search + Status + Date range */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            {/* Clinic Filter */}
+            {clinics.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "#f0f9ff" : "#f8fafc", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid #bae6fd" : "1px solid #e2e8f0" }}>
+                <MapPin size={16} color={selectedClinicId !== "all" ? "#0284c7" : "#94a3b8"} />
+                <select
+                  value={selectedClinicId}
+                  onChange={e => setSelectedClinicId(e.target.value)}
+                  style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "#334155", fontWeight: 700, cursor: "pointer" }}
+                >
+                  <option value="all">كل العيادات</option>
+                  {clinics.map(c => (
+                    <option key={c.id} value={c.clinic_id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Search */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "9px 14px", borderRadius: 14, border: "1px solid #e2e8f0", flex: "1 1 240px" }}>
+              <Search size={16} color="#94a3b8" />
+              <input
+                type="text"
+                placeholder="ابحث باسم المريض أو رقم الهاتف..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ border: "none", outline: "none", width: "100%", fontSize: 13, background: "transparent", color: "#334155" }}
+              />
+              {search && <XCircle size={15} color="#94a3b8" style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => setSearch("")} />}
+            </div>
+
+            {/* Status filter */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "9px 14px", borderRadius: 14, border: "1px solid #e2e8f0" }}>
+              <Filter size={16} color="#94a3b8" />
+              <select
+                value={filter}
+                onChange={e => setFilter(e.target.value)}
+                style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "#334155", fontWeight: 700, cursor: "pointer" }}
+              >
+                <option value="all">كل الحالات</option>
+                <option value="booked">محجوزة (قيد الانتظار)</option>
+                <option value="done">مكتملة</option>
+                <option value="cancelled">ملغاة</option>
+              </select>
+            </div>
+
+            {/* Date range */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "9px 14px", borderRadius: 14, border: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+              <Calendar size={16} color="#94a3b8" />
+              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>من</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
+                style={{ border: "none", outline: "none", fontSize: 13, color: "#334155", background: "transparent", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>إلى</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={e => { setDateTo(e.target.value); setQuickFilter(""); }}
+                style={{ border: "none", outline: "none", fontSize: 13, color: "#334155", background: "transparent", cursor: "pointer" }}
+              />
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setDateFrom(""); setDateTo(""); setQuickFilter(""); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
+                  title="مسح الفلتر"
+                >
+                  <XCircle size={15} color="#ef4444" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Active filters summary */}
+          {(dateFrom || dateTo || search || filter !== "all" || selectedClinicId !== "all") && (
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>النتائج:</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#0284c7", background: "#e0f2fe", padding: "3px 10px", borderRadius: 20 }}>
+                {filtered.length} موعد
+              </span>
+              {selectedClinicId !== "all" && (
+                <span style={{ fontSize: 12, color: "#0284c7", background: "#e0f2fe", padding: "3px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
+                  <MapPin size={11} />
+                  {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || "عيادة"}
+                </span>
+              )}
+              {(dateFrom || dateTo) && (
+                <span style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "3px 10px", borderRadius: 20 }}>
+                  {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `من ${dateFrom}` : `حتى ${dateTo}`}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {loading && !refreshing ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
+        ) : viewMode === "calendar" ? (
+          <WeeklyScheduleView
+            appointments={filtered}
+            settings={scheduleSettings}
+            weekStart={calWeek}
+            setWeekStart={setCalWeek}
+            STATUS_LABELS={STATUS_LABELS}
+            STATUS_COLORS={STATUS_COLORS}
+            onUpdateStatus={handleUpdateStatus}
+            onAddNew={() => setShowModal(true)}
+          />
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "80px 20px", background: "#fff", borderRadius: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
+            <Calendar size={64} color="#cbd5e1" style={{ marginBottom: 16 }} />
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: "#334155", margin: "0 0 8px 0" }}>لا توجد مواعيد</h3>
+            <p style={{ color: "#64748b", margin: "0 0 20px 0" }}>لم يتم العثور على أي مواعيد تطابق بحثك.</p>
+            <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Plus size={16} /> سجّل أول موعد
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 20 }}>
+            {filtered.map(appt => {
+              const d = new Date(appt.apointementdate || appt.date);
+              const isPast = Number(appt.status) !== 0; // completed(2) or cancelled(1)
+              const statusStyle = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
+              return (
+                <div key={appt.id} className="appt-card" style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.04)", transition: "transform 0.2s,box-shadow 0.2s", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: isPast ? "#cbd5e1" : "linear-gradient(90deg,#0ea5e9,#0284c7)" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: isPast ? "#f1f5f9" : "#e0f2fe", color: isPast ? "#64748b" : "#0284c7", display: "flex", alignItems: "center", justifyContent: "center" }}><User size={20} /></div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}>{appt.patientname || "مريض غير معروف"}</div>
+                        {appt.phone && <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><Phone size={11} /> {appt.phone}</div>}
+                      </div>
+                    </div>
+                    <span style={{ background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{STATUS_LABELS[appt.status] ?? "—"}</span>
+                  </div>
+                  <div style={{ background: "#f8fafc", borderRadius: 12, padding: 14, marginBottom: 14, border: "1px solid #f1f5f9" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#334155", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                      <Calendar size={14} color="#0284c7" />
+                      {d.toLocaleDateString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { weekday: "long", year: "numeric", month: "short", day: "numeric" })}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#334155", fontSize: 13, fontWeight: 700 }}>
+                      <Clock size={14} color="#0284c7" />
+                      {d.toLocaleTimeString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                    {appt.reason_name && <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2e8f0", fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}><FileText size={12} /> {appt.reason_name}</div>}
+                    {appt.note && <div style={{ marginTop: 6, fontSize: 12, color: "#64748b", display: "flex", alignItems: "flex-start", gap: 6 }}><AlertCircle size={12} style={{ marginTop: 2, flexShrink: 0 }} /><span style={{ lineHeight: 1.4 }}>{appt.note}</span></div>}
+                  </div>
+                  {appt.status === 0 && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={() => handleUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓ إتمام الزيارة</button>
+                      <button onClick={() => handleUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✕ إلغاء</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* Appointment Detail Modal */}
-      {selectedAppt && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
-          <Card style={{ maxWidth: 600, width: "100%", padding: 0, overflow: "hidden", position: "relative" }}>
-            <button onClick={() => setSelectedAppt(null)} style={{ position: "absolute", top: 16, right: 16, background: "#f1f5f9", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><XCircle size={20} color="#64748b" /></button>
-            
-            <div style={{ background: "linear-gradient(135deg, #0c4a6e, #0891b2)", padding: "32px 24px", color: "#fff" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900 }}>
-                  {selectedAppt.patientname?.[0]?.toUpperCase()}
-                </div>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>{selectedAppt.patientname}</h2>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: 0.8, fontSize: 14, marginTop: 4 }}>
-                    <Phone size={14} /> {selectedAppt.phone || "—"}
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Modal */}
+      <NewAppointmentModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        onSuccess={() => fetchAppointments(true)}
+      />
 
-            <div style={{ padding: 24 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
-                <div>
-                  <h4 style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>{i18n.language === 'ar' ? "التفاصيل" : "Détails"}</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <CalendarIcon size={16} color="#0891b2" />
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>{new Date(selectedAppt.apointementdate).toLocaleDateString(i18n.language, { dateStyle: 'long' })}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Clock size={16} color="#0891b2" />
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>{new Date(selectedAppt.apointementdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Stethoscope size={16} color="#0891b2" />
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>{selectedAppt.reason_name || "Consultation générale"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>{i18n.language === 'ar' ? "المؤشرات الحيوية" : "Vitals"}</h4>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div style={{ padding: 8, borderRadius: 8, background: "#f8fafc", textAlign: "center" }}>
-                      <Weight size={14} color="#64748b" style={{ marginBottom: 4 }} />
-                      <div style={{ fontSize: 12, fontWeight: 700 }}>{selectedAppt.weight || "—"} kg</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 8, background: "#f8fafc", textAlign: "center" }}>
-                      <Ruler size={14} color="#64748b" style={{ marginBottom: 4 }} />
-                      <div style={{ fontSize: 12, fontWeight: 700 }}>{selectedAppt.height || "—"} cm</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 8, background: "#f8fafc", textAlign: "center" }}>
-                      <Heart size={14} color="#64748b" style={{ marginBottom: 4 }} />
-                      <div style={{ fontSize: 12, fontWeight: 700 }}>{selectedAppt.heartbeats || "—"} bpm</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 8, background: "#f8fafc", textAlign: "center" }}>
-                      <Droplets size={14} color="#64748b" style={{ marginBottom: 4 }} />
-                      <div style={{ fontSize: 12, fontWeight: 700 }}>{selectedAppt.oxygen || "—"} %</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {selectedAppt.note && (
-                <div style={{ marginBottom: 24 }}>
-                  <h4 style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>{i18n.language === 'ar' ? "ملاحظات" : "Notes"}</h4>
-                  <div style={{ padding: 12, borderRadius: 10, background: "#f1f5f9", fontSize: 14, color: "#334155", lineHeight: 1.6 }}>
-                    {selectedAppt.note}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                {selectedAppt.status === 0 ? (
-                  <>
-                    <Btn variant="primary" style={{ flex: 1 }} onClick={() => handleUpdateStatus(selectedAppt.id, 3)}>{i18n.language === 'ar' ? "تأكيد الموعد" : "Confirmer"}</Btn>
-                    <Btn variant="danger" style={{ flex: 1 }} onClick={() => handleUpdateStatus(selectedAppt.id, 1)}>{i18n.language === 'ar' ? "إلغاء" : "Annuler"}</Btn>
-                  </>
-                ) : (
-                   <Btn variant="secondary" style={{ flex: 1 }} onClick={() => setSelectedAppt(null)}>{i18n.language === 'ar' ? "إغلاق" : "Fermer"}</Btn>
-                )}
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
+      <style>{`
+        .spin-anim { animation: spin 1s linear infinite; }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .appt-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.07) !important; }
+        .cal-day:hover { background: #f0f9ff !important; cursor: pointer; }
+        .cal-day.has-appt:hover { background: #e0f2fe !important; }
+        .cal-appt-pill { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      `}</style>
       <Toast />
     </div>
   );

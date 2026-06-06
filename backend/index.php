@@ -114,6 +114,12 @@ try {
         DoctorController::uploadDoctor();
     }
 
+    // GET /api/doctor/appointments — Doctor appointment manager
+    if ($uri === '/doctor/appointments' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::getDoctorAppointments();
+    }
+
     // ── Lookup ───────────────────────────────────────────────
     if ($uri === '/specialties' && $method === 'GET') {
         require_once __DIR__ . '/controllers/ClinicController.php';
@@ -189,6 +195,25 @@ try {
         require_once __DIR__ . '/controllers/AppointmentController.php';
         AppointmentController::book();
     }
+
+    // GET /api/appointments/manager — Web dashboard (doctor)
+    // IMPORTANT: must be BEFORE the generic /appointments/:id route
+    if ($uri === '/appointments/manager' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::getForManager();
+    }
+    // POST /api/appointments/manager/add — Add new appointment from web dashboard
+    if ($uri === '/appointments/manager/add' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::addFromDashboard();
+    }
+    // PUT /api/appointments/:id/status — Update appointment status from web
+    if (isset($parts[0]) && $parts[0] === 'appointments' && isset($parts[1]) && ($parts[2] ?? '') === 'status' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::updateStatus($parts[1]);
+    }
+
+    // Generic /appointments/:id  — must come AFTER named routes
     if (isset($parts[0]) && $parts[0] === 'appointments' && isset($parts[1]) && !isset($parts[2])) {
         require_once __DIR__ . '/controllers/AppointmentController.php';
         if ($method === 'GET')
