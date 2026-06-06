@@ -92,7 +92,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                 <Building size={14} /> {data.clinicname || data.OtherClinics?.find(c => c.id === selectedClinicId)?.clinicname}
                 {data.OtherClinics?.length > 1 && (
                   <button onClick={() => setSelectedClinicId(null)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
-                    ({t("change") || "change"})
+                    ({t("change")})
                   </button>
                 )}
               </div>
@@ -132,7 +132,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
       {/* Clinic Selection (if not selected) */}
       {!selectedClinicId && data.OtherClinics?.length > 0 && (
         <Card style={{ marginBottom: 20, border: "2px solid #0891b2" }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 14px", fontSize: 16, fontWeight: 800 }}>{t("select_clinic_title") || "Select Clinic"}</h3>
+          <h3 style={{ color: "#0c4a6e", margin: "0 0 14px", fontSize: 16, fontWeight: 800 }}>{t("select_clinic_title")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
             {data.OtherClinics.map(c => (
               <div key={c.id}
@@ -166,7 +166,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{c.clinicname}</div>
-                  <Badge color="var(--brand)">{t("select") || "Select"}</Badge>
+                  <Badge color="var(--brand)">{t("select")}</Badge>
                 </div>
 
                 <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "flex-start", gap: 5 }}>

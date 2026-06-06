@@ -198,7 +198,7 @@ export default function SearchPage({ navigate, qs }) {
                     {!isDoctor && (
                       <div style={{ display: "flex", gap: 12, marginTop: 4, alignItems: "center" }}>
                         <div style={{ fontSize: 11, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
-                          <Clock size={12} color="#0092a2" /> {r.experience || 7} {i18n.language === 'ar' ? "سنوات" : "ans"}
+                          <Clock size={12} color="#0092a2" /> {r.experience || 7} {t("years")}
                         </div>
                         <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
                           <CreditCard size={12} /> {r.pricing || 1000} {t("da") || "دج"}
@@ -225,7 +225,7 @@ export default function SearchPage({ navigate, qs }) {
                     )}
                     {!isDoctor && (
                       <span style={{ fontSize: 11, fontWeight: 700, color: "#0092a2" }}>
-                        {t("view_details") || "Voir détails"}
+                        {t("view_details")}
                       </span>
                     )}
                   </div>

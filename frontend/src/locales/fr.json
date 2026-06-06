@@ -384,6 +384,14 @@
     ],
     "guide_chat_tip": "Note : La messagerie est réservée aux questions non-urgentes.",
     "share": "Partager",
-    "link_copied": "Lien copié avec succès"
+    "link_copied": "Lien copié avec succès",
+    "no_description": "Aucune description disponible pour ce profil",
+    "view_profile": "Voir le profil",
+    "view_details": "Voir détails",
+    "about_clinic": "À propos de la clinique",
+    "status_label": "Statut",
+    "approved_clinic": "Clinique approuvée",
+    "approved_at_label": "Approuvé le",
+    "select": "Sélectionner"
   }
 }

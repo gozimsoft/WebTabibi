@@ -14,11 +14,11 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { App as CapacitorApp } from '@capacitor/app';
 import confetti from "canvas-confetti";
-import { 
-  Spinner, Skeleton, CardSkeleton, ListSkeleton, 
+import {
+  Spinner, Skeleton, CardSkeleton, ListSkeleton,
   DoctorDetailSkeleton, AppointmentSkeleton,
-  useToast, Stars, VerifiedBadge, AvailabilityPulse, 
-  DoctorImage, Badge, Card, Input, Btn 
+  useToast, Stars, VerifiedBadge, AvailabilityPulse,
+  DoctorImage, Badge, Card, Input, Btn
 } from "./components/SharedUI.jsx";
 import ContactPage from "./pages/Contact";
 import GoogleCalendarButton from "./components/GoogleCalendarButton";
@@ -1892,7 +1892,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <Card style={{ padding: 24 }}>
                 <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
-                  <Info size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "عن العيادة" : "About Clinic"}
+                  <Info size={20} color="var(--brand)" /> {t("about_clinic")}
                 </h3>
                 <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 15 }}>
                   {clinic.aboutclinic || clinic.notes || t("no_description")}
@@ -1902,7 +1902,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <Card style={{ padding: 24 }}>
-                <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 16, fontWeight: 800 }}>{i18n.language === 'ar' ? "معلومات التواصل" : "Contact Details"}</h3>
+                <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 16, fontWeight: 800 }}>{t("contact_info")}</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14 }}>
                   {clinic.email && <div style={{ display: "flex", gap: 10, alignItems: "center" }}><Mail size={16} color="var(--brand)" /> <span style={{ color: "#475569" }}>{clinic.email}</span></div>}
                   {clinic.phone && <div style={{ display: "flex", gap: 10, alignItems: "center" }}><Phone size={16} color="var(--brand)" /> <span style={{ color: "#475569" }}>{clinic.phone}</span></div>}
@@ -1912,11 +1912,11 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
               </Card>
 
               <Card style={{ padding: 24, background: "linear-gradient(135deg, #f0fdfa, #fff)" }}>
-                <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 16, fontWeight: 800 }}>{i18n.language === 'ar' ? "الحالة" : "Statut"}</h3>
+                <h3 style={{ color: "#0c4a6e", margin: "0 0 12px", fontSize: 16, fontWeight: 800 }}>{t("status_label")}</h3>
                 <div style={{ fontSize: 14, color: "#0f766e", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                  <CheckCircle size={18} /> {clinic.status === 'APPROVED' ? "عيادة معتمدة" : clinic.status}
+                  <CheckCircle size={18} /> {clinic.status === 'APPROVED' ? t("approved_clinic") : clinic.status}
                 </div>
-                {clinic.approvedat && <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>تم الاعتماد في: {new Date(clinic.approvedat).toLocaleDateString()}</div>}
+                {clinic.approvedat && <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>{t("approved_at_label")}: {new Date(clinic.approvedat).toLocaleDateString()}</div>}
               </Card>
             </div>
           </div>
@@ -2831,10 +2831,10 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               <Stethoscope size={22} /> {t("step_reason")}
             </h2>
             <div style={{ display: "flex", gap: 8 }}>
-              <button 
+              <button
                 onClick={() => setShowMessageInput(!showMessageInput)}
                 title={i18n.language === 'ar' ? "رسالة" : "Message"}
-                style={{ 
+                style={{
                   width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
                   background: showMessageInput ? "var(--brand)" : "#f8fafc",
                   color: showMessageInput ? "#fff" : "#64748b",
@@ -2847,22 +2847,22 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               </button>
 
               <div style={{ position: "relative" }}>
-                <input 
-                  type="file" 
-                  id="scan-upload" 
+                <input
+                  type="file"
+                  id="scan-upload"
                   accept="image/*"
                   capture="environment"
-                  style={{ display: "none" }} 
+                  style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setAttachment(e.target.files[0]);
                     }
                   }}
                 />
-                <button 
+                <button
                   onClick={() => document.getElementById("scan-upload").click()}
                   title={i18n.language === 'ar' ? "تصوير مستند" : "Scanner / Photo"}
-                  style={{ 
+                  style={{
                     width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
                     background: attachment && document.getElementById("scan-upload")?.value ? "#10b981" : "#f8fafc",
                     color: attachment && document.getElementById("scan-upload")?.value ? "#fff" : "#64748b",
@@ -2873,23 +2873,23 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                   <Camera size={18} />
                 </button>
               </div>
-              
+
               <div style={{ position: "relative" }}>
-                <input 
-                  type="file" 
-                  id="doc-upload" 
+                <input
+                  type="file"
+                  id="doc-upload"
                   accept="image/*,.pdf"
-                  style={{ display: "none" }} 
+                  style={{ display: "none" }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setAttachment(e.target.files[0]);
                     }
                   }}
                 />
-                <button 
+                <button
                   onClick={() => document.getElementById("doc-upload").click()}
                   title={i18n.language === 'ar' ? "إرفاق مستند" : "Joindre un document"}
-                  style={{ 
+                  style={{
                     width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
                     background: attachment && document.getElementById("doc-upload")?.value ? "#10b981" : "#f8fafc",
                     color: attachment && document.getElementById("doc-upload")?.value ? "#fff" : "#64748b",
@@ -2910,15 +2910,15 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
           {attachment && (
             <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px", marginBottom: 16, fontSize: 12, color: "#166534", display: "flex", alignItems: "center", gap: 8 }}>
-              <CheckCircle size={14} /> 
+              <CheckCircle size={14} />
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {i18n.language === 'ar' ? "مرفق: " : "Attaché: "} <strong>{attachment.name}</strong>
               </span>
-              <button 
-                onClick={() => { 
-                  setAttachment(null); 
-                  if(document.getElementById("doc-upload")) document.getElementById("doc-upload").value = ""; 
-                  if(document.getElementById("scan-upload")) document.getElementById("scan-upload").value = ""; 
+              <button
+                onClick={() => {
+                  setAttachment(null);
+                  if (document.getElementById("doc-upload")) document.getElementById("doc-upload").value = "";
+                  if (document.getElementById("scan-upload")) document.getElementById("scan-upload").value = "";
                 }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontWeight: 700, fontSize: 14 }}
               >×</button>
@@ -2969,23 +2969,23 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           {/* Conditional Message Input */}
           <AnimatePresence>
             {showMessageInput && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 style={{ overflow: "hidden", marginTop: 12 }}
               >
-                <textarea 
+                <textarea
                   value={patientMessage}
                   onChange={(e) => setPatientMessage(e.target.value)}
                   placeholder={i18n.language === 'ar' ? "اكتب رسالتك للطبيب هنا (اختياري)..." : "Écrivez votre message au médecin ici (optionnel)..."}
-                  style={{ 
-                    width: "100%", 
-                    minHeight: 100, 
-                    padding: "14px", 
-                    borderRadius: 12, 
-                    border: "1.5px solid #0891b2", 
-                    fontSize: 14, 
+                  style={{
+                    width: "100%",
+                    minHeight: 100,
+                    padding: "14px",
+                    borderRadius: 12,
+                    border: "1.5px solid #0891b2",
+                    fontSize: 14,
                     fontFamily: "inherit",
                     outline: "none",
                     resize: "vertical",

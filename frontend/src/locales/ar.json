@@ -462,6 +462,14 @@
     ],
     "guide_chat_tip": "ملاحظة: المراسلة مخصصة للأسئلة غير المستعجلة فقط.",
     "share": "مشاركة",
-    "link_copied": "تم نسخ الرابط بنجاح"
+    "link_copied": "تم نسخ الرابط بنجاح",
+    "no_description": "لا يوجد وصف متاح لهذا البروفايل",
+    "view_profile": "عرض الملف الشخصي",
+    "view_details": "عرض التفاصيل",
+    "about_clinic": "عن العيادة",
+    "status_label": "الحالة",
+    "approved_clinic": "عيادة معتمدة",
+    "approved_at_label": "تم الاعتماد في",
+    "select": "اختيار"
   }
 }
