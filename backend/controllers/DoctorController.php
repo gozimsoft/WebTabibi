@@ -27,13 +27,32 @@ class DoctorController {
             LIMIT 1
         ");
         $stmt->execute([$session['user_id']]);
-        $doctor = $stmt->fetch();
+        $doctor = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$doctor) Response::notFound('Profil docteur non trouvé');
         
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
         }
+
+        // Fetch associated clinics for this doctor
+        $stmt = $pdo->prepare("
+            SELECT cd.id as clinicsdoctor_id, c.clinicname, c.id as clinic_id
+            FROM clinicsdoctors cd
+            JOIN clinics c ON c.id = cd.clinic_id
+            WHERE cd.doctor_id = ?
+        ");
+        $stmt->execute([$doctor['id']]);
+        $doctor['clinics'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch reasons
+        $stmt = $pdo->prepare("
+            SELECT id, reason_name, clinic_id 
+            FROM doctorsreasons 
+            WHERE doctor_id = ?
+        ");
+        $stmt->execute([$doctor['id']]);
+        $doctor['reasons'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         Response::success($doctor);
     }

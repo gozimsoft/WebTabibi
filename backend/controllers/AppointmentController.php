@@ -85,8 +85,8 @@ class AppointmentController
         if (!$doctor) Response::notFound('Médecin introuvable');
         $doctorId = $doctor['id'];
 
-        $from   = trim($_GET['from']   ?? date('Y-m-d'));
-        $to     = trim($_GET['to']     ?? date('Y-m-d', strtotime('+7 days')));
+        $from   = trim($_GET['from']   ?? '');
+        $to     = trim($_GET['to']     ?? '');
         $status = isset($_GET['status']) ? (int)$_GET['status'] : null;
 
         $where  = ["cd.doctor_id = ?"];
@@ -98,6 +98,7 @@ class AppointmentController
 
         $whereSQL = implode(' AND ', $where);
 
+
         $stmt = $pdo->prepare("
             SELECT
                 a.id, a.apointementdate, a.status, a.note,
@@ -106,6 +107,7 @@ class AppointmentController
                 COALESCE(dr.reason_name, r.name)     as reason_name,
                 d.fullname  as doctorname,
                 c.clinicname,
+                cd.clinic_id as clinic_id,
                 a.apointementcolor,
                 a.clinicsdoctor_id,
                 a.patient_id
@@ -190,8 +192,8 @@ class AppointmentController
         $pdo->prepare("
             INSERT INTO apointements
                 (id, clinicsdoctor_id, apointementdate, patientname, phone, reason_id,
-                 note, status, apointementcolor, source, updatedat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, 'web', NOW())
+                 note, status, apointementcolor, updatedat)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, NOW())
         ")->execute([
             $appointmentId,
             $clinicsdoctor_id,

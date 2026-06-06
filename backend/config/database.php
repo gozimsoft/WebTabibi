@@ -19,7 +19,7 @@ define('MAIL_NAME',   'Tabibi - طبيبي');
 
 // App
 define('APP_URL',     'http://localhost:8000'); // http://localhost:8000
-define('FRONTEND_URL','http://localhost:5173');
+define('FRONTEND_URL','http://localhost:80');
 
 // Session / Token expiry (seconds)
 define('TOKEN_EXPIRY', 86400 * 30); // 30 days

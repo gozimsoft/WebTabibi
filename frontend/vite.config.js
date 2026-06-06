@@ -8,8 +8,8 @@ export default defineConfig({
     port: 80,
     proxy: {
       '/api': {
-       target: 'https://tabibi.dz',
-      // arget: 'http://localhost:8000',
+       // target: 'https://tabibi.dz',
+       target: 'http://localhost:8000',
         changeOrigin: true,
       }
     }

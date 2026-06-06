@@ -33,10 +33,17 @@ export const api = {
     getAppointments: () => request('GET', '/patients/appointments'),
   },
   doctor: {
+    getProfile: () => request('GET', '/doctors/profile'),
     getAppointments: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request('GET', `/doctor/appointments${qs ? '?' + qs : ''}`);
     },
+    getForManager: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/appointments/manager${qs ? '?' + qs : ''}`);
+    },
+    addAppointment: (body) => request('POST', '/appointments/manager/add', body),
+    updateAppointmentStatus: (id, status) => request('PUT', `/appointments/${id}/status`, { status }),
   },
   clinics: {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
