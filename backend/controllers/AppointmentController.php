@@ -124,7 +124,22 @@ class AppointmentController
         $stmt->execute($params);
         $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        Response::success(['appointments' => $appointments]);
+        // Fetch schedule settings (per clinic if provided, otherwise first available)
+        $clinicIdParam = trim($_GET['clinic_id'] ?? '');
+        if ($clinicIdParam) {
+            $settingsStmt = $pdo->prepare(
+                "SELECT * FROM doctorssettingapointements WHERE doctor_id = ? AND clinic_id = ? LIMIT 1"
+            );
+            $settingsStmt->execute([$doctorId, $clinicIdParam]);
+        } else {
+            $settingsStmt = $pdo->prepare(
+                "SELECT * FROM doctorssettingapointements WHERE doctor_id = ? LIMIT 1"
+            );
+            $settingsStmt->execute([$doctorId]);
+        }
+        $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        Response::success(['appointments' => $appointments, 'settings' => $settings]);
     }
 
     // ── PUT /appointments/:id/status — Update status from web dashboard ─

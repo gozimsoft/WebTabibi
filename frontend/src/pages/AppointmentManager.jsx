@@ -224,189 +224,165 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
   );
 }
 
-// ── Calendar View Component ──────────────────────────────────────────────────
-function CalendarView({ appointments, calMonth, setCalMonth, selectedDay, setSelectedDay, STATUS_LABELS, STATUS_COLORS, onUpdateStatus, onAddNew, i18n }) {
-  const { year, month } = calMonth;
+// ── Weekly Schedule View ─────────────────────────────────────────────────────
+function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, STATUS_COLORS, STATUS_LABELS, onUpdateStatus, onAddNew }) {
   const DAYS_AR = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
-  const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date().toISOString().slice(0, 10);
+  const timescale  = parseInt(settings?.timescale  || 30);
+  const extractTime = (dt, fallback) => {
+    const m = (dt || "").match(/(\d{2}:\d{2})/);
+    return m ? m[1] : fallback;
+  };
+  const startTime  = extractTime(settings?.daytimestart, "08:00");
+  const endTime    = extractTime(settings?.daytimeend, "18:00");
+  const workingStr = settings?.workingdays   || "1111111";
 
-  // Group appointments by date
-  const byDate = {};
-  appointments.forEach(a => {
-    const key = (a.apointementdate || a.date || "").slice(0, 10);
-    if (!byDate[key]) byDate[key] = [];
-    byDate[key].push(a);
+  const toMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const toStr  = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+
+  const slots = [];
+  for (let m = toMins(startTime); m < toMins(endTime); m += timescale) slots.push(toStr(m));
+
+  // Build 7-day array from weekStart (Monday)
+  const weekDays = Array.from({length: 7}, (_, i) => {
+    const d = new Date(weekStart + "T00:00:00");
+    d.setDate(d.getDate() + i);
+    return d;
   });
 
-  const pad = (n) => String(n).padStart(2, "0");
-  const dateKey = (d) => `${year}-${pad(month + 1)}-${pad(d)}`;
+  const fmt = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const today = fmt(new Date());
 
-  const prevMonth = () => setCalMonth(({ year: y, month: m }) => m === 0 ? { year: y - 1, month: 11 } : { year: y, month: m - 1 });
-  const nextMonth = () => setCalMonth(({ year: y, month: m }) => m === 11 ? { year: y + 1, month: 0 } : { year: y, month: m + 1 });
+  // Index appointments by "YYYY-MM-DD__HH:MM"
+  const bySlot = {};
+  appointments.forEach(a => {
+    const dt = a.apointementdate || a.date || "";
+    const key = `${dt.slice(0,10)}__${dt.slice(11,16)}`;
+    if (!bySlot[key]) bySlot[key] = [];
+    bySlot[key].push(a);
+  });
 
-  const dayAppts = selectedDay ? (byDate[selectedDay] || []) : [];
+  const prevWeek = () => { const d = new Date(weekStart+"T00:00:00"); d.setDate(d.getDate()-7); setWeekStart(fmt(d)); };
+  const nextWeek = () => { const d = new Date(weekStart+"T00:00:00"); d.setDate(d.getDate()+7); setWeekStart(fmt(d)); };
+  const goToday  = () => {
+    const d = new Date(); const day = d.getDay();
+    d.setDate(d.getDate() - day + (day===0 ? -6 : 1));
+    setWeekStart(fmt(d));
+  };
 
-  const STATUS_DOT = { 0: "#f59e0b", 1: "#ef4444", 2: "#10b981", 3: "#0284c7" };
+  const COL_W = 130; // px per day column
+  const ROW_H = 52;  // px per time slot
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
-      {/* Calendar grid */}
-      <div style={{ background: "#fff", borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-        {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#0ea5e9,#0284c7)", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={prevMonth} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-            <ChevronRight size={20} />
-          </button>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#fff" }}>{MONTHS_AR[month]}</div>
-            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>{year}</div>
+    <div style={{background:"#fff", borderRadius:24, overflow:"hidden", boxShadow:"0 4px 20px rgba(0,0,0,0.06)"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)", padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12}}>
+        <button onClick={prevWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
+          <ChevronRight size={20} />
+        </button>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:16, fontWeight:900, color:"#fff"}}>
+            {weekDays[0].toLocaleDateString("ar-DZ",{day:"numeric",month:"long"})} — {weekDays[6].toLocaleDateString("ar-DZ",{day:"numeric",month:"long",year:"numeric"})}
           </div>
-          <button onClick={nextMonth} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+          <div style={{fontSize:11, color:"rgba(255,255,255,0.75)", marginTop:2}}>
+            {timescale} دقيقة/زيارة &nbsp;·&nbsp; {startTime} — {endTime}
+          </div>
+        </div>
+        <div style={{display:"flex", gap:8, alignItems:"center"}}>
+          <button onClick={goToday} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8, padding:"5px 12px", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>اليوم</button>
+          <button onClick={nextWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
             <ChevronLeft size={20} />
           </button>
         </div>
+      </div>
 
-        {/* Day names */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-          {DAYS_AR.map(d => (
-            <div key={d} style={{ padding: "10px 4px", textAlign: "center", fontSize: 11, fontWeight: 800, color: "#64748b" }}>{d.slice(0,2)}</div>
+      <div style={{overflowX:"auto", overflowY:"auto", maxHeight:"70vh"}}>
+        <div style={{minWidth: 80 + COL_W * 7}}>
+
+          {/* Day headers */}
+          <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"2px solid #e2e8f0", position:"sticky", top:0, background:"#fff", zIndex:10}}>
+            <div style={{padding:"10px 8px", fontSize:11, color:"#94a3b8", fontWeight:600, borderRight:"1px solid #f1f5f9", textAlign:"center"}}>الوقت</div>
+            {weekDays.map((d, i) => {
+              const ds = fmt(d);
+              const isToday = ds === today;
+              const jsDay = d.getDay(); // 0=Sun
+              const isWorking = workingStr[jsDay] === "1";
+              return (
+                <div key={i} style={{padding:"10px 6px", textAlign:"center", borderRight:"1px solid #f1f5f9", background: isToday ? "#f0f9ff" : !isWorking ? "#fafafa" : "#fff"}}>
+                  <div style={{fontSize:11, fontWeight:700, color: isToday ? "#0284c7" : "#64748b"}}>{DAYS_AR[jsDay]}</div>
+                  <div style={{fontSize:18, fontWeight:900, color: isToday ? "#0284c7" : "#334155", marginTop:2}}>{d.getDate()}</div>
+                  {isToday && <div style={{width:6, height:6, borderRadius:"50%", background:"#0284c7", margin:"4px auto 0"}}/>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Time rows */}
+          {slots.map((slot, si) => (
+            <div key={si} style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"1px solid #f1f5f9", minHeight: ROW_H}}>
+              {/* Time label */}
+              <div style={{padding:"4px 8px", fontSize:11, fontWeight:700, color:"#94a3b8", borderRight:"1px solid #f1f5f9", display:"flex", alignItems:"center", justifyContent:"center", background:"#fafafa"}}>
+                {slot}
+              </div>
+              {weekDays.map((d, di) => {
+                const ds = fmt(d);
+                const key = `${ds}__${slot}`;
+                const appts = bySlot[key] || [];
+                const jsDay = d.getDay();
+                const isWorking = workingStr[jsDay] === "1";
+                const isToday = ds === today;
+                return (
+                  <div key={di} style={{borderRight:"1px solid #f1f5f9", padding:"3px 4px", minHeight: ROW_H, background: isToday ? "#f8fbff" : !isWorking ? "#fafafa" : "#fff", position:"relative"}}>
+                    {appts.map((appt, ai) => {
+                      const sc = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
+                      return (
+                        <div key={ai} title={`${appt.patientname || "مريض"}\n${STATUS_LABELS[appt.status]}`}
+                          style={{background: sc.bg, border:`1px solid ${sc.border}`, borderRadius:8, padding:"3px 6px", marginBottom:2, cursor:"default"}}>
+                          <div style={{fontSize:10, fontWeight:800, color: sc.color, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.patientname || "مريض"}</div>
+                          {appt.reason_name && <div style={{fontSize:9, color:"#64748b", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.reason_name}</div>}
+                          {appt.status === 0 && (
+                            <div style={{display:"flex", gap:3, marginTop:3}}>
+                              <button onClick={() => onUpdateStatus(appt.id, 2)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"#d1fae5", color:"#065f46", fontWeight:700, fontSize:9, cursor:"pointer"}}>✓</button>
+                              <button onClick={() => onUpdateStatus(appt.id, 1)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"#fee2e2", color:"#991b1b", fontWeight:700, fontSize:9, cursor:"pointer"}}>✕</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           ))}
         </div>
+      </div>
 
-        {/* Days grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
-          {/* Empty cells before first day */}
-          {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`e-${i}`} style={{ minHeight: 90, borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", background: "#fafafa" }} />
-          ))}
-
-          {/* Day cells */}
-          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-            const dk = dateKey(day);
-            const appts = byDate[dk] || [];
-            const isToday = dk === today;
-            const isSelected = selectedDay === dk;
-            const hasAppts = appts.length > 0;
+      {/* Footer: legend + add button */}
+      <div style={{padding:"12px 20px", borderTop:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10}}>
+        <div style={{display:"flex", gap:12}}>
+          {Object.entries(STATUS_LABELS).map(([k, label]) => {
+            const sc = STATUS_COLORS[k] || {};
             return (
-              <div
-                key={day}
-                className={`cal-day${hasAppts ? " has-appt" : ""}`}
-                onClick={() => setSelectedDay(isSelected ? null : dk)}
-                style={{
-                  minHeight: 90, padding: "8px 6px",
-                  borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9",
-                  background: isSelected ? "#e0f2fe" : isToday ? "#fef3c7" : "#fff",
-                  position: "relative", transition: "background 0.15s",
-                }}
-              >
-                {/* Day number */}
-                <div style={{
-                  width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, fontWeight: isToday ? 900 : 600,
-                  background: isToday ? "#f59e0b" : isSelected ? "#0284c7" : "transparent",
-                  color: (isToday || isSelected) ? "#fff" : "#334155",
-                  marginBottom: 4,
-                }}>{day}</div>
-
-                {/* Appointment pills (max 2 + overflow) */}
-                {appts.slice(0, 2).map((a, idx) => (
-                  <div key={idx} className="cal-appt-pill" style={{
-                    background: STATUS_DOT[a.status] + "22",
-                    borderLeft: `3px solid ${STATUS_DOT[a.status] || "#0284c7"}`,
-                    borderRadius: 4, padding: "2px 5px", fontSize: 10, fontWeight: 700,
-                    color: "#334155", marginBottom: 2,
-                  }}>
-                    {(a.apointementdate || "").slice(11, 16)} {a.patientname || "مريض"}
-                  </div>
-                ))}
-                {appts.length > 2 && (
-                  <div style={{ fontSize: 10, fontWeight: 800, color: "#0284c7", paddingRight: 4 }}>+{appts.length - 2} أخرى</div>
-                )}
+              <div key={k} style={{display:"flex", alignItems:"center", gap:5, fontSize:11, color:"#64748b"}}>
+                <div style={{width:10, height:10, borderRadius:3, background: sc.bg, border:`1px solid ${sc.border}`}}/>
+                {label}
               </div>
             );
           })}
         </div>
-
-        {/* Legend */}
-        <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 16, flexWrap: "wrap" }}>
-          {Object.entries(STATUS_LABELS).map(([k, label]) => (
-            <div key={k} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#64748b" }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: STATUS_DOT[k] }} />
-              {label}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Day detail panel */}
-      <div style={{ background: "#fff", borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.04)", position: "sticky", top: 20 }}>
-        {selectedDay ? (
-          <>
-            <div style={{ background: "linear-gradient(135deg,#0ea5e9,#0284c7)", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>
-                  {new Date(selectedDay).toLocaleDateString("ar-DZ", { weekday: "long", day: "numeric", month: "long" })}
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>{dayAppts.length} موعد</div>
-              </div>
-              <button onClick={() => setSelectedDay(null)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-                <X size={16} />
-              </button>
-            </div>
-            <div style={{ padding: 16, maxHeight: 500, overflowY: "auto" }}>
-              {dayAppts.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
-                  <Calendar size={40} color="#cbd5e1" style={{ marginBottom: 8 }} />
-                  <div style={{ fontSize: 13 }}>لا توجد مواعيد هذا اليوم</div>
-                  <button onClick={onAddNew} style={{ marginTop: 12, padding: "8px 16px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ موعد جديد</button>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {dayAppts.sort((a, b) => (a.apointementdate || "").localeCompare(b.apointementdate || "")).map(appt => {
-                    const sc = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
-                    const time = (appt.apointementdate || "").slice(11, 16);
-                    return (
-                      <div key={appt.id} style={{ borderRadius: 14, border: `1px solid ${sc.border}`, background: sc.bg + "55", padding: 12, position: "relative" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                          <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a" }}>{appt.patientname || "مريض"}</div>
-                          <span style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, borderRadius: 12, padding: "2px 8px", fontSize: 10, fontWeight: 800 }}>{STATUS_LABELS[appt.status]}</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#475569", marginBottom: 4 }}>
-                          <Clock size={12} color="#0284c7" /> {time}
-                          {appt.phone && <><Phone size={11} color="#94a3b8" /> {appt.phone}</>}
-                        </div>
-                        {appt.reason_name && <div style={{ fontSize: 11, color: "#64748b" }}>{appt.reason_name}</div>}
-                        {appt.status === 0 && (
-                          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                            <button onClick={() => onUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "5px", borderRadius: 8, border: "none", background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>✓ إتمام الزيارة</button>
-                            <button onClick={() => onUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "5px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>✕ إلغاء</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <button onClick={onAddNew} style={{ padding: "10px", borderRadius: 12, border: "2px dashed #bae6fd", background: "#f0f9ff", color: "#0284c7", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                    <Plus size={14} /> إضافة موعد
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div style={{ padding: "60px 20px", textAlign: "center", color: "#94a3b8" }}>
-            <CalendarDays size={48} color="#cbd5e1" style={{ marginBottom: 12 }} />
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#64748b" }}>اختر يوماً لعرض المواعيد</div>
-            <div style={{ fontSize: 12, marginTop: 6 }}>اضغط على أي يوم في التقويم</div>
-          </div>
-        )}
+        <button onClick={onAddNew} style={{display:"flex", alignItems:"center", gap:6, padding:"8px 16px", borderRadius:10, border:"none", background:"linear-gradient(135deg,#0ea5e9,#0284c7)", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>
+          <Plus size={13}/> موعد جديد
+        </button>
       </div>
     </div>
   );
 }
+
 
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function AppointmentManager({ navigate, user }) {
@@ -423,8 +399,14 @@ export default function AppointmentManager({ navigate, user }) {
   const [quickFilter, setQuickFilter] = useState(""); // today | week | month | 3months
   const [showModal, setShowModal] = useState(false);
   const [viewMode, setViewMode] = useState("list"); // list | calendar
-  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [calWeek, setCalWeek] = useState(() => {
+    const d = new Date();
+    const day = d.getDay(); // 0=Sun
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // start from Monday
+    const monday = new Date(d.setDate(diff));
+    return monday.toISOString().slice(0, 10);
+  });
+  const [scheduleSettings, setScheduleSettings] = useState(null);
   const [clinics, setClinics] = useState([]);
   const [selectedClinicId, setSelectedClinicId] = useState("all");
 
@@ -448,14 +430,16 @@ export default function AppointmentManager({ navigate, user }) {
     }
   };
 
-  const fetchAppointments = async (isRefresh = false) => {
+  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
       let data = [];
       if (user?.user_type === 1) {
-        const res = await api.doctor.getForManager();
-        data = res.appointments || res || [];
+        const params = clinicId !== "all" ? { clinic_id: clinicId } : {};
+        const res = await api.doctor.getForManager(params);
+        data = res.appointments || [];
+        if (res.settings) setScheduleSettings(res.settings);
       } else {
         show("واجهة العيادة قيد التطوير", "error");
       }
@@ -469,17 +453,26 @@ export default function AppointmentManager({ navigate, user }) {
   };
 
   useEffect(() => {
-    fetchAppointments();
     api.doctor.getProfile()
       .then(res => {
         const docClinics = res.clinics || [];
         setClinics(docClinics.map(c => ({ id: c.clinicsdoctor_id, name: c.clinicname, clinic_id: c.clinic_id })));
         if (docClinics.length > 0) {
           setSelectedClinicId(docClinics[0].clinic_id);
+        } else {
+          fetchAppointments(false, "all");
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        fetchAppointments(false, "all");
+      });
   }, []);
+
+  useEffect(() => {
+    if (selectedClinicId) {
+      fetchAppointments(false, selectedClinicId);
+    }
+  }, [selectedClinicId]);
 
   const handleUpdateStatus = async (id, status) => {
     try {
@@ -724,21 +717,18 @@ export default function AppointmentManager({ navigate, user }) {
           )}
         </div>
 
-        {/* List / Calendar views */}
         {loading && !refreshing ? (
           <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
         ) : viewMode === "calendar" ? (
-          <CalendarView
+          <WeeklyScheduleView
             appointments={filtered}
-            calMonth={calMonth}
-            setCalMonth={setCalMonth}
-            selectedDay={selectedDay}
-            setSelectedDay={setSelectedDay}
+            settings={scheduleSettings}
+            weekStart={calWeek}
+            setWeekStart={setCalWeek}
             STATUS_LABELS={STATUS_LABELS}
             STATUS_COLORS={STATUS_COLORS}
             onUpdateStatus={handleUpdateStatus}
             onAddNew={() => setShowModal(true)}
-            i18n={i18n}
           />
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 20px", background: "#fff", borderRadius: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
