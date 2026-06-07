@@ -41,7 +41,7 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
           setForm(f => ({ ...f, clinics_doctor_id: docClinics[0].clinicsdoctor_id, doctors_reason_id: "" }));
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingClinics(false));
   }, [visible]);
 
@@ -233,23 +233,23 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
   const { t, i18n } = useTranslation();
   const DAYS_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-  const timescale  = parseInt(settings?.timescale  || 30);
+  const timescale = parseInt(settings?.timescale || 30);
   const extractTime = (dt, fallback) => {
     const m = (dt || "").match(/(\d{2}:\d{2})/);
     return m ? m[1] : fallback;
   };
-  const startTime  = extractTime(settings?.daytimestart, "08:00");
-  const endTime    = extractTime(settings?.daytimeend, "18:00");
-  const workingStr = settings?.workingdays   || "1111111";
+  const startTime = extractTime(settings?.daytimestart, "08:00");
+  const endTime = extractTime(settings?.daytimeend, "18:00");
+  const workingStr = settings?.workingdays || "1111111";
 
   const toMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  const toStr  = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+  const toStr = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
   const slots = [];
   for (let m = toMins(startTime); m < toMins(endTime); m += timescale) slots.push(toStr(m));
 
   // Build 7-day array from weekStart (Monday)
-  const weekDays = Array.from({length: 7}, (_, i) => {
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart + "T00:00:00");
     d.setDate(d.getDate() + i);
     return d;
@@ -276,24 +276,24 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
 
     const apptMins = d.getHours() * 60 + d.getMinutes();
     const startMins = toMins(startTime);
-    
+
     let slotTime = startTime;
     if (apptMins >= startMins) {
       const k = Math.floor((apptMins - startMins) / timescale);
       const slotMins = startMins + k * timescale;
       slotTime = toStr(slotMins);
     }
-    
+
     const key = `${localDate}__${slotTime}`;
     if (!bySlot[key]) bySlot[key] = [];
     bySlot[key].push(a);
   });
 
-  const prevWeek = () => { const d = new Date(weekStart+"T00:00:00"); d.setDate(d.getDate()-7); setWeekStart(fmt(d)); };
-  const nextWeek = () => { const d = new Date(weekStart+"T00:00:00"); d.setDate(d.getDate()+7); setWeekStart(fmt(d)); };
-  const goToday  = () => {
+  const prevWeek = () => { const d = new Date(weekStart + "T00:00:00"); d.setDate(d.getDate() - 7); setWeekStart(fmt(d)); };
+  const nextWeek = () => { const d = new Date(weekStart + "T00:00:00"); d.setDate(d.getDate() + 7); setWeekStart(fmt(d)); };
+  const goToday = () => {
     const d = new Date(); const day = d.getDay();
-    d.setDate(d.getDate() - day + (day===0 ? -6 : 1));
+    d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
     setWeekStart(fmt(d));
   };
 
@@ -304,44 +304,44 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
   const isRtl = i18n.language === 'ar';
 
   return (
-    <div style={{background:"var(--card-bg, #fff)", borderRadius:24, overflow:"hidden", boxShadow:"var(--shadow, 0 4px 20px rgba(0,0,0,0.06))", border:"1px solid var(--border, transparent)"}}>
+    <div style={{ background: "var(--card-bg, #fff)", borderRadius: 24, overflow: "hidden", boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.06))", border: "1px solid var(--border, transparent)" }}>
       {/* Header */}
-      <div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)", padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12}}>
-        <button onClick={prevWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
+      <div style={{ background: "linear-gradient(135deg,#0ea5e9,#0284c7)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <button onClick={prevWeek} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
           {isRtl ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
-        <div style={{textAlign:"center"}}>
-          <div style={{fontSize:16, fontWeight:900, color:"#fff"}}>
-            {weekDays[0].toLocaleDateString(currentLang,{day:"numeric",month:"long"})} — {weekDays[6].toLocaleDateString(currentLang,{day:"numeric",month:"long",year:"numeric"})}
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: "#fff" }}>
+            {weekDays[0].toLocaleDateString(currentLang, { day: "numeric", month: "long" })} — {weekDays[6].toLocaleDateString(currentLang, { day: "numeric", month: "long", year: "numeric" })}
           </div>
-          <div style={{fontSize:11, color:"rgba(255,255,255,0.75)", marginTop:2}}>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
             {timescale} {t("appt_mgr_minute_visit")} &nbsp;·&nbsp; {startTime} — {endTime}
           </div>
         </div>
-        <div style={{display:"flex", gap:8, alignItems:"center"}}>
-          <button onClick={goToday} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8, padding:"5px 12px", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>{t("appt_mgr_today")}</button>
-          <button onClick={nextWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={goToday} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "5px 12px", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{t("appt_mgr_today")}</button>
+          <button onClick={nextWeek} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
             {isRtl ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
           </button>
         </div>
       </div>
 
-      <div style={{overflowX:"auto", overflowY:"auto", maxHeight:"70vh"}}>
-        <div style={{minWidth: 80 + COL_W * 7}}>
+      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "70vh" }}>
+        <div style={{ minWidth: 80 + COL_W * 7 }}>
 
           {/* Day headers */}
-          <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"2px solid var(--border, #e2e8f0)", position:"sticky", top:0, background:"var(--card-bg, #fff)", zIndex:10}}>
-            <div style={{padding:"10px 8px", fontSize:11, color:"var(--text-muted, #94a3b8)", fontWeight:600, borderRight:"1px solid var(--border, #f1f5f9)", textAlign:"center"}}>{t("appt_mgr_time_header")}</div>
+          <div style={{ display: "grid", gridTemplateColumns: `80px repeat(7, ${COL_W}px)`, borderBottom: "2px solid var(--border, #e2e8f0)", position: "sticky", top: 0, background: "var(--card-bg, #fff)", zIndex: 10 }}>
+            <div style={{ padding: "10px 8px", fontSize: 11, color: "var(--text-muted, #94a3b8)", fontWeight: 600, borderRight: "1px solid var(--border, #f1f5f9)", textAlign: "center" }}>{t("appt_mgr_time_header")}</div>
             {weekDays.map((d, i) => {
               const ds = fmt(d);
               const isToday = ds === today;
               const jsDay = d.getDay(); // 0=Sun
               const isWorking = workingStr[jsDay] === "1";
               return (
-                <div key={i} style={{padding:"10px 6px", textAlign:"center", borderRight:"1px solid var(--border, #f1f5f9)", background: isToday ? "var(--brand-light, #f0f9ff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)"}}>
-                  <div style={{fontSize:11, fontWeight:700, color: isToday ? "var(--brand, #0284c7)" : "var(--text-secondary, #64748b)"}}>{t(DAYS_KEYS[jsDay])}</div>
-                  <div style={{fontSize:18, fontWeight:900, color: isToday ? "var(--brand, #0284c7)" : "var(--text-main, #334155)", marginTop:2}}>{d.getDate()}</div>
-                  {isToday && <div style={{width:6, height:6, borderRadius:"50%", background:"var(--brand, #0284c7)", margin:"4px auto 0"}}/>}
+                <div key={i} style={{ padding: "10px 6px", textAlign: "center", borderRight: "1px solid var(--border, #f1f5f9)", background: isToday ? "var(--brand-light, #f0f9ff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? "var(--brand, #0284c7)" : "var(--text-secondary, #64748b)" }}>{t(DAYS_KEYS[jsDay])}</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: isToday ? "var(--brand, #0284c7)" : "var(--text-main, #334155)", marginTop: 2 }}>{d.getDate()}</div>
+                  {isToday && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand, #0284c7)", margin: "4px auto 0" }} />}
                 </div>
               );
             })}
@@ -349,9 +349,9 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
 
           {/* Time rows */}
           {slots.map((slot, si) => (
-            <div key={si} style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"1px solid var(--border, #f1f5f9)", minHeight: ROW_H}}>
+            <div key={si} style={{ display: "grid", gridTemplateColumns: `80px repeat(7, ${COL_W}px)`, borderBottom: "1px solid var(--border, #f1f5f9)", minHeight: ROW_H }}>
               {/* Time label */}
-              <div style={{padding:"4px 8px", fontSize:11, fontWeight:700, color:"var(--text-muted, #94a3b8)", borderRight:"1px solid var(--border, #f1f5f9)", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--input-bg, #fafafa)"}}>
+              <div style={{ padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "var(--text-muted, #94a3b8)", borderRight: "1px solid var(--border, #f1f5f9)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--input-bg, #fafafa)" }}>
                 {slot}
               </div>
               {weekDays.map((d, di) => {
@@ -362,18 +362,18 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                 const isWorking = workingStr[jsDay] === "1";
                 const isToday = ds === today;
                 return (
-                  <div key={di} style={{borderRight:"1px solid var(--border, #f1f5f9)", padding:"3px 4px", minHeight: ROW_H, background: isToday ? "var(--brand-light, #f8fbff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)", position:"relative"}}>
+                  <div key={di} style={{ borderRight: "1px solid var(--border, #f1f5f9)", padding: "3px 4px", minHeight: ROW_H, background: isToday ? "var(--brand-light, #f8fbff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)", position: "relative" }}>
                     {appts.map((appt, ai) => {
                       const sc = STATUS_COLORS[Number(appt.status)] || STATUS_COLORS[0];
                       return (
                         <div key={ai} title={`${appt.patientname || t("appt_mgr_unknown_patient")}\n${STATUS_LABELS[Number(appt.status)]}`}
-                          style={{background: sc.bg, border:`1px solid ${sc.border}`, borderRadius:8, padding:"3px 6px", marginBottom:2, cursor:"default"}}>
-                          <div style={{fontSize:10, fontWeight:800, color: sc.color, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
-                          {appt.reason_name && <div style={{fontSize:9, color:"var(--text-secondary, #64748b)", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.reason_name}</div>}
+                          style={{ background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 8, padding: "3px 6px", marginBottom: 2, cursor: "default" }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: sc.color, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
+                          {appt.reason_name && <div style={{ fontSize: 9, color: "var(--text-secondary, #64748b)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{appt.reason_name}</div>}
                           {Number(appt.status) === 0 && (
-                            <div style={{display:"flex", gap:3, marginTop:3}}>
-                              <button onClick={() => onUpdateStatus(appt.id, 2)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"var(--status-completed-bg, #d1fae5)", color:"var(--status-completed-text, #065f46)", fontWeight:700, fontSize:9, cursor:"pointer"}}>✓</button>
-                              <button onClick={() => onUpdateStatus(appt.id, 1)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"var(--status-cancelled-bg, #fee2e2)", color:"var(--status-cancelled-text, #991b1b)", fontWeight:700, fontSize:9, cursor:"pointer"}}>✕</button>
+                            <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
+                              <button onClick={() => onUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "2px 3px", borderRadius: 5, border: "none", background: "var(--status-completed-bg, #d1fae5)", color: "var(--status-completed-text, #065f46)", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>✓</button>
+                              <button onClick={() => onUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "2px 3px", borderRadius: 5, border: "none", background: "var(--status-cancelled-bg, #fee2e2)", color: "var(--status-cancelled-text, #991b1b)", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>✕</button>
                             </div>
                           )}
                         </div>
@@ -388,20 +388,20 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
       </div>
 
       {/* Footer: legend + add button */}
-      <div style={{padding:"12px 20px", borderTop:"1px solid var(--border, #f1f5f9)", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10}}>
-        <div style={{display:"flex", gap:12}}>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border, #f1f5f9)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", gap: 12 }}>
           {Object.entries(STATUS_LABELS).map(([k, label]) => {
             const sc = STATUS_COLORS[k] || {};
             return (
-              <div key={k} style={{display:"flex", alignItems:"center", gap:5, fontSize:11, color:"var(--text-secondary, #64748b)"}}>
-                <div style={{width:10, height:10, borderRadius:3, background: sc.bg, border:`1px solid ${sc.border}`}}/>
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--text-secondary, #64748b)" }}>
+                <div style={{ width: 10, height: 10, borderRadius: 3, background: sc.bg, border: `1px solid ${sc.border}` }} />
                 {label}
               </div>
             );
           })}
         </div>
-        <button onClick={onAddNew} style={{display:"flex", alignItems:"center", gap:6, padding:"8px 16px", borderRadius:10, border:"none", background:"linear-gradient(135deg,#0ea5e9,#0284c7)", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>
-          <Plus size={13}/> {t("appt_mgr_new_appointment")}
+        <button onClick={onAddNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+          <Plus size={13} /> {t("appt_mgr_new_appointment")}
         </button>
       </div>
     </div>
@@ -549,22 +549,22 @@ export default function AppointmentManager({ navigate, user }) {
   const clinicFilter = (a) => selectedClinicId === "all" || String(a.clinic_id) === String(selectedClinicId);
   const filtered = appointments.filter(a => {
     const matchesFilter = filter === "all" ||
-      (filter === "booked"   && Number(a.status) === 0) ||
-      (filter === "done"     && Number(a.status) === 2) ||
-      (filter === "cancelled"&& Number(a.status) === 1);
+      (filter === "booked" && Number(a.status) === 0) ||
+      (filter === "done" && Number(a.status) === 2) ||
+      (filter === "cancelled" && Number(a.status) === 1);
     const matchesSearch = !search ||
       (a.patientname || "").toLowerCase().includes(search.toLowerCase()) ||
       (a.phone || "").includes(search);
     const apptDate = (a.apointementdate || a.date || "").slice(0, 10);
     const matchesFrom = !dateFrom || apptDate >= dateFrom;
-    const matchesTo   = !dateTo   || apptDate <= dateTo;
+    const matchesTo = !dateTo || apptDate <= dateTo;
     return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a);
   });
 
   const stats = {
-    total:     appointments.filter(clinicFilter).length,
-    booked:    appointments.filter(a => clinicFilter(a) && Number(a.status) === 0).length,
-    done:      appointments.filter(a => clinicFilter(a) && Number(a.status) === 2).length,
+    total: appointments.filter(clinicFilter).length,
+    booked: appointments.filter(a => clinicFilter(a) && Number(a.status) === 0).length,
+    done: appointments.filter(a => clinicFilter(a) && Number(a.status) === 2).length,
     cancelled: appointments.filter(a => clinicFilter(a) && Number(a.status) === 1).length,
   };
 
@@ -612,10 +612,10 @@ export default function AppointmentManager({ navigate, user }) {
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: 24 }}>
           {[
-            { title: t("appt_mgr_total_appointments"),  count: stats.total,     icon: <Activity size={24} />,      color: "var(--stat-total-text, #0284c7)", bg: "var(--stat-total-bg, linear-gradient(135deg,#e0f2fe,#bae6fd))" },
-            { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={24} />,         color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
-            { title: t("appt_mgr_completed"),            count: stats.done,      icon: <CheckCircle size={24} />,  color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
-            { title: t("appt_mgr_cancelled"),             count: stats.cancelled, icon: <XCircle size={24} />,      color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
+            { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={24} />, color: "var(--stat-total-text, #0284c7)", bg: "var(--stat-total-bg, linear-gradient(135deg,#e0f2fe,#bae6fd))" },
+            { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={24} />, color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
+            { title: t("appt_mgr_completed"), count: stats.done, icon: <CheckCircle size={24} />, color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
+            { title: t("appt_mgr_cancelled"), count: stats.cancelled, icon: <XCircle size={24} />, color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
           ].map((s, i) => (
             <div key={i} style={{ background: "var(--card-bg, #fff)", borderRadius: 20, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.03))", border: "1px solid var(--border, rgba(0,0,0,0.02))" }}>
               <div style={{ width: 60, height: 60, borderRadius: 16, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
@@ -638,10 +638,10 @@ export default function AppointmentManager({ navigate, user }) {
               {/* Quick filter buttons */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[
-                  { key: "",        label: t("appt_mgr_all") },
-                  { key: "today",   label: t("appt_mgr_today") },
-                  { key: "week",    label: t("appt_mgr_next_week") },
-                  { key: "month",   label: t("appt_mgr_next_month") },
+                  { key: "", label: t("appt_mgr_all") },
+                  { key: "today", label: t("appt_mgr_today") },
+                  { key: "week", label: t("appt_mgr_next_week") },
+                  { key: "month", label: t("appt_mgr_next_month") },
                   { key: "3months", label: t("appt_mgr_next_3months") },
                 ].map(({ key, label }) => {
                   const active = quickFilter === key;
@@ -693,170 +693,170 @@ export default function AppointmentManager({ navigate, user }) {
               </div>
             </div>
 
-          {/* Row 2 — Search + Status + Date range */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            {/* Clinic Filter */}
-            {clinics.length > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "var(--brand-light, #f0f9ff)" : "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid var(--brand, #bae6fd)" : "1px solid var(--border, #e2e8f0)" }}>
-                <MapPin size={16} color={selectedClinicId !== "all" ? "var(--brand, #0284c7)" : "var(--text-muted, #94a3b8)"} />
+            {/* Row 2 — Search + Status + Date range */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Clinic Filter */}
+              {clinics.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "var(--brand-light, #f0f9ff)" : "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid var(--brand, #bae6fd)" : "1px solid var(--border, #e2e8f0)" }}>
+                  <MapPin size={16} color={selectedClinicId !== "all" ? "var(--brand, #0284c7)" : "var(--text-muted, #94a3b8)"} />
+                  <select
+                    value={selectedClinicId}
+                    onChange={e => setSelectedClinicId(e.target.value)}
+                    style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    <option value="all">{t("appt_mgr_all_clinics")}</option>
+                    {clinics.map(c => (
+                      <option key={c.id} value={c.clinic_id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Search */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flex: "1 1 240px" }}>
+                <Search size={16} color="var(--text-muted, #94a3b8)" />
+                <input
+                  type="text"
+                  placeholder={t("appt_mgr_search_placeholder")}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{ border: "none", outline: "none", width: "100%", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)" }}
+                />
+                {search && <XCircle size={15} color="var(--text-muted, #94a3b8)" style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => setSearch("")} />}
+              </div>
+
+              {/* Status filter */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
+                <Filter size={16} color="var(--text-muted, #94a3b8)" />
                 <select
-                  value={selectedClinicId}
-                  onChange={e => setSelectedClinicId(e.target.value)}
+                  value={filter}
+                  onChange={e => setFilter(e.target.value)}
                   style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
                 >
-                  <option value="all">{t("appt_mgr_all_clinics")}</option>
-                  {clinics.map(c => (
-                    <option key={c.id} value={c.clinic_id}>{c.name}</option>
-                  ))}
+                  <option value="all">{t("appt_mgr_all_status")}</option>
+                  <option value="booked">{t("appt_mgr_pending")}</option>
+                  <option value="done">{t("appt_mgr_completed")}</option>
+                  <option value="cancelled">{t("appt_mgr_cancelled")}</option>
                 </select>
               </div>
+
+              {/* Date range */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flexWrap: "wrap" }}>
+                <Calendar size={16} color="var(--text-muted, #94a3b8)" />
+                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
+                  style={{ border: "none", outline: "none", fontSize: 13, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_to")}</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={e => { setDateTo(e.target.value); setQuickFilter(""); }}
+                  style={{ border: "none", outline: "none", fontSize: 13, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
+                />
+                {(dateFrom || dateTo) && (
+                  <button
+                    onClick={() => { setDateFrom(""); setDateTo(""); setQuickFilter(""); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
+                    title={t("appt_mgr_clear_filter")}
+                  >
+                    <XCircle size={15} color="#ef4444" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Active filters summary */}
+            {(dateFrom || dateTo || search || filter !== "all" || selectedClinicId !== "all") && (
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "3px 10px", borderRadius: 20 }}>
+                  {filtered.length} {t("appt_mgr_appointments_count")}
+                </span>
+                {selectedClinicId !== "all" && (
+                  <span style={{ fontSize: 12, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "3px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
+                    <MapPin size={11} />
+                    {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
+                  </span>
+                )}
+                {(dateFrom || dateTo) && (
+                  <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", background: "var(--input-bg, #f1f5f9)", padding: "3px 10px", borderRadius: 20 }}>
+                    {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `${t("from")} ${dateFrom}` : `${t("to")} ${dateTo}`}
+                  </span>
+                )}
+              </div>
             )}
-
-            {/* Search */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flex: "1 1 240px" }}>
-              <Search size={16} color="var(--text-muted, #94a3b8)" />
-              <input
-                type="text"
-                placeholder={t("appt_mgr_search_placeholder")}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ border: "none", outline: "none", width: "100%", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)" }}
-              />
-              {search && <XCircle size={15} color="var(--text-muted, #94a3b8)" style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => setSearch("")} />}
-            </div>
-
-            {/* Status filter */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
-              <Filter size={16} color="var(--text-muted, #94a3b8)" />
-              <select
-                value={filter}
-                onChange={e => setFilter(e.target.value)}
-                style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
-              >
-                <option value="all">{t("appt_mgr_all_status")}</option>
-                <option value="booked">{t("appt_mgr_pending")}</option>
-                <option value="done">{t("appt_mgr_completed")}</option>
-                <option value="cancelled">{t("appt_mgr_cancelled")}</option>
-              </select>
-            </div>
-
-            {/* Date range */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flexWrap: "wrap" }}>
-              <Calendar size={16} color="var(--text-muted, #94a3b8)" />
-              <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
-                style={{ border: "none", outline: "none", fontSize: 13, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
-              />
-              <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_to")}</span>
-              <input
-                type="date"
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={e => { setDateTo(e.target.value); setQuickFilter(""); }}
-                style={{ border: "none", outline: "none", fontSize: 13, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
-              />
-              {(dateFrom || dateTo) && (
-                <button
-                  onClick={() => { setDateFrom(""); setDateTo(""); setQuickFilter(""); }}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
-                  title={t("appt_mgr_clear_filter")}
-                >
-                  <XCircle size={15} color="#ef4444" />
-                </button>
-              )}
-            </div>
           </div>
 
-          {/* Active filters summary */}
-          {(dateFrom || dateTo || search || filter !== "all" || selectedClinicId !== "all") && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "3px 10px", borderRadius: 20 }}>
-                {filtered.length} {t("appt_mgr_appointments_count")}
-              </span>
-              {selectedClinicId !== "all" && (
-                <span style={{ fontSize: 12, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "3px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
-                  <MapPin size={11} />
-                  {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
-                </span>
-              )}
-              {(dateFrom || dateTo) && (
-                <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", background: "var(--input-bg, #f1f5f9)", padding: "3px 10px", borderRadius: 20 }}>
-                  {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `${t("from")} ${dateFrom}` : `${t("to")} ${dateTo}`}
-                </span>
-              )}
+          {loading && !refreshing ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
+          ) : viewMode === "calendar" ? (
+            <WeeklyScheduleView
+              appointments={filtered}
+              settings={scheduleSettings}
+              weekStart={calWeek}
+              setWeekStart={setCalWeek}
+              STATUS_LABELS={STATUS_LABELS}
+              STATUS_COLORS={STATUS_COLORS}
+              onUpdateStatus={handleUpdateStatus}
+              onAddNew={() => setShowModal(true)}
+            />
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "80px 20px", background: "var(--card-bg, #fff)", borderRadius: 24, boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.02))", border: "1px solid var(--border, transparent)" }}>
+              <Calendar size={64} color="var(--text-muted, #cbd5e1)" style={{ marginBottom: 16 }} />
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>{t("appt_mgr_no_appointments")}</h3>
+              <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>{t("appt_mgr_no_appointments_desc")}</p>
+              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Plus size={16} /> {t("appt_mgr_register_first_appt")}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 20 }}>
+              {filtered.map(appt => {
+                const d = new Date(appt.apointementdate || appt.date);
+                const isPast = Number(appt.status) !== 0; // completed(2) or cancelled(1)
+                const statusStyle = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
+                return (
+                  <div key={appt.id} className="appt-card" style={{ background: "var(--card-bg, #fff)", borderRadius: 20, padding: 24, boxShadow: "var(--shadow, 0 4px 15px rgba(0,0,0,0.03))", border: "1px solid var(--border, rgba(0,0,0,0.04))", transition: "transform 0.2s,box-shadow 0.2s", position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,#0ea5e9,var(--brand, #0284c7))" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #e0f2fe)", color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0284c7)", display: "flex", alignItems: "center", justifyContent: "center" }}><User size={20} /></div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-main, #0f172a)" }}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
+                          {appt.phone && <div style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><Phone size={11} /> {appt.phone}</div>}
+                        </div>
+                      </div>
+                      <span style={{ background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{STATUS_LABELS[appt.status] ?? "—"}</span>
+                    </div>
+                    <div style={{ background: "var(--input-bg, #f8fafc)", borderRadius: 12, padding: 14, marginBottom: 14, border: "1px solid var(--border, #f1f5f9)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-main, #334155)", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                        <Calendar size={14} color="var(--brand, #0284c7)" />
+                        {d.toLocaleDateString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { weekday: "long", year: "numeric", month: "short", day: "numeric" })}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-main, #334155)", fontSize: 13, fontWeight: 700 }}>
+                        <Clock size={14} color="var(--brand, #0284c7)" />
+                        {d.toLocaleTimeString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                      {appt.reason_name && <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed var(--border, #e2e8f0)", fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 6 }}><FileText size={12} /> {appt.reason_name}</div>}
+                      {appt.note && <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "flex-start", gap: 6 }}><AlertCircle size={12} style={{ marginTop: 2, flexShrink: 0 }} /><span style={{ lineHeight: 1.4 }}>{appt.note}</span></div>}
+                    </div>
+                    {appt.status === 0 && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button onClick={() => handleUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "var(--status-completed-bg, #d1fae5)", color: "var(--status-completed-text, #065f46)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓ {t("appt_mgr_complete_visit")}</button>
+                        <button onClick={() => handleUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "var(--status-cancelled-bg, #fee2e2)", color: "var(--status-cancelled-text, #991b1b)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✕ {t("appt_mgr_cancel_appt")}</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
-
-        {loading && !refreshing ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
-        ) : viewMode === "calendar" ? (
-          <WeeklyScheduleView
-            appointments={filtered}
-            settings={scheduleSettings}
-            weekStart={calWeek}
-            setWeekStart={setCalWeek}
-            STATUS_LABELS={STATUS_LABELS}
-            STATUS_COLORS={STATUS_COLORS}
-            onUpdateStatus={handleUpdateStatus}
-            onAddNew={() => setShowModal(true)}
-          />
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 20px", background: "var(--card-bg, #fff)", borderRadius: 24, boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.02))", border: "1px solid var(--border, transparent)" }}>
-            <Calendar size={64} color="var(--text-muted, #cbd5e1)" style={{ marginBottom: 16 }} />
-            <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>{t("appt_mgr_no_appointments")}</h3>
-            <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>{t("appt_mgr_no_appointments_desc")}</p>
-            <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Plus size={16} /> {t("appt_mgr_register_first_appt")}
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 20 }}>
-            {filtered.map(appt => {
-              const d = new Date(appt.apointementdate || appt.date);
-              const isPast = Number(appt.status) !== 0; // completed(2) or cancelled(1)
-              const statusStyle = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
-              return (
-                <div key={appt.id} className="appt-card" style={{ background: "var(--card-bg, #fff)", borderRadius: 20, padding: 24, boxShadow: "var(--shadow, 0 4px 15px rgba(0,0,0,0.03))", border: "1px solid var(--border, rgba(0,0,0,0.04))", transition: "transform 0.2s,box-shadow 0.2s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,#0ea5e9,var(--brand, #0284c7))" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #e0f2fe)", color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0284c7)", display: "flex", alignItems: "center", justifyContent: "center" }}><User size={20} /></div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-main, #0f172a)" }}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
-                        {appt.phone && <div style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><Phone size={11} /> {appt.phone}</div>}
-                      </div>
-                    </div>
-                    <span style={{ background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{STATUS_LABELS[appt.status] ?? "—"}</span>
-                  </div>
-                  <div style={{ background: "var(--input-bg, #f8fafc)", borderRadius: 12, padding: 14, marginBottom: 14, border: "1px solid var(--border, #f1f5f9)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-main, #334155)", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-                      <Calendar size={14} color="var(--brand, #0284c7)" />
-                      {d.toLocaleDateString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { weekday: "long", year: "numeric", month: "short", day: "numeric" })}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-main, #334155)", fontSize: 13, fontWeight: 700 }}>
-                      <Clock size={14} color="var(--brand, #0284c7)" />
-                      {d.toLocaleTimeString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                    {appt.reason_name && <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed var(--border, #e2e8f0)", fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 6 }}><FileText size={12} /> {appt.reason_name}</div>}
-                    {appt.note && <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "flex-start", gap: 6 }}><AlertCircle size={12} style={{ marginTop: 2, flexShrink: 0 }} /><span style={{ lineHeight: 1.4 }}>{appt.note}</span></div>}
-                  </div>
-                  {appt.status === 0 && (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button onClick={() => handleUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "var(--status-completed-bg, #d1fae5)", color: "var(--status-completed-text, #065f46)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓ {t("appt_mgr_complete_visit")}</button>
-                      <button onClick={() => handleUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "var(--status-cancelled-bg, #fee2e2)", color: "var(--status-cancelled-text, #991b1b)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✕ {t("appt_mgr_cancel_appt")}</button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
       </div>
 
       {/* Modal */}
