@@ -5,12 +5,14 @@ import {
   Calendar, Clock, User, Phone, CheckCircle,
   XCircle, AlertCircle, RefreshCw, Filter, Search,
   Activity, ClipboardList, Plus, X, FileText,
-  LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin
+  LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin,
+  Maximize, Minimize
 } from "lucide-react";
 import { Btn, Spinner, useToast } from "../components/SharedUI";
 
 // ── New Appointment Modal ────────────────────────────────────────────────────
 function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
+  const { t } = useTranslation();
   const { show } = useToast();
   const [saving, setSaving] = useState(false);
   const [clinics, setClinics] = useState([]);
@@ -47,16 +49,16 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.patientname.trim()) return show("اسم المريض مطلوب", "error");
-    if (!form.clinics_doctor_id) return show("الرجاء اختيار العيادة", "error");
+    if (!form.patientname.trim()) return show(t("appt_mgr_patient_name_req"), "error");
+    if (!form.clinics_doctor_id) return show(t("appt_mgr_select_clinic_req"), "error");
     setSaving(true);
     try {
       await api.doctor.addAppointment(form);
-      show("تم تسجيل الموعد بنجاح ✓", "success");
+      show(t("appt_mgr_save_success"), "success");
       onSuccess();
       onClose();
     } catch (err) {
-      show(err.message || "حدث خطأ أثناء التسجيل", "error");
+      show(err.message || t("appt_mgr_save_error"), "error");
     } finally {
       setSaving(false);
     }
@@ -90,8 +92,8 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
               <Plus size={22} color="#fff" />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0f172a" }}>موعد جديد</h2>
-              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>تسجيل مريض بدون حساب</p>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0f172a" }}>{t("appt_mgr_new_appointment")}</h2>
+              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>{t("appt_mgr_new_appt_subtitle")}</p>
             </div>
           </div>
           <button onClick={onClose} style={{ background: "#f1f5f9", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -102,13 +104,13 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Clinic */}
           <div>
-            <label style={lbl}>العيادة / الموقع</label>
+            <label style={lbl}>{t("appt_mgr_clinic_location")}</label>
             {loadingClinics ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", color: "#64748b", fontSize: 13 }}>
-                <Spinner size={16} /> جاري التحميل...
+                <Spinner size={16} /> {t("loading")}
               </div>
             ) : clinics.length === 0 ? (
-              <p style={{ color: "#ef4444", fontSize: 13, margin: 0 }}>لا توجد عيادة مرتبطة بحسابك</p>
+              <p style={{ color: "#ef4444", fontSize: 13, margin: 0 }}>{t("appt_mgr_no_clinic_associated")}</p>
             ) : (
               <select
                 value={form.clinics_doctor_id}
@@ -126,13 +128,13 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
 
           {/* Reason */}
           <div>
-            <label style={lbl}><FileText size={13} style={{ marginLeft: 4 }} /> سبب الزيارة (اختياري)</label>
+            <label style={lbl}><FileText size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_visit_reason")}</label>
             <select
               value={form.doctors_reason_id}
               onChange={e => field("doctors_reason_id", e.target.value)}
               style={inp}
             >
-              <option value="">-- بدون تحديد --</option>
+              <option value="">{t("appt_mgr_unspecified")}</option>
               {(() => {
                 const selectedClinic = clinics.find(c => String(c.id) === String(form.clinics_doctor_id));
                 const targetClinicId = selectedClinic?.clinic_id;
@@ -151,10 +153,10 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
 
           {/* Patient Name */}
           <div>
-            <label style={lbl}><User size={13} style={{ marginLeft: 4 }} /> اسم المريض *</label>
+            <label style={lbl}><User size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_patient_name")}</label>
             <input
               type="text"
-              placeholder="أدخل اسم المريض الكامل"
+              placeholder={t("appt_mgr_patient_name_placeholder")}
               value={form.patientname}
               onChange={e => field("patientname", e.target.value)}
               style={inp}
@@ -164,7 +166,7 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
 
           {/* Phone */}
           <div>
-            <label style={lbl}><Phone size={13} style={{ marginLeft: 4 }} /> رقم الهاتف</label>
+            <label style={lbl}><Phone size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_phone_number")}</label>
             <input
               type="tel"
               placeholder="05XXXXXXXX"
@@ -177,20 +179,20 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
           {/* Date & Time */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={lbl}><Calendar size={13} style={{ marginLeft: 4 }} /> التاريخ *</label>
+              <label style={lbl}><Calendar size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_date_label")}</label>
               <input type="date" value={form.date} onChange={e => field("date", e.target.value)} style={inp} required />
             </div>
             <div>
-              <label style={lbl}><Clock size={13} style={{ marginLeft: 4 }} /> الوقت *</label>
+              <label style={lbl}><Clock size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_time_label")}</label>
               <input type="time" value={form.time} onChange={e => field("time", e.target.value)} style={inp} required />
             </div>
           </div>
 
           {/* Note */}
           <div>
-            <label style={lbl}><FileText size={13} style={{ marginLeft: 4 }} /> ملاحظة (اختياري)</label>
+            <label style={lbl}><FileText size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_note")}</label>
             <textarea
-              placeholder="سبب الزيارة أو أي ملاحظة..."
+              placeholder={t("appt_mgr_note_placeholder")}
               value={form.note}
               onChange={e => field("note", e.target.value)}
               rows={3}
@@ -201,7 +203,7 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
           {/* Actions */}
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 14, border: "1.5px solid #e2e8f0", background: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#64748b" }}>
-              إلغاء
+              {t("cancel")}
             </button>
             <button
               type="submit"
@@ -214,7 +216,7 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
                 transition: "opacity 0.2s",
               }}
             >
-              {saving ? <><Spinner size={16} /> جاري الحفظ...</> : <><Plus size={16} /> تسجيل الموعد</>}
+              {saving ? <><Spinner size={16} /> {t("appt_mgr_saving")}</> : <><Plus size={16} /> {t("appt_mgr_register_btn")}</>}
             </button>
           </div>
         </form>
@@ -226,7 +228,8 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
 
 // ── Weekly Schedule View ─────────────────────────────────────────────────────
 function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, STATUS_COLORS, STATUS_LABELS, onUpdateStatus, onAddNew }) {
-  const DAYS_AR = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const { t, i18n } = useTranslation();
+  const DAYS_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
   const timescale  = parseInt(settings?.timescale  || 30);
   const extractTime = (dt, fallback) => {
@@ -258,11 +261,28 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
   };
   const today = fmt(new Date());
 
-  // Index appointments by "YYYY-MM-DD__HH:MM"
+  // Index appointments by matching local slot (taking timezone into account)
   const bySlot = {};
   appointments.forEach(a => {
-    const dt = a.apointementdate || a.date || "";
-    const key = `${dt.slice(0,10)}__${dt.slice(11,16)}`;
+    const d = new Date(a.apointementdate || a.date);
+    if (isNaN(d.getTime())) return;
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const localDate = `${year}-${month}-${day}`;
+
+    const apptMins = d.getHours() * 60 + d.getMinutes();
+    const startMins = toMins(startTime);
+    
+    let slotTime = startTime;
+    if (apptMins >= startMins) {
+      const k = Math.floor((apptMins - startMins) / timescale);
+      const slotMins = startMins + k * timescale;
+      slotTime = toStr(slotMins);
+    }
+    
+    const key = `${localDate}__${slotTime}`;
     if (!bySlot[key]) bySlot[key] = [];
     bySlot[key].push(a);
   });
@@ -278,25 +298,28 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
   const COL_W = 130; // px per day column
   const ROW_H = 52;  // px per time slot
 
+  const currentLang = i18n.language === 'ar' ? 'ar-DZ' : i18n.language;
+  const isRtl = i18n.language === 'ar';
+
   return (
     <div style={{background:"#fff", borderRadius:24, overflow:"hidden", boxShadow:"0 4px 20px rgba(0,0,0,0.06)"}}>
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)", padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12}}>
         <button onClick={prevWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
-          <ChevronRight size={20} />
+          {isRtl ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:16, fontWeight:900, color:"#fff"}}>
-            {weekDays[0].toLocaleDateString("ar-DZ",{day:"numeric",month:"long"})} — {weekDays[6].toLocaleDateString("ar-DZ",{day:"numeric",month:"long",year:"numeric"})}
+            {weekDays[0].toLocaleDateString(currentLang,{day:"numeric",month:"long"})} — {weekDays[6].toLocaleDateString(currentLang,{day:"numeric",month:"long",year:"numeric"})}
           </div>
           <div style={{fontSize:11, color:"rgba(255,255,255,0.75)", marginTop:2}}>
-            {timescale} دقيقة/زيارة &nbsp;·&nbsp; {startTime} — {endTime}
+            {timescale} {t("appt_mgr_minute_visit")} &nbsp;·&nbsp; {startTime} — {endTime}
           </div>
         </div>
         <div style={{display:"flex", gap:8, alignItems:"center"}}>
-          <button onClick={goToday} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8, padding:"5px 12px", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>اليوم</button>
+          <button onClick={goToday} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8, padding:"5px 12px", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>{t("appt_mgr_today")}</button>
           <button onClick={nextWeek} style={{background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, width:36, height:36, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>
-            <ChevronLeft size={20} />
+            {isRtl ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
           </button>
         </div>
       </div>
@@ -306,7 +329,7 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
 
           {/* Day headers */}
           <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, ${COL_W}px)`, borderBottom:"2px solid #e2e8f0", position:"sticky", top:0, background:"#fff", zIndex:10}}>
-            <div style={{padding:"10px 8px", fontSize:11, color:"#94a3b8", fontWeight:600, borderRight:"1px solid #f1f5f9", textAlign:"center"}}>الوقت</div>
+            <div style={{padding:"10px 8px", fontSize:11, color:"#94a3b8", fontWeight:600, borderRight:"1px solid #f1f5f9", textAlign:"center"}}>{t("appt_mgr_time_header")}</div>
             {weekDays.map((d, i) => {
               const ds = fmt(d);
               const isToday = ds === today;
@@ -314,7 +337,7 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
               const isWorking = workingStr[jsDay] === "1";
               return (
                 <div key={i} style={{padding:"10px 6px", textAlign:"center", borderRight:"1px solid #f1f5f9", background: isToday ? "#f0f9ff" : !isWorking ? "#fafafa" : "#fff"}}>
-                  <div style={{fontSize:11, fontWeight:700, color: isToday ? "#0284c7" : "#64748b"}}>{DAYS_AR[jsDay]}</div>
+                  <div style={{fontSize:11, fontWeight:700, color: isToday ? "#0284c7" : "#64748b"}}>{t(DAYS_KEYS[jsDay])}</div>
                   <div style={{fontSize:18, fontWeight:900, color: isToday ? "#0284c7" : "#334155", marginTop:2}}>{d.getDate()}</div>
                   {isToday && <div style={{width:6, height:6, borderRadius:"50%", background:"#0284c7", margin:"4px auto 0"}}/>}
                 </div>
@@ -339,13 +362,13 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                 return (
                   <div key={di} style={{borderRight:"1px solid #f1f5f9", padding:"3px 4px", minHeight: ROW_H, background: isToday ? "#f8fbff" : !isWorking ? "#fafafa" : "#fff", position:"relative"}}>
                     {appts.map((appt, ai) => {
-                      const sc = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
+                      const sc = STATUS_COLORS[Number(appt.status)] || STATUS_COLORS[0];
                       return (
-                        <div key={ai} title={`${appt.patientname || "مريض"}\n${STATUS_LABELS[appt.status]}`}
+                        <div key={ai} title={`${appt.patientname || t("appt_mgr_unknown_patient")}\n${STATUS_LABELS[Number(appt.status)]}`}
                           style={{background: sc.bg, border:`1px solid ${sc.border}`, borderRadius:8, padding:"3px 6px", marginBottom:2, cursor:"default"}}>
-                          <div style={{fontSize:10, fontWeight:800, color: sc.color, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.patientname || "مريض"}</div>
+                          <div style={{fontSize:10, fontWeight:800, color: sc.color, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
                           {appt.reason_name && <div style={{fontSize:9, color:"#64748b", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis"}}>{appt.reason_name}</div>}
-                          {appt.status === 0 && (
+                          {Number(appt.status) === 0 && (
                             <div style={{display:"flex", gap:3, marginTop:3}}>
                               <button onClick={() => onUpdateStatus(appt.id, 2)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"#d1fae5", color:"#065f46", fontWeight:700, fontSize:9, cursor:"pointer"}}>✓</button>
                               <button onClick={() => onUpdateStatus(appt.id, 1)} style={{flex:1, padding:"2px 3px", borderRadius:5, border:"none", background:"#fee2e2", color:"#991b1b", fontWeight:700, fontSize:9, cursor:"pointer"}}>✕</button>
@@ -376,7 +399,7 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
           })}
         </div>
         <button onClick={onAddNew} style={{display:"flex", alignItems:"center", gap:6, padding:"8px 16px", borderRadius:10, border:"none", background:"linear-gradient(135deg,#0ea5e9,#0284c7)", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer"}}>
-          <Plus size={13}/> موعد جديد
+          <Plus size={13}/> {t("appt_mgr_new_appointment")}
         </button>
       </div>
     </div>
@@ -409,6 +432,31 @@ export default function AppointmentManager({ navigate, user }) {
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const [clinics, setClinics] = useState([]);
   const [selectedClinicId, setSelectedClinicId] = useState("all");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    const el = document.getElementById("appt-manager-fullscreen-container");
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(err => console.error("Error enabling fullscreen:", err));
+    } else {
+      document.exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(err => console.error("Error exiting fullscreen:", err));
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const applyQuickFilter = (key) => {
     const today = new Date();
@@ -441,7 +489,7 @@ export default function AppointmentManager({ navigate, user }) {
         data = res.appointments || [];
         if (res.settings) setScheduleSettings(res.settings);
       } else {
-        show("واجهة العيادة قيد التطوير", "error");
+        show(t("appt_mgr_clinic_dev"), "error");
       }
       setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -477,14 +525,18 @@ export default function AppointmentManager({ navigate, user }) {
   const handleUpdateStatus = async (id, status) => {
     try {
       await api.doctor.updateAppointmentStatus(id, status);
-      show("تم تحديث الحالة بنجاح", "success");
+      show(t("appt_mgr_status_update_success"), "success");
       fetchAppointments(true);
     } catch (err) {
-      show(err.message || "حدث خطأ", "error");
+      show(err.message || t("appt_mgr_error"), "error");
     }
   };
 
-  const STATUS_LABELS = { 0: "محجوز", 1: "ملغي", 2: "مكتمل" };
+  const STATUS_LABELS = {
+    0: t("appt_mgr_status_booked"),
+    1: t("appt_mgr_status_cancelled"),
+    2: t("appt_mgr_status_completed")
+  };
   const STATUS_COLORS = {
     0: { bg: "#fef3c7", color: "#92400e", border: "#fde68a" },   // أصفر — بانتظار الزيارة
     1: { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5" },   // أحمر — ملغي
@@ -531,27 +583,13 @@ export default function AppointmentManager({ navigate, user }) {
         <div style={{ ...glassPanel, padding: "28px 32px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: "#0c4a6e", display: "flex", alignItems: "center", gap: 12 }}>
-              <Calendar size={32} color="#0284c7" /> إدارة المواعيد
+              <Calendar size={32} color="#0284c7" /> {t("appt_mgr_title")}
             </h1>
             <p style={{ margin: "8px 0 0 0", color: "#475569", fontSize: 15 }}>
-              مرحباً د. {user?.profile?.fullname || user?.username}، تابع مواعيدك ومرضاك من هنا.
+              {t("appt_mgr_subtitle", { name: user?.profile?.fullname || user?.username })}
             </p>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {/* View toggle */}
-            <div style={{ display: "flex", background: "#f1f5f9", borderRadius: 12, padding: 4, gap: 2 }}>
-              {[{ key: "list", Icon: LayoutList, label: "قائمة" }, { key: "calendar", Icon: CalendarDays, label: "تقويم" }].map(({ key, Icon, label }) => (
-                <button key={key} onClick={() => setViewMode(key)} style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                  borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: viewMode === key ? "#fff" : "transparent",
-                  color: viewMode === key ? "#0284c7" : "#64748b",
-                  boxShadow: viewMode === key ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
-                  transition: "all 0.18s",
-                }}><Icon size={16} />{label}</button>
-              ))}
-            </div>
-
             <button onClick={() => setShowModal(true)} style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "11px 20px", borderRadius: 14, border: "none", cursor: "pointer",
@@ -561,21 +599,21 @@ export default function AppointmentManager({ navigate, user }) {
             }}
               onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
               onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-            ><Plus size={18} /> موعد جديد</button>
+            ><Plus size={18} /> {t("appt_mgr_new_appointment")}</button>
 
             <Btn onClick={() => fetchAppointments(true)} disabled={refreshing || loading}
               style={{ borderRadius: 14, padding: "11px 18px", background: "#fff", color: "#0284c7", border: "1px solid #bae6fd" }}
-            ><RefreshCw size={18} className={refreshing ? "spin-anim" : ""} /> تحديث</Btn>
+            ><RefreshCw size={18} className={refreshing ? "spin-anim" : ""} /> {t("appt_mgr_refresh")}</Btn>
           </div>
         </div>
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: 24 }}>
           {[
-            { title: "إجمالي المواعيد",  count: stats.total,     icon: <Activity size={24} />,      color: "#0284c7", bg: "linear-gradient(135deg,#e0f2fe,#bae6fd)" },
-            { title: "محجوزة (قيد الانتظار)", count: stats.booked, icon: <Clock size={24} />,         color: "#92400e", bg: "linear-gradient(135deg,#fef9c3,#fde68a)" },
-            { title: "مكتملة",            count: stats.done,      icon: <CheckCircle size={24} />,  color: "#059669", bg: "linear-gradient(135deg,#d1fae5,#a7f3d0)" },
-            { title: "ملغاة",             count: stats.cancelled, icon: <XCircle size={24} />,      color: "#991b1b", bg: "linear-gradient(135deg,#fee2e2,#fca5a5)" },
+            { title: t("appt_mgr_total_appointments"),  count: stats.total,     icon: <Activity size={24} />,      color: "#0284c7", bg: "linear-gradient(135deg,#e0f2fe,#bae6fd)" },
+            { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={24} />,         color: "#92400e", bg: "linear-gradient(135deg,#fef9c3,#fde68a)" },
+            { title: t("appt_mgr_completed"),            count: stats.done,      icon: <CheckCircle size={24} />,  color: "#059669", bg: "linear-gradient(135deg,#d1fae5,#a7f3d0)" },
+            { title: t("appt_mgr_cancelled"),             count: stats.cancelled, icon: <XCircle size={24} />,      color: "#991b1b", bg: "linear-gradient(135deg,#fee2e2,#fca5a5)" },
           ].map((s, i) => (
             <div key={i} style={{ background: "#fff", borderRadius: 20, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.02)" }}>
               <div style={{ width: 60, height: 60, borderRadius: 16, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
@@ -587,36 +625,71 @@ export default function AppointmentManager({ navigate, user }) {
           ))}
         </div>
 
-        {/* Filters */}
-        <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24 }}>
+        {/* Fullscreen Wrapper */}
+        <div id="appt-manager-fullscreen-container" style={{ display: "flex", flexDirection: "column" }}>
 
-          {/* Row 1 — Quick filter buttons */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            {[
-              { key: "",        label: "الكل" },
-              { key: "today",   label: "اليوم" },
-              { key: "week",    label: "الأسبوع القادم" },
-              { key: "month",   label: "الشهر القادم" },
-              { key: "3months", label: "3 أشهر القادمة" },
-            ].map(({ key, label }) => {
-              const active = quickFilter === key;
-              return (
+          {/* Filters */}
+          <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24 }}>
+
+            {/* Row 1 — Quick filter buttons & View Toggle */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+              {/* Quick filter buttons */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[
+                  { key: "",        label: t("appt_mgr_all") },
+                  { key: "today",   label: t("appt_mgr_today") },
+                  { key: "week",    label: t("appt_mgr_next_week") },
+                  { key: "month",   label: t("appt_mgr_next_month") },
+                  { key: "3months", label: t("appt_mgr_next_3months") },
+                ].map(({ key, label }) => {
+                  const active = quickFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => applyQuickFilter(key)}
+                      style={{
+                        padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700,
+                        border: active ? "none" : "1.5px solid #e2e8f0",
+                        background: active ? "linear-gradient(135deg,#0ea5e9,#0284c7)" : "#fff",
+                        color: active ? "#fff" : "#475569",
+                        cursor: "pointer",
+                        boxShadow: active ? "0 4px 12px rgba(2,132,199,0.25)" : "none",
+                        transition: "all 0.18s",
+                      }}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+
+              {/* View Toggle & Full Screen */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", background: "#f1f5f9", borderRadius: 12, padding: 4, gap: 2 }}>
+                  {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
+                    <button key={key} onClick={() => setViewMode(key)} style={{
+                      display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                      borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                      background: viewMode === key ? "#fff" : "transparent",
+                      color: viewMode === key ? "#0284c7" : "#64748b",
+                      boxShadow: viewMode === key ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
+                      transition: "all 0.18s",
+                    }}><Icon size={16} />{label}</button>
+                  ))}
+                </div>
+
                 <button
-                  key={key}
-                  onClick={() => applyQuickFilter(key)}
+                  onClick={toggleFullscreen}
                   style={{
-                    padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700,
-                    border: active ? "none" : "1.5px solid #e2e8f0",
-                    background: active ? "linear-gradient(135deg,#0ea5e9,#0284c7)" : "#fff",
-                    color: active ? "#fff" : "#475569",
-                    cursor: "pointer",
-                    boxShadow: active ? "0 4px 12px rgba(2,132,199,0.25)" : "none",
-                    transition: "all 0.18s",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 38, height: 38, borderRadius: 12, border: "1.5px solid #e2e8f0",
+                    background: "#fff", color: "#64748b", cursor: "pointer",
+                    transition: "all 0.2s"
                   }}
-                >{label}</button>
-              );
-            })}
-          </div>
+                  title={isFullscreen ? t("appt_mgr_exit_fullscreen") : t("appt_mgr_enter_fullscreen")}
+                >
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
+              </div>
+            </div>
 
           {/* Row 2 — Search + Status + Date range */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -629,7 +702,7 @@ export default function AppointmentManager({ navigate, user }) {
                   onChange={e => setSelectedClinicId(e.target.value)}
                   style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "#334155", fontWeight: 700, cursor: "pointer" }}
                 >
-                  <option value="all">كل العيادات</option>
+                  <option value="all">{t("appt_mgr_all_clinics")}</option>
                   {clinics.map(c => (
                     <option key={c.id} value={c.clinic_id}>{c.name}</option>
                   ))}
@@ -642,7 +715,7 @@ export default function AppointmentManager({ navigate, user }) {
               <Search size={16} color="#94a3b8" />
               <input
                 type="text"
-                placeholder="ابحث باسم المريض أو رقم الهاتف..."
+                placeholder={t("appt_mgr_search_placeholder")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 style={{ border: "none", outline: "none", width: "100%", fontSize: 13, background: "transparent", color: "#334155" }}
@@ -658,24 +731,24 @@ export default function AppointmentManager({ navigate, user }) {
                 onChange={e => setFilter(e.target.value)}
                 style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "#334155", fontWeight: 700, cursor: "pointer" }}
               >
-                <option value="all">كل الحالات</option>
-                <option value="booked">محجوزة (قيد الانتظار)</option>
-                <option value="done">مكتملة</option>
-                <option value="cancelled">ملغاة</option>
+                <option value="all">{t("appt_mgr_all_status")}</option>
+                <option value="booked">{t("appt_mgr_pending")}</option>
+                <option value="done">{t("appt_mgr_completed")}</option>
+                <option value="cancelled">{t("appt_mgr_cancelled")}</option>
               </select>
             </div>
 
             {/* Date range */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "9px 14px", borderRadius: 14, border: "1px solid #e2e8f0", flexWrap: "wrap" }}>
               <Calendar size={16} color="#94a3b8" />
-              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>من</span>
+              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
                 style={{ border: "none", outline: "none", fontSize: 13, color: "#334155", background: "transparent", cursor: "pointer" }}
               />
-              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>إلى</span>
+              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>{t("appt_mgr_to")}</span>
               <input
                 type="date"
                 value={dateTo}
@@ -687,7 +760,7 @@ export default function AppointmentManager({ navigate, user }) {
                 <button
                   onClick={() => { setDateFrom(""); setDateTo(""); setQuickFilter(""); }}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
-                  title="مسح الفلتر"
+                  title={t("appt_mgr_clear_filter")}
                 >
                   <XCircle size={15} color="#ef4444" />
                 </button>
@@ -698,19 +771,19 @@ export default function AppointmentManager({ navigate, user }) {
           {/* Active filters summary */}
           {(dateFrom || dateTo || search || filter !== "all" || selectedClinicId !== "all") && (
             <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>النتائج:</span>
+              <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
               <span style={{ fontSize: 12, fontWeight: 800, color: "#0284c7", background: "#e0f2fe", padding: "3px 10px", borderRadius: 20 }}>
-                {filtered.length} موعد
+                {filtered.length} {t("appt_mgr_appointments_count")}
               </span>
               {selectedClinicId !== "all" && (
                 <span style={{ fontSize: 12, color: "#0284c7", background: "#e0f2fe", padding: "3px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
                   <MapPin size={11} />
-                  {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || "عيادة"}
+                  {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
                 </span>
               )}
               {(dateFrom || dateTo) && (
                 <span style={{ fontSize: 12, color: "#64748b", background: "#f1f5f9", padding: "3px 10px", borderRadius: 20 }}>
-                  {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `من ${dateFrom}` : `حتى ${dateTo}`}
+                  {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `${t("from")} ${dateFrom}` : `${t("to")} ${dateTo}`}
                 </span>
               )}
             </div>
@@ -733,10 +806,10 @@ export default function AppointmentManager({ navigate, user }) {
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 20px", background: "#fff", borderRadius: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
             <Calendar size={64} color="#cbd5e1" style={{ marginBottom: 16 }} />
-            <h3 style={{ fontSize: 20, fontWeight: 800, color: "#334155", margin: "0 0 8px 0" }}>لا توجد مواعيد</h3>
-            <p style={{ color: "#64748b", margin: "0 0 20px 0" }}>لم يتم العثور على أي مواعيد تطابق بحثك.</p>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: "#334155", margin: "0 0 8px 0" }}>{t("appt_mgr_no_appointments")}</h3>
+            <p style={{ color: "#64748b", margin: "0 0 20px 0" }}>{t("appt_mgr_no_appointments_desc")}</p>
             <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Plus size={16} /> سجّل أول موعد
+              <Plus size={16} /> {t("appt_mgr_register_first_appt")}
             </button>
           </div>
         ) : (
@@ -752,7 +825,7 @@ export default function AppointmentManager({ navigate, user }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 42, height: 42, borderRadius: 12, background: isPast ? "#f1f5f9" : "#e0f2fe", color: isPast ? "#64748b" : "#0284c7", display: "flex", alignItems: "center", justifyContent: "center" }}><User size={20} /></div>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}>{appt.patientname || "مريض غير معروف"}</div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
                         {appt.phone && <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><Phone size={11} /> {appt.phone}</div>}
                       </div>
                     </div>
@@ -772,8 +845,8 @@ export default function AppointmentManager({ navigate, user }) {
                   </div>
                   {appt.status === 0 && (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button onClick={() => handleUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓ إتمام الزيارة</button>
-                      <button onClick={() => handleUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✕ إلغاء</button>
+                      <button onClick={() => handleUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓ {t("appt_mgr_complete_visit")}</button>
+                      <button onClick={() => handleUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✕ {t("appt_mgr_cancel_appt")}</button>
                     </div>
                   )}
                 </div>
@@ -781,6 +854,7 @@ export default function AppointmentManager({ navigate, user }) {
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* Modal */}
@@ -797,6 +871,17 @@ export default function AppointmentManager({ navigate, user }) {
         .cal-day:hover { background: #f0f9ff !important; cursor: pointer; }
         .cal-day.has-appt:hover { background: #e0f2fe !important; }
         .cal-appt-pill { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #appt-manager-fullscreen-container:fullscreen {
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+          padding: 32px 24px !important;
+          overflow-y: auto !important;
+          width: 100% !important;
+          height: 100% !important;
+          box-sizing: border-box !important;
+        }
+        [data-theme="dark"] #appt-manager-fullscreen-container:fullscreen {
+          background: var(--bg) !important;
+        }
       `}</style>
       <Toast />
     </div>
