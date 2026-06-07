@@ -417,11 +417,18 @@ export default function AppointmentManager({ navigate, user }) {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState("all");
+  const getLocalDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const [filter, setFilter] = useState("booked");
   const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [quickFilter, setQuickFilter] = useState(""); // today | week | month | 3months
+  const [dateFrom, setDateFrom] = useState(getLocalDateStr);
+  const [dateTo, setDateTo] = useState(getLocalDateStr);
+  const [quickFilter, setQuickFilter] = useState("today"); // today | week | month | 3months
   const [showModal, setShowModal] = useState(false);
   const [viewMode, setViewMode] = useState("list"); // list | calendar
   const [calWeek, setCalWeek] = useState(() => {
@@ -435,6 +442,10 @@ export default function AppointmentManager({ navigate, user }) {
   const [clinics, setClinics] = useState([]);
   const [selectedClinicId, setSelectedClinicId] = useState("all");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showStats, setShowStats] = useState(() => {
+    const saved = localStorage.getItem("appt_show_stats");
+    return saved !== null ? saved === "true" : false;
+  });
 
   const toggleFullscreen = () => {
     const el = document.getElementById("appt-manager-fullscreen-container");
@@ -581,57 +592,144 @@ export default function AppointmentManager({ navigate, user }) {
     <div style={{ minHeight: "100vh", background: "var(--appt-manager-bg, linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%))", padding: "32px 24px", paddingBottom: 100 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
-        {/* Header */}
-        <div style={{ ...glassPanel, padding: "28px 32px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: "var(--heading-color, #0c4a6e)", display: "flex", alignItems: "center", gap: 12 }}>
-              <Calendar size={32} color="var(--brand, #0284c7)" /> {t("appt_mgr_title")}
-            </h1>
-            <p style={{ margin: "8px 0 0 0", color: "var(--text-secondary, #475569)", fontSize: 15 }}>
-              {t("appt_mgr_subtitle", { name: user?.profile?.fullname || user?.username })}
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={() => setShowModal(true)} style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "11px 20px", borderRadius: 14, border: "none", cursor: "pointer",
-              background: "linear-gradient(135deg,#0ea5e9,#0284c7)",
-              color: "#fff", fontWeight: 800, fontSize: 14,
-              boxShadow: "0 4px 16px rgba(2,132,199,0.3)", transition: "transform 0.15s",
-            }}
-              onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
-              onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-            ><Plus size={18} /> {t("appt_mgr_new_appointment")}</button>
-
-            <Btn onClick={() => fetchAppointments(true)} disabled={refreshing || loading}
-              style={{ borderRadius: 14, padding: "11px 18px", background: "var(--card-bg, #fff)", color: "var(--brand, #0284c7)", border: "1px solid var(--border, #bae6fd)" }}
-            ><RefreshCw size={18} className={refreshing ? "spin-anim" : ""} /> {t("appt_mgr_refresh")}</Btn>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: 24 }}>
-          {[
-            { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={24} />, color: "var(--stat-total-text, #0284c7)", bg: "var(--stat-total-bg, linear-gradient(135deg,#e0f2fe,#bae6fd))" },
-            { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={24} />, color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
-            { title: t("appt_mgr_completed"), count: stats.done, icon: <CheckCircle size={24} />, color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
-            { title: t("appt_mgr_cancelled"), count: stats.cancelled, icon: <XCircle size={24} />, color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
-          ].map((s, i) => (
-            <div key={i} style={{ background: "var(--card-bg, #fff)", borderRadius: 20, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.03))", border: "1px solid var(--border, rgba(0,0,0,0.02))" }}>
-              <div style={{ width: 60, height: 60, borderRadius: 16, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
-              <div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: "var(--text-main, #0f172a)", lineHeight: 1 }}>{s.count}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary, #64748b)", marginTop: 8 }}>{s.title}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
         {/* Fullscreen Wrapper */}
         <div id="appt-manager-fullscreen-container" style={{ display: "flex", flexDirection: "column" }}>
 
-          {/* Filters */}
-          <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24 }}>
+          {/* Merged Header & Filters Card */}
+          <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24, direction: i18n.language === "ar" ? "rtl" : "ltr" }}>
+            {/* Header section with Title and main Actions */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 16,
+              paddingBottom: 16,
+              marginBottom: 16,
+              borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))"
+            }}>
+              {/* Left: Title & Page Indicator */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "var(--brand-light, #e0f2fe)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--brand, #0284c7)"
+                }}>
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--heading-color, #0c4a6e)", display: "block" }}>
+                    {t("appt_mgr_title")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Toggle Stats & Main Actions */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                {/* Toggle Stats Button */}
+                <button
+                  onClick={() => {
+                    const newVal = !showStats;
+                    setShowStats(newVal);
+                    localStorage.setItem("appt_show_stats", String(newVal));
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 12,
+                    border: showStats ? "1px solid var(--brand, #0284c7)" : "1px solid var(--border, #bae6fd)",
+                    background: showStats ? "linear-gradient(135deg, #f0f9ff, #e0f2fe)" : "var(--card-bg, #fff)",
+                    color: "var(--brand, #0284c7)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    boxShadow: showStats ? "none" : "rgba(8, 145, 178, 0.05) 0px 2px 6px"
+                  }}
+                >
+                  <Activity size={16} />
+                  {showStats ? t("appt_mgr_hide_stats") : t("appt_mgr_show_stats")}
+                </button>
+
+                <div style={{ width: 1, height: 24, background: "var(--border, #e2e8f0)", margin: "0 4px" }} />
+
+                {/* New Appointment Button */}
+                <button
+                  onClick={() => setShowModal(true)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    cursor: "pointer",
+                    background: "linear-gradient(135deg, rgb(14, 165, 233), rgb(2, 132, 199))",
+                    color: "rgb(255, 255, 255)",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    boxShadow: "rgba(2, 132, 199, 0.2) 0px 4px 12px",
+                    transition: "transform 0.15s"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+                >
+                  <Plus size={16} />
+                  {t("appt_mgr_new_appointment")}
+                </button>
+
+                {/* Refresh Button */}
+                <button
+                  onClick={() => fetchAppointments(true)}
+                  disabled={refreshing || loading}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 12,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    border: "1px solid var(--border, #bae6fd)",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    background: "var(--card-bg, #fff)",
+                    color: "var(--brand, #0284c7)",
+                    boxShadow: "rgba(8, 145, 178, 0.1) 0px 2px 8px"
+                  }}
+                >
+                  <RefreshCw size={16} className={refreshing ? "spin-anim" : ""} />
+                  {t("appt_mgr_refresh")}
+                </button>
+              </div>
+            </div>
+
+            {/* Stats Panel (conditionally rendered inside header/filters wrapper when showStats is true) */}
+            {showStats && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))" }}>
+                {[
+                  { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={20} />, color: "var(--stat-total-text, #0284c7)", bg: "var(--stat-total-bg, linear-gradient(135deg,#e0f2fe,#bae6fd))" },
+                  { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={20} />, color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
+                  { title: t("appt_mgr_completed"), count: stats.done, icon: <CheckCircle size={20} />, color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
+                  { title: t("appt_mgr_cancelled"), count: stats.cancelled, icon: <XCircle size={20} />, color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: "var(--card-bg, #fff)", borderRadius: 16, padding: 16, display: "flex", alignItems: "center", gap: 12, boxShadow: "var(--shadow, 0 2px 8px rgba(0,0,0,0.02))", border: "1px solid var(--border, rgba(0,0,0,0.01))" }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text-main, #0f172a)", lineHeight: 1 }}>{s.count}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary, #64748b)", marginTop: 4 }}>{s.title}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Row 1 — Quick filter buttons & View Toggle */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>

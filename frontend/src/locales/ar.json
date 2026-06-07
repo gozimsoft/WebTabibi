@@ -527,6 +527,10 @@
     "appt_mgr_status_cancelled": "ملغي",
     "appt_mgr_status_completed": "مكتمل",
     "appt_mgr_enter_fullscreen": "ملء الشاشة",
-    "appt_mgr_exit_fullscreen": "إلغاء ملء الشاشة"
+    "appt_mgr_exit_fullscreen": "إلغاء ملء الشاشة",
+    "appt_mgr_show_info": "عرض المعلومات",
+    "appt_mgr_hide_info": "إخفاء المعلومات",
+    "appt_mgr_show_stats": "عرض الإحصائيات",
+    "appt_mgr_hide_stats": "إخفاء الإحصائيات"
   }
 }

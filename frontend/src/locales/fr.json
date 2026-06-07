@@ -449,6 +449,10 @@
     "appt_mgr_status_cancelled": "Annulé",
     "appt_mgr_status_completed": "Complété",
     "appt_mgr_enter_fullscreen": "Plein écran",
-    "appt_mgr_exit_fullscreen": "Quitter le plein écran"
+    "appt_mgr_exit_fullscreen": "Quitter le plein écran",
+    "appt_mgr_show_info": "Afficher les infos",
+    "appt_mgr_hide_info": "Masquer les infos",
+    "appt_mgr_show_stats": "Afficher les stats",
+    "appt_mgr_hide_stats": "Masquer les stats"
   }
 }

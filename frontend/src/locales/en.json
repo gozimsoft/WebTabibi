@@ -518,6 +518,10 @@
     "appt_mgr_status_cancelled": "Cancelled",
     "appt_mgr_status_completed": "Completed",
     "appt_mgr_enter_fullscreen": "Full screen",
-    "appt_mgr_exit_fullscreen": "Exit full screen"
+    "appt_mgr_exit_fullscreen": "Exit full screen",
+    "appt_mgr_show_info": "Show Info",
+    "appt_mgr_hide_info": "Hide Info",
+    "appt_mgr_show_stats": "Show Stats",
+    "appt_mgr_hide_stats": "Hide Stats"
   }
 }
