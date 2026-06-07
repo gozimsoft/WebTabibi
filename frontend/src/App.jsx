@@ -922,7 +922,7 @@ function HomePage({ user, navigate }) {
       </section>
 
       {/* ── SECTION: STATS (NUMBERS) ── */}
-      <div style={{ maxWidth: 1200, margin: isMobile ? "-20px auto 40px" : "-60px auto 70px", padding: isMobile ? "0 16px" : "0 24px", position: "relative", zIndex: 10 }}>
+      <div style={{ maxWidth: 1200, margin: isMobile ? "20px auto 40px" : "20px auto 70px", padding: isMobile ? "0 16px" : "0 24px", position: "relative", zIndex: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 14 : 20 }}>
           {[
             {
