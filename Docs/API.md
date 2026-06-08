@@ -1,0 +1,142 @@
+# 🔌 توثيق واجهة برمجة التطبيقات (API Reference)
+
+يعتمد مشروع "طبيبي" على بنية RESTful API مخصصة مبرمجة بلغة PHP. جميع الطلبات يجب أن توجه إلى المسار الأساسي (Base URL).
+
+**المسار الأساسي لبيئة الإنتاج:** `https://tabibi.dz/api`
+**المسار الأساسي لبيئة التطوير:** `http://localhost:8000/api`
+
+> ⚠️ **ملاحظة عامة على جميع الاستجابات:**
+> كل استجابات الـ API ترجع بتنسيق JSON موحد يحتوي على الحقول الثلاثة التالية:
+> ```json
+> {
+>   "success": true,        // (boolean) هل نجحت العملية أم فشلت
+>   "data": {},             // (object/array/null) البيانات المطلوبة
+>   "message": "رسالة"      // (string) رسالة توضيحية للمستخدم أو رسالة الخطأ
+> }
+> ```
+
+---
+
+## 🔐 1. الـ Endpoints الخاصة بالمصادقة (Auth)
+
+### 1.1. تسجيل الدخول (Login)
+- **الوصف:** تسجيل الدخول لأي نوع من المستخدمين (مريض، طبيب، عيادة).
+- **المسار (URL):** `/auth/login`
+- **الطريقة (Method):** `POST`
+- **الترويسات (Headers):** `Content-Type: application/json`
+- **الجسم (Request Body):**
+  ```json
+  {
+    "username": "Kaioran",
+    "password": "myPassword123" 
+  }
+  ```
+  *(ملاحظة: الـ Frontend يرسل كلمة المرور الأصلية، والـ Backend يقوم بتشفيرها لـ Base64 لمقارنتها بالـ DB).*
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "token": "eyJhbGciOiJIUzI...",
+      "user": {
+        "id": "123e4567-e89b-12d3-...",
+        "usertype": 0
+      }
+    },
+    "message": "تم تسجيل الدخول بنجاح"
+  }
+  ```
+
+### 1.2. تسجيل الخروج (Logout)
+- **الوصف:** تدمير جلسة المستخدم وحذف الـ Token من قاعدة البيانات.
+- **المسار (URL):** `/auth/logout`
+- **الطريقة (Method):** `POST`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>`
+- **الجسم (Request Body):** فارغ.
+
+---
+
+## 🏥 2. الـ Endpoints الخاصة بالعيادات والأطباء
+
+### 2.1. البحث عن العيادات (Search Clinics)
+- **الوصف:** البحث عن العيادات وتصفيتها.
+- **المسار (URL):** `/clinics`
+- **الطريقة (Method):** `GET`
+- **المعلمات (Query Parameters):**
+  - `q` (اختياري): نص للبحث باسم العيادة.
+  - `specialty` (اختياري): UUID الخاص بالتخصص لفلترة الأطباء بالعيادات.
+  - `wilaya_id` (اختياري): رقم الولاية.
+- **الترويسات (Headers):** لا تتطلب مصادقة (Public).
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "uuid-clinic-1",
+        "clinicname": "عيادة الشفاء",
+        "doctors": [ ... ]
+      }
+    ],
+    "message": ""
+  }
+  ```
+
+---
+
+## 📅 3. الـ Endpoints الخاصة بالمواعيد (Appointments)
+
+### 3.1. جلب الأوقات المتاحة للحجز (Available Slots)
+- **الوصف:** حساب وإرجاع فترات الحجز المتاحة لطبيب معين في عيادة محددة خلال يوم.
+- **المسار (URL):** `/appointments/available-slots`
+- **الطريقة (Method):** `GET`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>` (يجب أن يكون مريض).
+- **المعلمات (Query Parameters):**
+  - `clinics_doctor_id` (إلزامي): الـ UUID الخاص بارتباط الطبيب بالعيادة.
+  - `date` (إلزامي): التاريخ بصيغة `YYYY-MM-DD`.
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": ["08:00", "08:30", "09:00", "10:30"],
+    "message": "الأوقات المتاحة"
+  }
+  ```
+
+### 3.2. حجز موعد جديد (Book Appointment)
+- **الوصف:** إنشاء موعد جديد للمريض في فترة زمنية معينة.
+- **المسار (URL):** `/appointments`
+- **الطريقة (Method):** `POST`
+- **الترويسات (Headers):** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <Your_Token>`
+- **الجسم (Request Body):**
+  ```json
+  {
+    "clinics_doctor_id": "ea49ae02-ee22-4e7f-97b8-d2a8289e93aa",
+    "doctors_reason_id": "1b2a977a-33e2-4c9e-94bc-4462956a04f5",
+    "date": "2026-05-01",
+    "time": "09:00",
+    "note": "أعاني من آلام في الظهر"
+  }
+  ```
+- **حالات الخطأ المحتملة (Error Handling):**
+  - إذا كان الموعد محجوزاً مسبقاً (Conflict): يرجع `success: false` مع كود `409 Conflict`.
+  - إذا كان الطبيب في عطلة (OffHours): يرجع `success: false` برسالة توضيحية.
+
+---
+
+## 🔄 4. الـ Endpoints للمزامنة مع (Delphi Desktop Sync)
+
+هذه الـ Endpoints مخصصة لاستخدام النظام المكتبي فقط.
+
+### 4.1. رفع بيانات المزامنة (Upload Sync)
+- **المسار (URL):** `/sync/upload`
+- **الطريقة (Method):** `POST`
+- **الترويسات:** التوكن الخاص ببرنامج Delphi.
+- **الجسم:** يحتوي على المواعيد الجديدة المُسجلة في العيادة، حالات الأطباء، وتقارير التشخيص، ليتم رفعها للخادم السحابي.
+
+### 4.2. تنزيل بيانات المزامنة (Download Sync)
+- **المسار (URL):** `/sync/download`
+- **الطريقة (Method):** `GET`
+- **الاستجابة:** قائمة بالمواعيد التي حجزها المرضى من الموقع الإلكتروني (تطبيق React) ليقوم نظام Delphi بحفظها محلياً وعرضها لسكرتير العيادة.
