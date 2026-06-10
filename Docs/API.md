@@ -47,7 +47,22 @@
   }
   ```
 
-### 1.2. تسجيل الخروج (Logout)
+### 1.2. تسجيل الدخول باستخدام قوقل (Google Login)
+- **الوصف:** تسجيل الدخول أو إنشاء حساب جديد مباشرة عن طريق حساب قوقل (خاص بالمرضى).
+- **المسار (URL):** `/auth/google`
+- **الطريقة (Method):** `POST`
+- **الترويسات (Headers):** `Content-Type: application/json`
+- **الجسم (Request Body):**
+  ```json
+  {
+    "credential": "eyJhbGciOiJSUzI1NiIsImtpZCI..." 
+  }
+  ```
+  *(ملاحظة: يتم استخراج `credential` بواسطة Google Identity Services من الواجهة الأمامية).*
+- **الاستجابة الناجحة (Success Response):**
+  نفس استجابة `تسجيل الدخول (Login)`.
+
+### 1.3. تسجيل الخروج (Logout)
 - **الوصف:** تدمير جلسة المستخدم وحذف الـ Token من قاعدة البيانات.
 - **المسار (URL):** `/auth/logout`
 - **الطريقة (Method):** `POST`

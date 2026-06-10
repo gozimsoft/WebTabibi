@@ -175,6 +175,119 @@ class AuthController {
     }
 
     // ----------------------------------------------------------
+    // POST /api/auth/google
+    // Body: { credential }
+    // ----------------------------------------------------------
+    public static function google(): void {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        if (empty($data['credential'])) {
+            Response::error("Credential manquant", 400);
+        }
+
+        // Verify with Google
+        $ch = curl_init("https://oauth2.googleapis.com/tokeninfo?id_token=" . $data['credential']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $res = curl_exec($ch);
+        curl_close($ch);
+
+        $info = json_decode($res, true);
+        if (!$info || !isset($info['email']) || empty($info['email_verified']) || $info['email_verified'] === 'false') {
+            Response::error("Authentification Google échouée", 401);
+        }
+
+        $email = $info['email'];
+        $fullname = $info['name'] ?? explode('@', $email)[0];
+        
+        $pdo = Database::getInstance();
+
+        // Check if patient exists
+        $stmt = $pdo->prepare("SELECT * FROM patients WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        $patient = $stmt->fetch();
+
+        if ($patient) {
+            // User exists, log them in
+            $userId = $patient['user_id'];
+            $stmtUser = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+            $stmtUser->execute([$userId]);
+            $user = $stmtUser->fetch();
+
+            if (!$user) {
+                Response::error("Erreur d'intégrité du compte", 500);
+            }
+
+            $token = self::createSession($userId);
+            
+            $profile = $patient;
+            unset($profile['photoprofile']);
+
+            Response::success([
+                'token'     => $token,
+                'user_type' => (int)$user['usertype'],
+                'user_id'   => $userId,
+                'username'  => $user['username'],
+                'profile'   => $profile,
+            ], 'Connexion réussie via Google');
+            return;
+        }
+
+        // User does not exist, register them
+        $baseUsername = strtolower(explode('@', $email)[0]);
+        // Remove special chars for username
+        $baseUsername = preg_replace('/[^a-z0-9]/', '', $baseUsername);
+        if (empty($baseUsername)) $baseUsername = 'user';
+        
+        $username = $baseUsername;
+        $suffix = 1;
+        while (true) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetchColumn() == 0) break;
+            $username = $baseUsername . $suffix;
+            $suffix++;
+        }
+
+        $passwordEncoded = base64_encode(bin2hex(random_bytes(10))); // Random password
+        $userId    = UUIDHelper::generate();
+        $patientId = UUIDHelper::generate();
+
+        $pdo->beginTransaction();
+        try {
+            // Insert User
+            $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
+                ->execute([$userId, $username, $passwordEncoded]);
+
+            // Insert Patient
+            $pdo->prepare("
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount)
+                VALUES (?, '', ?, '', ?, NULL, 0, ?, 'Algérie', 0)
+            ")->execute([
+                $patientId,
+                $fullname,
+                $email,
+                $userId,
+            ]);
+
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('Erreur lors de la création du compte via Google: ' . $e->getMessage());
+        }
+
+        $token = self::createSession($userId);
+
+        Response::success([
+            'token'      => $token,
+            'user_type'  => 0,
+            'user_id'    => $userId,
+            'patient_id' => $patientId,
+            'username'   => $username,
+            'profile'    => ['fullname' => $fullname, 'email' => $email],
+        ], 'Compte créé avec succès via Google', 201);
+    }
+
+    // ----------------------------------------------------------
     // POST /api/auth/logout
     // ----------------------------------------------------------
     public static function logout(): void {

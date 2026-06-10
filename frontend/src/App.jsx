@@ -68,6 +68,7 @@ const api = {
   auth: {
     register: b => req("POST", "/auth/register", b, false),
     login: b => req("POST", "/auth/login", b, false),
+    google: b => req("POST", "/auth/google", b, false),
     logout: () => req("POST", "/auth/logout"),
     me: () => req("GET", "/auth/me"),
   },
@@ -216,12 +217,18 @@ function useAuth() {
     setUser(d);
     return d;
   };
+  const googleLogin = async credential => {
+    const d = await api.auth.google({ credential });
+    localStorage.setItem("tabibi_token", d.token);
+    setUser(d);
+    return d;
+  };
   const logout = async () => {
     try { await api.auth.logout(); } catch { }
     localStorage.removeItem("tabibi_token");
     setUser(null);
   };
-  return { user, loading, login, register, logout };
+  return { user, loading, login, register, googleLogin, logout };
 }
 
 // ── Responsive Hook ───────────────────────────────────────────
@@ -1338,11 +1345,42 @@ function HomePage({ user, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: LOGIN
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function LoginPage({ onLogin, navigate }) {
+function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
+  // مرجع حاوية زر Google الرسمي
+  const googleBtnRef = React.useRef(null);
+
+  // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
+  React.useEffect(() => {
+    let timer;
+    const tryRender = () => {
+      if (window.google && window.google.accounts && googleBtnRef.current) {
+        if (googleBtnRef.current.querySelector('iframe')) { clearInterval(timer); return; }
+        clearInterval(timer);
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "875672071653-qjfc4ktsic21kato8i1s7ujp1q7dubi9.apps.googleusercontent.com",
+          callback: async (res) => {
+            try {
+              setError(""); setL(true);
+              await onGoogleLogin(res.credential);
+              navigate("/");
+            } catch(e) { setError(e.message); setL(false); }
+          },
+          ux_mode: "popup",
+          context: "signin",
+        });
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "outline", size: "large", text: "signin_with", width: 340,
+        });
+      }
+    };
+    timer = setInterval(tryRender, 100);
+    tryRender();
+    return () => clearInterval(timer);
+  }, [onGoogleLogin, navigate]);
 
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
@@ -1373,6 +1411,17 @@ function LoginPage({ onLogin, navigate }) {
         </div>
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
+
+          {/* زر تسجيل الدخول بـ Google الرسمي */}
+          <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+
+          {/* فاصل */}
+          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            <span style={{ margin: "0 10px", fontSize: 12 }}>أو</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          </div>
+
           <form onSubmit={submit}>
             <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
             <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
@@ -1392,12 +1441,43 @@ function LoginPage({ onLogin, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: REGISTER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function RegisterPage({ onRegister, navigate }) {
+function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0 });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  // مرجع حاوية زر Google الرسمي
+  const googleBtnRef = React.useRef(null);
+
+  // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
+  React.useEffect(() => {
+    let timer;
+    const tryRender = () => {
+      if (window.google && window.google.accounts && googleBtnRef.current) {
+        if (googleBtnRef.current.querySelector('iframe')) { clearInterval(timer); return; }
+        clearInterval(timer);
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "875672071653-qjfc4ktsic21kato8i1s7ujp1q7dubi9.apps.googleusercontent.com",
+          callback: async (res) => {
+            try {
+              setError(""); setL(true);
+              await onGoogleLogin(res.credential);
+              navigate("/");
+            } catch(e) { setError(e.message); setL(false); }
+          },
+          ux_mode: "popup",
+          context: "signup",
+        });
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "outline", size: "large", text: "signup_with", width: 380,
+        });
+      }
+    };
+    timer = setInterval(tryRender, 100);
+    tryRender();
+    return () => clearInterval(timer);
+  }, [onGoogleLogin, navigate]);
 
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
@@ -1427,6 +1507,17 @@ function RegisterPage({ onRegister, navigate }) {
         </div>
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
+
+          {/* زر إنشاء الحساب بـ Google الرسمي */}
+          <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+
+          {/* فاصل */}
+          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          </div>
+
           <form onSubmit={submit}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Input label={t("fullname") + " *"} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
@@ -1455,6 +1546,8 @@ function RegisterPage({ onRegister, navigate }) {
     </div>
   );
 }
+
+
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: SEARCH
@@ -5450,7 +5543,7 @@ function FamilyPage({ navigate, user }) {
 function MainApp() {
   const { t, i18n } = useTranslation();
   const { route, qs, navigate } = useRoute();
-  const { user, loading, login, register, logout } = useAuth();
+  const { user, loading, login, register, googleLogin, logout } = useAuth();
   const isMobile = useIsMobile();
   const [showExitModal, setShowExitModal] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
@@ -5547,10 +5640,10 @@ function MainApp() {
         return <HomePage key="home" user={user} navigate={navigate} />;
       case "/login":
         if (user) { setTimeout(() => navigate("/"), 0); return null; }
-        return <LoginPage key="login" onLogin={login} navigate={navigate} />;
+        return <LoginPage key="login" onLogin={login} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/register":
         if (user) { setTimeout(() => navigate("/"), 0); return null; }
-        return <RegisterPage key="register" onRegister={register} navigate={navigate} />;
+        return <RegisterPage key="register" onRegister={register} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/search":
         return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
       case "/about":

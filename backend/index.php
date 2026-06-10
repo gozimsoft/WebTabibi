@@ -59,6 +59,10 @@ try {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::login();
     }
+    if ($uri === '/auth/google' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::google();
+    }
     if ($uri === '/auth/logout' && $method === 'POST') {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::logout();
