@@ -580,23 +580,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
         {/* User Actions */}
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {user && (
-            <button
-              onClick={() => show("لديك تنبيه جديد: تم تأكيد موعدك مع الدكتور خلدون.", "success")}
-              style={{
-                background: "var(--brand-light)", border: "none", cursor: "pointer",
-                width: 38, height: 38, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--brand)", transition: "all 0.2s",
-                position: "relative"
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
-              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-            >
-              <Bell size={20} />
-              <div style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "#ef4444", borderRadius: "50%", border: "2px solid var(--card-bg)" }} />
-            </button>
-          )}
           {user ? (
             <div style={{ position: "relative" }}>
               <button onClick={() => setOpen(!open)} style={{
