@@ -1,5 +1,6 @@
 // src/api/client.js
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://tabibi.dz';
+const BASE_URL = import.meta.env.DEV ? '/api' : `${API_BASE}/api`;
 
 const getToken = () => localStorage.getItem('tabibi_token');
 
