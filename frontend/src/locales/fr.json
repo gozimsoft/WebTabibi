@@ -66,6 +66,7 @@
     "demo_account": "Compte de démo :",
     "register_title": "Créer un nouveau compte",
     "fullname": "Nom complet",
+    "nin_label": "NIN (Numéro d'Identification National)",
     "email": "E-mail",
     "phone": "Téléphone",
     "gender": "Genre",

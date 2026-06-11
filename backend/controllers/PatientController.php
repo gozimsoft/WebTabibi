@@ -43,7 +43,7 @@ class PatientController {
 
         $allowed = ['fullname','phone','email','birthdate','address','gender','baladiya_id',
                     'birthplace','birthcountry','postcode','speakinglanguage','country',
-                    'bloodtype','emergancyphone','emergancyemail','emergancynote'];
+                    'bloodtype','emergancyphone','emergancyemail','emergancynote','nin'];
 
         $fields = [];
         $values = [];

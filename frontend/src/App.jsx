@@ -1615,7 +1615,7 @@ function SearchPage({ navigate, qs, user }) {
             <select value={wi} onChange={e => setWI(e.target.value)}
               style={{ flex: 1, padding: isMobile ? "12px 4px" : "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box", minWidth: 0 }}>
               <option value="">{t("all_wilayas")}</option>
-              {wiList.map(w => <option key={w.id} value={w.id}>{i18n.language === 'ar' ? w.namear : w.namefr}</option>)}
+              {wiList.map(w => <option key={w.id} value={w.id}>{w.num || w.Num || w.id}- {i18n.language === 'ar' ? w.namear : w.namefr}</option>)}
             </select>
             <select value={sp} onChange={e => setSP(e.target.value)}
               style={{ flex: 1, padding: isMobile ? "12px 4px" : "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box", minWidth: 0 }}>
@@ -3891,7 +3891,7 @@ function RegisterDoctorPage({ navigate }) {
   const { show, Toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '' });
   const [errors, setErrors] = useState({});
   const [specs, setSpecs] = useState([]);
 
@@ -3968,7 +3968,10 @@ function RegisterDoctorPage({ navigate }) {
           <Input label={`${t("email")} *`} type="email" placeholder="doctor@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
           <Input label={`${t("phone")} *`} placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
         </div>
-        <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
+          <Input label={t("nin_label") || "الرقم الوطني"} placeholder="الرقم الوطني (NIN)" value={form.nin} onChange={e => set('nin', e.target.value)} error={errors.nin} />
+        </div>
         <div style={{ background: '#eff6ff', borderRadius: 12, border: '1px solid #bfdbfe', padding: '16px 20px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e40af', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
             <AlertCircle size={16} /> {t("important_note")}
@@ -4997,6 +5000,9 @@ function ProfilePage({ user, navigate }) {
             <Input label={user?.user_type === 2 ? "اسم العيادة" : t("fullname")} value={form.fullname || form.clinicname || ""} onChange={e => f(user?.user_type === 2 ? "clinicname" : "fullname", e.target.value)} />
             <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
             <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
+            {(user?.user_type === 0 || user?.user_type === 1) && (
+              <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
+            )}
             {user?.user_type === 2 && (
               <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
             )}

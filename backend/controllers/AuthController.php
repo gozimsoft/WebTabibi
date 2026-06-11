@@ -56,8 +56,8 @@ class AuthController {
 
             // Insert Patient
             $pdo->prepare("
-                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount)
-                VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0)
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, nin)
+                VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0, ?)
             ")->execute([
                 $patientId,
                 trim($data['fullname']),
@@ -66,6 +66,7 @@ class AuthController {
                 $data['birthdate'] ?? null,
                 isset($data['gender']) ? (int)$data['gender'] : 0,
                 $userId,
+                $data['nin'] ?? null,
             ]);
 
             $pdo->commit();

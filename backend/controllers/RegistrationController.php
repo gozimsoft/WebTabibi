@@ -92,8 +92,8 @@ class RegistrationController {
         $passwordEncoded = base64_encode($data['password']);
 
         $pdo->prepare("
-            INSERT INTO doctorregistrations (id, fullname, speciality, email, phone, password, status)
-            VALUES (?,?,?,?,?,?, 'PENDING')
+            INSERT INTO doctorregistrations (id, fullname, speciality, email, phone, password, status, nin)
+            VALUES (?,?,?,?,?,?, 'PENDING', ?)
         ")->execute([
             $id,
             trim($data['fullname']),
@@ -101,6 +101,7 @@ class RegistrationController {
             trim($data['email']),
             trim($data['phone']),
             $passwordEncoded,
+            $data['nin'] ?? null,
         ]);
 
         Response::success(

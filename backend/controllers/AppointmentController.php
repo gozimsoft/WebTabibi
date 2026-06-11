@@ -202,6 +202,10 @@ class AppointmentController
         $color      = (int)($data['apointementcolor'] ?? 0);
         $appointmentDatetime = $date . ' ' . preg_replace('/[^0-9:]/', '', $time) . ':00';
 
+        if (strtotime($appointmentDatetime) <= time()) {
+            Response::error('لا يمكن حجز موعد في وقت أو تاريخ سابق.', 422);
+        }
+
         $appointmentId = UUIDHelper::generate();
 
         $pdo->prepare("
@@ -321,10 +325,16 @@ class AppointmentController
                 $bookedTimestamps[] = $ts;
         }
 
-        $available = array_values(array_filter($slots, function ($s) use ($date, $bookedTimestamps, $timescale) {
+        $currentTime = time();
+        $available = array_values(array_filter($slots, function ($s) use ($date, $bookedTimestamps, $timescale, $currentTime) {
             $slotStart = strtotime(trim($date) . ' ' . trim($s) . ':00');
             if (!$slotStart)
                 return true; // Should not happen with valid inputs
+
+            // Prevent booking in the past
+            if ($slotStart <= $currentTime) {
+                return false;
+            }
 
             $slotEnd = $slotStart + ($timescale * 60);
 
@@ -431,6 +441,10 @@ class AppointmentController
             Response::error("Format d'heure invalide. Attendu HH:MM", 422);
 
         $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
+
+        if (strtotime($appointmentDatetime) <= time()) {
+            Response::error('لا يمكن حجز موعد في وقت أو تاريخ سابق.', 422);
+        }
 
         // Check for double-booking (new schema: clinicsdoctor_id, status != 0)
         $stmt = $pdo->prepare("

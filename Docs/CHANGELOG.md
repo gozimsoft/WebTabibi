@@ -2,6 +2,33 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-06-11
+
+### Added
+- إضافة حقل "الرقم الوطني" (nin) في قاعدة البيانات وجداول (`patients`, `doctors`, `doctorregistrations`).
+- إضافة حقل الرقم الوطني (National ID / NIN) في نماذج تسجيل المرضى (`Register.jsx`) وتسجيل الأطباء (`App.jsx`).
+- إضافة إمكانية تعديل حقل الرقم الوطني في الصفحة الشخصية للمريض (`Profile.jsx`).
+- إضافة الترجمات اللازمة للحقل في ملفات اللغات (`ar.json`, `en.json`, `fr.json`).
+
+### Modified
+- تعديل `App.jsx` لإظهار أرقام الولايات بجانب أسمائها في القائمة المنسدلة للبحث (مثلاً: "17 - الجلفة").
+- تعديل `AuthController.php` و `PatientController.php` و `RegistrationController.php` و `DoctorController.php` لدعم استقبال وتخزين حقل الـ `nin`.
+
+### Files Changed
+- backend/controllers/AuthController.php
+- backend/controllers/RegistrationController.php
+- backend/controllers/PatientController.php
+- backend/controllers/DoctorController.php
+- frontend/src/pages/Register.jsx
+- frontend/src/pages/Profile.jsx
+- frontend/src/App.jsx
+- frontend/src/locales/ar.json
+- frontend/src/locales/en.json
+- frontend/src/locales/fr.json
+
+### Documentation Updated
+Yes (`Docs/CHANGELOG.md`, `Docs/DATABASE.md`)
+
 ## 2026-06-10
 
 ### Fixed
