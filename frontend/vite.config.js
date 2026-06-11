@@ -1,30 +1,30 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  base: '/',
-  plugins: [react()],
-  server: {
-    port: 80,
-    host: 'localhost',
-    // إعداد HMR صريح لضمان عمل التحديث التلقائي على المنفذ 80
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
+export default defineConfig(({ mode }) => {
+  // قراءة المتغيرات البيئية من ملف .env لتوجيه خادم التطوير
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiTarget = env.VITE_API_URL || 'https://tabibi.dz'
+
+  return {
+    base: './',
+    plugins: [react()],
+    server: {
       port: 80,
-    },
-    proxy: {
-      '/api': {
-      // target: 'https://tabibi.dz',
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        ws: true,
+      host: 'localhost',
+      proxy: {
+        '/api': {
+          target: apiTarget,
+          changeOrigin: true,
+          secure: false,
+          ws: true,
+        }
       }
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: false,
+      target: ['es2015', 'chrome80', 'safari13'],
     }
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    target: ['es2015', 'chrome80', 'safari13'],
   }
-})
+})

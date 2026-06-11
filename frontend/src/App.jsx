@@ -29,7 +29,8 @@ import UserGuide from "./pages/UserGuide";
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BASE = import.meta.env.VITE_API_URL || "/api";
+const _API_HOST = import.meta.env.VITE_API_URL || 'https://tabibi.dz';
+const BASE = import.meta.env.DEV ? '/api' : `${_API_HOST}/api`;
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
