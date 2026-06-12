@@ -45,6 +45,7 @@ export default function ProfilePage({ user }) {
               </select>
             </div>
           </div>
+          <Input label={t("nin_label") || "الرقم الوطني"} value={data?.nin || ""} onChange={e => setData({ ...data, nin: e.target.value })} />
           <Input label={t("address")} value={data?.address || ""} onChange={e => setData({ ...data, address: e.target.value })} />
           <Btn onClick={save} loading={saving} style={{ width: "100%", justifyContent: "center", marginTop: 10 }}>{t("save_changes")}</Btn>
         </Card>

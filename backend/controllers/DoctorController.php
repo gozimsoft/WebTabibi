@@ -99,7 +99,7 @@ class DoctorController {
             $allowed = [
                 'fullname', 'email', 'phone', 'fix', 'casnos', 'speakinglanguage', 
                 'rpps', 'numregister', 'pricing', 'degrees', 'academytitles', 
-                'postcode', 'specialtie_id'
+                'postcode', 'specialtie_id', 'nin'
             ];
 
             $fields = [];
@@ -184,6 +184,7 @@ class DoctorController {
             'rpps'=>'rpps','num_register'=>'numregister','hide_rating'=>'hiderating',
             'pricing'=>'pricing','degrees'=>'degrees','academy_titles'=>'academytitles',
             'fix'=>'fix','postcode'=>'postcode','longitude'=>'longitude','latitude'=>'latitude',
+            'nin'=>'nin',
         ];
 
         $pdo->beginTransaction();

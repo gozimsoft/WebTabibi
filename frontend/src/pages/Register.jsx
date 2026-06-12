@@ -5,7 +5,7 @@ import { Btn, Card, Input } from "../components/SharedUI";
 
 export default function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0 });
+  const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0, nin: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -76,7 +76,10 @@ export default function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
               <Input label={`${t("fullname")} *`} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
               <Input label={`${t("username")} *`} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
             </div>
-            <Input label={`${t("email")} *`} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label={`${t("email")} *`} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
+              <Input label={t("nin_label") || "الرقم الوطني"} type="text" value={form.nin} onChange={e => f("nin", e.target.value)} placeholder="الرقم الوطني (NIN)" />
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
               <div style={{ marginBottom: 16 }}>

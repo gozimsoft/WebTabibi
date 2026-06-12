@@ -99,8 +99,17 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
     setSL(true); setSlots([]); setSlot("");
     try {
       const s = await api.appointments.slots({ clinics_doctor_id: doctor.clinicsdoctor_id, date: d });
-      setSlots(s.slots || []);
-      if (!(s.slots || []).length) show(t("no_times_this_day"), "error");
+      let availableSlots = s.slots || [];
+      
+      const now = new Date();
+      const isToday = d === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      if (isToday) {
+        const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        availableSlots = availableSlots.filter(slot => slot > currentTimeStr);
+      }
+
+      setSlots(availableSlots);
+      if (!availableSlots.length) show(t("no_times_this_day"), "error");
     } catch (e) { show(e.message, "error"); }
     finally { setSL(false); }
   };

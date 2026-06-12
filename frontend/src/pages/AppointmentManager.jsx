@@ -178,15 +178,14 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
             />
           </div>
 
-          {/* Date & Time */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={lbl}><Calendar size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_date_label")}</label>
-              <input type="date" value={form.date} onChange={e => field("date", e.target.value)} style={inp} required />
+              <input type="date" min={new Date().toISOString().slice(0, 10)} value={form.date} onChange={e => field("date", e.target.value)} style={inp} required />
             </div>
             <div>
               <label style={lbl}><Clock size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_time_label")}</label>
-              <input type="time" value={form.time} onChange={e => field("time", e.target.value)} style={inp} required />
+              <input type="time" min={form.date === new Date().toISOString().slice(0, 10) ? `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` : undefined} value={form.time} onChange={e => field("time", e.target.value)} style={inp} required />
             </div>
           </div>
 

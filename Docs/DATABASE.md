@@ -36,6 +36,7 @@
 | `fullname`| `varchar` | ❌ | لا يوجد | الاسم الكامل للمريض. |
 | `phone` | `varchar` | ✅ | `NULL` | رقم الهاتف المحمول. |
 | `birthdate`| `date` | ✅ | `NULL` | تاريخ الميلاد. |
+| `nin` | `varchar` | ✅ | `NULL` | الرقم الوطني للمريض (National ID). |
 | `emailvalidation`| `int`| ❌ | `0` | حالة تأكيد البريد (1 = مؤكد, 0 = غير مؤكد). |
 
 #### 3.2. جدول الأطباء (`doctors`)
@@ -45,6 +46,7 @@
 | `user_id` | `uuid` | ❌ | لا يوجد | **مفتاح خارجي** للمستخدم المرتبط. |
 | `specialtie_id`| `uuid`| ❌ | لا يوجد | **مفتاح خارجي** للتخصص الطبي (من جدول specialties). |
 | `status` | `enum` | ❌ | `PENDING` | حالة الحساب لمدير النظام: `PENDING`, `APPROVED`, `REJECTED`. |
+| `nin` | `varchar` | ✅ | `NULL` | الرقم الوطني للطبيب (National ID). |
 | `photoprofile`| `longtext`| ✅ | `NULL` | صورة الطبيب مخزنة كسلسلة نصية بتشفير `Base64`. |
 
 #### 3.3. جدول العيادات (`clinics`)
