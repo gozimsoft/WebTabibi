@@ -42,7 +42,13 @@ async function req(method, path, body, auth = true) {
       body: body ? JSON.stringify(body) : undefined,
     });
     const d = await r.json();
-    if (!d.success) throw new Error(d.message || "Erreur serveur");
+    if (!d.success) {
+      const err = new Error(d.message || "Erreur serveur");
+      if (d.data) {
+        Object.assign(err, d.data);
+      }
+      throw err;
+    }
     return d.data ?? d;
   } catch (e) {
     if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le server  ");
@@ -74,6 +80,8 @@ const api = {
     me: () => req("GET", "/auth/me"),
     forgotPassword: b => req("POST", "/auth/forgot-password", b, false),
     verifyOtp: b => req("POST", "/auth/verify-otp", b, false),
+    verifyAccountEmail: b => req("POST", "/auth/verify-account-email", b, false),
+    registerConfirm: b => req("POST", "/auth/register-confirm", b, false),
     resetPassword: b => req("POST", "/auth/reset-password", b, false),
   },
   patient: {
@@ -224,6 +232,15 @@ function useAuth() {
   };
   const register = async b => {
     const d = await api.auth.register(b);
+    if (d && d.requires_verification) {
+      return d;
+    }
+    localStorage.setItem("tabibi_token", d.token);
+    setUser(d);
+    return d;
+  };
+  const registerConfirm = async b => {
+    const d = await api.auth.registerConfirm(b);
     localStorage.setItem("tabibi_token", d.token);
     setUser(d);
     return d;
@@ -239,7 +256,7 @@ function useAuth() {
     localStorage.removeItem("tabibi_token");
     setUser(null);
   };
-  return { user, loading, login, register, googleLogin, logout };
+  return { user, loading, login, register, registerConfirm, googleLogin, logout };
 }
 
 // ── Responsive Hook ───────────────────────────────────────────
@@ -1643,6 +1660,11 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState("");
 
+  // Email Verification State (حالة تأكيد الحساب بالإيميل)
+  const [showOtp, setShowOtp] = useState(false);
+  const [emailToVerify, setEmailToVerify] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+
   // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
   React.useEffect(() => {
     let timer;
@@ -1682,9 +1704,49 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
     }
     catch (e) {
       analytics.track("login_failed", { username: form.username, error: e.message });
-      setError(e.message);
+      if (e.requires_verification) {
+        setEmailToVerify(e.email);
+        setShowOtp(true);
+        setError("");
+      } else {
+        setError(e.message);
+      }
     }
     finally { setL(false); }
+  };
+
+  const verifyCode = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setError(localStorage.getItem("tabibi_lang") === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام" : "Veuillez entrer le code à 6 chiffres");
+      return;
+    }
+    setL(true); setError("");
+    try {
+      await api.auth.verifyAccountEmail({ email: emailToVerify, code: otpCode });
+      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تأكيد البريد الإلكتروني بنجاح! جاري تسجيل الدخول..." : "E-mail vérifié avec succès ! Connexion en cours...");
+      await onLogin(form.username, form.password);
+      navigate("/");
+    } catch(e) {
+      setError(e.message);
+    } finally {
+      setL(false);
+    }
+  };
+
+  const resendCode = async () => {
+    setError(""); setL(true);
+    try {
+      await onLogin(form.username, form.password);
+    } catch (e) {
+      if (e.requires_verification) {
+        show(localStorage.getItem("tabibi_lang") === "ar" ? "تم إعادة إرسال رمز التحقق بنجاح!" : "Code de vérification renvoyé avec succès !");
+      } else {
+        setError(e.message);
+        setShowOtp(false);
+      }
+    } finally {
+      setL(false);
+    }
   };
 
   const handleSendResetEmail = async (e) => {
@@ -1789,37 +1851,87 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
-          {/* زر تسجيل الدخول بـ Google الرسمي */}
-          <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+          {!showOtp ? (
+            <>
+              {/* زر تسجيل الدخول بـ Google الرسمي */}
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
 
-          {/* فاصل */}
-          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ margin: "0 10px", fontSize: 12 }}>أو</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          </div>
+              {/* فاصل */}
+              <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                <span style={{ margin: "0 10px", fontSize: 12 }}>أو</span>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              </div>
 
-          <form onSubmit={submit}>
-            <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
-            <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
-            
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
-              <button 
-                type="button" 
-                onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }} 
-                style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
-              >
-                {localStorage.getItem("tabibi_lang") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
-              </button>
+              <form onSubmit={submit}>
+                <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
+                <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
+                
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
+                  <button 
+                    type="button" 
+                    onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }} 
+                    style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                  >
+                    {localStorage.getItem("tabibi_lang") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
+                  </button>
+                </div>
+
+                <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
+                  {loading ? t("logging_in") : t("login_btn")}
+                </Btn>
+              </form>
+              <p style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "#6b7280" }}>
+                {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
+              </p>
+            </>
+          ) : (
+            <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <h3 style={{ marginBottom: 16, color: "var(--text-main)", fontSize: 18, fontWeight: 700 }}>
+                {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد البريد الإلكتروني" : "Confirmation de l'adresse e-mail"}
+              </h3>
+              <p style={{ color: "var(--text-secondary)", marginBottom: 20, fontSize: 14, lineHeight: 1.5 }}>
+                {localStorage.getItem("tabibi_lang") === "ar" 
+                  ? `لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني ${emailToVerify}. يرجى إدخاله لتفعيل الحساب.` 
+                  : `Nous avons envoyé un code de vérification à votre e-mail ${emailToVerify}. Veuillez le saisir pour activer le compte.`}
+              </p>
+              <input 
+                type="text" 
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="_ _ _ _ _ _"
+                maxLength={6}
+                style={{
+                  width: "100%", padding: "14px", textAlign: "center",
+                  fontSize: 24, fontWeight: 900, letterSpacing: 10,
+                  border: "2px solid var(--brand)", borderRadius: 12, outline: "none",
+                  boxSizing: "border-box", background: "var(--input-bg)", color: "var(--text-main)",
+                  marginBottom: 20, direction: "ltr"
+                }}
+              />
+              <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginBottom: 12 }}>
+                {loading 
+                  ? (localStorage.getItem("tabibi_lang") === "ar" ? "جاري التحقق..." : "Vérification...") 
+                  : (localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد الحساب" : "Confirmer le compte")}
+              </Btn>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+                <button 
+                  type="button"
+                  onClick={resendCode} 
+                  style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                >
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "إعادة إرسال الرمز" : "Renvoyer le code"}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setShowOtp(false); setError(""); setOtpCode(""); }} 
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                >
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
+                </button>
+              </div>
             </div>
-
-            <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
-              {loading ? t("logging_in") : t("login_btn")}
-            </Btn>
-          </form>
-          <p style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "#6b7280" }}>
-            {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
-          </p>
+          )}
         </Card>
       </div>
     </div>
@@ -1829,11 +1941,14 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: REGISTER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
+function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0 });
+  const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0, nin: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
+  // حالة عرض شاشة OTP بعد إرسال طلب التسجيل
+  const [showOtp, setShowOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
   // مرجع حاوية زر Google الرسمي
   const googleBtnRef = React.useRef(null);
@@ -1867,13 +1982,19 @@ function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
     return () => clearInterval(timer);
   }, [onGoogleLogin, navigate]);
 
+  // إرسال بيانات التسجيل — إذا كان الرد يطلب التحقق من الإيميل نعرض شاشة OTP
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
     analytics.track("register_attempt", { username: form.username, email: form.email });
     try {
-      await onRegister(form);
+      const res = await onRegister(form);
       analytics.track("register_success", { username: form.username, email: form.email });
-      navigate("/");
+      // الخادم يعيد requires_verification عند الحاجة لتأكيد الإيميل
+      if (res && res.requires_verification) {
+        setShowOtp(true);
+      } else {
+        navigate("/guide");
+      }
     }
     catch (e) {
       analytics.track("register_failed", { username: form.username, error: e.message });
@@ -1882,53 +2003,108 @@ function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
     finally { setL(false); }
   };
 
+  // التحقق من رمز OTP وإتمام إنشاء الحساب
+  const verifyCode = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setError("يرجى إدخال رمز التحقق المكون من 6 أرقام");
+      return;
+    }
+    setL(true); setError("");
+    try {
+      await onRegisterConfirm({ ...form, code: otpCode });
+      navigate("/guide");
+    } catch(e) {
+      setError(e.message);
+    } finally {
+      setL(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 460 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
             <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <UserPlus size={32} color="var(--brand)" />
+              {showOtp ? <Mail size={32} color="var(--brand)" /> : <UserPlus size={32} color="var(--brand)" />}
             </div>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{t("register_title")}</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>
+            {showOtp ? "تأكيد البريد الإلكتروني" : t("register_title")}
+          </h1>
         </div>
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
-          {/* زر إنشاء الحساب بـ Google الرسمي */}
-          <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
-
-          {/* فاصل */}
-          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          </div>
-
-          <form onSubmit={submit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={t("fullname") + " *"} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
-              <Input label={t("username") + " *"} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
+          {/* شاشة إدخال رمز OTP */}
+          {showOtp ? (
+            <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <p style={{ color: "#6b7280", marginBottom: 12, fontSize: 14, lineHeight: 1.7 }}>
+                لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني<br />
+                <strong style={{ color: "#0c4a6e" }}>{form.email}</strong><br />
+                يرجى إدخاله أدناه لتفعيل حسابك.
+              </p>
+              <p style={{ color: "#ca8a04", marginBottom: 24, fontSize: 12, fontWeight: 600, background: "#fefce8", padding: "8px", borderRadius: "8px", border: "1px solid #fef08a" }}>
+                ⚠️ يرجى التحقق من مجلد الرسائل غير المرغوب فيها (Spam / Junk) إذا لم تجد الرسالة في صندوق الوارد.
+              </p>
+              <input
+                type="text"
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="_ _ _ _ _ _"
+                maxLength={6}
+                style={{
+                  width: "100%", padding: "14px", textAlign: "center",
+                  fontSize: 28, fontWeight: 900, letterSpacing: 12,
+                  border: "2px solid var(--brand)", borderRadius: 12, outline: "none",
+                  boxSizing: "border-box", background: "var(--bg)", color: "#0c4a6e",
+                  marginBottom: 16
+                }}
+              />
+              <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12 }}>
+                {loading ? "جاري التحقق..." : "تأكيد الحساب ✓"}
+              </Btn>
+              <button onClick={() => setShowOtp(false)} style={{ marginTop: 14, background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 13 }}>
+                ← العودة للتسجيل
+              </button>
             </div>
-            <Input label={t("email") + " *"} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
-                <select value={form.gender} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                  <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-                </select>
+          ) : (
+            <>
+              {/* زر إنشاء الحساب بـ Google الرسمي */}
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+
+              {/* فاصل */}
+              <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
               </div>
-            </div>
-            <Input label={t("password") + " *"} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
-            <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
-              {loading ? t("creating_account") : t("create_account_btn")}
-            </Btn>
-          </form>
-          <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "#6b7280" }}>
-            {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login_btn")}</button>
-          </p>
+
+              <form onSubmit={submit}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Input label={t("fullname") + " *"} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
+                  <Input label={t("username") + " *"} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
+                </div>
+                <Input label={t("email") + " *"} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                    <select value={form.gender} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                      <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                    </select>
+                  </div>
+                </div>
+                <Input label={t("password") + " *"} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
+                <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
+                  {loading ? t("creating_account") : t("create_account_btn")}
+                </Btn>
+              </form>
+              <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "#6b7280" }}>
+                {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login_btn")}</button>
+              </p>
+            </>
+          )}
         </Card>
       </div>
     </div>
@@ -5937,7 +6113,7 @@ function FamilyPage({ navigate, user }) {
 function MainApp() {
   const { t, i18n } = useTranslation();
   const { route, qs, navigate } = useRoute();
-  const { user, loading, login, register, googleLogin, logout } = useAuth();
+  const { user, loading, login, register, registerConfirm, googleLogin, logout } = useAuth();
   const isMobile = useIsMobile();
   const [showExitModal, setShowExitModal] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
@@ -6036,8 +6212,8 @@ function MainApp() {
         if (user) { setTimeout(() => navigate("/"), 0); return null; }
         return <LoginPage key="login" onLogin={login} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/register":
-        if (user) { setTimeout(() => navigate("/"), 0); return null; }
-        return <RegisterPage key="register" onRegister={register} onGoogleLogin={googleLogin} navigate={navigate} />;
+        if (user) { setTimeout(() => navigate("/guide"), 0); return null; }
+        return <RegisterPage key="register" onRegister={register} onRegisterConfirm={registerConfirm} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/search":
         return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
       case "/about":

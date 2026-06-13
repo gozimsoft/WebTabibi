@@ -2,6 +2,73 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-06-13 (4)
+
+### Fixed
+- إصلاح عدم وصول رمز OTP للبريد الإلكتروني عند إنشاء حساب جديد.
+- السبب: دالة `sendOTP` كانت مفقودة تماماً في `EmailHelper.php`، مما جعل الكود يسقط إلى الـ `@mail()` الاحتياطي الذي لا يعمل على بيئة Windows المحلية.
+- تم إضافة الدالة `sendOTP` ودالة مساعدة `buildOTPTemplate` في `EmailHelper.php` للإرسال عبر SMTP (Gmail) بقالب HTML احترافي.
+
+### Files Changed
+- backend/helpers/EmailHelper.php
+
+### Documentation Updated
+- Yes (`Docs/CHANGELOG.md`)
+
+---
+
+## 2026-06-13 (3)
+
+### Fixed
+- إصلاح خطأ `syntax error, unexpected token "public"` في الباك إند عند محاولة تسجيل حساب جديد.
+- تم إزالة حلقة `foreach` غير المكتملة في دالة `register` داخل `AuthController.php` التي كانت تتسبب في خطأ برمجي يؤثر على الدالة التي تليها `registerConfirm`.
+
+### Files Changed
+- backend/controllers/AuthController.php
+
+### Documentation Updated
+- Yes (`Docs/CHANGELOG.md`)
+
+---
+
+## 2026-06-13 (2)
+### Fixed
+- إصلاح خطأ `ReferenceError: registerConfirm is not defined` الذي يظهر عند فتح نافذة تسجيل حساب جديد.
+- تم التعديل على المكون `MainApp` لاستخراج الدالة `registerConfirm` من الهوك `useAuth()` الذي كان يتسبب في توقف التطبيق عند التوجيه إلى `/register`.
+
+### Files Changed
+- frontend/src/App.jsx
+
+### Documentation Updated
+- Yes (`Docs/CHANGELOG.md`)
+
+---
+
+## 2026-06-13
+### Added
+- إضافة نظام التحقق التلقائي من البريد الإلكتروني عند تسجيل الدخول لحسابات المرضى والأطباء والعيادات.
+- عند محاولة تسجيل الدخول بحساب غير مؤكد الإيميل (`emailvalidation = 0`):
+  - يقوم الخادم تلقائياً بتوليد وإرسال رمز تحقق OTP مكون من 6 أرقام إلى إيميل المستخدم.
+  - إرجاع استجابة `403 Forbidden` تحتوي على المعطيات المساعدة `requires_verification` والإيميل لتوجيه الواجهة الأمامية.
+- إضافة دالة `verifyAccountEmail` في كلاس `AuthController` للتحقق من الرمز المدخل وتحديث حالة البريد الإلكتروني إلى مؤكد (`emailvalidation = 1`).
+
+### Modified
+- تعديل الواجهة الأمامية (`LoginPage` المدمجة في `App.jsx` والمنفصلة في `pages/Login.jsx`) لالتقاط خطأ `requires_verification` وعرض واجهة إدخال رمز OTP مباشرة.
+- تعديل واجهة OTP لدعم إعادة إرسال الرمز تلقائياً عند طلب المستخدم، والعودة إلى شاشة تسجيل الدخول العادية.
+- تسجيل الدخول التلقائي للمستخدم بعد إدخال رمز التحقق بنجاح لضمان تجربة مستخدم سلسة وسريعة.
+- تعديل دوال طلبات الـ HTTP (`req` في `App.jsx` و `request` في `client.js`) لربط خصائص استجابة الخطأ بكائن الـ `Error` الملقى.
+
+### Files Changed
+- backend/controllers/AuthController.php
+- frontend/src/App.jsx
+- frontend/src/pages/Login.jsx
+- frontend/src/api/client.js
+
+### Documentation Updated
+- Yes (`Docs/CHANGELOG.md`, `Docs/BUSINESS_RULES.md`)
+
+---
+
 ## 2026-06-12 (2)
 
 ### Modified

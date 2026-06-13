@@ -31,11 +31,16 @@ class RegistrationController {
 
         $pdo = Database::getInstance();
 
-        // Check email uniqueness
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM clinicregistrations WHERE email=?");
-        $stmt->execute([$data['email']]);
-        if ($stmt->fetchColumn() > 0) {
-            Response::error("Cet email est déjà utilisé pour une demande d'inscription.", 409);
+        require_once __DIR__ . '/../helpers/UserValidationHelper.php';
+
+        // Check email uniqueness across all tables
+        if (UserValidationHelper::isEmailDuplicate($data['email'])) {
+            Response::error("البريد الإلكتروني مستخدم مسبقًا", 409);
+        }
+
+        // Check phone uniqueness across all tables
+        if (!empty($data['phone']) && UserValidationHelper::isPhoneDuplicate($data['phone'])) {
+            Response::error("رقم الهاتف مستخدم مسبقًا", 409);
         }
 
         $id             = UUIDHelper::generate();
@@ -54,9 +59,29 @@ class RegistrationController {
             $passwordEncoded,
         ]);
 
+        // Send email validation OTP
+        $otpCode = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+        $verifyId = UUIDHelper::generate();
+        $expiresAt = date('Y-m-d H:i:s', time() + 86400); // 24 hours for clinic/doctor registration
+
+        $pdo->prepare("
+            INSERT INTO verifications (id, user_id, type, target, code, expires_at, verified)
+            VALUES (?, ?, 'email', ?, ?, ?, 0)
+        ")->execute([$verifyId, $id, $data['email'], $otpCode, $expiresAt]);
+
+        require_once __DIR__ . '/../helpers/EmailHelper.php';
+        if (class_exists('EmailHelper') && method_exists('EmailHelper', 'sendOTP')) {
+             EmailHelper::sendOTP($data['email'], trim($data['clinic_name']), $otpCode);
+        } else {
+             $subject = "🔐 Code de vérification — Tabibi طبيبي";
+             $body = "<p>مرحباً " . trim($data['clinic_name']) . "،</p><p>رمز التحقق الخاص بك هو: <strong>$otpCode</strong></p>";
+             $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: no-reply@webtabibi.com\r\n";
+             @mail($data['email'], $subject, $body, $headers);
+        }
+
         Response::success(
-            ['registration_id' => $id],
-            'تم إرسال طلب تسجيل العيادة بنجاح، سيتم مراجعته من طرف الإدارة',
+            ['registration_id' => $id, 'requires_verification' => true],
+            'تم إرسال طلب تسجيل العيادة بنجاح، يرجى تأكيد البريد الإلكتروني أولاً وسيتم مراجعته من طرف الإدارة',
             201
         );
     }
@@ -81,11 +106,16 @@ class RegistrationController {
 
         $pdo = Database::getInstance();
 
-        // Check email uniqueness
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM doctorregistrations WHERE email=?");
-        $stmt->execute([$data['email']]);
-        if ($stmt->fetchColumn() > 0) {
-            Response::error("Cet email est déjà utilisé pour une demande d'inscription.", 409);
+        require_once __DIR__ . '/../helpers/UserValidationHelper.php';
+
+        // Check email uniqueness across all tables
+        if (UserValidationHelper::isEmailDuplicate($data['email'])) {
+            Response::error("البريد الإلكتروني مستخدم مسبقًا", 409);
+        }
+
+        // Check phone uniqueness across all tables
+        if (!empty($data['phone']) && UserValidationHelper::isPhoneDuplicate($data['phone'])) {
+            Response::error("رقم الهاتف مستخدم مسبقًا", 409);
         }
 
         $id             = UUIDHelper::generate();
@@ -104,9 +134,29 @@ class RegistrationController {
             $data['nin'] ?? null,
         ]);
 
+        // Send email validation OTP
+        $otpCode = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+        $verifyId = UUIDHelper::generate();
+        $expiresAt = date('Y-m-d H:i:s', time() + 86400); // 24 hours
+
+        $pdo->prepare("
+            INSERT INTO verifications (id, user_id, type, target, code, expires_at, verified)
+            VALUES (?, ?, 'email', ?, ?, ?, 0)
+        ")->execute([$verifyId, $id, $data['email'], $otpCode, $expiresAt]);
+
+        require_once __DIR__ . '/../helpers/EmailHelper.php';
+        if (class_exists('EmailHelper') && method_exists('EmailHelper', 'sendOTP')) {
+             EmailHelper::sendOTP($data['email'], trim($data['fullname']), $otpCode);
+        } else {
+             $subject = "🔐 Code de vérification — Tabibi طبيبي";
+             $body = "<p>مرحباً " . trim($data['fullname']) . "،</p><p>رمز التحقق الخاص بك هو: <strong>$otpCode</strong></p>";
+             $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: no-reply@webtabibi.com\r\n";
+             @mail($data['email'], $subject, $body, $headers);
+        }
+
         Response::success(
-            ['registration_id' => $id],
-            'تم إرسال طلب تسجيل الطبيب بنجاح، بانتظار موافقة الإدارة',
+            ['registration_id' => $id, 'requires_verification' => true],
+            'تم إرسال طلب تسجيل الطبيب بنجاح، يرجى تأكيد البريد الإلكتروني أولاً وسيتم مراجعته من طرف الإدارة',
             201
         );
     }

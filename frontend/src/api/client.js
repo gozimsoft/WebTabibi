@@ -16,7 +16,13 @@ async function request(method, path, body = null, auth = true) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json();
-  if (!data.success) throw new Error(data.message || 'Erreur');
+  if (!data.success) {
+    const err = new Error(data.message || 'Erreur');
+    if (data.data) {
+      Object.assign(err, data.data);
+    }
+    throw err;
+  }
   return data.data ?? data;
 }
 
@@ -29,6 +35,7 @@ export const api = {
     me: () => request('GET', '/auth/me'),
     forgotPassword: (body) => request('POST', '/auth/forgot-password', body, false),
     verifyOtp: (body) => request('POST', '/auth/verify-otp', body, false),
+    verifyAccountEmail: (body) => request('POST', '/auth/verify-account-email', body, false),
     resetPassword: (body) => request('POST', '/auth/reset-password', body, false),
   },
   patient: {

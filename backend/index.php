@@ -55,6 +55,10 @@ try {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::register();
     }
+    if ($uri === '/auth/register-confirm' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::registerConfirm();
+    }
     if ($uri === '/auth/login' && $method === 'POST') {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::login();
@@ -78,6 +82,10 @@ try {
     if ($uri === '/auth/verify-otp' && $method === 'POST') {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::verifyOtp();
+    }
+    if ($uri === '/auth/verify-account-email' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::verifyAccountEmail();
     }
     if ($uri === '/auth/reset-password' && $method === 'POST') {
         require_once __DIR__ . '/controllers/AuthController.php';
