@@ -454,6 +454,9 @@
     "appt_mgr_show_info": "Afficher les infos",
     "appt_mgr_hide_info": "Masquer les infos",
     "appt_mgr_show_stats": "Afficher les stats",
-    "appt_mgr_hide_stats": "Masquer les stats"
+    "appt_mgr_hide_stats": "Masquer les stats",
+    "notifications": "Notifications",
+    "no_notifications": "Aucune nouvelle notification",
+    "mark_all_read": "Tout marquer comme lu"
   }
 }

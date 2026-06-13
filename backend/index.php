@@ -71,6 +71,18 @@ try {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::me();
     }
+    if ($uri === '/auth/forgot-password' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::forgotPassword();
+    }
+    if ($uri === '/auth/verify-otp' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::verifyOtp();
+    }
+    if ($uri === '/auth/reset-password' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::resetPassword();
+    }
 
     // ── Verification ─────────────────────────────────────────
     if ($uri === '/verify/send' && $method === 'POST') {
@@ -373,6 +385,27 @@ try {
     if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[2]) && $parts[2] === 'close' && $method === 'POST') {
         require_once __DIR__ . '/controllers/TicketController.php';
         TicketController::close($parts[1]);
+    }
+
+    // ── Notifications ─────────────────────────────────────────
+    if ($uri === '/notifications' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/NotificationController.php';
+        NotificationController::list();
+    }
+    if ($uri === '/notifications/read-all' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/NotificationController.php';
+        NotificationController::markAllAsRead();
+    }
+    if (isset($parts[0]) && $parts[0] === 'notifications' && isset($parts[1]) && !isset($parts[2])) {
+        require_once __DIR__ . '/controllers/NotificationController.php';
+        if ($parts[1] !== 'read-all') {
+            if ($method === 'PUT') {
+                NotificationController::markAsRead($parts[1]);
+            }
+            if ($method === 'DELETE') {
+                NotificationController::delete($parts[1]);
+            }
+        }
     }
 
     // ── 404 ───────────────────────────────────────────────────

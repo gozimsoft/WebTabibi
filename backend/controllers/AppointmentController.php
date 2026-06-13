@@ -163,6 +163,38 @@ class AppointmentController
         $stmt->execute([$id, $session['user_id']]);
         if (!$stmt->fetch()) Response::notFound('Rendez-vous introuvable');
 
+        // Notify patient of status update
+        require_once __DIR__ . '/../helpers/NotificationHelper.php';
+        try {
+            $stmt = $pdo->prepare("
+                SELECT a.patient_id, p.user_id, a.apointementdate, d.fullname as doctor_name
+                FROM apointements a
+                JOIN patients p ON p.id = a.patient_id
+                JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
+                JOIN doctors d ON d.id = cd.doctor_id
+                WHERE a.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$id]);
+            $apptData = $stmt->fetch();
+            if ($apptData && !empty($apptData['user_id'])) {
+                $formattedDate = date('Y-m-d H:i', strtotime($apptData['apointementdate']));
+                $title = "تحديث موعدك";
+                if ($newStatus === 1) {
+                    $title = "إلغاء الموعد";
+                    $msgAr = "تم إلغاء موعدك مع الطبيب: " . $apptData['doctor_name'] . " بتاريخ $formattedDate";
+                } else if ($newStatus === 2) {
+                    $title = "إتمام الموعد";
+                    $msgAr = "تم إتمام موعدك مع الطبيب: " . $apptData['doctor_name'] . " بنجاح بتاريخ $formattedDate";
+                } else {
+                    $msgAr = "تم تغيير حالة موعدك مع الطبيب: " . $apptData['doctor_name'] . " بتاريخ $formattedDate";
+                }
+                NotificationHelper::notify($apptData['user_id'], $title, $msgAr, "appointment");
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send status update notification: " . $e->getMessage());
+        }
+
         $pdo->prepare("UPDATE apointements SET status = ?, updatedat = NOW() WHERE id = ?")
             ->execute([$newStatus, $id]);
 
@@ -474,6 +506,42 @@ class AppointmentController
                     $patient['phone'] ?? ''
                 ]);
 
+        // إرسال تنبيه للطبيب والعيادة والمريض عند حجز موعد جديد
+        require_once __DIR__ . '/../helpers/NotificationHelper.php';
+        try {
+            $stmt = $pdo->prepare("
+                SELECT d.user_id as doctor_user_id, d.fullname as doctor_fullname,
+                       c.user_id as clinic_user_id, c.clinicname
+                FROM clinicsdoctors cd
+                JOIN doctors d ON d.id = cd.doctor_id
+                LEFT JOIN clinics c ON c.id = cd.clinic_id
+                WHERE cd.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$cdId]);
+            $associated = $stmt->fetch();
+            if ($associated) {
+                $formattedDate = date('Y-m-d H:i', strtotime($appointmentDatetime));
+
+                // تنبيه الطبيب: موعد جديد محجوز
+                $msgDoctor = "تم حجز موعد جديد من قبل المريض: $patientname بتاريخ $formattedDate";
+                NotificationHelper::notify($associated['doctor_user_id'], "حجز موعد جديد", $msgDoctor, "appointment");
+
+                // تنبيه العيادة إن وجدت
+                if (!empty($associated['clinic_user_id'])) {
+                    NotificationHelper::notify($associated['clinic_user_id'], "حجز موعد جديد", $msgDoctor, "appointment");
+                }
+
+                // تنبيه المريض: تأكيد حجز موعده
+                $doctorName = $associated['doctor_fullname'] ?? 'الطبيب';
+                $clinicName = $associated['clinicname'] ?? '';
+                $msgPatient = "تم تأكيد حجز موعدك مع الطبيب: $doctorName" . ($clinicName ? " في $clinicName" : "") . " بتاريخ $formattedDate";
+                NotificationHelper::notify($session['user_id'], "تأكيد حجز الموعد", $msgPatient, "appointment");
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send booking notifications: " . $e->getMessage());
+        }
+
         $stmt = $pdo->prepare("SELECT fullname FROM doctors WHERE id = ? LIMIT 1");
         $stmt->execute([$cd['doctor_id']]);
         $doctor = $stmt->fetch();
@@ -559,6 +627,42 @@ class AppointmentController
 
         if (strtotime($appt['apointementdate']) < time())
             Response::error("Impossible d'annuler un rendez-vous passé", 400);
+
+        // إشعار الطبيب والعيادة والمريض عند إلغاء الموعد
+        require_once __DIR__ . '/../helpers/NotificationHelper.php';
+        try {
+            $stmt = $pdo->prepare("
+                SELECT d.user_id as doctor_user_id, d.fullname as doctor_fullname,
+                       c.user_id as clinic_user_id, a.apointementdate, a.patientname
+                FROM apointements a
+                JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
+                JOIN doctors d ON d.id = cd.doctor_id
+                LEFT JOIN clinics c ON c.id = cd.clinic_id
+                WHERE a.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$id]);
+            $associated = $stmt->fetch();
+            if ($associated) {
+                $formattedDate = date('Y-m-d H:i', strtotime($associated['apointementdate']));
+
+                // تنبيه الطبيب بالإلغاء
+                $msgDoctor = "تم إلغاء الموعد من طرف المريض: " . $associated['patientname'] . " الذي كان مقرراً بتاريخ $formattedDate";
+                NotificationHelper::notify($associated['doctor_user_id'], "إلغاء موعد", $msgDoctor, "appointment");
+
+                // تنبيه العيادة بالإلغاء إن وجدت
+                if (!empty($associated['clinic_user_id'])) {
+                    NotificationHelper::notify($associated['clinic_user_id'], "إلغاء موعد", $msgDoctor, "appointment");
+                }
+
+                // تنبيه المريض بتأكيد إلغاء موعده
+                $doctorName = $associated['doctor_fullname'] ?? 'الطبيب';
+                $msgPatient = "تم إلغاء موعدك مع الطبيب: $doctorName الذي كان مقرراً بتاريخ $formattedDate بنجاح.";
+                NotificationHelper::notify($session['user_id'], "تأكيد إلغاء الموعد", $msgPatient, "appointment");
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send cancel notification: " . $e->getMessage());
+        }
 
         // Soft delete: status = 1 = annulé
         $pdo->prepare("

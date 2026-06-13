@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { Btn } from "./SharedUI";
 import analytics from "../utils/analytics";
+import { api } from "../api/client";
 
 const ANIM_KEYS = ["right", "left", "flip", "pulse", "bounce"];
 
@@ -18,9 +19,12 @@ const ANIM_MAP = {
 export default function Navbar({ user, navigate, onLogout }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [animKey, setAnimKey] = useState(null); // null = no animation
   const [textAnim, setTextAnim] = useState({});
   const menuRef = useRef(null);
+  const notifRef = useRef(null);
   const name = user?.profile?.fullname?.split(" ")[0] || user?.username || "U";
 
   useEffect(() => {
@@ -46,11 +50,33 @@ export default function Navbar({ user, navigate, onLogout }) {
     return () => clearTimeout(timeoutId);
   }, []);
 
+  // جلب التنبيهات من الخادم
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await api.notifications.list();
+      setNotifications(data || []);
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // تحديث تلقائي كل 15 ثانية لجلب التنبيهات الجديدة
+      const interval = setInterval(fetchNotifications, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // إغلاق القوائم المنسدلة عند الضغط خارجها
   useEffect(() => {
     const onClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
     };
-    if (open) {
+    if (open || notifOpen) {
       document.addEventListener("mousedown", onClickOutside);
       document.addEventListener("touchstart", onClickOutside);
     }
@@ -58,7 +84,60 @@ export default function Navbar({ user, navigate, onLogout }) {
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("touchstart", onClickOutside);
     };
-  }, [open]);
+  }, [open, notifOpen]);
+
+  const toggleNotifications = () => {
+    setNotifOpen(!notifOpen);
+    setOpen(false); // إغلاق قائمة الملف الشخصي عند فتح التنبيهات
+  };
+
+  const markAsRead = async (id, isRead) => {
+    if (isRead) return;
+    try {
+      await api.notifications.markAsRead(id);
+      setNotifications(prev => 
+        prev.map(n => n.id === id ? { ...n, is_read: 1 } : n)
+      );
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await api.notifications.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
+    }
+  };
+
+  const deleteNotification = async (e, id) => {
+    e.stopPropagation(); // منع استدعاء markAsRead
+    try {
+      await api.notifications.delete(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error("Failed to delete notification:", err);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const navItems = [
     [t("search"), "/search", "🔍"],
@@ -142,6 +221,113 @@ export default function Navbar({ user, navigate, onLogout }) {
             </button>
           ))}
         </div>
+
+        {user && (
+          <div ref={notifRef} style={{ position: "relative" }}>
+            <button onClick={toggleNotifications} style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 38, height: 38, borderRadius: "50%",
+              background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer",
+              position: "relative", transition: "background 0.2s"
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = "#e5e7eb"}
+              onMouseLeave={e => e.currentTarget.style.background = "#f3f4f6"}>
+              <span style={{ fontSize: 18 }}>🔔</span>
+              {unreadCount > 0 && (
+                <div style={{
+                  position: "absolute", top: -2, right: -2,
+                  background: "#ef4444", color: "#fff",
+                  fontSize: 10, fontWeight: 700,
+                  minWidth: 16, height: 16, borderRadius: 8,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 4px", border: "2px solid #fff"
+                }}>
+                  {unreadCount}
+                </div>
+              )}
+            </button>
+            {notifOpen && (
+              <div style={{
+                position: "absolute",
+                right: i18n.language === 'ar' ? 'auto' : 0,
+                left: i18n.language === 'ar' ? 0 : 'auto',
+                top: 46, background: "#fff", border: "1px solid #e5e7eb",
+                borderRadius: 12, boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+                width: 320, maxHeight: 400, overflow: "hidden", zIndex: 600,
+                display: "flex", flexDirection: "column"
+              }}>
+                {/* Header */}
+                <div style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "12px 16px", borderBottom: "1px solid #f3f4f6",
+                  background: "#f9fafb"
+                }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>
+                    {t("notifications", "التنبيهات")}
+                  </span>
+                  {unreadCount > 0 && (
+                    <button onClick={markAllAsRead} style={{
+                      background: "none", border: "none", color: "#0891b2",
+                      fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0
+                    }}
+                      onMouseEnter={e => e.target.style.textDecoration = "underline"}
+                      onMouseLeave={e => e.target.style.textDecoration = "none"}>
+                      {t("mark_all_read", "تحديد الكل كمقروء")}
+                    </button>
+                  )}
+                </div>
+                {/* List */}
+                <div style={{ overflowY: "auto", flex: 1, maxHeight: 340 }}>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: "24px 16px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
+                      {t("no_notifications", "لا توجد تنبيهات جديدة")}
+                    </div>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} onClick={() => { markAsRead(n.id, n.is_read); }} style={{
+                        padding: "12px 16px", borderBottom: "1px solid #f3f4f6",
+                        cursor: "pointer", transition: "background 0.15s",
+                        background: n.is_read ? "#fff" : "#f0f9ff",
+                        display: "flex", gap: 10, position: "relative",
+                        borderLeft: (!n.is_read && i18n.language !== 'ar') ? "3px solid #0891b2" : "none",
+                        borderRight: (!n.is_read && i18n.language === 'ar') ? "3px solid #0891b2" : "none"
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.background = n.is_read ? "#f9fafb" : "#e0f2fe"}
+                        onMouseLeave={e => e.currentTarget.style.background = n.is_read ? "#fff" : "#f0f9ff"}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: n.is_read ? "#4b5563" : "#111827" }}>
+                              {n.title}
+                            </span>
+                            <span style={{ fontSize: 9, color: "#9ca3af" }}>
+                              {formatDate(n.created_at)}
+                            </span>
+                          </div>
+                          <p style={{
+                            margin: 0, fontSize: 12, color: "#4b5563",
+                            lineHeight: 1.4, whiteSpace: "pre-line",
+                            textAlign: i18n.language === 'ar' ? 'right' : 'left'
+                          }}>
+                            {n.message}
+                          </p>
+                        </div>
+                        <button onClick={(e) => deleteNotification(e, n.id)} style={{
+                          background: "none", border: "none", color: "#9ca3af",
+                          cursor: "pointer", fontSize: 12, padding: "2px 4px",
+                          alignSelf: "flex-start", borderRadius: 4, transition: "all 0.2s"
+                        }}
+                          onMouseEnter={e => { e.target.style.color = "#ef4444"; e.target.style.background = "#fef2f2"; }}
+                          onMouseLeave={e => { e.target.style.color = "#9ca3af"; e.target.style.background = "none"; }}>
+                          🗑️
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {user ? (
           <div ref={menuRef} style={{ position: "relative" }}>

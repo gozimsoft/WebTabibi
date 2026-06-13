@@ -532,6 +532,9 @@
     "appt_mgr_show_info": "عرض المعلومات",
     "appt_mgr_hide_info": "إخفاء المعلومات",
     "appt_mgr_show_stats": "عرض الإحصائيات",
-    "appt_mgr_hide_stats": "إخفاء الإحصائيات"
+    "appt_mgr_hide_stats": "إخفاء الإحصائيات",
+    "notifications": "التنبيهات",
+    "no_notifications": "لا توجد تنبيهات جديدة",
+    "mark_all_read": "تحديد الكل كمقروء"
   }
 }

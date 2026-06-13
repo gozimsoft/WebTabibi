@@ -155,3 +155,74 @@
 - **المسار (URL):** `/sync/download`
 - **الطريقة (Method):** `GET`
 - **الاستجابة:** قائمة بالمواعيد التي حجزها المرضى من الموقع الإلكتروني (تطبيق React) ليقوم نظام Delphi بحفظها محلياً وعرضها لسكرتير العيادة.
+
+---
+
+## 🔔 5. الـ Endpoints الخاصة بالتنبيهات (Notifications)
+
+### 5.1. جلب التنبيهات (List Notifications)
+- **الوصف:** جلب جميع التنبيهات الخاصة بالمستخدم الحالي مرتبة من الأحدث إلى الأقدم.
+- **المسار (URL):** `/notifications`
+- **الطريقة (Method):** `GET`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>`
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "uuid-notif-1",
+        "user_id": "uuid-user-1",
+        "title": "حجز موعد جديد",
+        "message": "تم حجز موعد جديد من قبل المريض: أحمد بتاريخ 2026-06-15 10:00",
+        "type": "appointment",
+        "is_read": 0,
+        "created_at": "2026-06-12 18:00:00"
+      }
+    ],
+    "message": ""
+  }
+  ```
+
+### 5.2. تحديد تنبيه كمقروء (Mark Notification as Read)
+- **الوصف:** تحديث حالة تنبيه محدد ليكون مقروءاً.
+- **المسار (URL):** `/notifications/:id/read`
+- **الطريقة (Method):** `PUT`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>`
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "تم تحديد التنبيه كمقروء"
+  }
+  ```
+
+### 5.3. تحديد كل التنبيهات كمقروءة (Mark All as Read)
+- **الوصف:** تحديد جميع التنبيهات الخاصة بالمستخدم الحالي كمقروءة دفعة واحدة.
+- **المسار (URL):** `/notifications/read-all`
+- **الطريقة (Method):** `PUT`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>`
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "تم تحديد جميع التنبيهات كمقروءة"
+  }
+  ```
+
+### 5.4. حذف تنبيه (Delete Notification)
+- **الوصف:** حذف تنبيه معين بشكل نهائي.
+- **المسار (URL):** `/notifications/:id`
+- **الطريقة (Method):** `DELETE`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>`
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "تم حذف التنبيه بنجاح"
+  }
+  ```
+

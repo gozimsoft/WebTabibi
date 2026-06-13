@@ -27,6 +27,9 @@ export const api = {
     login: (body) => request('POST', '/auth/login', body, false),
     logout: () => request('POST', '/auth/logout'),
     me: () => request('GET', '/auth/me'),
+    forgotPassword: (body) => request('POST', '/auth/forgot-password', body, false),
+    verifyOtp: (body) => request('POST', '/auth/verify-otp', body, false),
+    resetPassword: (body) => request('POST', '/auth/reset-password', body, false),
   },
   patient: {
     getProfile: () => request('GET', '/patients/profile'),
@@ -68,5 +71,11 @@ export const api = {
   ratings: {
     add: (body) => request('POST', '/ratings', body),
     getForDoctor: (id) => request('GET', `/ratings/doctor/${id}`),
+  },
+  notifications: {
+    list: () => request('GET', '/notifications'),
+    markAsRead: (id) => request('PUT', `/notifications/${id}/read`),
+    markAllAsRead: () => request('PUT', '/notifications/read-all'),
+    delete: (id) => request('DELETE', `/notifications/${id}`),
   },
 };

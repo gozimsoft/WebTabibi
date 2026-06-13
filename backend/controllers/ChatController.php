@@ -131,6 +131,31 @@ class ChatController {
             VALUES (?, ?, ?, NOW(), 0)
         ")->execute([$msgId, $threadId, trim($data['content'])]);
 
+        // إرسال تنبيه للطبيب عند استلام رسالة جديدة من المريض
+        require_once __DIR__ . '/../helpers/NotificationHelper.php';
+        try {
+            $stmt = $pdo->prepare("
+                SELECT d.user_id as doctor_user_id
+                FROM messagethreads mt
+                JOIN doctors d ON d.id = mt.doctor_id
+                WHERE mt.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$threadId]);
+            $threadData = $stmt->fetch();
+            if ($threadData) {
+                $msgSnippet = mb_strimwidth(trim($data['content']), 0, 50, "...");
+                NotificationHelper::notify(
+                    $threadData['doctor_user_id'],
+                    "رسالة جديدة",
+                    "وصلتك رسالة جديدة من المريض: " . ($patient['fullname'] ?? '') . "\n\"" . $msgSnippet . "\"",
+                    "chat"
+                );
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send chat notification: " . $e->getMessage());
+        }
+
         Response::success(['message_id' => $msgId], 'Message envoyé', 201);
     }
 }

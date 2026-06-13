@@ -132,6 +132,109 @@ class EmailHelper {
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
+    public static function sendPasswordReset(
+        string $toEmail,
+        string $toName,
+        string $otpCode
+    ): bool {
+        $subject = 'إعادة تعيين كلمة المرور | Réinitialisation du mot de passe - Tabibi';
+        $html    = self::buildPasswordResetTemplate($toName, $otpCode);
+        $text    = "مرحباً {$toName}، كود استعادة كلمة المرور الخاص بك هو: {$otpCode}. الرمز صالح لمدة 15 دقيقة.";
+        return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
+    }
+
+    private static function buildPasswordResetTemplate(string $toName, string $otpCode): string {
+        $year = date('Y');
+        return <<<HTML
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+        body { font-family: 'Tajawal', Arial, sans-serif; }
+    </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Tajawal',Arial,sans-serif;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f1f5f9;padding:40px 0;">
+    <tr>
+        <td align="center">
+            <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.1);">
+                
+                <!-- HEADER -->
+                <tr>
+                    <td style="background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);padding:45px 40px;text-align:center;">
+                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">طبيبي <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
+                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">صحتكم، أولويتنا</p>
+                    </td>
+                </tr>
+
+                <!-- SUCCESS BADGE -->
+                <tr>
+                    <td align="center" style="padding:0 40px;">
+                        <div style="display:inline-block;background-color:#ffffff;padding:12px 30px;border-radius:50px;margin-top:-30px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #e2e8f0;">
+                            <table border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td><img src="https://cdn-icons-png.flaticon.com/512/6146/6146586.png" width="24" height="24" style="display:block;"></td>
+                                    <td style="padding-right:10px;color:#0ea5e9;font-size:16px;font-weight:700;">إعادة تعيين كلمة المرور</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- GREETING -->
+                <tr>
+                    <td style="padding:40px 40px 20px;text-align:right;">
+                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">مرحباً {$toName}،</p>
+                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">لقد تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك في منصة طبيبي. استخدم الرمز السري أدناه لإكمال العملية:</p>
+                        <p dir="ltr" style="margin:5px 0 0;color:#64748b;font-size:13px;text-align:left;">Nous avons reçu une demande de réinitialisation de votre mot de passe. Utilisez le code ci-dessous :</p>
+                    </td>
+                </tr>
+
+                <!-- OTP BOX -->
+                <tr>
+                    <td style="padding:0 40px 30px;text-align:center;">
+                        <div style="background-color:#f8fafc;border:2px dashed #0ea5e9;border-radius:16px;padding:25px;margin:10px 0;">
+                            <p style="margin:0;font-size:14px;color:#64748b;font-weight:700;margin-bottom:10px;">رمز التحقق (Code de vérification)</p>
+                            <h2 style="margin:0;font-size:42px;letter-spacing:10px;color:#0f172a;font-weight:900;font-family:monospace;">{$otpCode}</h2>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- NOTICE -->
+                <tr>
+                    <td style="padding:0 40px 40px;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:15px;">
+                            <tr>
+                                <td style="color:#92400e;font-size:13px;line-height:1.4;">
+                                    <strong>تنبيه:</strong> هذا الرمز صالح لمدة <strong>15 دقيقة</strong> فقط. إذا لم تطلب تغيير كلمة المرور، يرجى تجاهل هذه الرسالة.
+                                    <br><br>
+                                    <span style="font-size:12px;" dir="ltr"><strong>Note:</strong> Ce code expire dans <strong>15 minutes</strong>. Si vous n'avez pas fait cette demande, ignorez ce message.</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                    <td style="background-color:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+                        <p style="margin:0;color:#94a3b8;font-size:12px;">© {$year} Tabibi - طبيبي. جميع الحقوق محفوظة.</p>
+                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">هذا البريد إلكتروني تلقائي، يرجى عدم الرد.</p>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
+HTML;
+    }
+
     private static function buildConfirmationTemplate(
         string $toName,
         string $doctorname,

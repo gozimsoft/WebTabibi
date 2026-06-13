@@ -72,6 +72,9 @@ const api = {
     google: b => req("POST", "/auth/google", b, false),
     logout: () => req("POST", "/auth/logout"),
     me: () => req("GET", "/auth/me"),
+    forgotPassword: b => req("POST", "/auth/forgot-password", b, false),
+    verifyOtp: b => req("POST", "/auth/verify-otp", b, false),
+    resetPassword: b => req("POST", "/auth/reset-password", b, false),
   },
   patient: {
     profile: () => req("GET", "/patients/profile"),
@@ -167,6 +170,13 @@ const api = {
     delete: ids => req("POST", "/sync/delete", { ids }),
     status: () => req("GET", "/sync/status"),
     reasons: () => req("GET", "/sync/reasons"),
+  },
+  // ── نقاط نهاية نظام الإشعارات
+  notifications: {
+    list: () => req("GET", "/notifications"),
+    markAsRead: id => req("PUT", `/notifications/${id}/read`, {}),
+    markAllAsRead: () => req("PUT", "/notifications/read-all", {}),
+    delete: id => req("DELETE", `/notifications/${id}`),
   },
 };
 
@@ -477,6 +487,10 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const [open, setOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // ── حالة قائمة الإشعارات
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const notifRef = useRef(null);
   const isMobile = useIsMobile();
   const name = user?.profile?.fullname?.split(" ")[0] || user?.profile?.clinicname?.split(" ")[0] || user?.username || "U";
   const animClass = useRandomAnimation(30);
@@ -486,6 +500,90 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // ── جلب الإشعارات من الخادم
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await api.notifications.list();
+      setNotifications(data || []);
+    } catch (err) {
+      console.error("فشل في جلب الإشعارات:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات الجديدة
+      const interval = setInterval(fetchNotifications, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // ── إغلاق قائمة الإشعارات عند الضغط خارجها
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+    };
+    if (notifOpen) {
+      document.addEventListener("mousedown", onClickOutside);
+      document.addEventListener("touchstart", onClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("touchstart", onClickOutside);
+    };
+  }, [notifOpen]);
+
+  // ── تحديد إشعار واحد كمقروء
+  const markAsRead = async (id, isRead) => {
+    if (isRead) return;
+    try {
+      await api.notifications.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
+    } catch (err) {
+      console.error("فشل في تحديد الإشعار كمقروء:", err);
+    }
+  };
+
+  // ── تحديد جميع الإشعارات كمقروءة
+  const markAllAsRead = async () => {
+    try {
+      await api.notifications.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+    } catch (err) {
+      console.error("فشل في تحديد جميع الإشعارات كمقروءة:", err);
+    }
+  };
+
+  // ── حذف إشعار
+  const deleteNotification = async (e, id) => {
+    e.stopPropagation(); // منع استدعاء markAsRead
+    try {
+      await api.notifications.delete(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error("فشل في حذف الإشعار:", err);
+    }
+  };
+
+  // ── تنسيق التاريخ حسب اللغة الحالية
+  const formatNotifDate = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR', {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  // ── عدد الإشعارات غير المقروءة
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
@@ -588,22 +686,204 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
         {/* User Actions */}
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {/* ── زر الإشعارات مع القائمة المنسدلة */}
           {user && (
-            <button
-              onClick={() => show("لديك تنبيه جديد: تم تأكيد موعدك مع الدكتور خلدون.", "success")}
-              style={{
-                background: "var(--brand-light)", border: "none", cursor: "pointer",
-                width: 38, height: 38, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--brand)", transition: "all 0.2s",
-                position: "relative"
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
-              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-            >
-              <Bell size={20} />
-              <div style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "#ef4444", borderRadius: "50%", border: "2px solid var(--card-bg)" }} />
-            </button>
+            <div ref={notifRef} style={{ position: "relative" }}>
+              {/* زر الجرس */}
+              <button
+                onClick={() => { setNotifOpen(prev => !prev); setOpen(false); }}
+                title={t("notifications", "الإشعارات")}
+                style={{
+                  background: notifOpen ? "var(--brand-light)" : "var(--brand-light)",
+                  border: notifOpen ? "1.5px solid var(--brand)" : "1.5px solid transparent",
+                  cursor: "pointer",
+                  width: 38, height: 38, borderRadius: "50%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--brand)", transition: "all 0.2s",
+                  position: "relative"
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+              >
+                <Bell size={20} />
+                {/* شارة عدد الإشعارات غير المقروءة */}
+                {unreadCount > 0 && (
+                  <div style={{
+                    position: "absolute", top: -3, right: -3,
+                    background: "#ef4444", color: "#fff",
+                    fontSize: 9, fontWeight: 700,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 4px", border: "2px solid var(--card-bg)"
+                  }}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </div>
+                )}
+              </button>
+
+              {/* ── القائمة المنسدلة للإشعارات */}
+              <AnimatePresence>
+                {notifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.18 }}
+                    style={{
+                      position: "absolute",
+                      right: i18n.language === 'ar' ? 'auto' : 0,
+                      left: i18n.language === 'ar' ? 0 : 'auto',
+                      top: "calc(100% + 10px)",
+                      background: "var(--card-bg)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 16,
+                      boxShadow: "var(--shadow-lg)",
+                      width: 340,
+                      maxHeight: 480,
+                      overflow: "hidden",
+                      zIndex: 1001,
+                      display: "flex",
+                      flexDirection: "column"
+                    }}
+                  >
+                    {/* ── رأس القائمة */}
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "14px 16px", borderBottom: "1px solid var(--border)",
+                      background: "var(--bg)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Bell size={16} style={{ color: "var(--brand)" }} />
+                        <span style={{ fontWeight: 800, fontSize: 14, color: "var(--text-main)" }}>
+                          {t("notifications", "الإشعارات")}
+                        </span>
+                        {unreadCount > 0 && (
+                          <span style={{
+                            background: "var(--brand)", color: "#fff",
+                            fontSize: 10, fontWeight: 700,
+                            padding: "1px 7px", borderRadius: 10
+                          }}>
+                            {unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      {/* زر تحديد الكل كمقروء */}
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          style={{
+                            background: "none", border: "none",
+                            color: "var(--brand)", fontSize: 11, fontWeight: 700,
+                            cursor: "pointer", padding: "4px 8px",
+                            borderRadius: 8, transition: "background 0.15s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--brand-light)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}
+                        >
+                          {t("mark_all_read", "تحديد الكل كمقروء")}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ── قائمة الإشعارات */}
+                    <div style={{ overflowY: "auto", flex: 1 }}>
+                      {notifications.length === 0 ? (
+                        // حالة القائمة الفارغة
+                        <div style={{
+                          padding: "40px 16px", textAlign: "center",
+                          display: "flex", flexDirection: "column",
+                          alignItems: "center", gap: 12
+                        }}>
+                          <div style={{
+                            width: 56, height: 56, borderRadius: "50%",
+                            background: "var(--brand-light)",
+                            display: "flex", alignItems: "center", justifyContent: "center"
+                          }}>
+                            <Bell size={24} style={{ color: "var(--brand)", opacity: 0.6 }} />
+                          </div>
+                          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+                            {t("no_notifications", "لا توجد إشعارات جديدة")}
+                          </p>
+                        </div>
+                      ) : (
+                        notifications.map(n => (
+                          <div
+                            key={n.id}
+                            onClick={() => markAsRead(n.id, n.is_read)}
+                            style={{
+                              padding: "12px 16px",
+                              borderBottom: "1px solid var(--border)",
+                              cursor: "pointer", transition: "background 0.15s",
+                              background: n.is_read ? "var(--card-bg)" : "var(--brand-light)",
+                              display: "flex", gap: 12, position: "relative",
+                              // شريط ملوّن للإشعارات غير المقروءة
+                              borderInlineStart: !n.is_read ? "3px solid var(--brand)" : "3px solid transparent"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = n.is_read ? "var(--bg)" : "#d6f0f8"}
+                            onMouseLeave={e => e.currentTarget.style.background = n.is_read ? "var(--card-bg)" : "var(--brand-light)"}
+                          >
+                            {/* نقطة حالة القراءة */}
+                            <div style={{ paddingTop: 4, flexShrink: 0 }}>
+                              <div style={{
+                                width: 8, height: 8, borderRadius: "50%",
+                                background: n.is_read ? "var(--border)" : "var(--brand)",
+                                transition: "background 0.2s"
+                              }} />
+                            </div>
+                            {/* محتوى الإشعار */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                display: "flex", justifyContent: "space-between",
+                                alignItems: "baseline", gap: 8, marginBottom: 3
+                              }}>
+                                <span style={{
+                                  fontWeight: n.is_read ? 600 : 800, fontSize: 13,
+                                  color: "var(--text-main)",
+                                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                                }}>
+                                  {n.title}
+                                </span>
+                                <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
+                                  {formatNotifDate(n.created_at)}
+                                </span>
+                              </div>
+                              <p style={{
+                                margin: 0, fontSize: 12, color: "var(--text-secondary)",
+                                lineHeight: 1.5, whiteSpace: "pre-line",
+                                textAlign: i18n.language === 'ar' ? 'right' : 'left'
+                              }}>
+                                {n.message}
+                              </p>
+                            </div>
+                            {/* زر الحذف */}
+                            <button
+                              onClick={(e) => deleteNotification(e, n.id)}
+                              style={{
+                                background: "none", border: "none",
+                                color: "var(--text-muted)", cursor: "pointer",
+                                fontSize: 14, padding: "2px 4px",
+                                alignSelf: "flex-start", borderRadius: 6,
+                                transition: "all 0.2s", flexShrink: 0
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.color = "#ef4444";
+                                e.currentTarget.style.background = "#fef2f2";
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.color = "var(--text-muted)";
+                                e.currentTarget.style.background = "none";
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
           {user ? (
             <div style={{ position: "relative" }}>
@@ -1348,11 +1628,20 @@ function HomePage({ user, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
+  const { show } = useToast();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
   // مرجع حاوية زر Google الرسمي
   const googleBtnRef = React.useRef(null);
+
+  // Forgot Password State
+  const [resetStep, setResetStep] = useState(0); // 0: hidden, 1: email, 2: otp & new password
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
   React.useEffect(() => {
@@ -1398,8 +1687,95 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
     finally { setL(false); }
   };
 
+  const handleSendResetEmail = async (e) => {
+    e.preventDefault(); setResetError(""); setResetLoading(true);
+    try {
+      await api.auth.forgotPassword({ email: resetEmail });
+      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم إرسال الرمز بنجاح!" : "Code envoyé avec succès!");
+      setResetStep(2);
+    } catch (e) { setResetError(e.message); }
+    finally { setResetLoading(false); }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault(); setResetError(""); setResetLoading(true);
+    try {
+      await api.auth.resetPassword({ email: resetEmail, otp: resetOtp, password: newPassword });
+      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تغيير كلمة المرور بنجاح!" : "Mot de passe modifié avec succès!");
+      setResetStep(0);
+      setForm({ ...form, password: "" });
+    } catch (e) { setResetError(e.message); }
+    finally { setResetLoading(false); }
+  };
+
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      
+      {resetStep > 0 && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20
+        }}>
+          <Card style={{ width: "100%", maxWidth: 400, position: "relative" }}>
+            <button onClick={() => setResetStep(0)} style={{
+              position: "absolute", top: 15, right: 15, background: "none", border: "none",
+              fontSize: 24, cursor: "pointer", color: "var(--text-muted)"
+            }}>×</button>
+            
+            <h2 style={{ fontSize: 20, marginBottom: 16 }}>
+              {localStorage.getItem("tabibi_lang") === "ar" ? "استعادة كلمة المرور" : "Réinitialiser le mot de passe"}
+            </h2>
+            
+            {resetError && <div style={{ background: "#fee2e2", padding: "10px", borderRadius: 8, color: "#dc2626", fontSize: 13, marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {resetError}</div>}
+            
+            {resetStep === 1 ? (
+              <form onSubmit={handleSendResetEmail}>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" 
+                    ? "أدخل بريدك الإلكتروني المسجل وسنرسل لك رمزاً للتحقق." 
+                    : "Entrez votre email et nous vous enverrons un code."}
+                </p>
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "البريد الإلكتروني" : "Email"} 
+                  type="email" 
+                  value={resetEmail} 
+                  onChange={e => setResetEmail(e.target.value)} 
+                  required 
+                />
+                <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "إرسال الرمز" : "Envoyer le code"}
+                </Btn>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword}>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" 
+                    ? "أدخل الرمز المكون من 6 أرقام المرسل إلى بريدك." 
+                    : "Entrez le code à 6 chiffres envoyé à votre email."}
+                </p>
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "رمز التحقق (OTP)" : "Code OTP"} 
+                  value={resetOtp} 
+                  onChange={e => setResetOtp(e.target.value)} 
+                  placeholder="123456"
+                  required 
+                />
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "كلمة المرور الجديدة" : "Nouveau mot de passe"} 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)} 
+                  required 
+                />
+                <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد التغيير" : "Confirmer"}
+                </Btn>
+              </form>
+            )}
+          </Card>
+        </div>
+      )}
+
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
@@ -1426,6 +1802,17 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
           <form onSubmit={submit}>
             <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
             <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
+            
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
+              <button 
+                type="button" 
+                onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }} 
+                style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+              >
+                {localStorage.getItem("tabibi_lang") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
+              </button>
+            </div>
+
             <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
               {loading ? t("logging_in") : t("login_btn")}
             </Btn>

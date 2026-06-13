@@ -376,4 +376,132 @@ class AuthController {
             ->execute([$userId, $token]);
         return $token;
     }
+
+    // ----------------------------------------------------------
+    // Helper: Find user by email across all roles
+    // ----------------------------------------------------------
+    private static function findUserByEmail(string $email): ?array {
+        $pdo = Database::getInstance();
+        
+        // Check patients
+        $stmt = $pdo->prepare("SELECT user_id, fullname as name FROM patients WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        if ($row = $stmt->fetch()) return ['user_id' => $row['user_id'], 'name' => $row['name'], 'email' => $email];
+        
+        // Check doctors
+        $stmt = $pdo->prepare("SELECT user_id, fullname as name FROM doctors WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        if ($row = $stmt->fetch()) return ['user_id' => $row['user_id'], 'name' => $row['name'], 'email' => $email];
+        
+        // Check clinics
+        $stmt = $pdo->prepare("SELECT user_id, clinicname as name FROM clinics WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        if ($row = $stmt->fetch()) return ['user_id' => $row['user_id'], 'name' => $row['name'], 'email' => $email];
+        
+        return null;
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/auth/forgot-password
+    // Body: { email }
+    // ----------------------------------------------------------
+    public static function forgotPassword(): void {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            Response::error('Email invalide', 422);
+        }
+
+        $email = trim($data['email']);
+        $user = self::findUserByEmail($email);
+
+        if (!$user) {
+            // Return success anyway to prevent email enumeration attacks
+            Response::success(null, 'Si l\'email existe, un code de réinitialisation sera envoyé.');
+        }
+
+        $pdo = Database::getInstance();
+        
+        // Delete any existing unused OTPs for this email to prevent spam
+        $pdo->prepare("DELETE FROM password_resets WHERE email = ? AND used = 0")->execute([$email]);
+
+        // Generate 6-digit OTP
+        $otpCode = sprintf("%06d", mt_rand(1, 999999));
+        $resetId = UUIDHelper::generate();
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+
+        $pdo->prepare("INSERT INTO password_resets (id, email, otp_code, expires_at, used) VALUES (?, ?, ?, ?, 0)")
+            ->execute([$resetId, $email, $otpCode, $expiresAt]);
+
+        require_once __DIR__ . '/../helpers/EmailHelper.php';
+        EmailHelper::sendPasswordReset($email, $user['name'], $otpCode);
+
+        Response::success(null, 'Si l\'email existe, un code de réinitialisation sera envoyé.');
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/auth/verify-otp
+    // Body: { email, otp }
+    // ----------------------------------------------------------
+    public static function verifyOtp(): void {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        if (empty($data['email']) || empty($data['otp'])) {
+            Response::error('Email et code OTP requis', 422);
+        }
+
+        $email = trim($data['email']);
+        $otp = trim($data['otp']);
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM password_resets WHERE email = ? AND otp_code = ? AND used = 0 AND expires_at > NOW() LIMIT 1");
+        $stmt->execute([$email, $otp]);
+        
+        if (!$stmt->fetch()) {
+            Response::error('Code OTP invalide ou expiré', 400);
+        }
+
+        Response::success(null, 'Code OTP valide');
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/auth/reset-password
+    // Body: { email, otp, password }
+    // ----------------------------------------------------------
+    public static function resetPassword(): void {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        if (empty($data['email']) || empty($data['otp']) || empty($data['password'])) {
+            Response::error('Données incomplètes', 422);
+        }
+
+        $email = trim($data['email']);
+        $otp = trim($data['otp']);
+        $password = $data['password'];
+
+        $pdo = Database::getInstance();
+        
+        // Verify OTP again just in case
+        $stmt = $pdo->prepare("SELECT id FROM password_resets WHERE email = ? AND otp_code = ? AND used = 0 AND expires_at > NOW() LIMIT 1");
+        $stmt->execute([$email, $otp]);
+        $resetRecord = $stmt->fetch();
+        
+        if (!$resetRecord) {
+            Response::error('Code OTP invalide ou expiré', 400);
+        }
+
+        $user = self::findUserByEmail($email);
+        if (!$user) {
+            Response::error('Utilisateur non trouvé', 404);
+        }
+
+        // Update password in users table
+        $passwordEncoded = base64_encode($password);
+        $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$passwordEncoded, $user['user_id']]);
+
+        // Mark OTP as used
+        $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = ?")->execute([$resetRecord['id']]);
+
+        // Invalidate all existing sessions to force re-login
+        $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$user['user_id']]);
+
+        Response::success(null, 'Mot de passe réinitialisé avec succès');
+    }
 }

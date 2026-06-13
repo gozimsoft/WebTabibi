@@ -215,19 +215,11 @@ class ClinicController
         $pdo = Database::getInstance();
 
         $q = $_GET['q'] ?? '';
-        $specialty = $_GET['specialty'] ?? '';
-        $wilaya = $_GET['wilaya'] ?? '';
+        $specialty = $_GET['specialty'] ?? $_GET['specialty_id'] ?? '';
+        $wilaya = $_GET['wilaya'] ?? $_GET['wilaya_id'] ?? '';
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
         $offset = ($page - 1) * $limit;
-
-        $params = [];
-        $whereQ = "1=1";
-        if ($q) {
-            $whereQ = "(c.clinicname LIKE ? OR d.fullname LIKE ? OR s.namefr LIKE ? OR s.namear LIKE ?)";
-            $like = "%$q%";
-            $params = [$like, $like, $like, $like];
-        }
 
         $user = AuthMiddleware::authenticate(false);
         $myDoctorId = null;
@@ -239,16 +231,66 @@ class ClinicController
                 $myClinicId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
         }
 
-        // Add specialty/wilaya filters to whereQ
+        // Get wilaya num if selected
+        $wilayaNum = null;
+        if ($wilaya) {
+            $stmt = $pdo->prepare("SELECT num FROM wilayas WHERE id = ?");
+            $stmt->execute([$wilaya]);
+            $wilayaNum = $stmt->fetchColumn();
+        }
+
+        // Build CLINIC query filters
+        $clinicParams = [];
+        $whereClinic = "1=1";
+        if ($q) {
+            $whereClinic .= " AND c.clinicname LIKE ?";
+            $clinicParams[] = "%$q%";
+        } else {
+            $whereClinic .= " AND c.clinicname LIKE ?";
+            $clinicParams[] = "%%";
+        }
         if ($specialty) {
-            $whereQ .= " AND (cd.specialtie_id = ? OR d.specialtie_id = ?)";
-            $params[] = $specialty;
-            $params[] = $specialty;
+            $whereClinic .= " AND EXISTS (
+                SELECT 1 FROM clinicsdoctors cd2 
+                JOIN doctors d2 ON d2.id = cd2.doctor_id 
+                WHERE cd2.clinic_id = c.id 
+                  AND (cd2.specialtie_id = ? OR d2.specialtie_id = ?)
+            )";
+            $clinicParams[] = $specialty;
+            $clinicParams[] = $specialty;
         }
         if ($wilaya) {
-            $whereQ .= " AND (d.baladiya_id IN (SELECT id FROM baladiyas WHERE wilaya_id = ?) OR c.baladiya_id IN (SELECT id FROM baladiyas WHERE wilaya_id = ?))";
-            $params[] = $wilaya;
-            $params[] = $wilaya;
+            $clinicWhereWilaya = "(1=0";
+            if ($wilayaNum !== false && $wilayaNum !== null) {
+                $clinicWhereWilaya .= " OR (c.postcode IS NOT NULL AND FLOOR(CAST(TRIM(c.postcode) AS UNSIGNED) / 1000) = ?)";
+                $clinicParams[] = $wilayaNum;
+            }
+            $clinicWhereWilaya .= ")";
+            $whereClinic .= " AND " . $clinicWhereWilaya;
+        }
+
+        // Build DOCTOR query filters
+        $doctorParams = [];
+        $whereDoctor = "1=1";
+        if ($q) {
+            $whereDoctor = "(c.clinicname LIKE ? OR d.fullname LIKE ? OR s.namefr LIKE ? OR s.namear LIKE ?)";
+            $like = "%$q%";
+            $doctorParams = [$like, $like, $like, $like];
+        }
+        if ($specialty) {
+            $whereDoctor .= " AND (cd.specialtie_id = ? OR d.specialtie_id = ?)";
+            $doctorParams[] = $specialty;
+            $doctorParams[] = $specialty;
+        }
+        if ($wilaya) {
+            $doctorWhereWilaya = "(d.baladiya_id IN (SELECT id FROM baladiyas WHERE wilaya_id = ?)";
+            $doctorParams[] = $wilaya;
+            if ($wilayaNum !== false && $wilayaNum !== null) {
+                $doctorWhereWilaya .= " OR FLOOR(d.postcode / 1000) = ?";
+                $doctorParams[] = $wilayaNum;
+            }
+            $doctorWhereWilaya .= ")";
+            $whereDoctor .= " AND " . $doctorWhereWilaya;
         }
 
         // We use a UNION to get both clinics and Doctor-at-Clinic entries
@@ -274,7 +316,7 @@ class ClinicController
                     0 as RatingCount,
                     (SELECT status FROM clinicsdoctors WHERE clinic_id = c.id AND doctor_id = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as relationstatus
                 FROM clinics c
-                WHERE   c.clinicname LIKE ?
+                WHERE $whereClinic
                 GROUP BY c.id
             )
             UNION ALL
@@ -302,8 +344,8 @@ class ClinicController
                 LEFT JOIN clinics c ON c.id = cd.clinic_id
                 LEFT JOIN specialties s ON s.id = COALESCE(d.specialtie_id, cd.specialtie_id)
                 LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-                WHERE   (cd.status IS NULL OR UPPER(cd.status) IN ('APPROVED', 'ACCEPTED'))
-                AND $whereQ
+                WHERE (cd.status IS NULL OR UPPER(cd.status) IN ('APPROVED', 'ACCEPTED'))
+                AND $whereDoctor
                 GROUP BY d.id
             )
             ORDER BY ResultType ASC, AvgRating DESC
@@ -311,8 +353,7 @@ class ClinicController
         ";
 
         // Re-build params for UNION
-        $finalParams = ["%$q%"]; // for clinic name
-        $finalParams = array_merge($finalParams, $params); // for doctor search
+        $finalParams = array_merge($clinicParams, $doctorParams);
 
         $stmt = $pdo->prepare($query);
         $stmt->execute($finalParams);
