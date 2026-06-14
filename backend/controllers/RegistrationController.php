@@ -21,12 +21,14 @@ class RegistrationController {
         $required = ['clinic_name', 'email', 'phone', 'password'];
         foreach ($required as $f) {
             if (empty($data[$f])) {
-                Response::error("Le champ '$f' est requis.", 422);
+                // رسالة بشرية: حقل مطلوب ناقص عند تسجيل عيادة
+                Response::error("يرجى ملء جميع الحقول المطلوبة: اسم العيادة، البريد الإلكتروني، رقم الهاتف، وكلمة المرور.", 422);
             }
         }
 
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Response::error('email invalide.', 422);
+            // رسالة بشرية: بريد إلكتروني غير صالح للعيادة
+            Response::error('البريد الإلكتروني الذي أدخلته غير صحيح. يرجى إدخال بريد إلكتروني صالح (مثال: exemple@gmail.com).', 422);
         }
 
         $pdo = Database::getInstance();
@@ -96,12 +98,14 @@ class RegistrationController {
         $required = ['fullname', 'speciality', 'email', 'phone', 'password'];
         foreach ($required as $f) {
             if (empty($data[$f])) {
-                Response::error("Le champ '$f' est requis.", 422);
+                // رسالة بشرية: حقل مطلوب ناقص عند تسجيل طبيب
+                Response::error("يرجى ملء جميع الحقول المطلوبة: الاسم الكامل، التخصص، البريد الإلكتروني، رقم الهاتف، وكلمة المرور.", 422);
             }
         }
 
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Response::error('email invalide.', 422);
+            // رسالة بشرية: بريد إلكتروني غير صالح للطبيب
+            Response::error('البريد الإلكتروني الذي أدخلته غير صحيح. يرجى إدخال بريد إلكتروني صالح (مثال: exemple@gmail.com).', 422);
         }
 
         $pdo = Database::getInstance();
@@ -169,7 +173,7 @@ class RegistrationController {
         $email = $_GET['email'] ?? '';
         $type  = $_GET['type']  ?? 'clinic';
 
-        if (!$email) Response::error('email requis', 422);
+        if (!$email) Response::error('يرجى توفير عنوان البريد الإلكتروني للتحقق من حالة طلب التسجيل.', 422);
 
         $pdo   = Database::getInstance();
         $table = $type === 'doctor' ? 'doctorregistrations' : 'clinicregistrations';
@@ -178,7 +182,7 @@ class RegistrationController {
         $stmt->execute([$email]);
         $row = $stmt->fetch();
 
-        if (!$row) Response::notFound('Aucune demande trouvée pour cet email');
+        if (!$row) Response::notFound('لم يتم العثور على طلب تسجيل مرتبط بهذا البريد الإلكتروني. تأكد من البريد وحاول مرة أخرى.');
 
         Response::success($row);
     }

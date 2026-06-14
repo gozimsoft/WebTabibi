@@ -16,7 +16,7 @@ class RelationController {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $targetid = $data['target_id'] ?? '';
 
-        if (!$targetid) Response::error('Target id requis', 422);
+        if (!$targetid) Response::error('معرف الهدف مطلوب.', 422);
 
         $pdo = Database::getInstance();
         $senderType = '';
@@ -32,7 +32,7 @@ class RelationController {
             $clinicid = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
             $doctor_id = $targetid;
         } else {
-            Response::error('Seuls les médecins et les cliniques peuvent envoyer des demandes', 403);
+            Response::error('يُسمح للأطباء والعيادات فقط بإرسال الطلبات.', 403);
         }
 
         if (!$doctor_id) {
@@ -50,13 +50,13 @@ class RelationController {
         if ($existing) {
             $status = strtolower($existing['status']);
             if ($status === 'accepted' || $status === 'approved') {
-                Response::error('Déjà lié', 409);
+                Response::error('مرتبط بالفعل.', 409);
             } else if ($status === 'pending') {
-                Response::error('Une demande est déjà en cours', 409);
+                Response::error('هناك طلب قيد الانتظار بالفعل.', 409);
             } else {
                 // If rejected, we might want to update it to pending again
                 $pdo->prepare("UPDATE clinicsdoctors SET status='pending', requestedby=? WHERE clinic_id=? AND doctor_id=?")->execute([$senderType, $clinicid, $doctor_id]);
-                Response::success(null, 'Demande envoyée avec succès');
+                Response::success(null, 'تم إرسال الطلب بنجاح.');
                 return;
             }
         }
@@ -79,11 +79,11 @@ class RelationController {
                 VALUES (?, ?, ?, ?, 'pending', ?)
             ")->execute([$id, $clinicid, $doctor_id, $sid, $senderType]);
 
-            Response::success(['request_id' => $id], 'Demande envoyée avec succès');
+            Response::success(['request_id' => $id], 'تم إرسال الطلب بنجاح.');
         } catch (\PDOException $e) {
             $err = "SQL Error: " . $e->getMessage() . " | clinicid: $clinicid | doctor_id: $doctor_id | SID: $sid";
             file_put_contents(__DIR__.'/../request_log.txt', date('Y-m-d H:i:s') . " - ERROR: $err\n", FILE_APPEND);
-            Response::error($err, 500);
+            Response::error('حدث خطأ في الخادم أثناء إرسال الطلب. يرجى المحاولة لاحقاً.', 500);
         }
     }
 
@@ -110,7 +110,7 @@ class RelationController {
             $joinCol = 'doctor_id';
             $nameCol = 'fullname as targetname';
         } else {
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
         }
 
         // We want to fetch all clinicsdoctors records for this user where it's a request state
@@ -175,7 +175,7 @@ class RelationController {
         $action = strtolower($data['action'] ?? '');
 
         if (!in_array($action, ['accept', 'reject', 'accepted', 'rejected'])) {
-            Response::error('Action invalide', 422);
+            Response::error('إجراء غير صالح.', 422);
         }
         
         $newStatus = ($action === 'accept' || $action === 'accepted') ? 'accepted' : 'rejected';
@@ -186,23 +186,23 @@ class RelationController {
         $req = $stmt->fetch();
 
         if (!$req || strtolower($req['status']) !== 'pending') {
-            Response::notFound('Demande introuvable ou déjà traitée');
+            Response::notFound('الطلب غير موجود أو تمت معالجته بالفعل.');
         }
 
         if ($user['usertype'] == 1) { // Doctor
             $myDoctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
             if ($req['doctor_id'] !== $myDoctorId || strtoupper($req['requestedby']) !== 'CLINIC') {
-                Response::error('Vous ne pouvez pas répondre à cette demande', 403);
+                Response::error('لا تملك الصلاحية للرد على هذا الطلب.', 403);
             }
         } else if ($user['usertype'] == 2) { // Clinic
             $myClinicId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
             if ($req['clinic_id'] !== $myClinicId || strtoupper($req['requestedby']) !== 'DOCTOR') {
-                Response::error('Vous ne pouvez pas répondre à cette demande', 403);
+                Response::error('لا تملك الصلاحية للرد على هذا الطلب.', 403);
             }
         }
 
         $pdo->prepare("UPDATE clinicsdoctors SET status=? WHERE id=?")->execute([$newStatus, $requestId]);
-        Response::success(null, "Demande $newStatus");
+        Response::success(null, "تم تعديل حالة الطلب بنجاح.");
     }
 
     private static function getDoctorId(string $userId): string {

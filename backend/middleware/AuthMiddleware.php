@@ -24,7 +24,8 @@ class AuthMiddleware {
 
         if (!preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
             if (!$required) return null;
-            Response::unauthorized('Token manquant / Missing token');
+            // رسالة بشرية: جلسة المستخدم غير موجودة
+            Response::unauthorized('جلستك غير صالحة. يرجى تسجيل الدخول من جديد للمتابعة.');
         }
 
         $token = trim($matches[1]);
@@ -42,7 +43,8 @@ class AuthMiddleware {
 
         if (!$session) {
             if (!$required) return null;
-            Response::unauthorized('Token invalide / Invalid token');
+            // رسالة بشرية: رمز الجلسة غير صحيح
+            Response::unauthorized('انتهت جلستك أو أنها غير صالحة. يرجى تسجيل الخروج وإعادة تسجيل الدخول.');
         }
 
         // Check expiry
@@ -51,7 +53,8 @@ class AuthMiddleware {
             // Delete expired session
             $pdo->prepare("DELETE FROM sessions WHERE token = ?")->execute([$token]);
             if (!$required) return null;
-            Response::unauthorized('Session expirée / Session expired');
+            // رسالة بشرية: انتهت صلاحية الجلسة
+            Response::unauthorized('انتهت صلاحية جلستك (30 يوماً). يرجى تسجيل الدخول مرة أخرى للاستمرار.');
         }
 
         return $session;
@@ -63,7 +66,8 @@ class AuthMiddleware {
     public static function patientOnly(): array {
         $session = self::authenticate();
         if ((int)$session['usertype'] !== 0) {
-            Response::error('Accès réservé aux patients', 403);
+            // رسالة بشرية: الوصول مقيد للمرضى فقط
+            Response::error('هذه الخدمة متاحة للمرضى فقط. يرجى تسجيل الدخول بحساب مريض.', 403);
         }
         return $session;
     }
@@ -74,7 +78,8 @@ class AuthMiddleware {
     public static function doctorOnly(): array {
         $session = self::authenticate();
         if ((int)$session['usertype'] !== 1) {
-            Response::error('Accès réservé aux médecins', 403);
+            // رسالة بشرية: الوصول مقيد للأطباء فقط
+            Response::error('هذه الخدمة متاحة للأطباء فقط. يرجى تسجيل الدخول بحساب طبيب.', 403);
         }
         return $session;
     }
@@ -85,7 +90,8 @@ class AuthMiddleware {
     public static function clinicOnly(): array {
         $session = self::authenticate();
         if ((int)$session['usertype'] !== 2) {
-            Response::error('Accès réservé aux cliniques', 403);
+            // رسالة بشرية: الوصول مقيد للعيادات فقط
+            Response::error('هذه الخدمة متاحة للعيادات فقط. يرجى تسجيل الدخول بحساب عيادة.', 403);
         }
         return $session;
     }
@@ -96,7 +102,8 @@ class AuthMiddleware {
     public static function adminOnly(): array {
         $session = self::authenticate();
         if ((int)$session['usertype'] !== 3) {
-            Response::error('Accès réservé aux administrateurs', 403);
+            // رسالة بشرية: الوصول مقيد للمشرفين فقط
+            Response::error('هذه الصفحة مخصصة للمشرفين فقط. ليس لديك صلاحية الوصول إليها.', 403);
         }
         return $session;
     }

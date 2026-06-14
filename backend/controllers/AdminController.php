@@ -156,8 +156,8 @@ class AdminController {
         $stmt->execute([$id]);
         $reg = $stmt->fetch();
 
-        if (!$reg) Response::notFound('Demande introuvable');
-        if ($reg['status'] !== 'PENDING') Response::error('Cette demande a déjà été traitée', 409);
+        if (!$reg) Response::notFound('الطلب غير موجود.');
+        if ($reg['status'] !== 'PENDING') Response::error('تمت معالجة هذا الطلب بالفعل.', 409);
 
         $pdo->beginTransaction();
         try {
@@ -186,11 +186,11 @@ class AdminController {
             Response::success([
                 'clinic_id' => $clinicid,
                 'user_id'   => $userId,
-            ], 'clinique approuvée avec succès');
+            ], 'تمت الموافقة على العيادة بنجاح.');
 
         } catch (\Exception $e) {
             $pdo->rollBack();
-            Response::serverError('Erreur lors de l\'approbation: ' . $e->getMessage());
+            Response::serverError('حدث خطأ في الخادم أثناء معالجة الموافقة.');
         }
     }
 
@@ -207,8 +207,8 @@ class AdminController {
         $stmt->execute([$id]);
         $reg = $stmt->fetch();
 
-        if (!$reg) Response::notFound('Demande introuvable');
-        if ($reg['status'] !== 'PENDING') Response::error('Cette demande a déjà été traitée', 409);
+        if (!$reg) Response::notFound('الطلب غير موجود.');
+        if ($reg['status'] !== 'PENDING') Response::error('تمت معالجة هذا الطلب بالفعل.', 409);
 
         $pdo->prepare("
             UPDATE clinicregistrations
@@ -216,7 +216,7 @@ class AdminController {
             WHERE id=?
         ")->execute([$data['reason'] ?? null, $id]);
 
-        Response::success(null, 'clinique rejetée');
+        Response::success(null, 'تم رفض طلب العيادة.');
     }
 
     // ----------------------------------------------------------
@@ -230,8 +230,8 @@ class AdminController {
         $stmt->execute([$id]);
         $reg = $stmt->fetch();
 
-        if (!$reg) Response::notFound('Demande introuvable');
-        if ($reg['status'] !== 'PENDING') Response::error('Cette demande a déjà été traitée', 409);
+        if (!$reg) Response::notFound('الطلب غير موجود.');
+        if ($reg['status'] !== 'PENDING') Response::error('تمت معالجة هذا الطلب بالفعل.', 409);
 
         $pdo->beginTransaction();
         try {
@@ -262,11 +262,11 @@ class AdminController {
                 'doctor_id' => $doctor_id,
                 'user_id'   => $userId,
                 'username'  => $username,
-            ], 'Médecin approuvé avec succès');
+            ], 'تمت الموافقة على الطبيب بنجاح.');
 
         } catch (\Exception $e) {
             $pdo->rollBack();
-            Response::serverError('Erreur lors de l\'approbation: ' . $e->getMessage());
+            Response::serverError('حدث خطأ في الخادم أثناء معالجة الموافقة.');
         }
     }
 
@@ -283,8 +283,8 @@ class AdminController {
         $stmt->execute([$id]);
         $reg = $stmt->fetch();
 
-        if (!$reg) Response::notFound('Demande introuvable');
-        if ($reg['status'] !== 'PENDING') Response::error('Cette demande a déjà été traitée', 409);
+        if (!$reg) Response::notFound('الطلب غير موجود.');
+        if ($reg['status'] !== 'PENDING') Response::error('تمت معالجة هذا الطلب بالفعل.', 409);
 
         $pdo->prepare("
             UPDATE doctorregistrations
@@ -292,6 +292,6 @@ class AdminController {
             WHERE id=?
         ")->execute([$data['reason'] ?? null, $id]);
 
-        Response::success(null, 'Médecin rejeté');
+        Response::success(null, 'تم رفض طلب الطبيب.');
     }
 }

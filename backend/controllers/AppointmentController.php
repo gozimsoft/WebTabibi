@@ -27,7 +27,8 @@ class AppointmentController
         $stmt->execute([$userId]);
         $doctor = $stmt->fetch();
         if (!$doctor) {
-            Response::error('Doctor not found', 404);
+            // رسالة بشرية: ملف الطبيب غير موجود
+            Response::error('لم يتم العثور على ملف طبيبك. يرجى التواصل مع الدعم الفني.', 404);
         }
         $doctorId = $doctor['id'];
 
@@ -38,14 +39,16 @@ class AppointmentController
         $params = [$doctorId];
         if ($from) {
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
-                Response::error('Invalid from date format (YYYY-MM-DD)', 422);
+                // رسالة بشرية: تنسيق تاريخ غير صحيح
+                Response::error('صيغة تاريخ البداية غير صحيحة. الصيغة المطلوبة: سنة-شهر-يوم (2025-12-31)', 422);
             }
             $dateFilter .= " AND DATE(a.apointementdate) >= ?";
             $params[] = $from;
         }
         if ($to) {
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
-                Response::error('Invalid to date format (YYYY-MM-DD)', 422);
+                // رسالة بشرية: تنسيق تاريخ النهاية غير صحيح
+                Response::error('صيغة تاريخ النهاية غير صحيحة. الصيغة المطلوبة: سنة-شهر-يوم (2025-12-31)', 422);
             }
             $dateFilter .= " AND DATE(a.apointementdate) <= ?";
             $params[] = $to;
@@ -398,7 +401,8 @@ class AppointmentController
 
         foreach (['clinics_doctor_id', 'date', 'time'] as $f) {
             if (empty($data[$f]))
-                Response::error("Le champ '$f' est requis", 422);
+                // رسالة بشرية: بيانات الحجز ناقصة
+                Response::error("يرجى تحديد الطبيب والتاريخ والوقت لإتمام الحجز.", 422);
         }
 
         $pdo = Database::getInstance();
@@ -470,7 +474,8 @@ class AppointmentController
 
         $time = preg_replace('/[^0-9:]/', '', trim($data['time']));
         if (!preg_match('/^\d{2}:\d{2}$/', $time))
-            Response::error("Format d'heure invalide. Attendu HH:MM", 422);
+            // رسالة بشرية: تنسيق وقت غير صحيح عند الحجز
+            Response::error("صيغة الوقت غير صحيحة. يرجى اختيار وقت الحجز من الخيارات المتاحة.", 422);
 
         $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
 

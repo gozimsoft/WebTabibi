@@ -22,18 +22,20 @@ class VerificationController {
         $type    = $data['type'] ?? '';
 
         if (!in_array($type, ['email', 'phone'])) {
-            Response::error("type doit être 'email' ou 'phone'", 422);
+            // رسالة بشرية: نوع التحقق غير صالح
+            Response::error("نوع التحقق غير صالح. يرجى اختيار البريد الإلكتروني أو رقم الهاتف.", 422);
         }
 
         $pdo  = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound('Profil introuvable');
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $target = $type === 'email' ? $patient['email'] : $patient['phone'];
         if (empty($target)) {
-            Response::error("Aucun $type trouvé dans votre profil. Ajoutez-le d'abord.", 400);
+            // رسالة بشرية: البريد أو الهاتف غير موجود في الملف الشخصي
+            Response::error("لا يوجد {$type} مسجل في ملفك الشخصي. يرجى إضافته أولاً من إعدادات الملف الشخصي.", 400);
         }
 
         // Check if already verified
@@ -42,7 +44,7 @@ class VerificationController {
             : (int)($patient['phonevalidation'] ?? 0);
 
         if ($alreadyVerified) {
-            Response::success(null, "$type déjà vérifié ✓");
+            Response::success(null, ($type === 'email' ? 'البريد الإلكتروني' : 'رقم الهاتف') . " مفعّل بالفعل ✓");
         }
 
         // Delete old OTPs for this user/type
@@ -72,7 +74,7 @@ class VerificationController {
             // Only in development — remove in production!
             'dev_code'  => $devCode,
             'email_sent'=> $sent,
-        ], "Code OTP envoyé à " . self::maskTarget($type, $target));
+        ], "تم إرسال رمز التحقق بنجاح إلى " . self::maskTarget($type, $target));
     }
 
     // ----------------------------------------------------------
@@ -86,17 +88,19 @@ class VerificationController {
         $code    = trim($data['code'] ?? '');
 
         if (!in_array($type, ['email', 'phone'])) {
-            Response::error("type invalide", 422);
+            // رسالة بشرية: نوع التحقق غير صالح عند التأكيد
+            Response::error("نوع التحقق غير صالح. يرجى اختيار البريد الإلكتروني أو رقم الهاتف.", 422);
         }
         if (empty($code)) {
-            Response::error("Code OTP requis", 422);
+            // رسالة بشرية: رمز OTP مطلوب
+            Response::error("يرجى إدخال رمز التحقق المكوّن من 6 أرقام.", 422);
         }
 
         $pdo  = Database::getInstance();
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $stmt = $pdo->prepare("
             SELECT * FROM verifications
@@ -108,7 +112,8 @@ class VerificationController {
         $verification = $stmt->fetch();
 
         if (!$verification) {
-            Response::error("Code incorrect ou expiré. Demandez un nouveau code.", 400);
+            // رسالة بشرية: رمز التحقق خاطئ أو منتهي الصلاحية
+            Response::error("الرمز الذي أدخلته غير صحيح أو انتهت صلاحيته. يرجى طلب رمز جديد والمحاولة مرة أخرى.", 400);
         }
 
         // Mark OTP as used
@@ -118,7 +123,7 @@ class VerificationController {
         $field = $type === 'email' ? 'emailvalidation' : 'phonevalidation';
         $pdo->prepare("UPDATE patients SET `$field` = 1 WHERE id = ?")->execute([$patient['id']]);
 
-        Response::success(['type' => $type, 'verified' => true], ucfirst($type) . " vérifié avec succès ✓");
+        Response::success(['type' => $type, 'verified' => true], ($type === 'email' ? 'تم التحقق من البريد الإلكتروني بنجاح ✓' : 'تم التحقق من رقم الهاتف بنجاح ✓'));
     }
 
     // ----------------------------------------------------------
@@ -132,7 +137,7 @@ class VerificationController {
         $stmt = $pdo->prepare("SELECT emailvalidation, phonevalidation, email, phone FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         Response::success([
             'email_verified' => (bool)$patient['emailvalidation'],

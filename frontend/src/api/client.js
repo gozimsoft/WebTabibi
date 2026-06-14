@@ -10,20 +10,25 @@ async function request(method, path, body = null, auth = true) {
     const token = getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!data.success) {
-    const err = new Error(data.message || 'Erreur');
-    if (data.data) {
-      Object.assign(err, data.data);
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    if (!data.success) {
+      const err = new Error(data.message || 'حدث خطأ في الخادم.');
+      if (data.data) {
+        Object.assign(err, data.data);
+      }
+      throw err;
     }
-    throw err;
+    return data.data ?? data;
+  } catch (e) {
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
+    throw e;
   }
-  return data.data ?? data;
 }
 
 // Auth

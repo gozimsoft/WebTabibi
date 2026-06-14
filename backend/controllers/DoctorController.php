@@ -13,7 +13,7 @@ class DoctorController {
     public static function getProfile(): void {
         $session = AuthMiddleware::authenticate();
         if ($session['usertype'] != 1) {
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
         }
         
         $pdo = Database::getInstance();
@@ -29,7 +29,7 @@ class DoctorController {
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$doctor) Response::notFound('Profil docteur non trouvé');
+        if (!$doctor) Response::notFound('لم يتم العثور على الملف الشخصي للطبيب.');
         
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
@@ -61,7 +61,7 @@ class DoctorController {
     public static function updateProfile(): void {
         $session = AuthMiddleware::authenticate();
         if ($session['usertype'] != 1) {
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
         }
         
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -75,7 +75,7 @@ class DoctorController {
             $check = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
             $check->execute([$data['username'], $session['user_id']]);
             if ($check->fetchColumn()) {
-                Response::error("Nom d'utilisateur déjà pris", 409);
+                Response::error("اسم المستخدم مستخدم بالفعل. يرجى اختيار اسم آخر.", 409);
             }
             $userFields[] = "`username` = ?";
             $userValues[] = $data['username'];
@@ -117,23 +117,23 @@ class DoctorController {
             }
         }
 
-        Response::success(null, 'Profil mis à jour avec succès');
+        Response::success(null, 'تم تحديث الملف الشخصي بنجاح.');
     }
 
     // POST /api/doctors/photo
     public static function uploadPhoto(): void {
         $session = AuthMiddleware::authenticate();
         if ($session['usertype'] != 1) {
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
         }
 
         if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
-            Response::error('Erreur lors du téléchargement de la photo', 400);
+            Response::error('حدث خطأ أثناء تحميل الصورة.', 400);
         }
 
         $fileContent = file_get_contents($_FILES['photo']['tmp_name']);
         if (!$fileContent) {
-            Response::error('Fichier vide ou invalide', 400);
+            Response::error('الملف فارغ أو غير صالح.', 400);
         }
 
         $pdo = Database::getInstance();
@@ -142,19 +142,19 @@ class DoctorController {
         $doctor_id = $stmt->fetchColumn();
 
         if (!$doctor_id) {
-            Response::error('Profil non trouvé', 404);
+            Response::error('لم يتم العثور على الملف الشخصي.', 404);
         }
 
         $pdo->prepare("UPDATE doctors SET photoprofile = ? WHERE id = ?")
             ->execute([$fileContent, $doctor_id]);
 
-        Response::success(null, 'Photo mise à jour avec succès');
+        Response::success(null, 'تم تحديث الصورة الشخصية بنجاح.');
     }
 
     // POST /api/doctors/upload  (Delphi desktop — doctor uploads own data)
     public static function uploadDoctor(): void {
         $session = AuthMiddleware::authenticate();
-        if ((int)$session['usertype'] !== 1) Response::error('Non autorisé', 403);
+        if ((int)$session['usertype'] !== 1) Response::error('غير مسموح لك بالوصول.', 403);
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo  = Database::getInstance();
@@ -163,15 +163,15 @@ class DoctorController {
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctorId = $stmt->fetchColumn();
-        if (!$doctorId) Response::notFound('Profil médecin non trouvé');
+        if (!$doctorId) Response::notFound('لم يتم العثور على الملف الشخصي للطبيب.');
 
         $clinicId = trim($data['clinic_id'] ?? '');
-        if (empty($clinicId)) Response::error('clinic_id est requis', 422);
+        if (empty($clinicId)) Response::error('معرف العيادة (clinic_id) مطلوب.', 422);
 
         // Verify clinic exists
         $stmt = $pdo->prepare("SELECT id FROM clinics WHERE id = ? LIMIT 1");
         $stmt->execute([$clinicId]);
-        if (!$stmt->fetchColumn()) Response::notFound('Clinique non trouvée');
+        if (!$stmt->fetchColumn()) Response::notFound('العيادة المطلوبة غير موجودة.');
 
         // JSON key → DB column mapping
         $doctorMap = [
@@ -262,11 +262,11 @@ class DoctorController {
             }
 
             $pdo->commit();
-            Response::success(['doctor_id'=>$doctorId,'clinic_id'=>$clinicId,'clinicsdoctor_id'=>$cdId], 'Données du médecin synchronisées avec succès');
+            Response::success(['doctor_id'=>$doctorId,'clinic_id'=>$clinicId,'clinicsdoctor_id'=>$cdId], 'تمت مزامنة بيانات الطبيب بنجاح.');
 
         } catch (\Exception $e) {
             $pdo->rollBack();
-            Response::serverError('Erreur sync médecin: '.$e->getMessage());
+            Response::serverError('حدث خطأ في الخادم أثناء مزامنة بيانات الطبيب.');
         }
     }
 }

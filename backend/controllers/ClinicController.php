@@ -14,7 +14,7 @@ class ClinicController
     {
         $session = AuthMiddleware::authenticate();
         if ($session['usertype'] != 2)
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
 
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("
@@ -28,7 +28,7 @@ class ClinicController
         $clinic = $stmt->fetch();
 
         if (!$clinic)
-            Response::notFound('Profil clinique non trouvé');
+            Response::notFound('لم يتم العثور على الملف الشخصي للعيادة.');
 
         if (!empty($clinic['logo'])) {
             $clinic['logo'] = base64_encode($clinic['logo']);
@@ -42,7 +42,7 @@ class ClinicController
     {
         $session = AuthMiddleware::authenticate();
         if ($session['usertype'] != 2)
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo = Database::getInstance();
@@ -54,7 +54,7 @@ class ClinicController
             $check = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
             $check->execute([$data['username'], $session['user_id']]);
             if ($check->fetchColumn())
-                Response::error("Nom d'utilisateur déjà pris", 409);
+                Response::error("اسم المستخدم مستخدم بالفعل. يرجى اختيار اسم آخر.", 409);
             $userFields[] = "`username` = ?";
             $userValues[] = $data['username'];
         }
@@ -85,7 +85,7 @@ class ClinicController
             }
         }
 
-        Response::success(null, 'Profil mis à jour avec succès');
+        Response::success(null, 'تم تحديث الملف الشخصي بنجاح.');
     }
 
     // POST /api/clinics/profile  (Delphi desktop sync)
@@ -93,7 +93,7 @@ class ClinicController
     {
         $session = AuthMiddleware::authenticate();
         if ((int) $session['usertype'] !== 2)
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo = Database::getInstance();
@@ -101,7 +101,7 @@ class ClinicController
         // Resolve clinic_id from session user
         $clinicid = self::getClinicId($session['user_id']);
         if (!$clinicid)
-            Response::notFound('Profil clinique non trouvé');
+            Response::notFound('لم يتم العثور على الملف الشخصي للعيادة.');
 
         // Map of incoming JSON keys → DB columns
         $map = [
@@ -134,7 +134,7 @@ class ClinicController
         }
 
         if (empty($fields)) {
-            Response::error('Aucune donnée à mettre à jour', 422);
+            Response::error('لا توجد بيانات لتحديثها.', 422);
         }
 
         $values[] = $clinicid;
@@ -147,7 +147,7 @@ class ClinicController
         $clinic = $stmt->fetch();
         unset($clinic['logo']); // don't return blob
 
-        Response::success($clinic, 'Profil clinique mis à jour avec succès');
+        Response::success($clinic, 'تم تحديث ملف العيادة بنجاح.');
     }
 
     // POST /api/clinics/logo (Self upload — multipart OR base64 JSON)
@@ -155,11 +155,11 @@ class ClinicController
     {
         $session = AuthMiddleware::authenticate();
         if ((int) $session['usertype'] !== 2)
-            Response::error('Non autorisé', 403);
+            Response::error('غير مسموح لك بالوصول.', 403);
 
         $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
         if (!$clinicid)
-            Response::error('Profil non trouvé', 404);
+            Response::error('لم يتم العثور على الملف الشخصي.', 404);
 
         $imageData = null;
         $maxSize = 5 * 1024 * 1024; // 5 MB
@@ -168,17 +168,17 @@ class ClinicController
         if (!empty($_FILES['photo'])) {
             $file = $_FILES['photo'];
             if ($file['error'] !== UPLOAD_ERR_OK) {
-                Response::error('Erreur lors de l\'upload du fichier (code: ' . $file['error'] . ')', 400);
+                Response::error('حدث خطأ أثناء تحميل الملف.', 400);
             }
             if ($file['size'] > $maxSize) {
-                Response::error('Le fichier dépasse la taille maximale de 5 Mo', 400);
+                Response::error('الملف يتجاوز الحد الأقصى المسموح به للحجم وهو 5 ميجابايت.', 400);
             }
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $file['tmp_name']);
             finfo_close($finfo);
             if (!in_array($mimeType, $allowedTypes)) {
-                Response::error('Type de fichier non supporté. Formats acceptés: JPEG, PNG, GIF, WebP', 400);
+                Response::error('نوع الملف غير مدعوم. التنسيقات المقبولة هي: JPEG، PNG، GIF، WebP.', 400);
             }
             $imageData = file_get_contents($file['tmp_name']);
         }
@@ -186,19 +186,18 @@ class ClinicController
         else {
             $input = json_decode(file_get_contents('php://input'), true) ?? [];
             if (empty($input['logo']) && empty($input['photo'])) {
-                Response::error('Aucune photo fournie. Envoyez un fichier (champ "photo") ou un JSON { "logo": "base64..." }', 422);
+                Response::error('يرجى اختيار صورة للتحميل.', 422);
             }
             $base64 = $input['logo'] ?? $input['photo'];
-            // Strip data URI prefix if present
             if (preg_match('/^data:image\/\w+;base64,/', $base64)) {
                 $base64 = preg_replace('/^data:image\/\w+;base64,/', '', $base64);
             }
             $imageData = base64_decode($base64, true);
             if ($imageData === false) {
-                Response::error('Données base64 invalides', 400);
+                Response::error('بيانات الصورة غير صالحة.', 400);
             }
             if (strlen($imageData) > $maxSize) {
-                Response::error('L\'image dépasse la taille maximale de 5 Mo', 400);
+                Response::error('الصورة تتجاوز الحد الأقصى المسموح به للحجم وهو 5 ميجابايت.', 400);
             }
         }
 
@@ -206,7 +205,7 @@ class ClinicController
         $pdo->prepare("UPDATE clinics SET logo = ? WHERE id = ?")
             ->execute([$imageData, $clinicid]);
 
-        Response::success(null, 'Logo mis à jour avec succès');
+        Response::success(null, 'تم تحديث الشعار بنجاح.');
     }
 
     // GET /api/clinics?q=&specialty=&wilaya=&page=1&limit=20
@@ -400,7 +399,7 @@ class ClinicController
         $clinic = $stmt->fetch();
 
         if (!$clinic)
-            Response::notFound('clinique non trouvée');
+            Response::notFound('العيادة المطلوبة غير موجودة.');
 
         // Parse doctors list
         $doctors = [];
@@ -462,7 +461,7 @@ class ClinicController
         $doctor = $stmt->fetch();
 
         if (!$doctor) {
-            Response::notFound('Médecin non trouvé dans cette clinique');
+            Response::notFound('الطبيب غير مسجل في هذه العيادة.');
         }
 
         if (!empty($doctor['photoprofile'])) {
@@ -571,7 +570,7 @@ class ClinicController
         $stmt3 = $pdo->prepare("SELECT id FROM clinics WHERE id = ? LIMIT 1");
         $stmt3->execute([$clinicid]);
         if (!$stmt3->fetch())
-            Response::notFound('clinique non trouvée');
+            Response::notFound('العيادة المطلوبة غير موجودة.');
 
         $imageData = null;
         $maxSize = 5 * 1024 * 1024; // 5 MB
@@ -580,17 +579,17 @@ class ClinicController
         if (!empty($_FILES['photo'])) {
             $file = $_FILES['photo'];
             if ($file['error'] !== UPLOAD_ERR_OK) {
-                Response::error('Erreur lors de l\'upload du fichier (code: ' . $file['error'] . ')', 400);
+                Response::error('حدث خطأ أثناء تحميل الملف.', 400);
             }
             if ($file['size'] > $maxSize) {
-                Response::error('Le fichier dépasse la taille maximale de 5 Mo', 400);
+                Response::error('الملف يتجاوز الحد الأقصى المسموح به للحجم وهو 5 ميجابايت.', 400);
             }
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $file['tmp_name']);
             finfo_close($finfo);
             if (!in_array($mimeType, $allowedTypes)) {
-                Response::error('Type de fichier non supporté. Formats acceptés: JPEG, PNG, GIF, WebP', 400);
+                Response::error('نوع الملف غير مدعوم. التنسيقات المقبولة هي: JPEG، PNG، GIF، WebP.', 400);
             }
             $imageData = file_get_contents($file['tmp_name']);
         }
@@ -598,19 +597,18 @@ class ClinicController
         else {
             $input = json_decode(file_get_contents('php://input'), true) ?? [];
             if (empty($input['photo'])) {
-                Response::error('Aucune photo fournie. Envoyez un fichier (champ "photo") ou un JSON { "photo": "base64..." }', 422);
+                Response::error('يرجى اختيار صورة للتحميل.', 422);
             }
-            // Strip data URI prefix if present (e.g. "data:image/png;base64,...")
             $base64 = $input['photo'];
             if (preg_match('/^data:image\/\w+;base64,/', $base64)) {
                 $base64 = preg_replace('/^data:image\/\w+;base64,/', '', $base64);
             }
             $imageData = base64_decode($base64, true);
             if ($imageData === false) {
-                Response::error('Données base64 invalides', 400);
+                Response::error('بيانات الصورة غير صالحة.', 400);
             }
             if (strlen($imageData) > $maxSize) {
-                Response::error('L\'image dépasse la taille maximale de 5 Mo', 400);
+                Response::error('الصورة تتجاوز الحد الأقصى المسموح به للحجم وهو 5 ميجابايت.', 400);
             }
         }
 
@@ -618,7 +616,7 @@ class ClinicController
         $stmt4 = $pdo->prepare("UPDATE clinics SET logo = ? WHERE id = ?");
         $stmt4->execute([$imageData, $clinicid]);
 
-        Response::success(null, 'Photo de la clinique mise à jour avec succès');
+        Response::success(null, 'تم تحديث صورة العيادة بنجاح.');
     }
 
     // GET /api/clinics/{id}/photo
@@ -631,7 +629,7 @@ class ClinicController
         $row = $stmt->fetch();
 
         if (!$row || empty($row['logo'])) {
-            Response::notFound('Aucune photo trouvée pour cette clinique');
+            Response::notFound('لم يتم العثور على صورة لهذه العيادة.');
         }
 
         $logo = $row['logo'];
@@ -695,7 +693,7 @@ class ClinicController
         $doctor = $stmt->fetch();
 
         if (!$doctor)
-            Response::notFound('Médecin non trouvé');
+            Response::notFound('لم يتم العثور على الطبيب.');
 
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);

@@ -16,7 +16,8 @@ class AuthController {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
         if (empty($data['username']) || empty($data['password']) || empty($data['fullname']) || empty($data['email'])) {
-            Response::error('Tous les champs sont requis.', 422);
+            // رسالة بشرية: حقول ناقصة عند التسجيل
+            Response::error('يرجى ملء جميع الحقول المطلوبة (الاسم الكامل، اسم المستخدم، البريد الإلكتروني، كلمة المرور) قبل المتابعة.', 422);
         }
 
         $pdo = Database::getInstance();
@@ -25,7 +26,8 @@ class AuthController {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
         $stmt->execute([strtolower(trim($data['username']))]);
         if ($stmt->fetchColumn() > 0) {
-            Response::error("Ce nom d'utilisateur est déjà utilisé.", 409);
+            // رسالة بشرية: اسم مستخدم مكرر
+            Response::error("اسم المستخدم هذا محجوز من قبل. يرجى اختيار اسم مستخدم آخر.", 409);
         }
 
         // Check email uniqueness across all tables
@@ -96,7 +98,8 @@ class AuthController {
         $verification = $stmt->fetch();
 
         if (!$verification) {
-            Response::error('رمز التحقق غير صحيح أو منتهي الصلاحية', 400);
+            // رسالة بشرية: رمز OTP خاطئ أو منتهي
+            Response::error('الرمز الذي أدخلته غير صحيح أو انتهت صلاحيته. يرجى طلب رمز جديد والمحاولة مرة أخرى.', 400);
         }
 
         // Verify uniqueness again just in case
@@ -108,7 +111,8 @@ class AuthController {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
         $stmt->execute([strtolower(trim($data['username']))]);
         if ($stmt->fetchColumn() > 0) {
-            Response::error("Ce nom d'utilisateur est déjà utilisé.", 409);
+            // رسالة بشرية: اسم مستخدم مكرر عند التأكيد
+            Response::error("اسم المستخدم هذا أصبح محجوزاً. يرجى اختيار اسم مستخدم آخر.", 409);
         }
 
         // إنشاء الحساب ووضع verified = 1 داخل نفس الـ Transaction
@@ -146,7 +150,8 @@ class AuthController {
         } catch (Exception $e) {
             $pdo->rollBack();
             // ✅ عند الفشل يُعاد rollBack لكل شيء بما فيه verified = 1
-            Response::serverError('Erreur lors de la création du compte: ' . $e->getMessage());
+            // رسالة بشرية: خطأ داخلي عند إنشاء الحساب
+            Response::serverError('حدث خطأ أثناء إنشاء حسابك. يرجى المحاولة مرة أخرى. إذا استمرت المشكلة يرجى التواصل مع الدعم الفني.');
         }
 
         // Auto login since verified
@@ -170,7 +175,8 @@ class AuthController {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
         if (empty($data['username']) || empty($data['password'])) {
-            Response::error("Nom d'utilisateur et mot de passe requis.", 422);
+            // رسالة بشرية: حقول تسجيل الدخول ناقصة
+            Response::error("يرجى إدخال اسم المستخدم وكلمة المرور للمتابعة.", 422);
         }
 
         $pdo  = Database::getInstance();
@@ -179,13 +185,15 @@ class AuthController {
         $user = $stmt->fetch();
 
         if (!$user) {
-            Response::error("Nom d'utilisateur ou mot de passe incorrect.", 401);
+            // رسالة بشرية: اسم مستخدم أو كلمة مرور خاطئة
+            Response::error("اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من المعلومات والمحاولة مجدداً.", 401);
         }
 
         // Verify password (base64 encoded)
         $encoded = base64_encode($data['password']);
         if ($user['password'] !== $encoded) {
-            Response::error("Nom d'utilisateur ou mot de passe incorrect.", 401);
+            // رسالة بشرية: كلمة المرور غير متطابقة
+            Response::error("اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من المعلومات والمحاولة مجدداً.", 401);
         }
 
         // Fetch profile info based on usertype
@@ -224,7 +232,8 @@ class AuthController {
             }
 
             if (!empty($profile['status']) && $profile['status'] !== 'APPROVED') {
-                Response::error('Compte non approuvé', 403);
+                // رسالة بشرية: حساب الطبيب لم يتم اعتماده بعد
+                Response::error('حسابك قيد المراجعة من قِبَل الإدارة. ستتلقى إشعاراً بالبريد الإلكتروني عند الموافقة على طلبك.', 403);
             }
             unset($profile['photoprofile']);
 
@@ -284,7 +293,8 @@ class AuthController {
     public static function google(): void {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         if (empty($data['credential'])) {
-            Response::error("Credential manquant", 400);
+            // رسالة بشرية: بيانات Google مفقودة
+            Response::error("تعذر التحقق من حسابك على Google. يرجى المحاولة مرة أخرى.", 400);
         }
 
         // Verify with Google
@@ -296,7 +306,8 @@ class AuthController {
 
         $info = json_decode($res, true);
         if (!$info || !isset($info['email']) || empty($info['email_verified']) || $info['email_verified'] === 'false') {
-            Response::error("Authentification Google échouée", 401);
+            // رسالة بشرية: فشل التحقق من حساب Google
+            Response::error("تعذر التحقق من هويتك عبر Google. تأكد من أن حساب Google الخاص بك مفعّل وحاول مرة أخرى.", 401);
         }
 
         $email = $info['email'];
@@ -321,7 +332,8 @@ class AuthController {
                 $user = $stmtUser->fetch();
 
                 if (!$user) {
-                    Response::error("Erreur d'intégrité du compte", 500);
+                    // رسالة بشرية: خطأ في بيانات الحساب
+                    Response::error("حدث خطأ في بيانات حسابك. يرجى التواصل مع الدعم الفني للمساعدة.", 500);
                 }
                 
                 // Set emailvalidation = 1 if it isn't already, since they verified via Google
@@ -389,7 +401,8 @@ class AuthController {
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();
-            Response::serverError('Erreur lors de la création du compte via Google: ' . $e->getMessage());
+            // رسالة بشرية: خطأ عند إنشاء حساب Google
+            Response::serverError('حدث خطأ أثناء إنشاء حسابك عبر Google. يرجى المحاولة مرة أخرى أو استخدام طريقة تسجيل أخرى.');
         }
 
         $token = self::createSession($userId);
@@ -553,7 +566,8 @@ class AuthController {
     public static function forgotPassword(): void {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Response::error('Email invalide', 422);
+            // رسالة بشرية: بريد إلكتروني غير صالح
+            Response::error('يرجى إدخال بريد إلكتروني صحيح (مثال: exemple@gmail.com).', 422);
         }
 
         $email = trim($data['email']);
@@ -590,7 +604,8 @@ class AuthController {
     public static function verifyAccountEmail(): void {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         if (empty($data['email']) || empty($data['code'])) {
-            Response::error('البريد الإلكتروني والرمز مطلوبان', 422);
+            // رسالة بشرية: البريد والرمز مطلوبان
+            Response::error('يرجى إدخال البريد الإلكتروني ورمز التحقق المرسَل إليك.', 422);
         }
 
         $email = trim($data['email']);
@@ -626,7 +641,8 @@ class AuthController {
         }
 
         if (!$userId) {
-            Response::error('المستخدم غير موجود', 404);
+            // رسالة بشرية: المستخدم غير موجود
+            Response::error('لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني. تأكد من صحة البريد الإلكتروني وحاول مجدداً.', 404);
         }
 
         // التحقق من الرمز باستخدام الإيميل مباشرة لتفادي أي تعارض في المعرفات
@@ -640,7 +656,8 @@ class AuthController {
         $verification = $stmt->fetch();
 
         if (!$verification) {
-            Response::error('الرمز غير صحيح أو منتهي الصلاحية', 400);
+            // رسالة بشرية: رمز التحقق منتهي أو خاطئ
+            Response::error('رمز التحقق الذي أدخلته غير صحيح أو انتهت صلاحيته (10 دقائق). يرجى طلب رمز جديد.', 400);
         }
 
         // Mark OTP as used
@@ -661,7 +678,8 @@ class AuthController {
     public static function verifyOtp(): void {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         if (empty($data['email']) || empty($data['otp'])) {
-            Response::error('Email et code OTP requis', 422);
+            // رسالة بشرية: البريد والرمز مطلوبان عند التحقق من OTP
+            Response::error('يرجى إدخال البريد الإلكتروني ورمز التحقق المكوّن من 6 أرقام.', 422);
         }
 
         $email = trim($data['email']);
@@ -672,7 +690,8 @@ class AuthController {
         $stmt->execute([$email, $otp]);
         
         if (!$stmt->fetch()) {
-            Response::error('Code OTP invalide ou expiré', 400);
+            // رسالة بشرية: رمز OTP منتهي أو غير صحيح عند التحقق
+            Response::error('رمز التحقق غير صحيح أو انتهت صلاحيته. يرجى طلب رمز جديد من صفحة استعادة كلمة المرور.', 400);
         }
 
         Response::success(null, 'Code OTP valide');
@@ -685,7 +704,8 @@ class AuthController {
     public static function resetPassword(): void {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         if (empty($data['email']) || empty($data['otp']) || empty($data['password'])) {
-            Response::error('Données incomplètes', 422);
+            // رسالة بشرية: بيانات إعادة تعيين كلمة المرور ناقصة
+            Response::error('يرجى تعبئة جميع الحقول: البريد الإلكتروني، رمز التحقق، وكلمة المرور الجديدة.', 422);
         }
 
         $email = trim($data['email']);
@@ -700,12 +720,14 @@ class AuthController {
         $resetRecord = $stmt->fetch();
         
         if (!$resetRecord) {
-            Response::error('Code OTP invalide ou expiré', 400);
+            // رسالة بشرية: رمز انتهت صلاحيته عند إعادة التعيين
+            Response::error('رمز التحقق غير صحيح أو انتهت صلاحيته. يرجى طلب رمز جديد.', 400);
         }
 
         $user = self::findUserByEmail($email);
         if (!$user) {
-            Response::error('Utilisateur non trouvé', 404);
+            // رسالة بشرية: لم يتم العثور على الحساب عند إعادة تعيين كلمة المرور
+            Response::error('لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني.', 404);
         }
 
         // Update password in users table

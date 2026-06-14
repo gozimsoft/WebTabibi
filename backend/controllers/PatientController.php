@@ -23,7 +23,7 @@ class PatientController {
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
 
-        if (!$patient) Response::notFound('Profil patient non trouvé');
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
         unset($patient['photoprofile']);
 
         Response::success($patient);
@@ -39,7 +39,7 @@ class PatientController {
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $allowed = ['fullname','phone','email','birthdate','address','gender','baladiya_id',
                     'birthplace','birthcountry','postcode','speakinglanguage','country',
@@ -54,13 +54,13 @@ class PatientController {
             }
         }
 
-        if (empty($fields)) Response::error('Aucun champ à mettre à jour', 422);
+        if (empty($fields)) Response::error('لا توجد حقول لتحديثها.', 422);
 
         $values[] = $patient['id'];
         $pdo->prepare("UPDATE patients SET " . implode(', ', $fields) . " WHERE id = ?")
             ->execute($values);
 
-        Response::success(null, 'Profil mis à jour avec succès');
+        Response::success(null, 'تم تحديث الملف الشخصي بنجاح.');
     }
 
     // GET /api/patients/family
@@ -92,7 +92,7 @@ class PatientController {
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $stmt = $pdo->prepare("
             SELECT 

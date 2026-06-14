@@ -43,7 +43,7 @@ async function req(method, path, body, auth = true) {
     });
     const d = await r.json();
     if (!d.success) {
-      const err = new Error(d.message || "Erreur serveur");
+      const err = new Error(d.message || "حدث خطأ في الخادم.");
       if (d.data) {
         Object.assign(err, d.data);
       }
@@ -51,7 +51,8 @@ async function req(method, path, body, auth = true) {
     }
     return d.data ?? d;
   } catch (e) {
-    if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le server  ");
+    // رسالة بشرية: خطأ في الاتصال بالإنترنت أو الخادم
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
     throw e;
   }
 }
@@ -64,9 +65,10 @@ async function reqFile(method, path, body) {
       method, headers, body
     });
     const d = await r.json();
-    if (!d.success) throw new Error(d.message || "Erreur serveur");
+    if (!d.success) throw new Error(d.message || "حدث خطأ في الخادم.");
     return d.data ?? d;
   } catch (e) {
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
     throw e;
   }
 }
