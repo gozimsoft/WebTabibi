@@ -464,6 +464,9 @@ class ClinicController
             Response::notFound('الطبيب غير مسجل في هذه العيادة.');
         }
 
+        // Mark as virtual if no user account linked
+        $doctor['is_virtual'] = empty($doctor['user_id']) ? 1 : 0;
+
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
         } else {
@@ -686,7 +689,7 @@ class ClinicController
             LEFT JOIN specialties s ON s.id = d.specialtie_id
             LEFT JOIN baladiyas b  ON b.id = d.baladiya_id
             LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
-            WHERE d.id = ? AND (UPPER(d.status) = 'APPROVED')
+            WHERE d.id = ? AND (UPPER(d.status) = 'APPROVED' OR COALESCE(d.emailvalidation, 0) != 1)
             GROUP BY d.id
         ");
         $stmt->execute([$id]);
@@ -694,6 +697,9 @@ class ClinicController
 
         if (!$doctor)
             Response::notFound('لم يتم العثور على الطبيب.');
+
+        // Mark as virtual if no user account linked
+        $doctor['is_virtual'] = empty($doctor['user_id']) ? 1 : 0;
 
         if (!empty($doctor['photoprofile'])) {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);

@@ -10,14 +10,20 @@ class UserValidationHelper {
      * Checks if an email is already used in ANY table (patients, doctors, clinics)
      * Returns true if duplicate found, false otherwise.
      */
-    public static function isEmailDuplicate(string $email): bool {
+    public static function isEmailDuplicate(string $email, ?string $excludeId = null): bool {
         $pdo = Database::getInstance();
         $email = strtolower(trim($email));
 
         $tables = ['patients', 'doctors', 'clinics'];
         foreach ($tables as $table) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE LOWER(email) = ?");
-            $stmt->execute([$email]);
+            $sql = "SELECT COUNT(*) FROM `$table` WHERE LOWER(email) = ?";
+            $params = [$email];
+            if ($excludeId) {
+                $sql .= " AND id != ?";
+                $params[] = $excludeId;
+            }
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             if ($stmt->fetchColumn() > 0) {
                 return true;
             }
@@ -29,7 +35,7 @@ class UserValidationHelper {
      * Checks if a phone number is already used in ANY table
      * Cleans phone number from spaces and symbols before checking.
      */
-    public static function isPhoneDuplicate(string $phone): bool {
+    public static function isPhoneDuplicate(string $phone, ?string $excludeId = null): bool {
         $pdo = Database::getInstance();
         $cleanPhone = preg_replace('/[^\d\+]/', '', $phone); // keep only digits and +
 
@@ -39,13 +45,15 @@ class UserValidationHelper {
 
         $tables = ['patients', 'doctors', 'clinics'];
         foreach ($tables as $table) {
-            // Compare by removing common separators from DB
             $sql = "SELECT COUNT(*) FROM `$table` WHERE 
                     REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', ''), '+', '') = ?";
+            $params = [str_replace('+', '', $cleanPhone)];
+            if ($excludeId) {
+                $sql .= " AND id != ?";
+                $params[] = $excludeId;
+            }
             $stmt = $pdo->prepare($sql);
-            
-            // Clean input completely for this specific comparison (remove +)
-            $stmt->execute([str_replace('+', '', $cleanPhone)]);
+            $stmt->execute($params);
             
             if ($stmt->fetchColumn() > 0) {
                 return true;

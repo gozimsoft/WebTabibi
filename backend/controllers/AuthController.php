@@ -180,9 +180,43 @@ class AuthController {
         }
 
         $pdo  = Database::getInstance();
+        $identifier = strtolower(trim($data['username'])); // Can be username, email, or phone
+
+        // 1. Try to find by username
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
-        $stmt->execute([strtolower(trim($data['username']))]);
+        $stmt->execute([$identifier]);
         $user = $stmt->fetch();
+
+        // 2. If not found by username, try to find by validated email or validated phone
+        if (!$user) {
+            $userId = null;
+            
+            // Patients
+            $stmt = $pdo->prepare("SELECT user_id FROM patients WHERE (email = ? AND emailvalidation = 1) OR (phone = ? AND phonevalidation = 1) LIMIT 1");
+            $stmt->execute([$identifier, $identifier]);
+            if ($row = $stmt->fetch()) $userId = $row['user_id'];
+
+            // Doctors
+            if (!$userId) {
+                $stmt = $pdo->prepare("SELECT user_id FROM doctors WHERE (email = ? AND emailvalidation = 1) OR (phone = ? AND phonevalidation = 1) LIMIT 1");
+                $stmt->execute([$identifier, $identifier]);
+                if ($row = $stmt->fetch()) $userId = $row['user_id'];
+            }
+
+            // Clinics
+            if (!$userId) {
+                $stmt = $pdo->prepare("SELECT user_id FROM clinics WHERE (email = ? AND emailvalidation = 1) OR (phone = ? AND phonevalidation = 1) LIMIT 1");
+                $stmt->execute([$identifier, $identifier]);
+                if ($row = $stmt->fetch()) $userId = $row['user_id'];
+            }
+
+            // If we found a valid user_id via email/phone, fetch the user record
+            if ($userId) {
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch();
+            }
+        }
 
         if (!$user) {
             // رسالة بشرية: اسم مستخدم أو كلمة مرور خاطئة

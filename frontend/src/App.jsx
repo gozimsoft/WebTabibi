@@ -2931,6 +2931,29 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
         </div>
       </Card>
 
+      {/* Virtual Doctor Claim Banner — shown when emailvalidation is not confirmed (NULL or 0) */}
+      {!data.emailvalidation && (
+        <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1.5px dashed #fbbf24", padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#b45309", flex: 1, minWidth: 250 }}>
+              <Info size={28} />
+              <div>
+                <strong style={{ display: "block", fontSize: 16, marginBottom: 4 }}>حساب طبيب افتراضي</strong>
+                <span style={{ fontSize: 13, lineHeight: 1.6, display: "block" }}>
+                  هذا الحساب تم إنشاؤه مسبقاً ولا يملك الطبيب حق الوصول إليه حالياً. إذا كنت أنت هذا الطبيب، يمكنك المطالبة بالحساب وإكمال بياناتك.
+                </span>
+              </div>
+            </div>
+            <Btn
+              onClick={() => navigate(`/register-doctor?claim_id=${doctor_id}`)}
+              style={{ background: "#d97706", border: "none", padding: "10px 22px", flexShrink: 0 }}
+            >
+              هل أنت هذا الطبيب؟
+            </Btn>
+          </div>
+        </Card>
+      )}
+
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20, overflowX: "auto" }}>
         {[
           ["info", i18n.language === 'ar' ? "معلومات" : "Info"],
@@ -4449,19 +4472,24 @@ function RegisterClinicPage({ navigate }) {
 }
 
 // ── PAGE: REGISTER DOCTOR ─────────────────────────────────────
-function RegisterDoctorPage({ navigate }) {
+function RegisterDoctorPage({ navigate, qs }) {
   const isMobile = useIsMobile();
   const { t, i18n } = useTranslation();
   const { show, Toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '' });
+  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '', doctor_id: '' });
   const [errors, setErrors] = useState({});
   const [specs, setSpecs] = useState([]);
 
   useEffect(() => {
     api.specialties().then(setSpecs).catch(() => { });
-  }, []);
+    if (qs) {
+      const params = new URLSearchParams(qs);
+      const claimId = params.get('claim_id');
+      if (claimId) setForm(f => ({ ...f, doctor_id: claimId }));
+    }
+  }, [qs]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
 
@@ -6304,7 +6332,7 @@ function MainApp() {
       case "/register-clinic":
         return <RegisterClinicPage navigate={navigate} />;
       case "/register-doctor":
-        return <RegisterDoctorPage navigate={navigate} />;
+        return <RegisterDoctorPage navigate={navigate} qs={qs} />;
       case "/admin":
         if (!user || user.user_type !== 3) { setTimeout(() => navigate("/"), 0); return null; }
         return <AdminDashboardPage navigate={navigate} user={user} />;

@@ -235,34 +235,73 @@ class AdminController {
 
         $pdo->beginTransaction();
         try {
-            $userId   = UUIDHelper::generate();
-            $doctor_id = UUIDHelper::generate();
+            $isVirtualClaim = !empty($reg['doctor_id']);
+            $doctorIdToUse  = $isVirtualClaim ? $reg['doctor_id'] : UUIDHelper::generate();
+            $userId         = UUIDHelper::generate();
+            $username       = strtolower(str_replace(' ', '_', $reg['fullname'])) . '_' . substr($id, 0, 6);
+            $plainPassword  = base64_decode($reg['password']) ?: '123456';
 
-            // Create User (usertype=1 = Doctor)
-            $username = strtolower(str_replace(' ', '_', $reg['fullname'])) . '_' . substr($id, 0, 6);
-            $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,1)")
-                ->execute([$userId, $username, $reg['password']]);
+            if ($isVirtualClaim) {
+                // Fetch the existing virtual doctor to see if they already have a user_id
+                $stmtDoc = $pdo->prepare("SELECT user_id FROM doctors WHERE id=?");
+                $stmtDoc->execute([$doctorIdToUse]);
+                $existingDoc = $stmtDoc->fetch();
 
-            // Create Doctor record
-            $pdo->prepare("
-                INSERT INTO doctors (id, fullname, phone, email, status, approvedat, user_id)
-                VALUES (?,?,?,?, 'APPROVED', NOW(), ?)
-            ")->execute([$doctor_id, $reg['fullname'], $reg['phone'], $reg['email'], $userId]);
+                if ($existingDoc && !empty($existingDoc['user_id'])) {
+                    $userId = $existingDoc['user_id'];
+                    // Update existing user credentials
+                    $pdo->prepare("UPDATE users SET username=?, password=? WHERE id=?")
+                        ->execute([$username, $reg['password'], $userId]);
+                } else {
+                    // Create new user for this virtual doctor
+                    $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,1)")
+                        ->execute([$userId, $username, $reg['password']]);
+                }
 
-            // Update registration
+                // Update the existing virtual doctor profile
+                $pdo->prepare("
+                    UPDATE doctors 
+                    SET fullname=?, phone=?, email=?, emailvalidation=1, user_id=?, status='APPROVED', approvedat=NOW()
+                    WHERE id=?
+                ")->execute([$reg['fullname'], $reg['phone'], $reg['email'], $userId, $doctorIdToUse]);
+
+            } else {
+                // Completely new doctor
+                $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,1)")
+                    ->execute([$userId, $username, $reg['password']]);
+
+                $pdo->prepare("
+                    INSERT INTO doctors (id, fullname, phone, email, emailvalidation, status, approvedat, user_id)
+                    VALUES (?,?,?,?, 1, 'APPROVED', NOW(), ?)
+                ")->execute([$doctorIdToUse, $reg['fullname'], $reg['phone'], $reg['email'], $userId]);
+            }
+
+            // Update registration status
             $pdo->prepare("
                 UPDATE doctorregistrations
                 SET status='APPROVED', approvedat=NOW(), doctor_id=?, user_id=?
                 WHERE id=?
-            ")->execute([$doctor_id, $userId, $id]);
+            ")->execute([$doctorIdToUse, $userId, $id]);
 
             $pdo->commit();
 
+            // Send credentials to email
+            $subject = "✅ طلب الانضمام مقبول - طبيبي";
+            $body = "<p>مرحباً <strong>{$reg['fullname']}</strong>،</p>
+                     <p>لقد تمت الموافقة على طلبك بنجاح! يمكنك الآن تسجيل الدخول إلى حسابك باستخدام التفاصيل التالية:</p>
+                     <ul>
+                        <li><strong>اسم المستخدم (Username):</strong> $username</li>
+                        <li><strong>كلمة المرور:</strong> $plainPassword</li>
+                     </ul>
+                     <p>شكراً لانضمامك إلينا.</p>";
+            $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: no-reply@webtabibi.com\r\n";
+            @mail($reg['email'], $subject, $body, $headers);
+
             Response::success([
-                'doctor_id' => $doctor_id,
+                'doctor_id' => $doctorIdToUse,
                 'user_id'   => $userId,
                 'username'  => $username,
-            ], 'تمت الموافقة على الطبيب بنجاح.');
+            ], 'تمت الموافقة على الطبيب بنجاح وتم إرسال معلومات الدخول.');
 
         } catch (\Exception $e) {
             $pdo->rollBack();

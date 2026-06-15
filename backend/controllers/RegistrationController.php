@@ -112,22 +112,24 @@ class RegistrationController {
 
         require_once __DIR__ . '/../helpers/UserValidationHelper.php';
 
-        // Check email uniqueness across all tables
-        if (UserValidationHelper::isEmailDuplicate($data['email'])) {
+        // Check email uniqueness across all tables (exclude if claiming own dummy profile)
+        $claimId = !empty($data['doctor_id']) ? $data['doctor_id'] : null;
+        if (UserValidationHelper::isEmailDuplicate($data['email'], $claimId)) {
             Response::error("البريد الإلكتروني مستخدم مسبقًا", 409);
         }
 
         // Check phone uniqueness across all tables
-        if (!empty($data['phone']) && UserValidationHelper::isPhoneDuplicate($data['phone'])) {
+        if (!empty($data['phone']) && UserValidationHelper::isPhoneDuplicate($data['phone'], $claimId)) {
             Response::error("رقم الهاتف مستخدم مسبقًا", 409);
         }
 
         $id             = UUIDHelper::generate();
         $passwordEncoded = base64_encode($data['password']);
+        $doctorId       = !empty($data['doctor_id']) ? $data['doctor_id'] : null;
 
         $pdo->prepare("
-            INSERT INTO doctorregistrations (id, fullname, speciality, email, phone, password, status, nin)
-            VALUES (?,?,?,?,?,?, 'PENDING', ?)
+            INSERT INTO doctorregistrations (id, fullname, speciality, email, phone, password, status, nin, doctor_id)
+            VALUES (?,?,?,?,?,?, 'PENDING', ?, ?)
         ")->execute([
             $id,
             trim($data['fullname']),
@@ -136,6 +138,7 @@ class RegistrationController {
             trim($data['phone']),
             $passwordEncoded,
             $data['nin'] ?? null,
+            $doctorId
         ]);
 
         // Send email validation OTP

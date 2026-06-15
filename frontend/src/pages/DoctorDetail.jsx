@@ -129,6 +129,24 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
         </div>
       </Card>
 
+      {/* Virtual Doctor Claim Banner — shown when emailvalidation is not confirmed (NULL or 0) */}
+      {!data.emailvalidation && (
+        <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1.5px dashed #fbbf24", padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#b45309", flex: 1, minWidth: 250 }}>
+              <Info size={28} />
+              <div>
+                <strong style={{ display: "block", fontSize: 16, marginBottom: 4 }}>حساب طبيب افتراضي</strong>
+                <span style={{ fontSize: 13, lineHeight: 1.5, display: "block" }}>هذا الحساب تم إنشاؤه مسبقاً من قبل العيادة أو النظام ولا يملك الطبيب حق الوصول إليه حالياً. إذا كنت أنت هذا الطبيب، يمكنك المطالبة بالحساب وإكمال بياناتك.</span>
+              </div>
+            </div>
+            <Btn onClick={() => navigate(`/register-doctor?claim_id=${doctor_id}`)} style={{ background: "#d97706", border: "none", padding: "10px 20px" }}>
+              هل أنت هذا الطبيب؟
+            </Btn>
+          </div>
+        </Card>
+      )}
+
       {/* Clinic Selection (if not selected) */}
       {!selectedClinicId && data.OtherClinics?.length > 0 && (
         <Card style={{ marginBottom: 20, border: "2px solid #0891b2" }}>

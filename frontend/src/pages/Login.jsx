@@ -222,7 +222,13 @@ export default function LoginPage({ onLogin, onGoogleLogin, navigate }) {
               </div>
 
               <form onSubmit={submit}>
-                <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "اسم المستخدم، البريد الإلكتروني، أو الهاتف" : "Nom d'utilisateur, Email, ou Téléphone"} 
+                  value={form.username} 
+                  onChange={e => setForm({ ...form, username: e.target.value })} 
+                  placeholder={localStorage.getItem("tabibi_lang") === "ar" ? "اسم المستخدم، الإيميل، أو 05..." : "Utilisateur, Email, ou Téléphone..."} 
+                  required 
+                />
                 <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
                 
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
