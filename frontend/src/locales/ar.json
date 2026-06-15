@@ -84,6 +84,8 @@
     "search_btn": "بحث",
     "results_count": "نتيجة",
     "no_results": "لا توجد نتائج",
+    "search_error": "تعذّر إجراء البحث، يرجى المحاولة مرة أخرى.",
+    "service_unavailable": "الخدمة غير متاحة حالياً، يرجى المحاولة لاحقاً.",
     "experience": "سنة خبرة",
     "da": "دج",
     "back_to_search": "رجوع للبحث",
@@ -535,6 +537,18 @@
     "appt_mgr_hide_stats": "إخفاء الإحصائيات",
     "notifications": "التنبيهات",
     "no_notifications": "لا توجد تنبيهات جديدة",
-    "mark_all_read": "تحديد الكل كمقروء"
+    "mark_all_read": "تحديد الكل كمقروء",
+    "login_credentials": "بيانات الدخول",
+    "login_credentials_desc": "تغيير اسم المستخدم أو كلمة المرور",
+    "current_username": "اسم المستخدم الحالي",
+    "new_username": "اسم المستخدم الجديد",
+    "new_username_hint": "أحرف إنجليزية وأرقام فقط (3-30 حرف)",
+    "current_password": "كلمة المرور الحالية",
+    "new_password": "كلمة المرور الجديدة",
+    "new_password_hint": "اتركه فارغاً إن لم تريد تغييره",
+    "confirm_new_password": "تأكيد كلمة المرور الجديدة",
+    "passwords_no_match": "كلمتا المرور غير متطابقتين",
+    "credentials_save_success": "تم تحديث بيانات الدخول بنجاح",
+    "current_password_required": "كلمة المرور الحالية مطلوبة"
   }
 }

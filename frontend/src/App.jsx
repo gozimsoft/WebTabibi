@@ -89,6 +89,7 @@ const api = {
   patient: {
     profile: () => req("GET", "/patients/profile"),
     update: b => req("PUT", "/patients/profile", b),
+    updateCredentials: b => req("PUT", "/patients/credentials", b),
     appointments: () => req("GET", "/patients/appointments"),
     family: () => {
       const stored = localStorage.getItem("tabibi_family");
@@ -5418,6 +5419,11 @@ function ProfilePage({ user, navigate }) {
   const [uploadingPhoto, setUPhoto] = useState(false);
   const [verStatus, setVS] = useState(null);
   const [otpModal, setOTP] = useState(null);
+  
+  // --- حالة قسم بيانات الدخول للمريض ---
+  const [creds, setCreds] = useState({ current_password: "", new_username: "", new_password: "", confirm_new_password: "" });
+  const [savingCreds, setSavingCreds] = useState(false);
+  
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
 
@@ -5465,6 +5471,22 @@ function ProfilePage({ user, navigate }) {
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
+  };
+
+  const saveCredentials = async () => {
+    if (creds.new_password && creds.new_password !== creds.confirm_new_password) return show(t("passwords_no_match", "كلمتا المرور غير متطابقتين"), "error");
+    if (!creds.new_username && !creds.new_password) return show("يرجى إدخال اسم مستخدم أو كلمة مرور جديدة", "error");
+
+    setSavingCreds(true);
+    try {
+      await api.patient.updateCredentials({
+        new_username: creds.new_username || undefined,
+        new_password: creds.new_password || undefined,
+      });
+      show(t("credentials_save_success", "تم تحديث بيانات الدخول بنجاح"));
+      setCreds({ new_username: "", new_password: "", confirm_new_password: "" });
+    } catch (e) { show(e.message, "error"); }
+    finally { setSavingCreds(false); }
   };
 
   const handlePhotoUpload = async e => {
@@ -5688,6 +5710,65 @@ function ProfilePage({ user, navigate }) {
           <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
         </Btn>
       </form>
+
+      {/* --- قسم بيانات الدخول للمريض --- */}
+      {user?.user_type === 0 && (
+        <Card style={{ marginTop: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+              <Lock size={16} color="#fff" />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16 }}>{t("login_credentials", "بيانات الدخول")}</h3>
+              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("login_credentials_desc", "تغيير اسم المستخدم أو كلمة المرور")}</p>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <User size={14} color="#0891b2" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي")}: </span>
+                <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+              </div>
+              <Input
+                label={t("new_username", "اسم المستخدم الجديد")}
+                value={creds.new_username}
+                onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
+              />
+            </div>
+            <div>
+              <Input
+                label={t("new_password", "كلمة المرور الجديدة")}
+                type="password"
+                value={creds.new_password}
+                onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+              />
+              <Input
+                label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                type="password"
+                value={creds.confirm_new_password}
+                onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+            <Btn
+              type="button"
+              onClick={saveCredentials}
+              loading={savingCreds}
+              style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+            >
+              {t("save_changes")}
+            </Btn>
+          </div>
+        </Card>
+      )}
+
 
       {/* OTP Modal */}
       {otpModal && (

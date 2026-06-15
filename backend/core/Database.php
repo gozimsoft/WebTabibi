@@ -22,8 +22,13 @@ class Database {
                 ]);
                 self::ensureNotificationsTableExists(self::$instance);
             } catch (PDOException $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+                // Log the technical error for developers only — never expose it to users
+                error_log('[Tabibi DB Error] ' . $e->getMessage());
+                http_response_code(503);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'service_unavailable'
+                ]);
                 exit;
             }
         }

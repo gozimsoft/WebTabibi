@@ -2,6 +2,28 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-06-15
+
+### Added
+- إضافة ميزة تسمح للمريض بتغيير اسم المستخدم (username) وكلمة المرور (password) من صفحة الملف الشخصي.
+- إضافة قسم جديد "بيانات الدخول" في واجهة المستخدم `Profile.jsx` مع دعم التحقق الكامل من التطابق وصحة البيانات.
+- إضافة نقطة وصول جديدة في الخادم `PUT /api/patients/credentials` لمعالجة التغييرات (تم إزالة شرط إدخال كلمة المرور الحالية بناءً على طلب المستخدم).
+- إضافة ترجمات للواجهة الجديدة باللغات الثلاث (عربي، فرنسي، إنجليزي).
+
+### Files Changed
+- backend/index.php
+- backend/controllers/PatientController.php
+- frontend/src/api/client.js
+- frontend/src/pages/Profile.jsx
+- frontend/src/locales/ar.json
+- frontend/src/locales/fr.json
+- frontend/src/locales/en.json
+
+### Documentation Updated
+- Yes (`Docs/API.md`, `Docs/CHANGELOG.md`)
+
+---
+
 ## 2026-06-13 (4)
 
 ### Fixed

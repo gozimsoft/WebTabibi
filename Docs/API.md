@@ -99,7 +99,33 @@
 
 ---
 
-## 📅 3. الـ Endpoints الخاصة بالمواعيد (Appointments)
+## 👤 3. الـ Endpoints الخاصة بالمرضى (Patients)
+
+### 3.1. تغيير بيانات الدخول (Update Credentials)
+- **الوصف:** يسمح للمريض بتغيير اسم المستخدم أو كلمة المرور الخاصة به.
+- **المسار (URL):** `/patients/credentials`
+- **الطريقة (Method):** `PUT`
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>` (يجب أن يكون مريض).
+- **الجسم (Request Body):**
+  ```json
+  {
+    "new_username": "newuser456",
+    "new_password": "myNewPassword789"
+  }
+  ```
+  *(ملاحظة: يجب تقديم `new_username` أو `new_password` على الأقل).*
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "تم تحديث بيانات الدخول بنجاح."
+  }
+  ```
+
+---
+
+## 📅 4. الـ Endpoints الخاصة بالمواعيد (Appointments)
 
 ### 3.1. جلب الأوقات المتاحة للحجز (Available Slots)
 - **الوصف:** حساب وإرجاع فترات الحجز المتاحة لطبيب معين في عيادة محددة خلال يوم.

@@ -115,6 +115,11 @@ try {
         require_once __DIR__ . '/controllers/PatientController.php';
         PatientController::updateProfile();
     }
+    // PUT /api/patients/credentials — تغيير اسم المستخدم أو كلمة المرور للمريض
+    if ($uri === '/patients/credentials' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::updateCredentials();
+    }
     if ($uri === '/patients/appointments' && $method === 'GET') {
         require_once __DIR__ . '/controllers/PatientController.php';
         PatientController::getAppointments();

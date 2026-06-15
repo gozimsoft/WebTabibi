@@ -46,6 +46,8 @@ export const api = {
   patient: {
     getProfile: () => request('GET', '/patients/profile'),
     updateProfile: (body) => request('PUT', '/patients/profile', body),
+    // تغيير اسم المستخدم أو كلمة المرور — يتطلب كلمة المرور الحالية للتحقق من الهوية
+    updateCredentials: (body) => request('PUT', '/patients/credentials', body),
     getAppointments: () => request('GET', '/patients/appointments'),
   },
   doctor: {
