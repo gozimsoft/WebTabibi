@@ -55,6 +55,10 @@ try {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::register();
     }
+    if ($uri === '/auth/register-confirm' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::registerConfirm();
+    }
     if ($uri === '/auth/login' && $method === 'POST') {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::login();
@@ -70,6 +74,22 @@ try {
     if ($uri === '/auth/me' && $method === 'GET') {
         require_once __DIR__ . '/controllers/AuthController.php';
         AuthController::me();
+    }
+    if ($uri === '/auth/forgot-password' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::forgotPassword();
+    }
+    if ($uri === '/auth/verify-otp' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::verifyOtp();
+    }
+    if ($uri === '/auth/verify-account-email' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::verifyAccountEmail();
+    }
+    if ($uri === '/auth/reset-password' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AuthController.php';
+        AuthController::resetPassword();
     }
 
     // ── Verification ─────────────────────────────────────────
@@ -94,6 +114,11 @@ try {
     if ($uri === '/patients/profile' && $method === 'PUT') {
         require_once __DIR__ . '/controllers/PatientController.php';
         PatientController::updateProfile();
+    }
+    // PUT /api/patients/credentials — تغيير اسم المستخدم أو كلمة المرور للمريض
+    if ($uri === '/patients/credentials' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::updateCredentials();
     }
     if ($uri === '/patients/appointments' && $method === 'GET') {
         require_once __DIR__ . '/controllers/PatientController.php';
@@ -146,6 +171,12 @@ try {
     if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && !isset($parts[2]) && $method === 'GET') {
         require_once __DIR__ . '/controllers/ClinicController.php';
         ClinicController::getDoctorPublicProfile($parts[1]);
+    }
+
+    // ── Public Stats ─────────────────────────────────────────
+    if ($uri === '/public/stats' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/PublicController.php';
+        PublicController::getStats();
     }
 
     // ── clinics ───────────────────────────────────────────────
@@ -375,11 +406,35 @@ try {
         TicketController::close($parts[1]);
     }
 
+    // ── Notifications ─────────────────────────────────────────
+    if ($uri === '/notifications' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/NotificationController.php';
+        NotificationController::list();
+    }
+    if ($uri === '/notifications/read-all' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/NotificationController.php';
+        NotificationController::markAllAsRead();
+    }
+    if (isset($parts[0]) && $parts[0] === 'notifications' && isset($parts[1]) && !isset($parts[2])) {
+        require_once __DIR__ . '/controllers/NotificationController.php';
+        if ($parts[1] !== 'read-all') {
+            if ($method === 'PUT') {
+                NotificationController::markAsRead($parts[1]);
+            }
+            if ($method === 'DELETE') {
+                NotificationController::delete($parts[1]);
+            }
+        }
+    }
+
     // ── 404 ───────────────────────────────────────────────────
-    Response::notFound("Route introuvable: $method $uri");
+    // رسالة بشرية: الصفحة أو الخدمة المطلوبة غير موجودة
+    Response::notFound("الصفحة أو الخدمة التي تبحث عنها غير موجودة. يرجى التحقق من الرابط والمحاولة مرة أخرى.");
 
 } catch (PDOException $e) {
-    Response::serverError('Erreur base de données: ' . $e->getMessage());
+    // رسالة بشرية: خطأ في الاتصال بقاعدة البيانات
+    Response::serverError('حدث خطأ في الخادم أثناء معالجة طلبك. يرجى المحاولة مرة أخرى بعد قليل. إذا استمرت المشكلة يرجى التواصل مع الدعم الفني.');
 } catch (Throwable $e) {
-    Response::serverError('Erreur internet: ' . $e->getMessage());
+    // رسالة بشرية: خطأ غير متوقع في الخادم
+    Response::serverError('حدث خطأ غير متوقع في الخادم. يرجى المحاولة مرة أخرى. إذا استمرت المشكلة يرجى إبلاغ الدعم الفني.');
 }

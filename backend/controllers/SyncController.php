@@ -59,14 +59,14 @@ class SyncController {
         $input   = json_decode(file_get_contents('php://input'), true) ?? [];
 
         if (empty($input['appointments']) || !is_array($input['appointments'])) {
-            Response::error("Le champ 'appointments' (array) est requis", 422);
+            Response::error("الحقل 'appointments' (مصفوفة) مطلوب.", 422);
         }
 
         // Récupérer le doctor_id du médecin connecté
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch();
-        if (!$doctor) Response::notFound("Profil médecin introuvable");
+        if (!$doctor) Response::notFound("ملف الطبيب غير موجود.");
 
         $doctor_id = $doctor['id'];
 
@@ -90,7 +90,7 @@ class SyncController {
         $appointments = $input['appointments'];
         $maxBatch     = 500; // سقف حماية
         if (count($appointments) > $maxBatch) {
-            Response::error("Maximum $maxBatch appointments par batch", 422);
+            Response::error("الحد الأقصى للمزامنة هو $maxBatch موعد في المرة الواحدة.", 422);
         }
 
         foreach ($appointments as $appt) {
@@ -267,7 +267,7 @@ class SyncController {
                 'deleted'   => $deleted,
                 'failed'    => count($failed),
             ],
-        ], "Synchronisation terminée: $created créés, $updated mis à jour, $deleted supprimés");
+        ], "اكتملت المزامنة: تم إنشاء $created، وتحديث $updated، وحذف $deleted.");
     }
 
     // ──────────────────────────────────────────────────────────
@@ -287,7 +287,7 @@ class SyncController {
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch();
-        if (!$doctor) Response::notFound("Profil médecin introuvable");
+        if (!$doctor) Response::notFound("ملف الطبيب غير موجود.");
 
         $doctor_id       = $doctor['id'];
         $since          = $_GET['since'] ?? '';
@@ -398,11 +398,11 @@ class SyncController {
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch();
-        if (!$doctor) Response::notFound();
+        if (!$doctor) Response::notFound("ملف الطبيب غير موجود.");
 
         $ids = $input['ids'] ?? [];
         if (!is_array($ids) || empty($ids)) {
-            Response::error("ids (array) requis", 422);
+            Response::error("معرفات المواعيد (ids) مطلوبة.", 422);
         }
 
         $deleted = 0;
@@ -434,7 +434,7 @@ class SyncController {
         Response::success([
             'deleted'   => $deleted,
             'not_found' => $notFound,
-        ], "$deleted appointment(s) marqué(s) comme supprimé(s)");
+        ], "تم تحديد $deleted موعد كـمحذوف.");
     }
 
     // ──────────────────────────────────────────────────────────
@@ -449,7 +449,7 @@ class SyncController {
         $stmt = $pdo->prepare("SELECT id, fullname FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch();
-        if (!$doctor) Response::notFound();
+        if (!$doctor) Response::notFound("ملف الطبيب غير موجود.");
 
         $did = $doctor['id'];
 
@@ -512,7 +512,7 @@ class SyncController {
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch();
-        if (!$doctor) Response::notFound();
+        if (!$doctor) Response::notFound("ملف الطبيب غير موجود.");
 
         $limit = min(100, max(1, (int)($_GET['limit'] ?? 20)));
 
@@ -542,7 +542,7 @@ class SyncController {
         $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch();
-        if (!$doctor) Response::notFound();
+        if (!$doctor) Response::notFound("ملف الطبيب غير موجود.");
 
         $stmt2 = $pdo->prepare("
             SELECT 

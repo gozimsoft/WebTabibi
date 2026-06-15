@@ -10,14 +10,25 @@ async function request(method, path, body = null, auth = true) {
     const token = getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.message || 'Erreur');
-  return data.data ?? data;
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    if (!data.success) {
+      const err = new Error(data.message || 'حدث خطأ في الخادم.');
+      if (data.data) {
+        Object.assign(err, data.data);
+      }
+      throw err;
+    }
+    return data.data ?? data;
+  } catch (e) {
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
+    throw e;
+  }
 }
 
 // Auth
@@ -27,10 +38,16 @@ export const api = {
     login: (body) => request('POST', '/auth/login', body, false),
     logout: () => request('POST', '/auth/logout'),
     me: () => request('GET', '/auth/me'),
+    forgotPassword: (body) => request('POST', '/auth/forgot-password', body, false),
+    verifyOtp: (body) => request('POST', '/auth/verify-otp', body, false),
+    verifyAccountEmail: (body) => request('POST', '/auth/verify-account-email', body, false),
+    resetPassword: (body) => request('POST', '/auth/reset-password', body, false),
   },
   patient: {
     getProfile: () => request('GET', '/patients/profile'),
     updateProfile: (body) => request('PUT', '/patients/profile', body),
+    // تغيير اسم المستخدم أو كلمة المرور — يتطلب كلمة المرور الحالية للتحقق من الهوية
+    updateCredentials: (body) => request('PUT', '/patients/credentials', body),
     getAppointments: () => request('GET', '/patients/appointments'),
   },
   doctor: {
@@ -68,5 +85,11 @@ export const api = {
   ratings: {
     add: (body) => request('POST', '/ratings', body),
     getForDoctor: (id) => request('GET', `/ratings/doctor/${id}`),
+  },
+  notifications: {
+    list: () => request('GET', '/notifications'),
+    markAsRead: (id) => request('PUT', `/notifications/${id}/read`),
+    markAllAsRead: () => request('PUT', '/notifications/read-all'),
+    delete: (id) => request('DELETE', `/notifications/${id}`),
   },
 };

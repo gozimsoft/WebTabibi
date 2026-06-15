@@ -8,7 +8,8 @@ class TicketController {
     public static function create(): void {
         $user = AuthMiddleware::authenticate();
         if ($user['usertype'] != 0) { // Only patients can start tickets
-            Response::error('Seuls les patients peuvent créer des tickets', 403);
+            // رسالة بشرية: فقط المرضى يمكنهم فتح تذكرة دعم
+            Response::error('فتح تذاكر الدعم متاح للمرضى فقط. يرجى تسجيل الدخول بحساب مريض.', 403);
         }
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -18,11 +19,12 @@ class TicketController {
         $clinicid = $data['clinic_id'] ?? null;
 
         if (!$subject || !$message) {
-            Response::error('Le sujet et le message sont obligatoires', 422);
+            // رسالة بشرية: الموضوع والرسالة مطلوبان
+            Response::error('يرجى كتابة موضوع التذكرة ورسالة الاستفسار قبل الإرسال.', 422);
         }
 
         if ($doctor_id && $clinicid) {
-            Response::error('Un ticket ne peut être lié qu\'à un médecin ou une clinique, pas les deux', 422);
+            Response::error('لا يمكن ربط تذكرة الدعم بالطبيب والعيادة معاً، يرجى اختيار جهة واحدة.', 422);
         }
 
         $pdo = Database::getInstance();
@@ -35,7 +37,7 @@ class TicketController {
         $pdo->prepare("INSERT INTO ticketmessages (id, ticket_id, sender_type, sender_id, message) VALUES (?, ?, 'patient', ?, ?)")
             ->execute([self::uuid(), $ticketId, $patientId, $message]);
 
-        Response::success(['id' => $ticketId], 'Ticket créé avec succès');
+        Response::success(['id' => $ticketId], 'تم إنشاء تذكرة الدعم بنجاح.');
     }
 
     public static function list(): void {
@@ -75,7 +77,8 @@ class TicketController {
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
             Response::success($results);
         } catch (\Exception $e) {
-            Response::error($e->getMessage(), 500);
+            // رسالة بشرية: خطأ عند جلب التذاكر
+            Response::error('حدث خطأ أثناء جلب قائمة تذاكر الدعم. يرجى المحاولة مرة أخرى.', 500);
         }
     }
 
@@ -88,7 +91,7 @@ class TicketController {
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$ticket) Response::notFound('Ticket non trouvé');
+        if (!$ticket) Response::notFound('لم يتم العثور على التذكرة المطلوبة.');
 
         $myId = null;
         $isAllowed = false;
@@ -109,7 +112,7 @@ class TicketController {
             if ($stmt->fetch()) $isAllowed = true;
         }
 
-        if (!$isAllowed) Response::error('Accès refusé', 403);
+        if (!$isAllowed) Response::error('ليس لديك صلاحية الاطلاع على هذه التذكرة.', 403);
 
         // Fetch messages
         $stmt = $pdo->prepare("SELECT * FROM ticketmessages WHERE ticket_id = ? ORDER BY created_at ASC");
@@ -132,27 +135,27 @@ class TicketController {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $message = trim($data['message'] ?? '');
 
-        if (!$message) Response::error('Le message est vide', 422);
+        if (!$message) Response::error('يرجى كتابة رسالتك قبل الإرسال.', 422);
 
         $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$ticket) Response::notFound('Ticket non trouvé');
-        if ($ticket['status'] === 'CLOSED') Response::error('Le ticket est fermé', 422);
+        if ($ticket['status'] === 'CLOSED') Response::error('هذه التذكرة مغلقة. لا يمكن إضافة رد عليها بعد الإغلاق.', 422);
 
         $myId = null;
         $type = '';
         if ($user['usertype'] == 0) {
             $myId = self::getPatientId($user['user_id']);
-            if ($ticket['patient_id'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['patient_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'patient';
         } else if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['doctor_id'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['doctor_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'doctor';
         } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
-            if ($ticket['clinic_id'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['clinic_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'clinic';
         }
 
@@ -164,32 +167,32 @@ class TicketController {
         $pdo->prepare("UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             ->execute([$newStatus, $id]);
 
-        Response::success(null, 'Réponse envoyée');
+        Response::success(null, 'تم إرسال ردك بنجاح.');
     }
 
     public static function close(string $id): void {
         $user = AuthMiddleware::authenticate();
-        if ($user['usertype'] == 0) Response::error('Action non autorisée', 403);
+        if ($user['usertype'] == 0) Response::error('إغلاق التذاكر متاح فقط للطبيب أو العيادة.', 403);
 
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$ticket) Response::notFound('Ticket non trouvé');
+        if (!$ticket) Response::notFound('لم يتم العثور على التذكرة المطلوبة.');
 
         $myId = null;
         if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['doctor_id'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['doctor_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
         } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
-            if ($ticket['clinic_id'] !== $myId) Response::error('Accès refusé', 403);
+            if ($ticket['clinic_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
         }
 
         $pdo->prepare("UPDATE tickets SET status = 'CLOSED' WHERE id = ?")
             ->execute([$id]);
 
-        Response::success(null, 'Ticket fermé');
+        Response::success(null, 'تم إغلاق التذكرة بنجاح.');
     }
 
     private static function getPatientId(string $userId): string {

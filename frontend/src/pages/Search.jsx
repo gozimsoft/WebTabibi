@@ -25,7 +25,12 @@ export default function SearchPage({ navigate, qs }) {
     try {
       const d = await api.clinics.search({ q: qv, specialty: spv, limit: 24 });
       setR(d.items || []); setT(d.total || 0);
-    } catch (e) { show(e.message, "error"); setR([]); }
+    } catch (e) {
+      // Pick a user-friendly translated message — never show raw technical errors
+      const msgKey = e?.message === 'service_unavailable' ? 'service_unavailable' : 'search_error';
+      show(t(msgKey), "error");
+      setR([]);
+    }
     finally { setL(false); }
   }, [show]);
 

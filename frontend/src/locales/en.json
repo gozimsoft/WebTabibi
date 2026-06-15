@@ -83,6 +83,8 @@
     "search_btn": "Search",
     "results_count": "results",
     "no_results": "No results found",
+    "search_error": "Search failed, please try again.",
+    "service_unavailable": "Service is temporarily unavailable, please try again later.",
     "experience": "years of experience",
     "da": "DA",
     "back_to_search": "Back to search",
@@ -523,6 +525,21 @@
     "appt_mgr_show_info": "Show Info",
     "appt_mgr_hide_info": "Hide Info",
     "appt_mgr_show_stats": "Show Stats",
-    "appt_mgr_hide_stats": "Hide Stats"
+    "appt_mgr_hide_stats": "Hide Stats",
+    "notifications": "Notifications",
+    "no_notifications": "No new notifications",
+    "mark_all_read": "Mark all as read",
+    "login_credentials": "Login Credentials",
+    "login_credentials_desc": "Change your username or password",
+    "current_username": "Current username",
+    "new_username": "New username",
+    "new_username_hint": "English letters and numbers only (3-30 characters)",
+    "current_password": "Current password",
+    "new_password": "New password",
+    "new_password_hint": "Leave blank to keep unchanged",
+    "confirm_new_password": "Confirm new password",
+    "passwords_no_match": "Passwords do not match",
+    "credentials_save_success": "Login credentials updated successfully",
+    "current_password_required": "Current password is required"
   }
 }

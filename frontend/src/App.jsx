@@ -42,10 +42,17 @@ async function req(method, path, body, auth = true) {
       body: body ? JSON.stringify(body) : undefined,
     });
     const d = await r.json();
-    if (!d.success) throw new Error(d.message || "Erreur serveur");
+    if (!d.success) {
+      const err = new Error(d.message || "حدث خطأ في الخادم.");
+      if (d.data) {
+        Object.assign(err, d.data);
+      }
+      throw err;
+    }
     return d.data ?? d;
   } catch (e) {
-    if (e instanceof TypeError) throw new Error("Impossible de contacter le serveur. Vérifiez que le server  ");
+    // رسالة بشرية: خطأ في الاتصال بالإنترنت أو الخادم
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
     throw e;
   }
 }
@@ -58,9 +65,10 @@ async function reqFile(method, path, body) {
       method, headers, body
     });
     const d = await r.json();
-    if (!d.success) throw new Error(d.message || "Erreur serveur");
+    if (!d.success) throw new Error(d.message || "حدث خطأ في الخادم.");
     return d.data ?? d;
   } catch (e) {
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
     throw e;
   }
 }
@@ -72,10 +80,16 @@ const api = {
     google: b => req("POST", "/auth/google", b, false),
     logout: () => req("POST", "/auth/logout"),
     me: () => req("GET", "/auth/me"),
+    forgotPassword: b => req("POST", "/auth/forgot-password", b, false),
+    verifyOtp: b => req("POST", "/auth/verify-otp", b, false),
+    verifyAccountEmail: b => req("POST", "/auth/verify-account-email", b, false),
+    registerConfirm: b => req("POST", "/auth/register-confirm", b, false),
+    resetPassword: b => req("POST", "/auth/reset-password", b, false),
   },
   patient: {
     profile: () => req("GET", "/patients/profile"),
     update: b => req("PUT", "/patients/profile", b),
+    updateCredentials: b => req("PUT", "/patients/credentials", b),
     appointments: () => req("GET", "/patients/appointments"),
     family: () => {
       const stored = localStorage.getItem("tabibi_family");
@@ -154,6 +168,7 @@ const api = {
     approveDoctor: id => req("POST", `/admin/doctors/${id}/approve`, {}),
     rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
   },
+  publicStats: () => req("GET", "/public/stats", null, false),
   tickets: {
     create: b => req("POST", "/tickets", b),
     list: () => req("GET", "/tickets"),
@@ -167,6 +182,13 @@ const api = {
     delete: ids => req("POST", "/sync/delete", { ids }),
     status: () => req("GET", "/sync/status"),
     reasons: () => req("GET", "/sync/reasons"),
+  },
+  // ── نقاط نهاية نظام الإشعارات
+  notifications: {
+    list: () => req("GET", "/notifications"),
+    markAsRead: id => req("PUT", `/notifications/${id}/read`, {}),
+    markAllAsRead: () => req("PUT", "/notifications/read-all", {}),
+    delete: id => req("DELETE", `/notifications/${id}`),
   },
 };
 
@@ -214,6 +236,15 @@ function useAuth() {
   };
   const register = async b => {
     const d = await api.auth.register(b);
+    if (d && d.requires_verification) {
+      return d;
+    }
+    localStorage.setItem("tabibi_token", d.token);
+    setUser(d);
+    return d;
+  };
+  const registerConfirm = async b => {
+    const d = await api.auth.registerConfirm(b);
     localStorage.setItem("tabibi_token", d.token);
     setUser(d);
     return d;
@@ -229,7 +260,7 @@ function useAuth() {
     localStorage.removeItem("tabibi_token");
     setUser(null);
   };
-  return { user, loading, login, register, googleLogin, logout };
+  return { user, loading, login, register, registerConfirm, googleLogin, logout };
 }
 
 // ── Responsive Hook ───────────────────────────────────────────
@@ -368,12 +399,7 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
             <p style={{ color: "#6b7280", marginBottom: 16 }}>
               أدخل الرمز المرسل إلى <strong style={{ color: "var(--brand)" }}>{target}</strong>
             </p>
-            {devCode && (
-              <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, padding: "12px 16px", marginBottom: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#854d0e", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><AlertTriangle size={14} /> وضع التطوير — الرمز:</div>
-                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 8, color: "var(--brand)" }}>{devCode}</div>
-              </div>
-            )}
+
             <div style={{ marginBottom: 16 }}>
               <input
                 value={code}
@@ -477,6 +503,10 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const [open, setOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // ── حالة قائمة الإشعارات
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const notifRef = useRef(null);
   const isMobile = useIsMobile();
   const name = user?.profile?.fullname?.split(" ")[0] || user?.profile?.clinicname?.split(" ")[0] || user?.username || "U";
   const animClass = useRandomAnimation(30);
@@ -486,6 +516,90 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // ── جلب الإشعارات من الخادم
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await api.notifications.list();
+      setNotifications(data || []);
+    } catch (err) {
+      console.error("فشل في جلب الإشعارات:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات الجديدة
+      const interval = setInterval(fetchNotifications, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // ── إغلاق قائمة الإشعارات عند الضغط خارجها
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+    };
+    if (notifOpen) {
+      document.addEventListener("mousedown", onClickOutside);
+      document.addEventListener("touchstart", onClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("touchstart", onClickOutside);
+    };
+  }, [notifOpen]);
+
+  // ── تحديد إشعار واحد كمقروء
+  const markAsRead = async (id, isRead) => {
+    if (isRead) return;
+    try {
+      await api.notifications.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
+    } catch (err) {
+      console.error("فشل في تحديد الإشعار كمقروء:", err);
+    }
+  };
+
+  // ── تحديد جميع الإشعارات كمقروءة
+  const markAllAsRead = async () => {
+    try {
+      await api.notifications.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+    } catch (err) {
+      console.error("فشل في تحديد جميع الإشعارات كمقروءة:", err);
+    }
+  };
+
+  // ── حذف إشعار
+  const deleteNotification = async (e, id) => {
+    e.stopPropagation(); // منع استدعاء markAsRead
+    try {
+      await api.notifications.delete(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error("فشل في حذف الإشعار:", err);
+    }
+  };
+
+  // ── تنسيق التاريخ حسب اللغة الحالية
+  const formatNotifDate = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR', {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  // ── عدد الإشعارات غير المقروءة
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
@@ -588,6 +702,205 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
         {/* User Actions */}
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {/* ── زر الإشعارات مع القائمة المنسدلة */}
+          {user && (
+            <div ref={notifRef} style={{ position: "relative" }}>
+              {/* زر الجرس */}
+              <button
+                onClick={() => { setNotifOpen(prev => !prev); setOpen(false); }}
+                title={t("notifications", "الإشعارات")}
+                style={{
+                  background: notifOpen ? "var(--brand-light)" : "var(--brand-light)",
+                  border: notifOpen ? "1.5px solid var(--brand)" : "1.5px solid transparent",
+                  cursor: "pointer",
+                  width: 38, height: 38, borderRadius: "50%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--brand)", transition: "all 0.2s",
+                  position: "relative"
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+              >
+                <Bell size={20} />
+                {/* شارة عدد الإشعارات غير المقروءة */}
+                {unreadCount > 0 && (
+                  <div style={{
+                    position: "absolute", top: -3, right: -3,
+                    background: "#ef4444", color: "#fff",
+                    fontSize: 9, fontWeight: 700,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 4px", border: "2px solid var(--card-bg)"
+                  }}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </div>
+                )}
+              </button>
+
+              {/* ── القائمة المنسدلة للإشعارات */}
+              <AnimatePresence>
+                {notifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.18 }}
+                    style={{
+                      position: "absolute",
+                      right: i18n.language === 'ar' ? 'auto' : 0,
+                      left: i18n.language === 'ar' ? 0 : 'auto',
+                      top: "calc(100% + 10px)",
+                      background: "var(--card-bg)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 16,
+                      boxShadow: "var(--shadow-lg)",
+                      width: 340,
+                      maxHeight: 480,
+                      overflow: "hidden",
+                      zIndex: 1001,
+                      display: "flex",
+                      flexDirection: "column"
+                    }}
+                  >
+                    {/* ── رأس القائمة */}
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "14px 16px", borderBottom: "1px solid var(--border)",
+                      background: "var(--bg)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Bell size={16} style={{ color: "var(--brand)" }} />
+                        <span style={{ fontWeight: 800, fontSize: 14, color: "var(--text-main)" }}>
+                          {t("notifications", "الإشعارات")}
+                        </span>
+                        {unreadCount > 0 && (
+                          <span style={{
+                            background: "var(--brand)", color: "#fff",
+                            fontSize: 10, fontWeight: 700,
+                            padding: "1px 7px", borderRadius: 10
+                          }}>
+                            {unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      {/* زر تحديد الكل كمقروء */}
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          style={{
+                            background: "none", border: "none",
+                            color: "var(--brand)", fontSize: 11, fontWeight: 700,
+                            cursor: "pointer", padding: "4px 8px",
+                            borderRadius: 8, transition: "background 0.15s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--brand-light)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}
+                        >
+                          {t("mark_all_read", "تحديد الكل كمقروء")}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ── قائمة الإشعارات */}
+                    <div style={{ overflowY: "auto", flex: 1 }}>
+                      {notifications.length === 0 ? (
+                        // حالة القائمة الفارغة
+                        <div style={{
+                          padding: "40px 16px", textAlign: "center",
+                          display: "flex", flexDirection: "column",
+                          alignItems: "center", gap: 12
+                        }}>
+                          <div style={{
+                            width: 56, height: 56, borderRadius: "50%",
+                            background: "var(--brand-light)",
+                            display: "flex", alignItems: "center", justifyContent: "center"
+                          }}>
+                            <Bell size={24} style={{ color: "var(--brand)", opacity: 0.6 }} />
+                          </div>
+                          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+                            {t("no_notifications", "لا توجد إشعارات جديدة")}
+                          </p>
+                        </div>
+                      ) : (
+                        notifications.map(n => (
+                          <div
+                            key={n.id}
+                            onClick={() => markAsRead(n.id, n.is_read)}
+                            style={{
+                              padding: "12px 16px",
+                              borderBottom: "1px solid var(--border)",
+                              cursor: "pointer", transition: "background 0.15s",
+                              background: n.is_read ? "var(--card-bg)" : "var(--brand-light)",
+                              display: "flex", gap: 12, position: "relative",
+                              // شريط ملوّن للإشعارات غير المقروءة
+                              borderInlineStart: !n.is_read ? "3px solid var(--brand)" : "3px solid transparent"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = n.is_read ? "var(--bg)" : "#d6f0f8"}
+                            onMouseLeave={e => e.currentTarget.style.background = n.is_read ? "var(--card-bg)" : "var(--brand-light)"}
+                          >
+                            {/* نقطة حالة القراءة */}
+                            <div style={{ paddingTop: 4, flexShrink: 0 }}>
+                              <div style={{
+                                width: 8, height: 8, borderRadius: "50%",
+                                background: n.is_read ? "var(--border)" : "var(--brand)",
+                                transition: "background 0.2s"
+                              }} />
+                            </div>
+                            {/* محتوى الإشعار */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                display: "flex", justifyContent: "space-between",
+                                alignItems: "baseline", gap: 8, marginBottom: 3
+                              }}>
+                                <span style={{
+                                  fontWeight: n.is_read ? 600 : 800, fontSize: 13,
+                                  color: "var(--text-main)",
+                                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                                }}>
+                                  {n.title}
+                                </span>
+                                <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
+                                  {formatNotifDate(n.created_at)}
+                                </span>
+                              </div>
+                              <p style={{
+                                margin: 0, fontSize: 12, color: "var(--text-secondary)",
+                                lineHeight: 1.5, whiteSpace: "pre-line",
+                                textAlign: i18n.language === 'ar' ? 'right' : 'left'
+                              }}>
+                                {n.message}
+                              </p>
+                            </div>
+                            {/* زر الحذف */}
+                            <button
+                              onClick={(e) => deleteNotification(e, n.id)}
+                              style={{
+                                background: "none", border: "none",
+                                color: "var(--text-muted)", cursor: "pointer",
+                                fontSize: 14, padding: "2px 4px",
+                                alignSelf: "flex-start", borderRadius: 6,
+                                transition: "all 0.2s", flexShrink: 0
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.color = "#ef4444";
+                                e.currentTarget.style.background = "#fef2f2";
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.color = "var(--text-muted)";
+                                e.currentTarget.style.background = "none";
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
           {user ? (
             <div style={{ position: "relative" }}>
               <button onClick={() => setOpen(!open)} style={{
@@ -765,10 +1078,12 @@ function HomePage({ user, navigate }) {
   const [focused, setFocused] = useState(false);
   const [specialties, setSP] = useState([]);
   const [hoveredSpec, setHoveredSpec] = useState(null);
+  const [platformStats, setPlatformStats] = useState(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     api.specialties().then(setSP).catch(() => { });
+    api.publicStats().then(setPlatformStats).catch(() => { });
   }, []);
 
   const getIcon = (namefr) => {
@@ -913,23 +1228,23 @@ function HomePage({ user, navigate }) {
       </section>
 
       {/* ── SECTION: STATS (NUMBERS) ── */}
-      <div style={{ maxWidth: 1200, margin: isMobile ? "20px auto 40px" : "20px auto 70px", padding: isMobile ? "0 16px" : "0 24px", position: "relative", zIndex: 10 }}>
+      <div style={{ maxWidth: 1200, margin: isMobile ? "-20px auto 40px" : "-60px auto 70px", padding: isMobile ? "0 16px" : "0 24px", position: "relative", zIndex: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 14 : 20 }}>
           {[
             {
-              num: "+50,000", label: t("stats_patients"),
+              num: platformStats ? `${platformStats.patients.toLocaleString()}` : "0", label: t("stats_patients"),
               icon: <Users size={20} />,
               img: `${import.meta.env.BASE_URL}stats_patients_custom.png`,
               color: "#0092a2",
             },
             {
-              num: "+800", label: t("stats_clinics"),
+              num: platformStats ? `${platformStats.clinics.toLocaleString()}` : "0", label: t("stats_clinics"),
               icon: <Building2 size={20} />,
               img: `${import.meta.env.BASE_URL}stats_clinics_custom.jpg`,
               color: "#0092a2",
             },
             {
-              num: "+1,200", label: t("stats_doctors"),
+              num: platformStats ? `${platformStats.doctors.toLocaleString()}` : "0", label: t("stats_doctors"),
               icon: <Stethoscope size={20} />,
               img: `${import.meta.env.BASE_URL}stats_doctors_custom.png`,
               color: "#0092a2",
@@ -1331,11 +1646,25 @@ function HomePage({ user, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
+  const { show } = useToast();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
   // مرجع حاوية زر Google الرسمي
   const googleBtnRef = React.useRef(null);
+
+  // Forgot Password State
+  const [resetStep, setResetStep] = useState(0); // 0: hidden, 1: email, 2: otp & new password
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+
+  // Email Verification State (حالة تأكيد الحساب بالإيميل)
+  const [showOtp, setShowOtp] = useState(false);
+  const [emailToVerify, setEmailToVerify] = useState("");
+  const [otpCode, setOtpCode] = useState("");
 
   // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
   React.useEffect(() => {
@@ -1376,13 +1705,140 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
     }
     catch (e) {
       analytics.track("login_failed", { username: form.username, error: e.message });
-      setError(e.message);
+      if (e.requires_verification) {
+        setEmailToVerify(e.email);
+        setShowOtp(true);
+        setError("");
+      } else {
+        setError(e.message);
+      }
     }
     finally { setL(false); }
   };
 
+  const verifyCode = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setError(localStorage.getItem("tabibi_lang") === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام" : "Veuillez entrer le code à 6 chiffres");
+      return;
+    }
+    setL(true); setError("");
+    try {
+      await api.auth.verifyAccountEmail({ email: emailToVerify, code: otpCode });
+      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تأكيد البريد الإلكتروني بنجاح! جاري تسجيل الدخول..." : "E-mail vérifié avec succès ! Connexion en cours...");
+      await onLogin(form.username, form.password);
+      navigate("/");
+    } catch(e) {
+      setError(e.message);
+    } finally {
+      setL(false);
+    }
+  };
+
+  const resendCode = async () => {
+    setError(""); setL(true);
+    try {
+      await onLogin(form.username, form.password);
+    } catch (e) {
+      if (e.requires_verification) {
+        show(localStorage.getItem("tabibi_lang") === "ar" ? "تم إعادة إرسال رمز التحقق بنجاح!" : "Code de vérification renvoyé avec succès !");
+      } else {
+        setError(e.message);
+        setShowOtp(false);
+      }
+    } finally {
+      setL(false);
+    }
+  };
+
+  const handleSendResetEmail = async (e) => {
+    e.preventDefault(); setResetError(""); setResetLoading(true);
+    try {
+      await api.auth.forgotPassword({ email: resetEmail });
+      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم إرسال الرمز بنجاح!" : "Code envoyé avec succès!");
+      setResetStep(2);
+    } catch (e) { setResetError(e.message); }
+    finally { setResetLoading(false); }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault(); setResetError(""); setResetLoading(true);
+    try {
+      await api.auth.resetPassword({ email: resetEmail, otp: resetOtp, password: newPassword });
+      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تغيير كلمة المرور بنجاح!" : "Mot de passe modifié avec succès!");
+      setResetStep(0);
+      setForm({ ...form, password: "" });
+    } catch (e) { setResetError(e.message); }
+    finally { setResetLoading(false); }
+  };
+
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      
+      {resetStep > 0 && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20
+        }}>
+          <Card style={{ width: "100%", maxWidth: 400, position: "relative" }}>
+            <button onClick={() => setResetStep(0)} style={{
+              position: "absolute", top: 15, right: 15, background: "none", border: "none",
+              fontSize: 24, cursor: "pointer", color: "var(--text-muted)"
+            }}>×</button>
+            
+            <h2 style={{ fontSize: 20, marginBottom: 16 }}>
+              {localStorage.getItem("tabibi_lang") === "ar" ? "استعادة كلمة المرور" : "Réinitialiser le mot de passe"}
+            </h2>
+            
+            {resetError && <div style={{ background: "#fee2e2", padding: "10px", borderRadius: 8, color: "#dc2626", fontSize: 13, marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {resetError}</div>}
+            
+            {resetStep === 1 ? (
+              <form onSubmit={handleSendResetEmail}>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" 
+                    ? "أدخل بريدك الإلكتروني المسجل وسنرسل لك رمزاً للتحقق." 
+                    : "Entrez votre email et nous vous enverrons un code."}
+                </p>
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "البريد الإلكتروني" : "Email"} 
+                  type="email" 
+                  value={resetEmail} 
+                  onChange={e => setResetEmail(e.target.value)} 
+                  required 
+                />
+                <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "إرسال الرمز" : "Envoyer le code"}
+                </Btn>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword}>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" 
+                    ? "أدخل الرمز المكون من 6 أرقام المرسل إلى بريدك." 
+                    : "Entrez le code à 6 chiffres envoyé à votre email."}
+                </p>
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "رمز التحقق (OTP)" : "Code OTP"} 
+                  value={resetOtp} 
+                  onChange={e => setResetOtp(e.target.value)} 
+                  placeholder="123456"
+                  required 
+                />
+                <Input 
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "كلمة المرور الجديدة" : "Nouveau mot de passe"} 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)} 
+                  required 
+                />
+                <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد التغيير" : "Confirmer"}
+                </Btn>
+              </form>
+            )}
+          </Card>
+        </div>
+      )}
+
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
@@ -1396,26 +1852,87 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
-          {/* زر تسجيل الدخول بـ Google الرسمي */}
-          <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+          {!showOtp ? (
+            <>
+              {/* زر تسجيل الدخول بـ Google الرسمي */}
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
 
-          {/* فاصل */}
-          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ margin: "0 10px", fontSize: 12 }}>أو</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          </div>
+              {/* فاصل */}
+              <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                <span style={{ margin: "0 10px", fontSize: 12 }}>أو</span>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              </div>
 
-          <form onSubmit={submit}>
-            <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
-            <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
-            <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
-              {loading ? t("logging_in") : t("login_btn")}
-            </Btn>
-          </form>
-          <p style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "#6b7280" }}>
-            {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
-          </p>
+              <form onSubmit={submit}>
+                <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
+                <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
+                
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
+                  <button 
+                    type="button" 
+                    onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }} 
+                    style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                  >
+                    {localStorage.getItem("tabibi_lang") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
+                  </button>
+                </div>
+
+                <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
+                  {loading ? t("logging_in") : t("login_btn")}
+                </Btn>
+              </form>
+              <p style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "#6b7280" }}>
+                {t("no_account")} <button onClick={() => navigate("/register")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("register_now")}</button>
+              </p>
+            </>
+          ) : (
+            <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <h3 style={{ marginBottom: 16, color: "var(--text-main)", fontSize: 18, fontWeight: 700 }}>
+                {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد البريد الإلكتروني" : "Confirmation de l'adresse e-mail"}
+              </h3>
+              <p style={{ color: "var(--text-secondary)", marginBottom: 20, fontSize: 14, lineHeight: 1.5 }}>
+                {localStorage.getItem("tabibi_lang") === "ar" 
+                  ? `لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني ${emailToVerify}. يرجى إدخاله لتفعيل الحساب.` 
+                  : `Nous avons envoyé un code de vérification à votre e-mail ${emailToVerify}. Veuillez le saisir pour activer le compte.`}
+              </p>
+              <input 
+                type="text" 
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="_ _ _ _ _ _"
+                maxLength={6}
+                style={{
+                  width: "100%", padding: "14px", textAlign: "center",
+                  fontSize: 24, fontWeight: 900, letterSpacing: 10,
+                  border: "2px solid var(--brand)", borderRadius: 12, outline: "none",
+                  boxSizing: "border-box", background: "var(--input-bg)", color: "var(--text-main)",
+                  marginBottom: 20, direction: "ltr"
+                }}
+              />
+              <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginBottom: 12 }}>
+                {loading 
+                  ? (localStorage.getItem("tabibi_lang") === "ar" ? "جاري التحقق..." : "Vérification...") 
+                  : (localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد الحساب" : "Confirmer le compte")}
+              </Btn>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+                <button 
+                  type="button"
+                  onClick={resendCode} 
+                  style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                >
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "إعادة إرسال الرمز" : "Renvoyer le code"}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setShowOtp(false); setError(""); setOtpCode(""); }} 
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                >
+                  {localStorage.getItem("tabibi_lang") === "ar" ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
@@ -1425,11 +1942,14 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: REGISTER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
+function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0 });
+  const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0, nin: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
+  // حالة عرض شاشة OTP بعد إرسال طلب التسجيل
+  const [showOtp, setShowOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
   // مرجع حاوية زر Google الرسمي
   const googleBtnRef = React.useRef(null);
@@ -1463,13 +1983,19 @@ function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
     return () => clearInterval(timer);
   }, [onGoogleLogin, navigate]);
 
+  // إرسال بيانات التسجيل — إذا كان الرد يطلب التحقق من الإيميل نعرض شاشة OTP
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
     analytics.track("register_attempt", { username: form.username, email: form.email });
     try {
-      await onRegister(form);
+      const res = await onRegister(form);
       analytics.track("register_success", { username: form.username, email: form.email });
-      navigate("/");
+      // الخادم يعيد requires_verification عند الحاجة لتأكيد الإيميل
+      if (res && res.requires_verification) {
+        setShowOtp(true);
+      } else {
+        navigate("/guide");
+      }
     }
     catch (e) {
       analytics.track("register_failed", { username: form.username, error: e.message });
@@ -1478,53 +2004,108 @@ function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
     finally { setL(false); }
   };
 
+  // التحقق من رمز OTP وإتمام إنشاء الحساب
+  const verifyCode = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setError("يرجى إدخال رمز التحقق المكون من 6 أرقام");
+      return;
+    }
+    setL(true); setError("");
+    try {
+      await onRegisterConfirm({ ...form, code: otpCode });
+      navigate("/guide");
+    } catch(e) {
+      setError(e.message);
+    } finally {
+      setL(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 460 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
             <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <UserPlus size={32} color="var(--brand)" />
+              {showOtp ? <Mail size={32} color="var(--brand)" /> : <UserPlus size={32} color="var(--brand)" />}
             </div>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>{t("register_title")}</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: "0 0 6px" }}>
+            {showOtp ? "تأكيد البريد الإلكتروني" : t("register_title")}
+          </h1>
         </div>
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
-          {/* زر إنشاء الحساب بـ Google الرسمي */}
-          <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
-
-          {/* فاصل */}
-          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          </div>
-
-          <form onSubmit={submit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={t("fullname") + " *"} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
-              <Input label={t("username") + " *"} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
+          {/* شاشة إدخال رمز OTP */}
+          {showOtp ? (
+            <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <p style={{ color: "#6b7280", marginBottom: 12, fontSize: 14, lineHeight: 1.7 }}>
+                لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني<br />
+                <strong style={{ color: "#0c4a6e" }}>{form.email}</strong><br />
+                يرجى إدخاله أدناه لتفعيل حسابك.
+              </p>
+              <p style={{ color: "#ca8a04", marginBottom: 24, fontSize: 12, fontWeight: 600, background: "#fefce8", padding: "8px", borderRadius: "8px", border: "1px solid #fef08a" }}>
+                ⚠️ يرجى التحقق من مجلد الرسائل غير المرغوب فيها (Spam / Junk) إذا لم تجد الرسالة في صندوق الوارد.
+              </p>
+              <input
+                type="text"
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="_ _ _ _ _ _"
+                maxLength={6}
+                style={{
+                  width: "100%", padding: "14px", textAlign: "center",
+                  fontSize: 28, fontWeight: 900, letterSpacing: 12,
+                  border: "2px solid var(--brand)", borderRadius: 12, outline: "none",
+                  boxSizing: "border-box", background: "var(--bg)", color: "#0c4a6e",
+                  marginBottom: 16
+                }}
+              />
+              <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12 }}>
+                {loading ? "جاري التحقق..." : "تأكيد الحساب ✓"}
+              </Btn>
+              <button onClick={() => setShowOtp(false)} style={{ marginTop: 14, background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 13 }}>
+                ← العودة للتسجيل
+              </button>
             </div>
-            <Input label={t("email") + " *"} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
-                <select value={form.gender} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                  <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-                </select>
+          ) : (
+            <>
+              {/* زر إنشاء الحساب بـ Google الرسمي */}
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+
+              {/* فاصل */}
+              <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
               </div>
-            </div>
-            <Input label={t("password") + " *"} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
-            <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
-              {loading ? t("creating_account") : t("create_account_btn")}
-            </Btn>
-          </form>
-          <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "#6b7280" }}>
-            {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login_btn")}</button>
-          </p>
+
+              <form onSubmit={submit}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Input label={t("fullname") + " *"} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
+                  <Input label={t("username") + " *"} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
+                </div>
+                <Input label={t("email") + " *"} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                    <select value={form.gender} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                      <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                    </select>
+                  </div>
+                </div>
+                <Input label={t("password") + " *"} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
+                <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
+                  {loading ? t("creating_account") : t("create_account_btn")}
+                </Btn>
+              </form>
+              <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "#6b7280" }}>
+                {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login_btn")}</button>
+              </p>
+            </>
+          )}
         </Card>
       </div>
     </div>
@@ -2349,6 +2930,29 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
           </div>
         </div>
       </Card>
+
+      {/* Virtual Doctor Claim Banner — shown when emailvalidation is not confirmed (NULL or 0) */}
+      {!data.emailvalidation && (
+        <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1.5px dashed #fbbf24", padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#b45309", flex: 1, minWidth: 250 }}>
+              <Info size={28} />
+              <div>
+                <strong style={{ display: "block", fontSize: 16, marginBottom: 4 }}>حساب طبيب افتراضي</strong>
+                <span style={{ fontSize: 13, lineHeight: 1.6, display: "block" }}>
+                  هذا الحساب تم إنشاؤه مسبقاً ولا يملك الطبيب حق الوصول إليه حالياً. إذا كنت أنت هذا الطبيب، يمكنك المطالبة بالحساب وإكمال بياناتك.
+                </span>
+              </div>
+            </div>
+            <Btn
+              onClick={() => navigate(`/register-doctor?claim_id=${doctor_id}`)}
+              style={{ background: "#d97706", border: "none", padding: "10px 22px", flexShrink: 0 }}
+            >
+              هل أنت هذا الطبيب؟
+            </Btn>
+          </div>
+        </Card>
+      )}
 
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20, overflowX: "auto" }}>
         {[
@@ -3868,19 +4472,24 @@ function RegisterClinicPage({ navigate }) {
 }
 
 // ── PAGE: REGISTER DOCTOR ─────────────────────────────────────
-function RegisterDoctorPage({ navigate }) {
+function RegisterDoctorPage({ navigate, qs }) {
   const isMobile = useIsMobile();
   const { t, i18n } = useTranslation();
   const { show, Toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '' });
+  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '', doctor_id: '' });
   const [errors, setErrors] = useState({});
   const [specs, setSpecs] = useState([]);
 
   useEffect(() => {
     api.specialties().then(setSpecs).catch(() => { });
-  }, []);
+    if (qs) {
+      const params = new URLSearchParams(qs);
+      const claimId = params.get('claim_id');
+      if (claimId) setForm(f => ({ ...f, doctor_id: claimId }));
+    }
+  }, [qs]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
 
@@ -4836,6 +5445,11 @@ function ProfilePage({ user, navigate }) {
   const [uploadingPhoto, setUPhoto] = useState(false);
   const [verStatus, setVS] = useState(null);
   const [otpModal, setOTP] = useState(null);
+  
+  // --- حالة قسم بيانات الدخول للمريض ---
+  const [creds, setCreds] = useState({ current_password: "", new_username: "", new_password: "", confirm_new_password: "" });
+  const [savingCreds, setSavingCreds] = useState(false);
+  
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
 
@@ -4883,6 +5497,22 @@ function ProfilePage({ user, navigate }) {
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
+  };
+
+  const saveCredentials = async () => {
+    if (creds.new_password && creds.new_password !== creds.confirm_new_password) return show(t("passwords_no_match", "كلمتا المرور غير متطابقتين"), "error");
+    if (!creds.new_username && !creds.new_password) return show("يرجى إدخال اسم مستخدم أو كلمة مرور جديدة", "error");
+
+    setSavingCreds(true);
+    try {
+      await api.patient.updateCredentials({
+        new_username: creds.new_username || undefined,
+        new_password: creds.new_password || undefined,
+      });
+      show(t("credentials_save_success", "تم تحديث بيانات الدخول بنجاح"));
+      setCreds({ new_username: "", new_password: "", confirm_new_password: "" });
+    } catch (e) { show(e.message, "error"); }
+    finally { setSavingCreds(false); }
   };
 
   const handlePhotoUpload = async e => {
@@ -5106,6 +5736,65 @@ function ProfilePage({ user, navigate }) {
           <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
         </Btn>
       </form>
+
+      {/* --- قسم بيانات الدخول للمريض --- */}
+      {user?.user_type === 0 && (
+        <Card style={{ marginTop: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+              <Lock size={16} color="#fff" />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16 }}>{t("login_credentials", "بيانات الدخول")}</h3>
+              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("login_credentials_desc", "تغيير اسم المستخدم أو كلمة المرور")}</p>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <User size={14} color="#0891b2" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي")}: </span>
+                <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+              </div>
+              <Input
+                label={t("new_username", "اسم المستخدم الجديد")}
+                value={creds.new_username}
+                onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
+              />
+            </div>
+            <div>
+              <Input
+                label={t("new_password", "كلمة المرور الجديدة")}
+                type="password"
+                value={creds.new_password}
+                onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+              />
+              <Input
+                label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                type="password"
+                value={creds.confirm_new_password}
+                onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+            <Btn
+              type="button"
+              onClick={saveCredentials}
+              loading={savingCreds}
+              style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+            >
+              {t("save_changes")}
+            </Btn>
+          </div>
+        </Card>
+      )}
+
 
       {/* OTP Modal */}
       {otpModal && (
@@ -5533,7 +6222,7 @@ function FamilyPage({ navigate, user }) {
 function MainApp() {
   const { t, i18n } = useTranslation();
   const { route, qs, navigate } = useRoute();
-  const { user, loading, login, register, googleLogin, logout } = useAuth();
+  const { user, loading, login, register, registerConfirm, googleLogin, logout } = useAuth();
   const isMobile = useIsMobile();
   const [showExitModal, setShowExitModal] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
@@ -5632,8 +6321,8 @@ function MainApp() {
         if (user) { setTimeout(() => navigate("/"), 0); return null; }
         return <LoginPage key="login" onLogin={login} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/register":
-        if (user) { setTimeout(() => navigate("/"), 0); return null; }
-        return <RegisterPage key="register" onRegister={register} onGoogleLogin={googleLogin} navigate={navigate} />;
+        if (user) { setTimeout(() => navigate("/guide"), 0); return null; }
+        return <RegisterPage key="register" onRegister={register} onRegisterConfirm={registerConfirm} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/search":
         return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
       case "/about":
@@ -5643,7 +6332,7 @@ function MainApp() {
       case "/register-clinic":
         return <RegisterClinicPage navigate={navigate} />;
       case "/register-doctor":
-        return <RegisterDoctorPage navigate={navigate} />;
+        return <RegisterDoctorPage navigate={navigate} qs={qs} />;
       case "/admin":
         if (!user || user.user_type !== 3) { setTimeout(() => navigate("/"), 0); return null; }
         return <AdminDashboardPage navigate={navigate} user={user} />;

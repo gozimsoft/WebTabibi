@@ -23,7 +23,7 @@ class PatientController {
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
 
-        if (!$patient) Response::notFound('Profil patient non trouvé');
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
         unset($patient['photoprofile']);
 
         Response::success($patient);
@@ -39,7 +39,7 @@ class PatientController {
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $allowed = ['fullname','phone','email','birthdate','address','gender','baladiya_id',
                     'birthplace','birthcountry','postcode','speakinglanguage','country',
@@ -54,13 +54,77 @@ class PatientController {
             }
         }
 
-        if (empty($fields)) Response::error('Aucun champ à mettre à jour', 422);
+        if (empty($fields)) Response::error('لا توجد حقول لتحديثها.', 422);
 
         $values[] = $patient['id'];
         $pdo->prepare("UPDATE patients SET " . implode(', ', $fields) . " WHERE id = ?")
             ->execute($values);
 
-        Response::success(null, 'Profil mis à jour avec succès');
+        Response::success(null, 'تم تحديث الملف الشخصي بنجاح.');
+    }
+
+    // ---------------------------------------------------------------
+    // PUT /api/patients/credentials
+    // تغيير اسم المستخدم أو كلمة المرور للمريض
+    // Body: { new_username?, new_password? }
+    // ---------------------------------------------------------------
+    public static function updateCredentials(): void {
+        $session = AuthMiddleware::patientOnly();
+        $data    = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pdo     = Database::getInstance();
+
+        // جلب بيانات المستخدم من جدول users
+        $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            Response::notFound('لم يتم العثور على حساب المستخدم.');
+        }
+
+        $updates = [];
+        $values  = [];
+
+        // --- تحديث اسم المستخدم (إن طُلب) ---
+        if (!empty($data['new_username'])) {
+            $newUsername = strtolower(trim($data['new_username']));
+
+            // التحقق من صحة الصيغة: أحرف إنجليزية وأرقام وشرطات سفلية فقط
+            if (!preg_match('/^[a-z0-9_]{3,30}$/', $newUsername)) {
+                Response::error('اسم المستخدم يجب أن يحتوي على أحرف إنجليزية وأرقام فقط (3-30 حرف).', 422);
+            }
+
+            // التحقق من عدم تكرار اسم المستخدم
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND id != ?");
+            $stmtCheck->execute([$newUsername, $session['user_id']]);
+            if ($stmtCheck->fetchColumn() > 0) {
+                Response::error('اسم المستخدم هذا محجوز مسبقًا. يرجى اختيار اسم آخر.', 409);
+            }
+
+            $updates[] = "`username` = ?";
+            $values[]  = $newUsername;
+        }
+
+        // --- تحديث كلمة المرور الجديدة (إن طُلبت) ---
+        if (!empty($data['new_password'])) {
+            if (strlen($data['new_password']) < 6) {
+                Response::error('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.', 422);
+            }
+            $updates[] = "`password` = ?";
+            $values[]  = base64_encode($data['new_password']);
+        }
+
+        // لا يوجد شيء للتحديث
+        if (empty($updates)) {
+            Response::error('يرجى تقديم اسم مستخدم جديد أو كلمة مرور جديدة على الأقل.', 422);
+        }
+
+        // تنفيذ التحديث
+        $values[] = $session['user_id'];
+        $pdo->prepare("UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?")
+            ->execute($values);
+
+        Response::success(null, 'تم تحديث بيانات الدخول بنجاح.');
     }
 
     // GET /api/patients/family
@@ -92,7 +156,7 @@ class PatientController {
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $stmt = $pdo->prepare("
             SELECT 

@@ -17,7 +17,7 @@ class ChatController {
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         $stmt = $pdo->prepare("
             SELECT mt.*,
@@ -42,12 +42,12 @@ class ChatController {
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo     = Database::getInstance();
 
-        if (empty($data['doctor_id'])) Response::error("doctor_id requis", 422);
+        if (empty($data['doctor_id'])) Response::error("معرف الطبيب مطلوب لبدء المحادثة.", 422);
 
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         // Check existing open thread
         $stmt = $pdo->prepare("
@@ -58,7 +58,7 @@ class ChatController {
         $stmt->execute([$patient['id'], $data['doctor_id']]);
         $existing = $stmt->fetch();
         if ($existing) {
-            Response::success(['thread_id' => $existing['id']], 'Thread existant');
+            Response::success(['thread_id' => $existing['id']], 'المحادثة موجودة بالفعل.');
         }
 
         $threadId = UUIDHelper::generate();
@@ -72,7 +72,7 @@ class ChatController {
             $data['subject'] ?? 'consultation',
         ]);
 
-        Response::success(['thread_id' => $threadId], 'Discussion créée', 201);
+        Response::success(['thread_id' => $threadId], 'تم إنشاء المحادثة بنجاح.', 201);
     }
 
     // GET /api/chat/threads/{id}/messages
@@ -84,13 +84,13 @@ class ChatController {
         $stmt = $pdo->prepare("SELECT * FROM messagethreads WHERE id = ? LIMIT 1");
         $stmt->execute([$threadId]);
         $thread = $stmt->fetch();
-        if (!$thread) Response::notFound();
+        if (!$thread) Response::notFound('المحادثة المطلوبة غير موجودة.');
 
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient || $thread['patient_id'] !== $patient['id']) {
-            Response::error('Accès interdit', 403);
+            Response::error('غير مسموح لك بالوصول إلى هذه المحادثة.', 403);
         }
 
         $stmt = $pdo->prepare("
@@ -109,20 +109,20 @@ class ChatController {
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo     = Database::getInstance();
 
-        if (empty($data['content'])) Response::error('Contenu du message requis', 422);
+        if (empty($data['content'])) Response::error('محتوى الرسالة مطلوب ولا يمكن إرسال رسالة فارغة.', 422);
 
         $stmt = $pdo->prepare("SELECT * FROM messagethreads WHERE id = ? LIMIT 1");
         $stmt->execute([$threadId]);
         $thread = $stmt->fetch();
-        if (!$thread) Response::notFound();
+        if (!$thread) Response::notFound('المحادثة المطلوبة غير موجودة.');
 
-        if ($thread['isclose']) Response::error('Cette discussion est fermée', 400);
+        if ($thread['isclose']) Response::error('هذه المحادثة مغلقة ولا يمكن إرسال رسائل فيها.', 400);
 
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient || $thread['patient_id'] !== $patient['id']) {
-            Response::error('Accès interdit', 403);
+            Response::error('غير مسموح لك بالوصول إلى هذه المحادثة.', 403);
         }
 
         $msgId = UUIDHelper::generate();
@@ -131,6 +131,31 @@ class ChatController {
             VALUES (?, ?, ?, NOW(), 0)
         ")->execute([$msgId, $threadId, trim($data['content'])]);
 
-        Response::success(['message_id' => $msgId], 'Message envoyé', 201);
+        // إرسال تنبيه للطبيب عند استلام رسالة جديدة من المريض
+        require_once __DIR__ . '/../helpers/NotificationHelper.php';
+        try {
+            $stmt = $pdo->prepare("
+                SELECT d.user_id as doctor_user_id
+                FROM messagethreads mt
+                JOIN doctors d ON d.id = mt.doctor_id
+                WHERE mt.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$threadId]);
+            $threadData = $stmt->fetch();
+            if ($threadData) {
+                $msgSnippet = mb_strimwidth(trim($data['content']), 0, 50, "...");
+                NotificationHelper::notify(
+                    $threadData['doctor_user_id'],
+                    "رسالة جديدة",
+                    "وصلتك رسالة جديدة من المريض: " . ($patient['fullname'] ?? '') . "\n\"" . $msgSnippet . "\"",
+                    "chat"
+                );
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send chat notification: " . $e->getMessage());
+        }
+
+        Response::success(['message_id' => $msgId], 'تم إرسال الرسالة بنجاح.', 201);
     }
 }

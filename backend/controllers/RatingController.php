@@ -16,14 +16,14 @@ class RatingController {
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo     = Database::getInstance();
 
-        if (empty($data['doctor_id'])) Response::error('doctor_id requis', 422);
+        if (empty($data['doctor_id'])) Response::error('يرجى تحديد الطبيب لتقييمه.', 422);
         $rating = (int)($data['rating'] ?? 0);
-        if ($rating < 1 || $rating > 5) Response::error('note entre 1 et 5', 422);
+        if ($rating < 1 || $rating > 5) Response::error('التقييم يجب أن يكون بين 1 و 5 نجوم.', 422);
 
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
-        if (!$patient) Response::notFound();
+        if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         // Check existing rating
         $stmt = $pdo->prepare("
@@ -39,7 +39,7 @@ class RatingController {
                 UPDATE doctorsratings SET rating = ?, comment = ?, hidepatient = ?
                 WHERE id = ?
             ")->execute([$rating, $data['comment'] ?? '', $data['hide_patient'] ? 1 : 0, $existing['id']]);
-            Response::success(null, 'Avis mis à jour');
+            Response::success(null, 'تم تحديث تقييمك بنجاح.');
         } else {
             $id = UUIDHelper::generate();
             $pdo->prepare("
@@ -47,7 +47,7 @@ class RatingController {
                 VALUES (?,?,?,?,?,?)
             ")->execute([$id, $patient['id'], $data['doctor_id'], $rating,
                          $data['comment'] ?? '', $data['hide_patient'] ? 1 : 0]);
-            Response::success(['rating_id' => $id], 'Avis ajouté', 201);
+            Response::success(['rating_id' => $id], 'تم إضافة تقييمك بنجاح.', 201);
         }
     }
 

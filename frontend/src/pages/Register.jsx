@@ -3,11 +3,13 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Btn, Card, Input } from "../components/SharedUI";
 
-export default function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
+export default function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0, nin: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const googleBtnRef = React.useRef(null);
   const initialized = React.useRef(false);
@@ -48,9 +50,32 @@ export default function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
 
   const submit = async e => {
     e.preventDefault(); setError(""); setL(true);
-    try { await onRegister(form); navigate("/"); }
+    try { 
+        const res = await onRegister(form); 
+        if (res && res.requires_verification) {
+            setShowOtp(true);
+        } else {
+            navigate("/guide"); 
+        }
+    }
     catch (e) { setError(e.message); }
     finally { setL(false); }
+  };
+
+  const verifyCode = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+        setError("يرجى إدخال رمز التحقق المكون من 6 أرقام");
+        return;
+    }
+    setL(true); setError("");
+    try {
+        await onRegisterConfirm({ ...form, code: otpCode });
+        navigate("/guide");
+    } catch(e) {
+        setError(e.message);
+    } finally {
+        setL(false);
+    }
   };
 
   return (
@@ -63,40 +88,71 @@ export default function RegisterPage({ onRegister, onGoogleLogin, navigate }) {
         <Card>
           {error && <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13, fontWeight: 600 }}>⚠️ {error}</div>}
           
-          <div ref={googleBtnRef} style={{ marginBottom: 16, width: "100%", display: "flex", justifyContent: "center", minHeight: 40 }}></div>
-          
-          <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-            <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-          </div>
+          {!showOtp ? (
+              <>
+                  <div ref={googleBtnRef} style={{ marginBottom: 16, width: "100%", display: "flex", justifyContent: "center", minHeight: 40 }}></div>
+                  
+                  <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
+                    <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
+                    <span style={{ margin: "0 10px", fontSize: 12 }}>أو بالطريقة العادية</span>
+                    <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
+                  </div>
 
-          <form onSubmit={submit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={`${t("fullname")} *`} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
-              <Input label={`${t("username")} *`} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={`${t("email")} *`} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
-              <Input label={t("nin_label") || "الرقم الوطني"} type="text" value={form.nin} onChange={e => f("nin", e.target.value)} placeholder="الرقم الوطني (NIN)" />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("gender")}</label>
-                <select value={form.gender} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--input-bg)", color: "var(--text-main)", boxSizing: "border-box" }}>
-                  <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-                </select>
+                  <form onSubmit={submit}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Input label={`${t("fullname")} *`} value={form.fullname} onChange={e => f("fullname", e.target.value)} placeholder="محمد أمين" required />
+                      <Input label={`${t("username")} *`} value={form.username} onChange={e => f("username", e.target.value)} placeholder="mohammedamine" required />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Input label={`${t("email")} *`} type="email" value={form.email} onChange={e => f("email", e.target.value)} placeholder="exemple@gmail.com" required />
+                      <Input label={t("nin_label") || "الرقم الوطني"} type="text" value={form.nin} onChange={e => f("nin", e.target.value)} placeholder="الرقم الوطني (NIN)" />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Input label={t("phone")} type="tel" value={form.phone} onChange={e => f("phone", e.target.value)} placeholder="0699123456" />
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("gender")}</label>
+                        <select value={form.gender} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--input-bg)", color: "var(--text-main)", boxSizing: "border-box" }}>
+                          <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                        </select>
+                      </div>
+                    </div>
+                    <Input label={`${t("password")} *`} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
+                    <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
+                      {loading ? t("creating_account") : t("create_account_btn")}
+                    </Btn>
+                  </form>
+                  <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted)" }}>
+                    {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login")}</button>
+                  </p>
+              </>
+          ) : (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                  <h3 style={{ marginBottom: 16, color: "var(--text-main)" }}>تأكيد البريد الإلكتروني</h3>
+                  <p style={{ color: "var(--text-secondary)", marginBottom: 10, fontSize: 14 }}>
+                      لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني <strong>{form.email}</strong>. يرجى إدخاله لتفعيل الحساب.
+                  </p>
+                  <p style={{ color: "#ca8a04", marginBottom: 20, fontSize: 12, fontWeight: 600, background: "#fefce8", padding: "8px", borderRadius: "8px", border: "1px solid #fef08a" }}>
+                      ⚠️ يرجى التحقق من مجلد الرسائل غير المرغوب فيها (Spam / Junk) إذا لم تجد الرسالة في صندوق الوارد.
+                  </p>
+                  <input 
+                      type="text" 
+                      value={otpCode}
+                      onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="_ _ _ _ _ _"
+                      maxLength={6}
+                      style={{
+                          width: "100%", padding: "14px", textAlign: "center",
+                          fontSize: 24, fontWeight: 900, letterSpacing: 10,
+                          border: "2px solid var(--brand)", borderRadius: 12, outline: "none",
+                          boxSizing: "border-box", background: "var(--input-bg)", color: "var(--text-main)",
+                          marginBottom: 16
+                      }}
+                  />
+                  <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12 }}>
+                      {loading ? "جاري التحقق..." : "تأكيد الحساب"}
+                  </Btn>
               </div>
-            </div>
-            <Input label={`${t("password")} *`} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
-            <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
-              {loading ? t("creating_account") : t("create_account_btn")}
-            </Btn>
-          </form>
-          <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted)" }}>
-            {t("have_account")} <button onClick={() => navigate("/login")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>{t("login")}</button>
-          </p>
+          )}
         </Card>
       </div>
     </div>
