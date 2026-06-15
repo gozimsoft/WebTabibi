@@ -60,12 +60,7 @@ export default function OTPModal({ type, onClose, onSuccess, show: showToast }) 
             <p style={{ color: "#6b7280", marginBottom: 16 }}>
               {i18n.language === 'ar' ? 'أدخل الرمز المرسل إلى ' : i18n.language === 'fr' ? 'Entrez le code envoyé à ' : 'Enter the code sent to '} <strong style={{ color: "#0891b2" }}>{target}</strong>
             </p>
-            {devCode && (
-              <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, padding: "12px 16px", marginBottom: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#854d0e", marginBottom: 4 }}>{i18n.language === 'ar' ? '⚠️ وضع التطوير — الرمز:' : i18n.language === 'fr' ? '⚠️ Mode Dev — Code:' : '⚠️ Dev Mode — Code:'}</div>
-                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 8, color: "#0891b2" }}>{devCode}</div>
-              </div>
-            )}
+
             <div style={{ marginBottom: 16 }}>
               <input
                 value={code}

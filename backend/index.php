@@ -173,6 +173,12 @@ try {
         ClinicController::getDoctorPublicProfile($parts[1]);
     }
 
+    // ── Public Stats ─────────────────────────────────────────
+    if ($uri === '/public/stats' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/PublicController.php';
+        PublicController::getStats();
+    }
+
     // ── clinics ───────────────────────────────────────────────
     if ($uri === '/clinics' && $method === 'GET') {
         require_once __DIR__ . '/controllers/ClinicController.php';

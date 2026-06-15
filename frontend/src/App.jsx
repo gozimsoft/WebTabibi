@@ -168,6 +168,7 @@ const api = {
     approveDoctor: id => req("POST", `/admin/doctors/${id}/approve`, {}),
     rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
   },
+  publicStats: () => req("GET", "/public/stats", null, false),
   tickets: {
     create: b => req("POST", "/tickets", b),
     list: () => req("GET", "/tickets"),
@@ -398,12 +399,7 @@ function OTPModal({ type, onClose, onSuccess, show: showToast }) {
             <p style={{ color: "#6b7280", marginBottom: 16 }}>
               أدخل الرمز المرسل إلى <strong style={{ color: "var(--brand)" }}>{target}</strong>
             </p>
-            {devCode && (
-              <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, padding: "12px 16px", marginBottom: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#854d0e", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><AlertTriangle size={14} /> وضع التطوير — الرمز:</div>
-                <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 8, color: "var(--brand)" }}>{devCode}</div>
-              </div>
-            )}
+
             <div style={{ marginBottom: 16 }}>
               <input
                 value={code}
@@ -1082,10 +1078,12 @@ function HomePage({ user, navigate }) {
   const [focused, setFocused] = useState(false);
   const [specialties, setSP] = useState([]);
   const [hoveredSpec, setHoveredSpec] = useState(null);
+  const [platformStats, setPlatformStats] = useState(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     api.specialties().then(setSP).catch(() => { });
+    api.publicStats().then(setPlatformStats).catch(() => { });
   }, []);
 
   const getIcon = (namefr) => {
@@ -1234,19 +1232,19 @@ function HomePage({ user, navigate }) {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 14 : 20 }}>
           {[
             {
-              num: "+50,000", label: t("stats_patients"),
+              num: platformStats ? `${platformStats.patients.toLocaleString()}` : "0", label: t("stats_patients"),
               icon: <Users size={20} />,
               img: `${import.meta.env.BASE_URL}stats_patients_custom.png`,
               color: "#0092a2",
             },
             {
-              num: "+800", label: t("stats_clinics"),
+              num: platformStats ? `${platformStats.clinics.toLocaleString()}` : "0", label: t("stats_clinics"),
               icon: <Building2 size={20} />,
               img: `${import.meta.env.BASE_URL}stats_clinics_custom.jpg`,
               color: "#0092a2",
             },
             {
-              num: "+1,200", label: t("stats_doctors"),
+              num: platformStats ? `${platformStats.doctors.toLocaleString()}` : "0", label: t("stats_doctors"),
               icon: <Stethoscope size={20} />,
               img: `${import.meta.env.BASE_URL}stats_doctors_custom.png`,
               color: "#0092a2",
