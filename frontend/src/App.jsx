@@ -2588,7 +2588,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
                 {relStatus === 'ACCEPTED' ? (
                   <Badge color="#059669" style={{ padding: "12px 20px", justifyContent: "center", display: 'flex', alignItems: 'center', gap: 8 }}><Check size={16} /> {i18n.language === 'ar' ? "مرتبط بالعيادة" : "Lié à la clinique"}</Badge>
                 ) : relStatus === 'PENDING' ? (
-                  <Badge color="#f59e0b" style={{ padding: "12px 20px", justifyContent: "center", display: 'flex', alignItems: 'center', gap: 8 }}><Clock size={16} /> {i18n.language === 'ar' ? "بانتظار الموافقة" : "En attente d'approbation"}</Badge>
+                  <Badge color="#ea580c" style={{ padding: "12px 20px", justifyContent: "center", display: 'flex', alignItems: 'center', gap: 8 }}><Clock size={16} /> {i18n.language === 'ar' ? "بانتظار الموافقة" : "En attente d'approbation"}</Badge>
                 ) : (
                   <Btn onClick={sendJoinRequest} loading={requesting} style={{ padding: "12px 24px", justifyContent: "center" }}>
                     <Plus size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> طلب انضمام للعيادة
@@ -2965,7 +2965,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   {relStatus === 'ACCEPTED' ? (
                     <Badge color="#059669" style={{ padding: 12, justifyContent: "center" }}>مرتبط بالعيادة</Badge>
                   ) : relStatus === 'PENDING' ? (
-                    <Badge color="#f59e0b" style={{ padding: 12, justifyContent: "center" }}>بانتظار الموافقة</Badge>
+                    <Badge color="#ea580c" style={{ padding: 12, justifyContent: "center" }}>بانتظار الموافقة</Badge>
                   ) : (
                     <Btn onClick={() => {
                       api.relations.request({ target_id: doctor_id })
@@ -5221,7 +5221,7 @@ function RequestsPage({ navigate, user }) {
                     </Btn>
                   </>
                 ) : (
-                  <Badge color="#f59e0b">قيد الانتظار</Badge>
+                  <Badge color="#ea580c">قيد الانتظار</Badge>
                 )
               ) : (
                 <Badge color={r.status === 'ACCEPTED' ? "#059669" : "#ef4444"}>
@@ -5286,7 +5286,7 @@ function TicketsPage({ navigate, user }) {
                 آخر تحديث: {new Date(t.updated_at).toLocaleString(i18n.language)}
               </div>
             </div>
-            <Badge color={t.status === 'CLOSED' ? "#64748b" : (t.status === 'OPEN' ? "#0ea5e9" : "#f59e0b")}>
+            <Badge color={t.status === 'CLOSED' ? "#64748b" : (t.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
               {t.status === 'OPEN' ? "مفتوحة" : (t.status === 'PENDING' ? "بانتظار ردك" : "مغلقة")}
             </Badge>
           </Card>
@@ -5643,11 +5643,11 @@ function ProfilePage({ user, navigate }) {
           <div style={{ fontSize: 13, color: "#6b7280" }}>{form.email}</div>
           {verStatus && (
             <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <Badge color={verStatus.email_verified ? "#059669" : "#f59e0b"}>
+              <Badge color={verStatus.email_verified ? "#059669" : "#ea580c"}>
                 {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
                 {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
               </Badge>
-              <Badge color={verStatus.phone_verified ? "#059669" : "#f59e0b"}>
+              <Badge color={verStatus.phone_verified ? "#059669" : "#ea580c"}>
                 {verStatus.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
                 {verStatus.phone_verified ? t("phone_verified") : t("phone_unverified")}
               </Badge>
