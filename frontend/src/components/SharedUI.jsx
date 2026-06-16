@@ -154,6 +154,8 @@ export const AvailabilityPulse = () => (
   </div>
 );
 
+import defaultAvatar from "../../assets/Avatar.png";
+
 export const DoctorImage = ({ photo, name, size = 50, borderRadius = 12, style = {}, fallbackIcon: FallbackIcon }) => {
   if (photo) {
     return (
@@ -179,19 +181,16 @@ export const DoctorImage = ({ photo, name, size = 50, borderRadius = 12, style =
   }
 
   return (
-    <div style={{
-      width: size, height: size, borderRadius,
-      background: "linear-gradient(135deg,#ecfeff,#cffafe)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.35, flexShrink: 0, color: "var(--brand)", fontWeight: 700, ...style
-    }}>
-      {name && name.trim() ? name.trim().charAt(0).toUpperCase() : "👨‍⚕️"}
-    </div>
+    <img
+      src={defaultAvatar}
+      alt="Doctor Avatar"
+      style={{ width: size, height: size, borderRadius, objectFit: "cover", flexShrink: 0, ...style }}
+    />
   );
 };
 
-export const Badge = ({ children, color = "var(--brand)" }) => (
-  <span style={{ background: color + "15", color, border: `1px solid ${color}30`, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{children}</span>
+export const Badge = ({ children, color = "var(--brand)", style = {} }) => (
+  <span style={{ display: "inline-block", background: color + "15", color, border: `1px solid ${color}30`, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 600, ...style }}>{children}</span>
 );
 
 export const Card = ({ children, style = {}, onClick }) => (

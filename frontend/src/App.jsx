@@ -1141,7 +1141,7 @@ function HomePage({ user, navigate }) {
           transition={{ delay: 0.2, duration: 0.6 }}
           style={{
             maxWidth: 1200, margin: "0 auto", width: "100%",
-            padding: isMobile ? "24px 16px 60px" : "80px 24px 100px",
+            padding: isMobile ? "24px 16px 110px" : "80px 24px 150px",
             textAlign: "center", position: "relative", zIndex: 2,
           }}>
           {/* Badge */}
@@ -1206,16 +1206,7 @@ function HomePage({ user, navigate }) {
             >{t("search")}</button>
           </motion.div>
 
-          {/* Quick tags */}
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
-            {[t("Médecine générale"), t("Cardiologie"), t("Dentisterie")].map(tag => (
-              <button key={tag} onClick={() => { setQ(tag); handleSearch(tag); }} style={{
-                background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: 20, padding: "4px 12px", color: "rgba(255,255,255,0.85)",
-                fontSize: 12, fontWeight: 600, cursor: "pointer"
-              }}>{tag}</button>
-            ))}
-          </div>
+
         </motion.div>
 
         {/* ── BOTTOM SHAPE ── */}
@@ -1228,7 +1219,7 @@ function HomePage({ user, navigate }) {
       </section>
 
       {/* ── SECTION: STATS (NUMBERS) ── */}
-      <div style={{ maxWidth: 1200, margin: isMobile ? "-20px auto 40px" : "-60px auto 70px", padding: isMobile ? "0 16px" : "0 24px", position: "relative", zIndex: 10 }}>
+      <div style={{ maxWidth: 1200, margin: isMobile ? "10px auto 40px" : "30px auto 70px", padding: isMobile ? "0 16px" : "0 24px", position: "relative", zIndex: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 14 : 20 }}>
           {[
             {
@@ -2133,6 +2124,10 @@ function SearchPage({ navigate, qs, user }) {
   const [total, setT] = useState(0);
   const [showOnlyClinics, setShowOnlyClinics] = useState(false);
   const { show, Toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  useEffect(() => { setCurrentPage(1); }, [q, sp, wi, showOnlyClinics]);
 
   useEffect(() => {
     Promise.all([
@@ -2162,6 +2157,9 @@ function SearchPage({ navigate, qs, user }) {
     const type = (r.ResultType || "").toUpperCase();
     return showOnlyClinics ? type === 'CLINIC' : type === 'DOCTOR';
   });
+
+  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
+  const paginatedResults = filteredResults.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
@@ -2203,8 +2201,8 @@ function SearchPage({ navigate, qs, user }) {
             )}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(360px,1fr))", gap: 16 }}>
-            {filteredResults.map(r => {
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(max(300px, calc(25% - 12px)), 1fr))", gap: 16 }}>
+            {paginatedResults.map(r => {
               const type = (r.ResultType || "").toUpperCase();
               const isDoctor = type === 'DOCTOR';
               const name = isDoctor ? r.doctorname : (r.clinicname || r.name || r.ClinicName || r.title);
@@ -2214,7 +2212,7 @@ function SearchPage({ navigate, qs, user }) {
               const address = isDoctor ? (r.DoctorAddress || r.doctoraddress || r.ClinicAddress || r.clinicaddress) : (r.address || r.ClinicAddress || r.clinicaddress || r.clinic_address || r.location);
               const avgRating = r.AvgRating || r.avg_rating || r.rating || r.avgRating || r.clinic_avg_rating || 0;
               const ratingCount = r.RatingCount || r.rating_count || r.reviews_count || r.ratingCount || 0;
-              const specialty = isDoctor ? (i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) : (r.activitysector || t("medical_center"));
+              const specialty = isDoctor ? ((i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) || (i18n.language === 'ar' ? 'طب عام' : 'Médecine générale')) : (r.activitysector || t("medical_center"));
               const wilaya = i18n.language === 'ar' ? r.WilayaNameAr : r.WilayaNameFr;
               const baladiya = i18n.language === 'ar' ? r.BaladiyaNameAr : r.BaladiyaNameFr;
 
@@ -2247,120 +2245,197 @@ function SearchPage({ navigate, qs, user }) {
                     e.currentTarget.style.transform = "none";
                   }}
                 >
-                  <div style={{ display: "flex", flexDirection: "row", gap: 16, padding: 16 }}>
-                    {/* Left Side: Photo */}
-                    <div style={{ flexShrink: 0, position: "relative" }}>
-                      <DoctorImage
-                        photo={photo}
-                        name={isDoctor ? name : undefined}
-                        size={isMobile ? 80 : 100}
-                        borderRadius={16}
-                        fallbackIcon={isDoctor ? undefined : Building}
-                        style={{ border: "1px solid #f1f5f9" }}
-                      />
-                      <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(239,68,68,0.3)" }}>
-                        <Flame size={12} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 16px 60px 16px", flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "relative", minHeight: 28, marginBottom: 4 }}>
+                      <div style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18, color: "var(--heading-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6, maxWidth: "80%" }}>
+                        {name}
+                        {!isDoctor && <VerifiedBadge size={14} />}
                       </div>
+                      
+                      {filteredResults.indexOf(r) === 0 && isDoctor && (
+                        <div style={{ position: "absolute", right: 0, display: "flex", alignItems: "center" }} title={i18n.language === 'ar' ? "موصى به" : "Recommandé"}>
+                          <Award size={22} color="#f59e0b" style={{ filter: "drop-shadow(0 2px 4px rgba(245,158,11,0.3))" }} />
+                        </div>
+                      )}
                     </div>
 
-                    {/* Right Side: Content */}
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 16, color: "var(--heading-color)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {name}
-                          </div>
-                          <Badge color={isDoctor ? "var(--brand)" : "#8b5cf6"}>
-                            {specialty}
-                          </Badge>
-                        </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {filteredResults.indexOf(r) === 0 && isDoctor && (
-                            <Badge color="#f59e0b">✨ {i18n.language === 'ar' ? "موصى به" : "Recommandé"}</Badge>
-                          )}
-                          <Badge color={isDoctor ? "var(--brand)" : "#6366f1"} style={{ fontSize: 10, padding: "1px 8px" }}>
-                            {isDoctor ? t("doctor") : (
-                              +r.typeclinic === 0 ? t("type_0", "Médecin") :
-                                +r.typeclinic === 1 ? t("type_1", "Clinique") :
-                                  +r.typeclinic === 2 ? t("type_2", "Hôpital") :
-                                    (r.typeclinic || t("clinic"))
-                            )}
-                          </Badge>
+                    <div style={{ display: "flex", flexDirection: "row", gap: 16 }}>
+                      {/* Left Side: Photo */}
+                      <div style={{ flexShrink: 0, position: "relative" }}>
+                        <DoctorImage
+                          photo={photo}
+                          name={isDoctor ? name : undefined}
+                          size={isMobile ? 80 : 100}
+                          borderRadius={16}
+                          fallbackIcon={isDoctor ? undefined : Building}
+                          style={{ border: "1px solid #f1f5f9" }}
+                        />
+                        <div style={{ position: "absolute", bottom: -2, right: -2, background: "#ef4444", color: "#fff", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", fontSize: 12, boxShadow: "0 2px 5px rgba(239,68,68,0.3)" }}>
+                          <Flame size={12} />
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-                          {isDoctor ? <Building size={14} color="#64748b" /> : <Phone size={14} color="#6366f1" />}
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: isDoctor ? 400 : 600 }}>
-                            {isDoctor ? r.clinicname : (phone || t("no_phone") || "N/A")}
-                          </span>
-                        </div>
+                      {/* Right Side: Content */}
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                        <Badge color={isDoctor ? "#0891b2" : "#8b5cf6"}>
+                          {specialty || "\u00A0"}
+                        </Badge>
 
-                        {!isDoctor ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--brand-light)", padding: "8px 10px", borderRadius: 12, border: "1px solid #0891b2" }}>
-                            {email && (
-                              <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-                                <Mail size={12} color="#6366f1" /> {email}
-                              </div>
-                            )}
-                            <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "flex-start", gap: 6 }}>
-                              <MapPin size={12} color="#6366f1" style={{ marginTop: 2, flexShrink: 0 }} />
-                              <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
-                                {address || t("no_address")}
-                              </span>
-                            </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                          <div style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                            {isDoctor ? <Building size={14} color="#64748b" /> : <Phone size={14} color="#0891b2" />}
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: isDoctor ? 400 : 600 }}>
+                              {isDoctor ? r.clinicname : (phone || t("no_phone") || "N/A")}
+                            </span>
                           </div>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            {phone && (
-                              <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}>
-                                <Phone size={14} style={{ flexShrink: 0 }} />
-                                <span dir="ltr" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{phone}</span>
+
+                          {!isDoctor ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--brand-light)", padding: "8px 10px", borderRadius: 12, border: "1px solid #0891b2" }}>
+                              {email && (
+                                <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                                  <Mail size={12} color="#0891b2" /> {email}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                                <MapPin size={12} color="#0891b2" style={{ marginTop: 2, flexShrink: 0 }} />
+                                <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
+                                  {address || t("no_address")}
+                                </span>
                               </div>
-                            )}
-                            <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
-                              <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-                              <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                                {address ? `${address} ` : ""}
-                                {wilaya ? `- ${wilaya}` : ""}
-                              </span>
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {phone && (
+                                <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}>
+                                  <Phone size={14} style={{ flexShrink: 0 }} />
+                                  <span dir="ltr" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{phone}</span>
+                                </div>
+                              )}
+                              <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                                <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                                <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                  {address ? `${address} ` : ""}
+                                  {wilaya ? `- ${wilaya}` : ""}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Full Width Bottom Panel */}
+                  {/* Fixed Bottom Panel */}
                   <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0,
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    background: isDoctor ? "#f0f9ff" : "#f5f3ff",
+                    background: "var(--card-bg)",
                     padding: "14px 18px",
-                    borderTop: isDoctor ? "1px solid #bae6fd" : "1px solid #ddd6fe",
-                    transition: "0.2s"
+                    borderTop: "1px solid #0891b2",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <Stars rating={Math.round(+avgRating)} size={13} color={isDoctor ? "#0A85A4" : "#f59e0b"} />
-                      <span style={{ fontSize: 11, color: isDoctor ? "#0c4a6e" : "#4338ca", fontWeight: 700 }}>({ratingCount})</span>
+                      <Stars rating={Math.round(+avgRating)} size={13} color="#0891b2" />
+                      <span style={{ fontSize: 11, color: "#0891b2", fontWeight: 700 }}>({ratingCount})</span>
                     </div>
-                    {isDoctor && +r.pricing > 0 && (
-                      <span style={{ fontSize: 13, fontWeight: 800, color: "#0A85A4" }}>
-                        {r.pricing} {t("da")}
-                      </span>
-                    )}
-                    {!isDoctor && (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "#6366f1", display: "flex", alignItems: "center", gap: 4 }}>
-                        {t("view_details")} <ArrowRight size={14} style={{ transform: i18n.language === 'ar' ? 'rotate(180deg)' : 'none' }} />
-                      </span>
-                    )}
+                    
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      {isDoctor && +r.pricing > 0 && (
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#0891b2" }}>
+                          {r.pricing} {t("da")}
+                        </span>
+                      )}
+                      {!isDoctor && (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#0891b2", display: "flex", alignItems: "center", gap: 4 }}>
+                          {t("view_details")} <ArrowRight size={14} style={{ transform: i18n.language === 'ar' ? 'rotate(180deg)' : 'none' }} />
+                        </span>
+                      )}
+                      
+                      {/* Type Badge on the right */}
+                      <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 11, padding: "2px 10px" }}>
+                        {isDoctor ? t("doctor") : (
+                          +r.typeclinic === 0 ? t("type_0", "Médecin") :
+                            +r.typeclinic === 1 ? t("type_1", "Clinique") :
+                              +r.typeclinic === 2 ? t("type_2", "Hôpital") :
+                                (r.typeclinic || t("clinic"))
+                        )}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 40, marginBottom: 20 }}>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: currentPage === 1 ? "var(--bg)" : "#fff",
+                  border: "1.5px solid var(--border)",
+                  color: currentPage === 1 ? "#cbd5e1" : "var(--brand)",
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  transition: "0.2s"
+                }}
+              >
+                <ChevronLeft size={20} style={{ transform: i18n.language === 'ar' ? 'rotate(180deg)' : 'none' }} />
+              </button>
+
+              <div style={{ display: "flex", gap: 6 }}>
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  // Show current, first, last, and +1/-1
+                  if (
+                    i === 0 || 
+                    i === totalPages - 1 || 
+                    (i >= currentPage - 2 && i <= currentPage)
+                  ) {
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i + 1)}
+                        style={{
+                          width: 40, height: 40, borderRadius: 12,
+                          background: currentPage === i + 1 ? "linear-gradient(135deg, var(--brand), var(--brand-dark))" : "#fff",
+                          color: currentPage === i + 1 ? "#fff" : "#64748b",
+                          border: currentPage === i + 1 ? "none" : "1.5px solid var(--border)",
+                          fontWeight: 800, fontSize: 15, cursor: "pointer", transition: "all 0.2s",
+                          boxShadow: currentPage === i + 1 ? "0 4px 12px rgba(8,145,178,0.3)" : "none"
+                        }}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  } else if (
+                    i === currentPage - 3 || 
+                    i === currentPage + 1
+                  ) {
+                    return <span key={i} style={{ display: "flex", alignItems: "flex-end", padding: "0 4px", color: "#94a3b8" }}>...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: currentPage === totalPages ? "var(--bg)" : "#fff",
+                  border: "1.5px solid var(--border)",
+                  color: currentPage === totalPages ? "#cbd5e1" : "var(--brand)",
+                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                  transition: "0.2s"
+                }}
+              >
+                <ChevronRight size={20} style={{ transform: i18n.language === 'ar' ? 'rotate(180deg)' : 'none' }} />
+              </button>
+            </div>
+          )}
+
           {results.length === 0 && !loading && (
             <div style={{ textAlign: "center", padding: "60px 24px", color: "#9ca3af" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
@@ -6240,11 +6315,7 @@ function MainApp() {
   const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
   const { show, Toast } = useToast();
 
-  useEffect(() => {
-    if (user && (user.profile?.fullname?.toLowerCase().includes("khaled") || user.username?.toLowerCase().includes("khaled"))) {
-      show(`مرحباً ${user.profile?.fullname?.split(" ")[0] || "خالد"}! لديك إشعار جديد بخصوص موعدك.`, "success");
-    }
-  }, [user]);
+
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { Btn, Card, Skeleton } from "../components/SharedUI";
 import {
   Stethoscope, Heart, Baby, Brain, Activity, Droplets,
-  ShieldCheck, Zap, HeartPulse, User, Building, Users
+  ShieldCheck, Zap, HeartPulse, User, Building, Users, Building2
 } from "lucide-react";
 
 export default function HomePage({ user, navigate }) {
@@ -120,84 +120,57 @@ export default function HomePage({ user, navigate }) {
       <svg viewBox="0 0 1200 50" style={{ width: "100%", display: "block", marginTop: -1 }}><path d="M0,25 C300,50 900,0 1200,25 L1200,50 L0,50 Z" fill="#f9fafb" /></svg>
 
       {/* Stats */}
-      <div style={{ maxWidth: 860, margin: "-20px auto 40px", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-
-          {/* Stat: Médecins — avec la photo */}
-          <div style={{
-            borderRadius: 16,
-            border: "1px solid #0891b2",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-            overflow: "hidden",
-            position: "relative",
-            height: 130,
-            backgroundImage: "url('/stats_doctors_custom.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center top",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-            <div style={{
-              position: "absolute",
-              top: 0, left: 0, right: 0, bottom: 0,
-              background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.0) 100%)",
-            }} />
-            <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>1200+</div>
-              <div style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>{t("stats_doctors")}</div>
+      <div style={{ maxWidth: 1200, margin: "-60px auto 70px", padding: "0 24px", position: "relative", zIndex: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+          
+          {/* Stat: Patients */}
+          <div style={{ background: "var(--card-bg)", borderRadius: 22, overflow: "hidden", border: "1px solid rgb(8, 145, 178)", boxShadow: "var(--shadow)", display: "flex", flexDirection: "column", height: 260, cursor: "pointer", transition: "0.35s cubic-bezier(0.4, 0, 0.2, 1)", position: "relative" }}>
+            <div style={{ height: 185, width: "100%", position: "relative", flexShrink: 0 }}>
+              <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/stats_patients_custom.png')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.5 }}></div>
+              <svg viewBox="0 0 1440 320" preserveAspectRatio="none" style={{ position: "absolute", bottom: -2, left: 0, width: "100%", height: 44, zIndex: 2 }}>
+                <path fill="var(--card-bg)" d="M0,192L80,181.3C160,171,320,149,480,160C640,171,800,213,960,213.3C1120,213,1280,171,1360,149.3L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+              </svg>
+              <div style={{ width: 46, height: 46, background: "rgb(0, 146, 162)", color: "rgb(255, 255, 255)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", zIndex: 10, boxShadow: "rgba(0, 146, 162, 0.4) 0px 6px 18px", border: "3px solid var(--card-bg)" }}>
+                <Users size={20} />
+              </div>
+            </div>
+            <div style={{ padding: "8px 16px 12px", textAlign: "center", flex: "1 1 0%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>2</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.7 }}>{t("stats_patients", "patients")}</div>
             </div>
           </div>
-
-          {/* Stat: Cliniques — avec la photo */}
-          <div style={{
-            borderRadius: 16,
-            border: "1px solid #0891b2",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-            overflow: "hidden",
-            position: "relative",
-            height: 130,
-            backgroundImage: "url('/stats_clinics_custom.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-            <div style={{
-              position: "absolute",
-              top: 0, left: 0, right: 0, bottom: 0,
-              background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.0) 100%)",
-            }} />
-            <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>800+</div>
-              <div style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>{t("stats_clinics")}</div>
+          
+          {/* Stat: Cliniques */}
+          <div style={{ background: "var(--card-bg)", borderRadius: 22, overflow: "hidden", border: "1px solid rgb(8, 145, 178)", boxShadow: "rgba(0, 0, 0, 0.06) 0px 6px 24px", display: "flex", flexDirection: "column", height: 260, cursor: "pointer", transition: "0.35s cubic-bezier(0.4, 0, 0.2, 1)", position: "relative", transform: "translateY(0px)" }}>
+            <div style={{ height: 185, width: "100%", position: "relative", flexShrink: 0 }}>
+              <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/stats_clinics_custom.jpg')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.5 }}></div>
+              <svg viewBox="0 0 1440 320" preserveAspectRatio="none" style={{ position: "absolute", bottom: -2, left: 0, width: "100%", height: 44, zIndex: 2 }}>
+                <path fill="var(--card-bg)" d="M0,192L80,181.3C160,171,320,149,480,160C640,171,800,213,960,213.3C1120,213,1280,171,1360,149.3L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+              </svg>
+              <div style={{ width: 46, height: 46, background: "rgb(0, 146, 162)", color: "rgb(255, 255, 255)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", zIndex: 10, boxShadow: "rgba(0, 146, 162, 0.4) 0px 6px 18px", border: "3px solid var(--card-bg)" }}>
+                <Building2 size={20} />
+              </div>
+            </div>
+            <div style={{ padding: "8px 16px 12px", textAlign: "center", flex: "1 1 0%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>0</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.7 }}>{t("stats_clinics", "Cliniques")}</div>
             </div>
           </div>
-
-          {/* Stat: patients — avec la photo */}
-          <div style={{
-            borderRadius: 16,
-            border: "1px solid #0891b2",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-            overflow: "hidden",
-            position: "relative",
-            height: 130,
-            backgroundImage: "url('/stats_patients_custom.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-            <div style={{
-              position: "absolute",
-              top: 0, left: 0, right: 0, bottom: 0,
-              background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.0) 100%)",
-            }} />
-            <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>50000+</div>
-              <div style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>{t("stats_patients")}</div>
+          
+          {/* Stat: Médecins */}
+          <div style={{ background: "var(--card-bg)", borderRadius: 22, overflow: "hidden", border: "1px solid rgb(8, 145, 178)", boxShadow: "rgba(0, 0, 0, 0.06) 0px 6px 24px", display: "flex", flexDirection: "column", height: 260, cursor: "pointer", transition: "0.35s cubic-bezier(0.4, 0, 0.2, 1)", position: "relative", transform: "translateY(0px)" }}>
+            <div style={{ height: 185, width: "100%", position: "relative", flexShrink: 0 }}>
+              <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/stats_doctors_custom.png')", backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.5 }}></div>
+              <svg viewBox="0 0 1440 320" preserveAspectRatio="none" style={{ position: "absolute", bottom: -2, left: 0, width: "100%", height: 44, zIndex: 2 }}>
+                <path fill="var(--card-bg)" d="M0,192L80,181.3C160,171,320,149,480,160C640,171,800,213,960,213.3C1120,213,1280,171,1360,149.3L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+              </svg>
+              <div style={{ width: 46, height: 46, background: "rgb(0, 146, 162)", color: "rgb(255, 255, 255)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", zIndex: 10, boxShadow: "rgba(0, 146, 162, 0.4) 0px 6px 18px", border: "3px solid var(--card-bg)" }}>
+                <Stethoscope size={20} />
+              </div>
+            </div>
+            <div style={{ padding: "8px 16px 12px", textAlign: "center", flex: "1 1 0%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>18 574</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.7 }}>{t("stats_doctors", "Médecins")}</div>
             </div>
           </div>
 
