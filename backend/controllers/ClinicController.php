@@ -313,8 +313,16 @@ class ClinicController
                     NULL as specialtyar,
                     0 as AvgRating,
                     0 as RatingCount,
-                    (SELECT status FROM clinicsdoctors WHERE clinic_id = c.id AND doctor_id = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as relationstatus
+                    (SELECT status FROM clinicsdoctors WHERE clinic_id = c.id AND doctor_id = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as relationstatus,
+                    b.namefr as BaladiyaNameFr,
+                    b.namear as BaladiyaNameAr,
+                    w.namefr as WilayaNameFr,
+                    w.namear as WilayaNameAr,
+                    NULL as DoctorPhone,
+                    NULL as DoctorAddress
                 FROM clinics c
+                LEFT JOIN baladiyas b ON b.postcode = (SELECT MIN(postcode) FROM baladiyas WHERE FLOOR(postcode / 1000) = FLOOR(CAST(TRIM(c.postcode) AS UNSIGNED) / 1000))
+                LEFT JOIN wilayas w ON w.num = FLOOR(CAST(TRIM(c.postcode) AS UNSIGNED) / 1000)
                 WHERE $whereClinic
                 GROUP BY c.id
             )
@@ -337,12 +345,20 @@ class ClinicController
                     MAX(s.namear) as specialtyar,
                     COALESCE(AVG(dr2.rating), 0) as AvgRating,
                     COUNT(dr2.id) as RatingCount,
-                    (SELECT status FROM clinicsdoctors WHERE doctor_id = d.id AND clinic_id = " . ($myClinicId ? $pdo->quote($myClinicId) : "NULL") . " LIMIT 1) as relationstatus
+                    (SELECT status FROM clinicsdoctors WHERE doctor_id = d.id AND clinic_id = " . ($myClinicId ? $pdo->quote($myClinicId) : "NULL") . " LIMIT 1) as relationstatus,
+                    MAX(b.namefr) as BaladiyaNameFr,
+                    MAX(b.namear) as BaladiyaNameAr,
+                    MAX(w.namefr) as WilayaNameFr,
+                    MAX(w.namear) as WilayaNameAr,
+                    d.phone as DoctorPhone,
+                    d.address as DoctorAddress
                 FROM doctors d
                 LEFT JOIN clinicsdoctors cd ON cd.doctor_id = d.id
                 LEFT JOIN clinics c ON c.id = cd.clinic_id
                 LEFT JOIN specialties s ON s.id = COALESCE(d.specialtie_id, cd.specialtie_id)
                 LEFT JOIN doctorsratings dr2 ON dr2.doctor_id = d.id
+                LEFT JOIN baladiyas b ON b.id = d.baladiya_id
+                LEFT JOIN wilayas w ON w.id = b.wilaya_id
                 WHERE (cd.status IS NULL OR UPPER(cd.status) IN ('APPROVED', 'ACCEPTED'))
                 AND $whereDoctor
                 GROUP BY d.id

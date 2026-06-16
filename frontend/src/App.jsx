@@ -2209,12 +2209,14 @@ function SearchPage({ navigate, qs, user }) {
               const isDoctor = type === 'DOCTOR';
               const name = isDoctor ? r.doctorname : (r.clinicname || r.name || r.ClinicName || r.title);
               const photo = isDoctor ? r.photoprofile : (r.logo || r.image || r.ClinicLogo || r.photoprofile);
-              const phone = r.phone || r.Phone || r.telephone || r.clinic_phone || r.ClinicPhone || r.mobile;
+              const phone = isDoctor ? (r.DoctorPhone || r.doctorphone || r.phone || r.Phone || r.telephone || r.clinic_phone || r.ClinicPhone || r.clinicphone || r.mobile) : (r.phone || r.Phone || r.telephone || r.clinic_phone || r.ClinicPhone || r.clinicphone || r.mobile);
               const email = r.email || r.Email || r.clinic_email || r.ClinicEmail || r.mail;
-              const address = isDoctor ? r.ClinicAddress : (r.address || r.ClinicAddress || r.clinic_address || r.location);
+              const address = isDoctor ? (r.DoctorAddress || r.doctoraddress || r.ClinicAddress || r.clinicaddress) : (r.address || r.ClinicAddress || r.clinicaddress || r.clinic_address || r.location);
               const avgRating = r.AvgRating || r.avg_rating || r.rating || r.avgRating || r.clinic_avg_rating || 0;
               const ratingCount = r.RatingCount || r.rating_count || r.reviews_count || r.ratingCount || 0;
               const specialty = isDoctor ? (i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) : (r.activitysector || t("medical_center"));
+              const wilaya = i18n.language === 'ar' ? r.WilayaNameAr : r.WilayaNameFr;
+              const baladiya = i18n.language === 'ar' ? r.BaladiyaNameAr : r.BaladiyaNameFr;
 
               return (
                 <div key={type + r.ResultId}
@@ -2250,6 +2252,7 @@ function SearchPage({ navigate, qs, user }) {
                     <div style={{ flexShrink: 0, position: "relative" }}>
                       <DoctorImage
                         photo={photo}
+                        name={isDoctor ? name : undefined}
                         size={isMobile ? 80 : 100}
                         borderRadius={16}
                         fallbackIcon={isDoctor ? undefined : Building}
@@ -2264,7 +2267,7 @@ function SearchPage({ navigate, qs, user }) {
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 17, color: "var(--heading-color)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 16, color: "var(--heading-color)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {name}
                           </div>
                           <Badge color={isDoctor ? "var(--brand)" : "#8b5cf6"}>
@@ -2309,11 +2312,20 @@ function SearchPage({ navigate, qs, user }) {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
-                            <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-                            <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                              {address}
-                            </span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {phone && (
+                              <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}>
+                                <Phone size={14} style={{ flexShrink: 0 }} />
+                                <span dir="ltr" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{phone}</span>
+                              </div>
+                            )}
+                            <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                              <MapPin size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                              <span style={{ lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                {address ? `${address} ` : ""}
+                                {wilaya ? `- ${wilaya}` : ""}
+                              </span>
+                            </div>
                           </div>
                         )}
                       </div>
