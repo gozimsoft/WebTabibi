@@ -154,7 +154,7 @@ export const AvailabilityPulse = () => (
   </div>
 );
 
-export const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} }) => {
+export const DoctorImage = ({ photo, name, size = 50, borderRadius = 12, style = {}, fallbackIcon: FallbackIcon }) => {
   if (photo) {
     return (
       <img
@@ -164,13 +164,29 @@ export const DoctorImage = ({ photo, size = 50, borderRadius = 12, style = {} })
       />
     );
   }
+
+  if (FallbackIcon) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius,
+        background: "linear-gradient(135deg,#ecfeff,#cffafe)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, ...style
+      }}>
+        <FallbackIcon size={size * 0.5} color="var(--brand)" />
+      </div>
+    );
+  }
+
   return (
     <div style={{
       width: size, height: size, borderRadius,
       background: "linear-gradient(135deg,#ecfeff,#cffafe)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.45, flexShrink: 0, ...style
-    }}>👨‍⚕️</div>
+      fontSize: size * 0.35, flexShrink: 0, color: "var(--brand)", fontWeight: 700, ...style
+    }}>
+      {name && name.trim() ? name.trim().charAt(0).toUpperCase() : "👨‍⚕️"}
+    </div>
   );
 };
 
