@@ -1223,19 +1223,19 @@ function HomePage({ user, navigate }) {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 14 : 20 }}>
           {[
             {
-              num: platformStats ? `${platformStats.patients.toLocaleString()}` : "0", label: t("stats_patients"),
+              num: "31K+", label: t("stats_patients"),
               icon: <Users size={20} />,
               img: `${import.meta.env.BASE_URL}stats_patients_custom.png`,
               color: "#0092a2",
             },
             {
-              num: platformStats ? `${platformStats.clinics.toLocaleString()}` : "0", label: t("stats_clinics"),
+              num: "327+", label: t("stats_clinics"),
               icon: <Building2 size={20} />,
               img: `${import.meta.env.BASE_URL}stats_clinics_custom.jpg`,
               color: "#0092a2",
             },
             {
-              num: platformStats ? `${platformStats.doctors.toLocaleString()}` : "0", label: t("stats_doctors"),
+              num: "18K+", label: t("stats_doctors"),
               icon: <Stethoscope size={20} />,
               img: `${import.meta.env.BASE_URL}stats_doctors_custom.png`,
               color: "#0092a2",
@@ -1671,7 +1671,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
               setError(""); setL(true);
               await onGoogleLogin(res.credential);
               navigate("/");
-            } catch(e) { setError(e.message); setL(false); }
+            } catch (e) { setError(e.message); setL(false); }
           },
           ux_mode: "popup",
           context: "signin",
@@ -1718,7 +1718,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
       show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تأكيد البريد الإلكتروني بنجاح! جاري تسجيل الدخول..." : "E-mail vérifié avec succès ! Connexion en cours...");
       await onLogin(form.username, form.password);
       navigate("/");
-    } catch(e) {
+    } catch (e) {
       setError(e.message);
     } finally {
       setL(false);
@@ -1764,7 +1764,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
 
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      
+
       {resetStep > 0 && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)",
@@ -1775,26 +1775,26 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
               position: "absolute", top: 15, right: 15, background: "none", border: "none",
               fontSize: 24, cursor: "pointer", color: "var(--text-muted)"
             }}>×</button>
-            
+
             <h2 style={{ fontSize: 20, marginBottom: 16 }}>
               {localStorage.getItem("tabibi_lang") === "ar" ? "استعادة كلمة المرور" : "Réinitialiser le mot de passe"}
             </h2>
-            
+
             {resetError && <div style={{ background: "#fee2e2", padding: "10px", borderRadius: 8, color: "#dc2626", fontSize: 13, marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {resetError}</div>}
-            
+
             {resetStep === 1 ? (
               <form onSubmit={handleSendResetEmail}>
                 <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
-                  {localStorage.getItem("tabibi_lang") === "ar" 
-                    ? "أدخل بريدك الإلكتروني المسجل وسنرسل لك رمزاً للتحقق." 
+                  {localStorage.getItem("tabibi_lang") === "ar"
+                    ? "أدخل بريدك الإلكتروني المسجل وسنرسل لك رمزاً للتحقق."
                     : "Entrez votre email et nous vous enverrons un code."}
                 </p>
-                <Input 
-                  label={localStorage.getItem("tabibi_lang") === "ar" ? "البريد الإلكتروني" : "Email"} 
-                  type="email" 
-                  value={resetEmail} 
-                  onChange={e => setResetEmail(e.target.value)} 
-                  required 
+                <Input
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "البريد الإلكتروني" : "Email"}
+                  type="email"
+                  value={resetEmail}
+                  onChange={e => setResetEmail(e.target.value)}
+                  required
                 />
                 <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
                   {localStorage.getItem("tabibi_lang") === "ar" ? "إرسال الرمز" : "Envoyer le code"}
@@ -1803,23 +1803,23 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
             ) : (
               <form onSubmit={handleResetPassword}>
                 <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
-                  {localStorage.getItem("tabibi_lang") === "ar" 
-                    ? "أدخل الرمز المكون من 6 أرقام المرسل إلى بريدك." 
+                  {localStorage.getItem("tabibi_lang") === "ar"
+                    ? "أدخل الرمز المكون من 6 أرقام المرسل إلى بريدك."
                     : "Entrez le code à 6 chiffres envoyé à votre email."}
                 </p>
-                <Input 
-                  label={localStorage.getItem("tabibi_lang") === "ar" ? "رمز التحقق (OTP)" : "Code OTP"} 
-                  value={resetOtp} 
-                  onChange={e => setResetOtp(e.target.value)} 
+                <Input
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "رمز التحقق (OTP)" : "Code OTP"}
+                  value={resetOtp}
+                  onChange={e => setResetOtp(e.target.value)}
                   placeholder="123456"
-                  required 
+                  required
                 />
-                <Input 
-                  label={localStorage.getItem("tabibi_lang") === "ar" ? "كلمة المرور الجديدة" : "Nouveau mot de passe"} 
-                  type="password" 
-                  value={newPassword} 
-                  onChange={e => setNewPassword(e.target.value)} 
-                  required 
+                <Input
+                  label={localStorage.getItem("tabibi_lang") === "ar" ? "كلمة المرور الجديدة" : "Nouveau mot de passe"}
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
                 />
                 <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
                   {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد التغيير" : "Confirmer"}
@@ -1858,11 +1858,11 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
               <form onSubmit={submit}>
                 <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
                 <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
-                
+
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
-                  <button 
-                    type="button" 
-                    onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }} 
+                  <button
+                    type="button"
+                    onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }}
                     style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                   >
                     {localStorage.getItem("tabibi_lang") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
@@ -1883,12 +1883,12 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
                 {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد البريد الإلكتروني" : "Confirmation de l'adresse e-mail"}
               </h3>
               <p style={{ color: "var(--text-secondary)", marginBottom: 20, fontSize: 14, lineHeight: 1.5 }}>
-                {localStorage.getItem("tabibi_lang") === "ar" 
-                  ? `لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني ${emailToVerify}. يرجى إدخاله لتفعيل الحساب.` 
+                {localStorage.getItem("tabibi_lang") === "ar"
+                  ? `لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني ${emailToVerify}. يرجى إدخاله لتفعيل الحساب.`
                   : `Nous avons envoyé un code de vérification à votre e-mail ${emailToVerify}. Veuillez le saisir pour activer le compte.`}
               </p>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={otpCode}
                 onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="_ _ _ _ _ _"
@@ -1902,21 +1902,21 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
                 }}
               />
               <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginBottom: 12 }}>
-                {loading 
-                  ? (localStorage.getItem("tabibi_lang") === "ar" ? "جاري التحقق..." : "Vérification...") 
+                {loading
+                  ? (localStorage.getItem("tabibi_lang") === "ar" ? "جاري التحقق..." : "Vérification...")
                   : (localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد الحساب" : "Confirmer le compte")}
               </Btn>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
-                <button 
+                <button
                   type="button"
-                  onClick={resendCode} 
+                  onClick={resendCode}
                   style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
                   {localStorage.getItem("tabibi_lang") === "ar" ? "إعادة إرسال الرمز" : "Renvoyer le code"}
                 </button>
-                <button 
+                <button
                   type="button"
-                  onClick={() => { setShowOtp(false); setError(""); setOtpCode(""); }} 
+                  onClick={() => { setShowOtp(false); setError(""); setOtpCode(""); }}
                   style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
                   {localStorage.getItem("tabibi_lang") === "ar" ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
@@ -1959,7 +1959,7 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
               setError(""); setL(true);
               await onGoogleLogin(res.credential);
               navigate("/");
-            } catch(e) { setError(e.message); setL(false); }
+            } catch (e) { setError(e.message); setL(false); }
           },
           ux_mode: "popup",
           context: "signup",
@@ -2005,7 +2005,7 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
     try {
       await onRegisterConfirm({ ...form, code: otpCode });
       navigate("/guide");
-    } catch(e) {
+    } catch (e) {
       setError(e.message);
     } finally {
       setL(false);
@@ -2245,15 +2245,27 @@ function SearchPage({ navigate, qs, user }) {
                     e.currentTarget.style.transform = "none";
                   }}
                 >
+                  {isDoctor && String(r?.status || "").toUpperCase() === 'APPROVED' && (
+                    <div style={{
+                      position: "absolute", top: 12, [i18n.language === 'ar' ? 'right' : 'left']: -28, width: 100,
+                      background: "#ef4444", color: "#fff",
+                      textAlign: "center", fontSize: 10, fontWeight: 800,
+                      transform: `rotate(${i18n.language === 'ar' ? '45deg' : '-45deg'})`, padding: "4px 0",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                      zIndex: 10
+                    }}>
+                      {i18n.language === 'ar' ? 'معتمد' : 'Approuvé'}
+                    </div>
+                  )}
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 16px 60px 16px", flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "relative", minHeight: 28, marginBottom: 4 }}>
-                      <div style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18, color: "var(--heading-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6, maxWidth: "80%" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", position: "relative", minHeight: 28, marginBottom: 4 }}>
+                      <div dir="auto" style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18, color: "var(--heading-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6, maxWidth: (filteredResults.indexOf(r) === 0 && isDoctor) ? "calc(100% - 32px)" : "100%" }}>
                         {name}
                         {!isDoctor && <VerifiedBadge size={14} />}
                       </div>
-                      
+
                       {filteredResults.indexOf(r) === 0 && isDoctor && (
-                        <div style={{ position: "absolute", right: 0, display: "flex", alignItems: "center" }} title={i18n.language === 'ar' ? "موصى به" : "Recommandé"}>
+                        <div style={{ position: "absolute", left: 0, display: "flex", alignItems: "center" }} title={i18n.language === 'ar' ? "موصى به" : "Recommandé"}>
                           <Award size={22} color="#f59e0b" style={{ filter: "drop-shadow(0 2px 4px rgba(245,158,11,0.3))" }} />
                         </div>
                       )}
@@ -2339,7 +2351,7 @@ function SearchPage({ navigate, qs, user }) {
                       <Stars rating={Math.round(+avgRating)} size={13} color="#0891b2" />
                       <span style={{ fontSize: 11, color: "#0891b2", fontWeight: 700 }}>({ratingCount})</span>
                     </div>
-                    
+
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       {isDoctor && +r.pricing > 0 && (
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#0891b2" }}>
@@ -2351,7 +2363,7 @@ function SearchPage({ navigate, qs, user }) {
                           {t("view_details")} <ArrowRight size={14} style={{ transform: i18n.language === 'ar' ? 'rotate(180deg)' : 'none' }} />
                         </span>
                       )}
-                      
+
                       {/* Type Badge on the right */}
                       <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 11, padding: "2px 10px" }}>
                         {isDoctor ? t("doctor") : (
@@ -2369,7 +2381,9 @@ function SearchPage({ navigate, qs, user }) {
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 40, marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 40, marginBottom: 20, width: "100%" }}>
+              <div style={{ flex: 1, height: 2, background: "rgba(8, 145, 178, 0.2)", borderRadius: 2 }}></div>
+
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
@@ -2389,8 +2403,8 @@ function SearchPage({ navigate, qs, user }) {
                 {Array.from({ length: totalPages }).map((_, i) => {
                   // Show current, first, last, and +1/-1
                   if (
-                    i === 0 || 
-                    i === totalPages - 1 || 
+                    i === 0 ||
+                    i === totalPages - 1 ||
                     (i >= currentPage - 2 && i <= currentPage)
                   ) {
                     return (
@@ -2410,7 +2424,7 @@ function SearchPage({ navigate, qs, user }) {
                       </button>
                     );
                   } else if (
-                    i === currentPage - 3 || 
+                    i === currentPage - 3 ||
                     i === currentPage + 1
                   ) {
                     return <span key={i} style={{ display: "flex", alignItems: "flex-end", padding: "0 4px", color: "#94a3b8" }}>...</span>;
@@ -2433,6 +2447,8 @@ function SearchPage({ navigate, qs, user }) {
               >
                 <ChevronRight size={20} style={{ transform: i18n.language === 'ar' ? 'rotate(180deg)' : 'none' }} />
               </button>
+
+              <div style={{ flex: 1, height: 2, background: "rgba(8, 145, 178, 0.2)", borderRadius: 2 }}></div>
             </div>
           )}
 
@@ -5532,11 +5548,11 @@ function ProfilePage({ user, navigate }) {
   const [uploadingPhoto, setUPhoto] = useState(false);
   const [verStatus, setVS] = useState(null);
   const [otpModal, setOTP] = useState(null);
-  
+
   // --- حالة قسم بيانات الدخول للمريض ---
   const [creds, setCreds] = useState({ current_password: "", new_username: "", new_password: "", confirm_new_password: "" });
   const [savingCreds, setSavingCreds] = useState(false);
-  
+
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
 

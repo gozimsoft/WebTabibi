@@ -298,6 +298,7 @@ class ClinicController
             (
                 SELECT 
                     'CLINIC' as ResultType,
+                    c.status as status,
                     c.id as ResultId,
                     c.id as clinicid,
                     c.clinicname,
@@ -330,6 +331,7 @@ class ClinicController
             (
                 SELECT 
                     'DOCTOR' as ResultType,
+                    d.status as status,
                     d.id as ResultId,
                     MAX(c.id) as clinicid,
                     MAX(c.clinicname) as clinicname,

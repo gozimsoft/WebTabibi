@@ -155,7 +155,6 @@ export const AvailabilityPulse = () => (
 );
 
 import defaultAvatar from "../../assets/Avatar.png";
-
 export const DoctorImage = ({ photo, name, size = 50, borderRadius = 12, style = {}, fallbackIcon: FallbackIcon }) => {
   if (photo) {
     return (
