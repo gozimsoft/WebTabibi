@@ -126,7 +126,7 @@ export default function SearchPage({ navigate, qs }) {
                         {!isDoctor && <VerifiedBadge size={12} />}
                       </div>
                       <Badge color="var(--brand)">
-                        {isDoctor ? t("doctor") : (
+                        {isDoctor ? t("type_0") : (
                           +r.typeclinic === 0 ? t("type_0", "Médecin") :
                             +r.typeclinic === 1 ? t("type_1", "Clinique") :
                               +r.typeclinic === 2 ? t("type_2", "Hôpital") :

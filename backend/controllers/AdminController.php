@@ -69,6 +69,31 @@ class AdminController {
         ");
         $stats['appointment_trend'] = $stmt->fetchAll();
 
+        // ------------------
+        // Visit Statistics
+        // ------------------
+        
+        // Ensure table exists just in case admin accesses before any visits
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS site_visits (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                ip_address VARCHAR(45) NOT NULL,
+                country VARCHAR(100) DEFAULT 'Unknown',
+                wilaya VARCHAR(100) DEFAULT 'Unknown',
+                visit_date DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_visit (ip_address, visit_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        $stats['visits_today'] = (int)$pdo->query("SELECT COUNT(*) FROM site_visits WHERE visit_date = CURDATE()")->fetchColumn();
+        $stats['visits_weekly'] = (int)$pdo->query("SELECT COUNT(*) FROM site_visits WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
+        $stats['visits_monthly'] = (int)$pdo->query("SELECT COUNT(*) FROM site_visits WHERE YEAR(visit_date) = YEAR(CURDATE()) AND MONTH(visit_date) = MONTH(CURDATE())")->fetchColumn();
+        $stats['visits_total'] = (int)$pdo->query("SELECT COUNT(*) FROM site_visits")->fetchColumn();
+        
+        $stats['visits_by_country'] = $pdo->query("SELECT country, COUNT(*) as count FROM site_visits GROUP BY country ORDER BY count DESC")->fetchAll();
+        $stats['visits_by_wilaya'] = $pdo->query("SELECT wilaya, COUNT(*) as count FROM site_visits GROUP BY wilaya ORDER BY count DESC")->fetchAll();
+
         Response::success($stats);
     }
 

@@ -110,6 +110,7 @@ _(ملاحظة: الاسم يحتوي على خطأ إملائي مقصود `apo
 - **الطبية والتشخيصية**: `specialties`, `reasons`, `medicines`.
 - **التقييمات**: `doctorsratings`, `patientratings`.
 - **الدعم الفني (Tickets)**: `tickets` (التذاكر)، `ticketmessages` (رسائل التذاكر).
+- **إحصائيات الزيارات**: `site_visits` (سجل زيارات الموقع يتضمن `ip_address`, `country`, `wilaya`, `visit_date`).
 
 ---
 

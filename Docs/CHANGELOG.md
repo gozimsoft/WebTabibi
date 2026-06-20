@@ -2,6 +2,27 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-06-20
+
+### Added
+- إضافة قسم جديد "إحصائيات زيارات الموقع" في لوحة تحكم الإدارة (`AdminDashboardPage`).
+- يعرض القسم عدد الزيارات (اليومية، الأسبوعية، الشهرية، الإجمالية) والزيارات مقسمة حسب الدولة والولاية/المنطقة.
+- إضافة جدول جديد `site_visits` في قاعدة البيانات وتسجيل الزيارات باستخدام عنوان الـ IP والبيانات الجغرافية.
+- إضافة نقطة وصول جديدة في الخادم `POST /api/visits` لتسجيل الزيارات بشكل سري و `GET /api/admin/stats` تم تحديثها لجلب الإحصائيات.
+
+### Files Changed
+- backend/index.php
+- backend/controllers/PublicController.php
+- backend/controllers/AdminController.php
+- frontend/src/App.jsx
+- Docs/DATABASE.md
+- Docs/API.md
+
+### Documentation Updated
+- Yes (`Docs/DATABASE.md`, `Docs/API.md`, `Docs/CHANGELOG.md`)
+
+---
+
 ## 2026-06-15
 
 ### Added

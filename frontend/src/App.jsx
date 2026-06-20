@@ -190,6 +190,9 @@ const api = {
     markAllAsRead: () => req("PUT", "/notifications/read-all", {}),
     delete: id => req("DELETE", `/notifications/${id}`),
   },
+  visits: {
+    log: b => req("POST", "/visits", b, false),
+  }
 };
 
 // ── Router ────────────────────────────────────────────────────
@@ -2245,18 +2248,7 @@ function SearchPage({ navigate, qs, user }) {
                     e.currentTarget.style.transform = "none";
                   }}
                 >
-                  {isDoctor && String(r?.status || "").toUpperCase() === 'APPROVED' && (
-                    <div style={{
-                      position: "absolute", top: 12, [i18n.language === 'ar' ? 'right' : 'left']: -28, width: 100,
-                      background: "#ef4444", color: "#fff",
-                      textAlign: "center", fontSize: 10, fontWeight: 800,
-                      transform: `rotate(${i18n.language === 'ar' ? '45deg' : '-45deg'})`, padding: "4px 0",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                      zIndex: 10
-                    }}>
-                      {i18n.language === 'ar' ? 'معتمد' : 'Approuvé'}
-                    </div>
-                  )}
+
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 16px 60px 16px", flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", position: "relative", minHeight: 28, marginBottom: 4 }}>
                       <div dir="auto" style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18, color: "var(--heading-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6, maxWidth: (filteredResults.indexOf(r) === 0 && isDoctor) ? "calc(100% - 32px)" : "100%" }}>
@@ -2366,7 +2358,7 @@ function SearchPage({ navigate, qs, user }) {
 
                       {/* Type Badge on the right */}
                       <Badge color={isDoctor ? "#0891b2" : "#6366f1"} style={{ fontSize: 11, padding: "2px 10px" }}>
-                        {isDoctor ? t("doctor") : (
+                        {isDoctor ? t("type_0") : (
                           +r.typeclinic === 0 ? t("type_0", "Médecin") :
                             +r.typeclinic === 1 ? t("type_1", "Clinique") :
                               +r.typeclinic === 2 ? t("type_2", "Hôpital") :
@@ -4844,6 +4836,47 @@ function AdminDashboardPage({ navigate, user }) {
                   </div>
                 </div>
               </div>
+
+              {/* ── Visits Stats ── */}
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0c4a6e', marginBottom: 16, marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Globe size={20} color="var(--brand)" /> إحصائيات زيارات الموقع
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+                <StatCard label="زيارات اليوم" value={stats.visits_today} icon={<Activity size={22} />} color="#059669" bg="#f0fdf4" />
+                <StatCard label="زيارات الأسبوع" value={stats.visits_weekly} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
+                <StatCard label="زيارات الشهر" value={stats.visits_monthly} icon={<LayoutDashboard size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label="إجمالي الزيارات" value={stats.visits_total} icon={<Globe size={22} />} color="var(--brand)" bg="#ecfeff" />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 24 }}>
+                {/* By Country */}
+                <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14 }}>الزيارات حسب الدولة</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {(stats.visits_by_country || []).map((c, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
+                        <span style={{ fontWeight: 600 }}>{c.country || 'غير معروف'}</span>
+                        <span style={{ fontWeight: 800, color: 'var(--brand)' }}>{c.count}</span>
+                      </div>
+                    ))}
+                    {(!stats.visits_by_country || stats.visits_by_country.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>لا توجد بيانات</div>}
+                  </div>
+                </div>
+
+                {/* By Wilaya */}
+                <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14 }}>الزيارات حسب الولاية / المنطقة</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {(stats.visits_by_wilaya || []).map((w, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
+                        <span style={{ fontWeight: 600 }}>{w.wilaya || 'غير معروف'}</span>
+                        <span style={{ fontWeight: 800, color: 'var(--brand)' }}>{w.count}</span>
+                      </div>
+                    ))}
+                    {(!stats.visits_by_wilaya || stats.visits_by_wilaya.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>لا توجد بيانات</div>}
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -6356,6 +6389,24 @@ function MainApp() {
   useEffect(() => {
     analytics.track("page_view", { route, query: qs });
   }, [route, qs]);
+
+  // Track site visits for Admin Stats
+  useEffect(() => {
+    if (!sessionStorage.getItem('tabibi_visited')) {
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => {
+          api.visits.log({ country: data.country_name, wilaya: data.region }).catch(() => {});
+        })
+        .catch(() => {
+          // Fallback if IP API fails
+          api.visits.log({}).catch(() => {});
+        })
+        .finally(() => {
+          sessionStorage.setItem('tabibi_visited', '1');
+        });
+    }
+  }, []);
 
   useEffect(() => {
     const backHandler = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
