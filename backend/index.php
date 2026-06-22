@@ -178,6 +178,10 @@ try {
         require_once __DIR__ . '/controllers/PublicController.php';
         PublicController::getStats();
     }
+    if ($uri === '/visits' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/PublicController.php';
+        PublicController::logVisit();
+    }
 
     // ── clinics ───────────────────────────────────────────────
     if ($uri === '/clinics' && $method === 'GET') {

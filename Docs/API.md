@@ -252,3 +252,28 @@
   }
   ```
 
+---
+
+## 🌍 6. الـ Endpoints الخاصة بإحصائيات الزيارات (Visits)
+
+### 6.1. تسجيل زيارة جديدة (Log Visit)
+- **الوصف:** تسجيل زيارة مستخدم للموقع مع تحديد الدولة والولاية لغرض عرضها في لوحة تحكم الإدارة.
+- **المسار (URL):** `/visits`
+- **الطريقة (Method):** `POST`
+- **الترويسات (Headers):** لا تتطلب مصادقة (Public).
+- **الجسم (Request Body):**
+  ```json
+  {
+    "country": "Algeria",
+    "wilaya": "Algiers"
+  }
+  ```
+- **الاستجابة الناجحة (Success Response):**
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Visit logged"
+  }
+  ```
+
