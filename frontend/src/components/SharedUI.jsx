@@ -132,7 +132,7 @@ export const Stars = ({ rating = 0, interactive, onChange, size = 16, color = "#
 
 export const VerifiedBadge = ({ size = 16 }) => (
   <div style={{ display: "inline-flex", alignItems: "center", color: "#3b82f6", background: "#eff6ff", borderRadius: 20, padding: "2px 8px", gap: 4, fontSize: 11, fontWeight: 700, border: "1px solid #dbeafe" }}>
-    <ShieldCheck size={size} /> {localStorage.getItem("tabibi_lang") === "ar" ? "موثق" : "Vérifié"}
+    <ShieldCheck size={size} /> {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "موثق" : "Vérifié"}
   </div>
 );
 
@@ -150,7 +150,7 @@ export const AvailabilityPulse = () => (
         75%, 100% { transform: scale(2.5); opacity: 0; }
       }
     `}</style>
-    {localStorage.getItem("tabibi_lang") === "ar" ? "متاح اليوم" : "Disponible"}
+    {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "متاح اليوم" : "Disponible"}
   </div>
 );
 

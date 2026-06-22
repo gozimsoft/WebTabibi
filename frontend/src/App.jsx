@@ -639,7 +639,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
             <div style={{ textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: "var(--brand)", lineHeight: 1 }}>{t("app_name")}</div>
               <div style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: i18n.language === 'ar' ? 2 : 0, fontWeight: 700 }}>
-                {i18n.language === 'ar' ? 'TABIBI' : 'طبيبي'}
+                {i18n.language === 'ar' ? 'طبيبي' : 'TABIBI'}
               </div>
             </div>
           )}
@@ -1709,13 +1709,13 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
 
   const verifyCode = async () => {
     if (!otpCode || otpCode.length !== 6) {
-      setError(localStorage.getItem("tabibi_lang") === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام" : "Veuillez entrer le code à 6 chiffres");
+      setError((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام" : "Veuillez entrer le code à 6 chiffres");
       return;
     }
     setL(true); setError("");
     try {
       await api.auth.verifyAccountEmail({ email: emailToVerify, code: otpCode });
-      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تأكيد البريد الإلكتروني بنجاح! جاري تسجيل الدخول..." : "E-mail vérifié avec succès ! Connexion en cours...");
+      show((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تم تأكيد البريد الإلكتروني بنجاح! جاري تسجيل الدخول..." : "E-mail vérifié avec succès ! Connexion en cours...");
       await onLogin(form.username, form.password);
       navigate("/");
     } catch (e) {
@@ -1731,7 +1731,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
       await onLogin(form.username, form.password);
     } catch (e) {
       if (e.requires_verification) {
-        show(localStorage.getItem("tabibi_lang") === "ar" ? "تم إعادة إرسال رمز التحقق بنجاح!" : "Code de vérification renvoyé avec succès !");
+        show((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تم إعادة إرسال رمز التحقق بنجاح!" : "Code de vérification renvoyé avec succès !");
       } else {
         setError(e.message);
         setShowOtp(false);
@@ -1745,7 +1745,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
     e.preventDefault(); setResetError(""); setResetLoading(true);
     try {
       await api.auth.forgotPassword({ email: resetEmail });
-      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم إرسال الرمز بنجاح!" : "Code envoyé avec succès!");
+      show((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تم إرسال الرمز بنجاح!" : "Code envoyé avec succès!");
       setResetStep(2);
     } catch (e) { setResetError(e.message); }
     finally { setResetLoading(false); }
@@ -1755,7 +1755,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
     e.preventDefault(); setResetError(""); setResetLoading(true);
     try {
       await api.auth.resetPassword({ email: resetEmail, otp: resetOtp, password: newPassword });
-      show(localStorage.getItem("tabibi_lang") === "ar" ? "تم تغيير كلمة المرور بنجاح!" : "Mot de passe modifié avec succès!");
+      show((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تم تغيير كلمة المرور بنجاح!" : "Mot de passe modifié avec succès!");
       setResetStep(0);
       setForm({ ...form, password: "" });
     } catch (e) { setResetError(e.message); }
@@ -1777,7 +1777,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
             }}>×</button>
 
             <h2 style={{ fontSize: 20, marginBottom: 16 }}>
-              {localStorage.getItem("tabibi_lang") === "ar" ? "استعادة كلمة المرور" : "Réinitialiser le mot de passe"}
+              {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "استعادة كلمة المرور" : "Réinitialiser le mot de passe"}
             </h2>
 
             {resetError && <div style={{ background: "#fee2e2", padding: "10px", borderRadius: 8, color: "#dc2626", fontSize: 13, marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {resetError}</div>}
@@ -1785,44 +1785,44 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
             {resetStep === 1 ? (
               <form onSubmit={handleSendResetEmail}>
                 <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
-                  {localStorage.getItem("tabibi_lang") === "ar"
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
                     ? "أدخل بريدك الإلكتروني المسجل وسنرسل لك رمزاً للتحقق."
                     : "Entrez votre email et nous vous enverrons un code."}
                 </p>
                 <Input
-                  label={localStorage.getItem("tabibi_lang") === "ar" ? "البريد الإلكتروني" : "Email"}
+                  label={(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "البريد الإلكتروني" : "Email"}
                   type="email"
                   value={resetEmail}
                   onChange={e => setResetEmail(e.target.value)}
                   required
                 />
                 <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
-                  {localStorage.getItem("tabibi_lang") === "ar" ? "إرسال الرمز" : "Envoyer le code"}
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "إرسال الرمز" : "Envoyer le code"}
                 </Btn>
               </form>
             ) : (
               <form onSubmit={handleResetPassword}>
                 <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 15, lineHeight: 1.6 }}>
-                  {localStorage.getItem("tabibi_lang") === "ar"
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
                     ? "أدخل الرمز المكون من 6 أرقام المرسل إلى بريدك."
                     : "Entrez le code à 6 chiffres envoyé à votre email."}
                 </p>
                 <Input
-                  label={localStorage.getItem("tabibi_lang") === "ar" ? "رمز التحقق (OTP)" : "Code OTP"}
+                  label={(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "رمز التحقق (OTP)" : "Code OTP"}
                   value={resetOtp}
                   onChange={e => setResetOtp(e.target.value)}
                   placeholder="123456"
                   required
                 />
                 <Input
-                  label={localStorage.getItem("tabibi_lang") === "ar" ? "كلمة المرور الجديدة" : "Nouveau mot de passe"}
+                  label={(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "كلمة المرور الجديدة" : "Nouveau mot de passe"}
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
                   required
                 />
                 <Btn type="submit" loading={resetLoading} style={{ width: "100%", justifyContent: "center" }}>
-                  {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد التغيير" : "Confirmer"}
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تأكيد التغيير" : "Confirmer"}
                 </Btn>
               </form>
             )}
@@ -1865,7 +1865,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
                     onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }}
                     style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                   >
-                    {localStorage.getItem("tabibi_lang") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
+                    {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "نسيت كلمة المرور؟" : "Mot de passe oublié ?"}
                   </button>
                 </div>
 
@@ -1880,10 +1880,10 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
           ) : (
             <div style={{ textAlign: "center", padding: "10px 0" }}>
               <h3 style={{ marginBottom: 16, color: "var(--text-main)", fontSize: 18, fontWeight: 700 }}>
-                {localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد البريد الإلكتروني" : "Confirmation de l'adresse e-mail"}
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تأكيد البريد الإلكتروني" : "Confirmation de l'adresse e-mail"}
               </h3>
               <p style={{ color: "var(--text-secondary)", marginBottom: 20, fontSize: 14, lineHeight: 1.5 }}>
-                {localStorage.getItem("tabibi_lang") === "ar"
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
                   ? `لقد أرسلنا رمز تحقق إلى بريدك الإلكتروني ${emailToVerify}. يرجى إدخاله لتفعيل الحساب.`
                   : `Nous avons envoyé un code de vérification à votre e-mail ${emailToVerify}. Veuillez le saisir pour activer le compte.`}
               </p>
@@ -1903,8 +1903,8 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
               />
               <Btn onClick={verifyCode} loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginBottom: 12 }}>
                 {loading
-                  ? (localStorage.getItem("tabibi_lang") === "ar" ? "جاري التحقق..." : "Vérification...")
-                  : (localStorage.getItem("tabibi_lang") === "ar" ? "تأكيد الحساب" : "Confirmer le compte")}
+                  ? ((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "جاري التحقق..." : "Vérification...")
+                  : ((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "تأكيد الحساب" : "Confirmer le compte")}
               </Btn>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
                 <button
@@ -1912,14 +1912,14 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
                   onClick={resendCode}
                   style={{ background: "none", border: "none", color: "var(--brand)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
-                  {localStorage.getItem("tabibi_lang") === "ar" ? "إعادة إرسال الرمز" : "Renvoyer le code"}
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "إعادة إرسال الرمز" : "Renvoyer le code"}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowOtp(false); setError(""); setOtpCode(""); }}
                   style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
-                  {localStorage.getItem("tabibi_lang") === "ar" ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
                 </button>
               </div>
             </div>
@@ -5210,7 +5210,7 @@ function RequestsPage({ navigate, user }) {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>طلبات الانضمام</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>{t("join_requests")}</h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {requests.map(r => (
@@ -5283,7 +5283,7 @@ function TicketsPage({ navigate, user }) {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>الرسائل والمحادثات</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{t("tickets_title")}</h1>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -5293,17 +5293,17 @@ function TicketsPage({ navigate, user }) {
               <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{t.subject}</div>
               <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                 {user.user_type === 0 ? (
-                  t.doctorname ? `محادثة مع الطبيب: ${t.doctorname}` : (t.clinicname ? `محادثة مع العيادة: ${t.clinicname}` : "رسالة عامة")
+                  t.doctorname ? `${t("ticket_with_doctor")} ${t.doctorname}` : (t.clinicname ? `${t("ticket_with_clinic")} ${t.clinicname}` : t("ticket_general"))
                 ) : (
-                  `من المريض: ${t.patientname}`
+                  `${t("ticket_from_patient")} ${t.patientname}`
                 )}
               </div>
               <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                آخر تحديث: {new Date(t.updated_at).toLocaleString(i18n.language)}
+                {t("last_update")} {new Date(t.updated_at).toLocaleString(i18n.language)}
               </div>
             </div>
             <Badge color={t.status === 'CLOSED' ? "#64748b" : (t.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
-              {t.status === 'OPEN' ? "مفتوحة" : (t.status === 'PENDING' ? "بانتظار ردك" : "مغلقة")}
+              {t.status === 'OPEN' ? t("status_open") : (t.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
             </Badge>
           </Card>
         ))}
@@ -5360,10 +5360,10 @@ function TicketConversationPage({ ticketId, navigate, user }) {
   };
 
   const onCloseTicket = async () => {
-    if (!window.confirm("هل أنت متأكد من إغلاق هذه التذكرة؟")) return;
+    if (!window.confirm(t("confirm_close_ticket"))) return;
     try {
       await api.tickets.close(ticketId);
-      show("تم إغلاق التذكرة", "success");
+      show(t("ticket_closed_success"), "success");
       load();
     } catch (e) { show(e.message, "error"); }
   };
@@ -5378,12 +5378,12 @@ function TicketConversationPage({ ticketId, navigate, user }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
           <button onClick={() => navigate("/tickets")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-            <ArrowRight size={18} /> العودة للرسائل
+            <ArrowRight size={18} /> {t("back_to_messages")}
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{ticket.subject}</h1>
         </div>
         {user.user_type !== 0 && ticket.status !== 'CLOSED' && (
-          <Btn variant="danger" onClick={onCloseTicket}>إنهاء المحادثة</Btn>
+          <Btn variant="danger" onClick={onCloseTicket}>{t("end_conversation")}</Btn>
         )}
       </div>
 
@@ -5425,7 +5425,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
             }}>
               {!isMe && isFirstInGroup && (
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#0284c7", marginBottom: 2, marginLeft: 2, marginRight: 2 }}>
-                  {m.sender_type === 'doctor' ? 'الطبيب' : m.sender_type === 'clinic' ? 'العيادة' : 'المريض'}
+                  {m.sender_type === 'doctor' ? t("sender_doctor") : m.sender_type === 'clinic' ? t("sender_clinic") : t("sender_patient")}
                 </div>
               )}
 
@@ -5456,7 +5456,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
           <input
             value={msg}
             onChange={e => setMsg(e.target.value)}
-            placeholder="اكتب رسالتك هنا..."
+            placeholder={t("write_message_here")}
             style={{
               flex: 1, padding: "12px 16px", borderRadius: 16, border: "none",
               background: "#f8fafc", outline: "none", fontSize: 15, transition: "all 0.2s"
@@ -5489,6 +5489,7 @@ function TicketConversationPage({ ticketId, navigate, user }) {
 }
 
 function NewTicketPage({ navigate, user, qs }) {
+  const { t } = useTranslation();
   const { show, Toast } = useToast();
   const [loading, setL] = useState(false);
   const [subject, setSub] = useState("");
@@ -5504,7 +5505,7 @@ function NewTicketPage({ navigate, user, qs }) {
     setL(true);
     try {
       await api.tickets.create({ subject, message, doctor_id: doctor_id, clinic_id: clinicid });
-      show("تم إنشاء التذكرة بنجاح", "success");
+      show(t("ticket_created_success"), "success");
       setTimeout(() => navigate("/tickets"), 1500);
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
@@ -5512,21 +5513,21 @@ function NewTicketPage({ navigate, user, qs }) {
 
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "40px 24px" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 24 }}>إرسال رسالة جديدة</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 24 }}>{t("new_message_title")}</h1>
       <Card>
         <form onSubmit={onSubmit}>
-          <Input label="عنوان الرسالة (الموضوع)" value={subject} onChange={e => setSub(e.target.value)} placeholder="مثال: استفسار عن موعد" required />
+          <Input label={t("message_subject")} value={subject} onChange={e => setSub(e.target.value)} placeholder={t("subject_placeholder")} required />
           <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#374151" }}>محتوى الرسالة</label>
+            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("message_content")}</label>
             <textarea
               value={message}
               onChange={e => setMsg(e.target.value)}
-              placeholder="اكتب تفاصيل استفسارك هنا..."
+              placeholder={t("message_content_placeholder")}
               required
               style={{ width: "100%", height: 150, padding: 14, borderRadius: 12, border: "1.5px solid var(--border)", outline: "none", resize: "none", boxSizing: "border-box" }}
             />
           </div>
-          <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center" }}>إرسال الآن</Btn>
+          <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center" }}>{t("send_now")}</Btn>
         </form>
       </Card>
       <Toast />
