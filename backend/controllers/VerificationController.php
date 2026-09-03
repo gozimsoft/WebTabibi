@@ -13,17 +13,21 @@ class VerificationController {
 
     // ----------------------------------------------------------
     // POST /api/verify/send
-    // Body: { type: "email" | "phone" }
-    // Sends an OTP to the patient's email or phone
+    // Body: { type: "email" }
+    // Sends an OTP to the patient's email
     // ----------------------------------------------------------
     public static function send(): void {
         $session = AuthMiddleware::patientOnly();
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
         $type    = $data['type'] ?? '';
 
-        if (!in_array($type, ['email', 'phone'])) {
-            // رسالة بشرية: نوع التحقق غير صالح
-            Response::error("نوع التحقق غير صالح. يرجى اختيار البريد الإلكتروني أو رقم الهاتف.", 422);
+        // تم إيقاف ميزة التحقق من الهاتف بالـ OTP ويتم قبول البريد الإلكتروني فقط
+        if ($type === 'phone') {
+            Response::success(null, "رقم الهاتف مفعّل ومؤكد تلقائياً.");
+        }
+
+        if ($type !== 'email') {
+            Response::error("نوع التحقق غير صالح. يرجى اختيار البريد الإلكتروني.", 422);
         }
 
         $pdo  = Database::getInstance();
@@ -32,23 +36,18 @@ class VerificationController {
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
-        $target = $type === 'email' ? $patient['email'] : $patient['phone'];
+        $target = $patient['email'];
         if (empty($target)) {
-            // رسالة بشرية: البريد أو الهاتف غير موجود في الملف الشخصي
-            Response::error("لا يوجد {$type} مسجل في ملفك الشخصي. يرجى إضافته أولاً من إعدادات الملف الشخصي.", 400);
+            Response::error("لا يوجد بريد إلكتروني مسجل في ملفك الشخصي. يرجى إضافته أولاً من إعدادات الملف الشخصي.", 400);
         }
 
         // Check if already verified
-        $alreadyVerified = $type === 'email'
-            ? (int)($patient['emailvalidation'] ?? 0)
-            : (int)($patient['phonevalidation'] ?? 0);
-
-        if ($alreadyVerified) {
-            Response::success(null, ($type === 'email' ? 'البريد الإلكتروني' : 'رقم الهاتف') . " مفعّل بالفعل ✓");
+        if ((int)($patient['emailvalidation'] ?? 0) === 1) {
+            Response::success(null, "البريد الإلكتروني مفعّل بالفعل ✓");
         }
 
         // Delete old OTPs for this user/type
-        $pdo->prepare("DELETE FROM verifications WHERE user_id = ? AND type = ?")->execute([$patient['id'], $type]);
+        $pdo->prepare("DELETE FROM verifications WHERE user_id = ? AND type = 'email'")->execute([$patient['id']]);
 
         // Generate 6-digit OTP
         $code    = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
@@ -57,42 +56,48 @@ class VerificationController {
 
         $pdo->prepare("
             INSERT INTO verifications (id, user_id, type, target, code, expires_at, verified)
-            VALUES (?, ?, ?, ?, ?, ?, 0)
-        ")->execute([$id, $patient['id'], $type, $target, $code, $expires]);
+            VALUES (?, ?, 'email', ?, ?, ?, 0)
+        ")->execute([$id, $patient['id'], $target, $code, $expires]);
 
+        // Send OTP using EmailHelper (SMTP)
+        require_once __DIR__ . '/../helpers/EmailHelper.php';
         $sent = false;
-        if ($type === 'email') {
-            $sent = self::sendEmailOTP($target, $patient['fullname'], $code);
+        if (class_exists('EmailHelper') && method_exists('EmailHelper', 'sendOTP')) {
+            $sent = EmailHelper::sendOTP($target, $patient['fullname'] ?? '', $code);
+        } else {
+            $sent = self::sendEmailOTP($target, $patient['fullname'] ?? '', $code);
         }
-        // phone: no SMS service — return code in DEV mode only
+
         $devCode = (defined('APP_ENV') && APP_ENV === 'production') ? null : $code;
 
         Response::success([
-            'target'    => self::maskTarget($type, $target),
-            'type'      => $type,
+            'target'    => self::maskTarget('email', $target),
+            'type'      => 'email',
             'expires_in'=> 600,
-            // Only in development — remove in production!
             'dev_code'  => $devCode,
             'email_sent'=> $sent,
-        ], "تم إرسال رمز التحقق بنجاح إلى " . self::maskTarget($type, $target));
+        ], "تم إرسال رمز التحقق بنجاح إلى " . self::maskTarget('email', $target));
     }
 
     // ----------------------------------------------------------
     // POST /api/verify/confirm
-    // Body: { type: "email" | "phone", code: "123456" }
+    // Body: { type: "email", code: "123456" }
     // ----------------------------------------------------------
     public static function confirm(): void {
         $session = AuthMiddleware::patientOnly();
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
-        $type    = $data['type'] ?? '';
+        $type    = $data['type'] ?? 'email';
         $code    = trim($data['code'] ?? '');
 
-        if (!in_array($type, ['email', 'phone'])) {
-            // رسالة بشرية: نوع التحقق غير صالح عند التأكيد
-            Response::error("نوع التحقق غير صالح. يرجى اختيار البريد الإلكتروني أو رقم الهاتف.", 422);
+        if ($type === 'phone') {
+            Response::success(['type' => 'phone', 'verified' => true], 'تم التحقق من رقم الهاتف بنجاح ✓');
+            return;
+        }
+
+        if ($type !== 'email') {
+            Response::error("نوع التحقق غير صالح.", 422);
         }
         if (empty($code)) {
-            // رسالة بشرية: رمز OTP مطلوب
             Response::error("يرجى إدخال رمز التحقق المكوّن من 6 أرقام.", 422);
         }
 
@@ -104,15 +109,14 @@ class VerificationController {
 
         $stmt = $pdo->prepare("
             SELECT * FROM verifications
-            WHERE user_id = ? AND type = ? AND code = ?
+            WHERE user_id = ? AND type = 'email' AND code = ?
               AND verified = 0 AND expires_at > NOW()
             ORDER BY created_at DESC LIMIT 1
         ");
-        $stmt->execute([$patient['id'], $type, $code]);
+        $stmt->execute([$patient['id'], $code]);
         $verification = $stmt->fetch();
 
         if (!$verification) {
-            // رسالة بشرية: رمز التحقق خاطئ أو منتهي الصلاحية
             Response::error("الرمز الذي أدخلته غير صحيح أو انتهت صلاحيته. يرجى طلب رمز جديد والمحاولة مرة أخرى.", 400);
         }
 
@@ -120,10 +124,9 @@ class VerificationController {
         $pdo->prepare("UPDATE verifications SET verified = 1 WHERE id = ?")->execute([$verification['id']]);
 
         // Update patient validation field
-        $field = $type === 'email' ? 'emailvalidation' : 'phonevalidation';
-        $pdo->prepare("UPDATE patients SET `$field` = 1 WHERE id = ?")->execute([$patient['id']]);
+        $pdo->prepare("UPDATE patients SET emailvalidation = 1 WHERE id = ?")->execute([$patient['id']]);
 
-        Response::success(['type' => $type, 'verified' => true], ($type === 'email' ? 'تم التحقق من البريد الإلكتروني بنجاح ✓' : 'تم التحقق من رقم الهاتف بنجاح ✓'));
+        Response::success(['type' => 'email', 'verified' => true], 'تم التحقق من البريد الإلكتروني بنجاح ✓');
     }
 
     // ----------------------------------------------------------
@@ -140,8 +143,8 @@ class VerificationController {
         if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
 
         Response::success([
-            'email_verified' => (bool)$patient['emailvalidation'],
-            'phone_verified' => (bool)$patient['phonevalidation'],
+            'email_verified' => (bool)($patient['emailvalidation'] ?? 0),
+            'phone_verified' => !empty($patient['phone']), // الهاتف مؤكد دائماً بمجرد إدخاله
             'has_email'      => !empty($patient['email']),
             'has_phone'      => !empty($patient['phone']),
             'email_masked'   => !empty($patient['email']) ? self::maskTarget('email', $patient['email']) : null,

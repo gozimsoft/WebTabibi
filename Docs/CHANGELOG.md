@@ -2,6 +2,68 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-09-03 (3)
+
+### Changed / Improved
+- **إيقاف ميزة التحقق من الهاتف برمز OTP**: تم إيقاف وتعطيل طلب رمز التحقق لأرقام الهواتف عبر النظام كاملاً في الواجهة الخلفية والأمامية (`VerificationController`, `App.jsx`, `Profile.jsx`).
+- **تأكيد رقم الهاتف تلقائياً فور الإدخال**: تعيين قيمة `phonevalidation = 1` تلقائياً لكل رقم هاتف يتم إدخاله في أي مكان (تسجيل المرضى، تسجيل Google، تسجيل وتحديث الأطباء والعيادات، وتعديل الملفات الشخصية).
+- **منع تكرار رقم الهاتف الصارم**: تعزيز التحقق من عدم تكرار أرقام الهواتف عبر فحص جميع الجداول (`patients`, `doctors`, `clinics`, `doctorregistrations`, `clinicregistrations`) بواسطة `UserValidationHelper::isPhoneDuplicate` بعد توحيد الصيغ وحذف الرموز والشرطات.
+- **تحديث السجلات الحالية في قاعدة البيانات**: ترقية جميع سجلات المرضى والأطباء والعيادات التي تحتوي على أرقام هواتف لتكون مؤكدة (`phonevalidation = 1`).
+
+### Files Changed
+- backend/helpers/UserValidationHelper.php
+- backend/controllers/PatientController.php
+- backend/controllers/DoctorController.php
+- backend/controllers/ClinicController.php
+- backend/controllers/AuthController.php
+- backend/controllers/AdminController.php
+- backend/controllers/VerificationController.php
+- frontend/src/App.jsx
+- frontend/src/pages/Profile.jsx
+- Docs/BUSINESS_RULES.md
+- Docs/CHANGELOG.md
+
+### Documentation Updated
+- Yes (`Docs/BUSINESS_RULES.md`, `Docs/CHANGELOG.md`)
+
+---
+
+## 2026-09-03 (2)
+
+### Added
+- إضافة ميزة إرسال بريد إلكتروني تلقائي واحترافي عبر SMTP يتضمن بيانات الدخول (اسم المستخدم، البريد الإلكتروني، كلمة المرور، ورابط تسجيل الدخول) إلى الطبيب أو العيادة فور قبول طلب التسجيل من قِبل المطور/الأدمن في لوحة التحكم (`AdminController`).
+- إضافة دالة `EmailHelper::sendApprovalCredentials` وقالب بريد HTML متجاوب (`buildApprovalCredentialsTemplate`) بتصميم متناسق يدعم اللغتين العربية والفرنسية، مع إبراز بيانات تسجيل الدخول وتنبيهات أمان الحساب وزر الدخول المباشر.
+
+### Files Changed
+- backend/helpers/EmailHelper.php
+- backend/controllers/AdminController.php
+- Docs/BUSINESS_RULES.md
+- Docs/CHANGELOG.md
+
+### Documentation Updated
+- Yes (`Docs/BUSINESS_RULES.md`, `Docs/CHANGELOG.md`)
+
+---
+
+## 2026-09-03
+
+### Added / Modified
+- إعداد وتحديث حساب المطور ومدير النظام (Admin / Developer) في قاعدة البيانات ببيانات الاعتماد:
+  - اسم المستخدم: `admin`
+  - كلمة المرور: `amar1990` (مُشفرة بنظام Base64 المعتمد في المشروع)
+  - الصلاحية: `usertype = 3` (مدير نظام / مطور بكامل الصلاحيات ولوحة التحكم)
+- إبطال الجلسات السابقة لحساب الأدمن لضمان تفعيل كلمة المرور الجديدة فوراً.
+- تحديث التوثيق في دليل التثبيت `Docs/SETUP_GUIDE.md`.
+
+### Files Changed
+- Docs/SETUP_GUIDE.md
+- Docs/CHANGELOG.md
+
+### Documentation Updated
+- Yes (`Docs/SETUP_GUIDE.md`, `Docs/CHANGELOG.md`)
+
+---
+
 ## 2026-06-20
 
 ### Added

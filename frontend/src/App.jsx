@@ -5696,34 +5696,30 @@ function ProfilePage({ user, navigate }) {
                 {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
                 {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
               </Badge>
-              <Badge color={verStatus.phone_verified ? "#059669" : "#ea580c"}>
-                {verStatus.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-                {verStatus.phone_verified ? t("phone_verified") : t("phone_unverified")}
-              </Badge>
+              {form.phone && (
+                <Badge color="#059669">
+                  <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
+                  {t("phone_verified")}
+                </Badge>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Verification section for patient */}
-      {verStatus && (!verStatus.email_verified || !verStatus.phone_verified) && (
+      {/* Verification section for patient - Email only */}
+      {verStatus && !verStatus.email_verified && (
         <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
           <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
           <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
             {t("id_verification_desc")}
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {!verStatus.email_verified && verStatus.has_email && (
+            {verStatus.has_email ? (
               <Btn variant="ghost" onClick={() => setOTP("email")} style={{ fontSize: 13, padding: "8px 18px" }}>
                 <Mail size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_email_btn")}
               </Btn>
-            )}
-            {!verStatus.phone_verified && verStatus.has_phone && (
-              <Btn variant="ghost" onClick={() => setOTP("phone")} style={{ fontSize: 13, padding: "8px 18px" }}>
-                <Phone size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_phone_btn")}
-              </Btn>
-            )}
-            {!verStatus.has_email && (
+            ) : (
               <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {t("add_email_first")}</div>
             )}
           </div>

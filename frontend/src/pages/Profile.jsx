@@ -103,7 +103,7 @@ export default function ProfilePage({ user }) {
                 <div style={{ color: "#64748b", fontSize: 11, marginBottom: 2 }}>{t("phone_label")}</div>
                 <div style={{ fontWeight: 700 }}>{user?.phone || t("not_specified")}</div>
               </div>
-              {user?.is_phone_verified ? <Badge color="#059669">{t("phone_verified")}</Badge> : <Btn variant="ghost" onClick={() => setOtp("phone")} style={{ padding: "5px 12px", fontSize: 11 }}>{t("confirm_phone_btn")}</Btn>}
+              {user?.phone ? <Badge color="#059669">{t("phone_verified")}</Badge> : <span style={{ fontSize: 12, color: "#94a3b8" }}>{t("not_specified")}</span>}
             </div>
           </div>
           <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>{t("id_verification_desc")}</div>

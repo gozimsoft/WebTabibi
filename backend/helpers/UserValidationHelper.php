@@ -32,26 +32,48 @@ class UserValidationHelper {
     }
 
     /**
-     * Checks if a phone number is already used in ANY table
-     * Cleans phone number from spaces and symbols before checking.
+     * التحقق من عدم تكرار رقم الهاتف عبر جميع جداول النظام (المرضى، الأطباء، العيادات، وطلبات التسجيل)
+     * Checks if a phone number is already used in ANY table (patients, doctors, clinics, doctorregistrations, clinicregistrations)
+     * Cleans phone number from spaces, dashes, slashes, and country codes before checking.
      */
     public static function isPhoneDuplicate(string $phone, ?string $excludeId = null): bool {
         $pdo = Database::getInstance();
-        $cleanPhone = preg_replace('/[^\d\+]/', '', $phone); // keep only digits and +
+        $cleanDigits = preg_replace('/[^\d]/', '', $phone); // keep only digits
 
-        if (empty($cleanPhone)) {
+        if (empty($cleanDigits)) {
             return false;
         }
 
-        $tables = ['patients', 'doctors', 'clinics'];
-        foreach ($tables as $table) {
+        // إذا كان الرقم يبدأ بـ 213 (رمز الجزائر) أو 0، توحيد الصيغة للفحص
+        $localDigits = preg_replace('/^213/', '0', $cleanDigits);
+        $intDigits = ltrim($cleanDigits, '0');
+
+        $tables = [
+            'patients' => 'id',
+            'doctors' => 'id',
+            'clinics' => 'id',
+            'doctorregistrations' => 'id',
+            'clinicregistrations' => 'id',
+        ];
+
+        foreach ($tables as $table => $idCol) {
             $sql = "SELECT COUNT(*) FROM `$table` WHERE 
-                    REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', ''), '+', '') = ?";
-            $params = [str_replace('+', '', $cleanPhone)];
+                    (
+                        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', ''), '+', ''), '/', '') = ?
+                        OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', ''), '+', ''), '/', '') = ?
+                        OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', ''), '+', ''), '/', '') = ?
+                    )";
+            $params = [$cleanDigits, $localDigits, $intDigits];
+
+            if ($table === 'doctorregistrations' || $table === 'clinicregistrations') {
+                $sql .= " AND status != 'REJECTED'";
+            }
+
             if ($excludeId) {
-                $sql .= " AND id != ?";
+                $sql .= " AND `$idCol` != ?";
                 $params[] = $excludeId;
             }
+
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             

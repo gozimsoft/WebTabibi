@@ -144,6 +144,24 @@ class EmailHelper {
     }
 
     // ----------------------------------------------------------
+    // إرسال بيانات الدخول عند قبول حساب الطبيب أو العيادة من لوحة المطور/الأدمن
+    // ----------------------------------------------------------
+    public static function sendApprovalCredentials(
+        string $toEmail,
+        string $toName,
+        string $accountType,
+        string $username,
+        string $plainPassword
+    ): bool {
+        $typeLabel = ($accountType === 'clinic') ? 'العيادة' : 'الطبيب';
+        $subject   = "🎉 تم قبول طلب انضمام {$typeLabel} - بيانات تسجيل الدخول | Tabibi طبيبي";
+        $html      = self::buildApprovalCredentialsTemplate($toName, $accountType, $username, $toEmail, $plainPassword);
+        $loginUrl  = (defined('FRONTEND_URL') ? rtrim(FRONTEND_URL, '/') : 'http://localhost:80') . '/#/login';
+        $text      = "مرحباً {$toName}،\n\nيسرنا إبلاغك بأنه تمت الموافقة على طلب انضمامك إلى منصة طبيبي (Tabibi).\n\nبيانات الدخول إلى حسابك:\n- نوع الحساب: {$typeLabel}\n- اسم المستخدم: {$username}\n- البريد الإلكتروني: {$toEmail}\n- كلمة المرور: {$plainPassword}\n\nرابط تسجيل الدخول: {$loginUrl}\n\nفريق منصة طبيبي";
+        return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
+    }
+
+    // ----------------------------------------------------------
     // إرسال رمز التحقق OTP (تسجيل حساب جديد أو تأكيد الإيميل)
     // ----------------------------------------------------------
     public static function sendOTP(
@@ -249,6 +267,187 @@ class EmailHelper {
 HTML;
     }
 
+    // ----------------------------------------------------------
+    // قالب HTML لرسالة قبول الحساب وإرسال بيانات الدخول
+    // ----------------------------------------------------------
+    private static function buildApprovalCredentialsTemplate(
+        string $toName,
+        string $accountType,
+        string $username,
+        string $toEmail,
+        string $plainPassword
+    ): string {
+        $year       = date('Y');
+        $typeTitle  = ($accountType === 'clinic') ? 'عيادة (Clinique)' : 'طبيب (Médecin)';
+        $typeAr     = ($accountType === 'clinic') ? 'عيادتكم' : 'حسابكم كطبيب';
+        $loginUrl   = (defined('FRONTEND_URL') ? rtrim(FRONTEND_URL, '/') : 'http://localhost:80') . '/#/login';
+
+        return <<<HTML
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+        body { font-family: 'Tajawal', Arial, sans-serif; }
+    </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Tajawal',Arial,sans-serif;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f1f5f9;padding:40px 0;">
+    <tr>
+        <td align="center">
+            <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.1);">
+
+                <!-- HEADER -->
+                <tr>
+                    <td style="background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);padding:45px 40px;text-align:center;">
+                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">طبيبي <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
+                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">صحتكم، أولويتنا</p>
+                    </td>
+                </tr>
+
+                <!-- SUCCESS BADGE -->
+                <tr>
+                    <td align="center" style="padding:0 40px;">
+                        <div style="display:inline-block;background-color:#ffffff;padding:12px 30px;border-radius:50px;margin-top:-30px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #e2e8f0;">
+                            <table border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td><img src="https://cdn-icons-png.flaticon.com/512/190/190411.png" width="24" height="24" style="display:block;"></td>
+                                    <td style="padding-right:10px;color:#059669;font-size:16px;font-weight:700;">🎉 تم قبول طلب الانضمام بنجاح</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- GREETING -->
+                <tr>
+                    <td style="padding:40px 40px 15px;text-align:right;">
+                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">مرحباً {$toName}،</p>
+                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.7;">
+                            يسرنا إبلاغك بأنه تمت مراجعة والموافقة على طلب انضمام <strong>{$typeAr}</strong> إلى منصة طبيبي بنجاح!
+                            يمكنك الآن تسجيل الدخول إلى حسابك والبدء في تقديم خدماتك وإدارة مواعيدك.
+                        </p>
+                        <p dir="ltr" style="margin:8px 0 0;color:#64748b;font-size:13px;text-align:left;line-height:1.5;">
+                            Nous sommes ravis de vous informer que votre demande d'adhésion a été approuvée avec succès. Vous pouvez dès à présent vous connecter à votre compte :
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- CREDENTIALS BOX -->
+                <tr>
+                    <td style="padding:10px 40px 25px;">
+                        <div style="background-color:#f8fafc;border:2px solid #e2e8f0;border-radius:20px;padding:24px;">
+                            <div style="text-align:center;margin-bottom:18px;">
+                                <span style="display:inline-block;background-color:#e0f2fe;color:#0369a1;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;">
+                                    🔑 بيانات تسجيل الدخول (Identifiants de connexion)
+                                </span>
+                            </div>
+
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <!-- Type -->
+                                <tr>
+                                    <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                                        <table width="100%"><tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                نوع الحساب <span style="font-size:11px;color:#94a3b8;">(Type)</span>:
+                                            </td>
+                                            <td align="left" style="color:#0f172a;font-size:14px;font-weight:800;">
+                                                {$typeTitle}
+                                            </td>
+                                        </tr></table>
+                                    </td>
+                                </tr>
+
+                                <!-- Email -->
+                                <tr>
+                                    <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                                        <table width="100%"><tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                البريد الإلكتروني <span style="font-size:11px;color:#94a3b8;">(Email)</span>:
+                                            </td>
+                                            <td align="left" style="color:#0369a1;font-size:14px;font-weight:800;font-family:monospace;" dir="ltr">
+                                                {$toEmail}
+                                            </td>
+                                        </tr></table>
+                                    </td>
+                                </tr>
+
+                                <!-- Username -->
+                                <tr>
+                                    <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                                        <table width="100%"><tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                اسم المستخدم <span style="font-size:11px;color:#94a3b8;">(Username)</span>:
+                                            </td>
+                                            <td align="left" style="color:#0f172a;font-size:15px;font-weight:800;font-family:monospace;" dir="ltr">
+                                                {$username}
+                                            </td>
+                                        </tr></table>
+                                    </td>
+                                </tr>
+
+                                <!-- Password -->
+                                <tr>
+                                    <td style="padding:12px 0 0;">
+                                        <table width="100%"><tr>
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                كلمة المرور <span style="font-size:11px;color:#94a3b8;">(Mot de passe)</span>:
+                                            </td>
+                                            <td align="left">
+                                                <span style="display:inline-block;background-color:#dcfce7;color:#15803d;padding:6px 14px;border-radius:8px;font-size:15px;font-weight:900;font-family:monospace;letter-spacing:1px;" dir="ltr">
+                                                    {$plainPassword}
+                                                </span>
+                                            </td>
+                                        </tr></table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- CTA BUTTON -->
+                <tr>
+                    <td align="center" style="padding:0 40px 30px;">
+                        <a href="{$loginUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#0369a1,#0891b2);color:#ffffff;text-decoration:none;padding:15px 40px;border-radius:14px;font-size:16px;font-weight:800;box-shadow:0 4px 15px rgba(3,105,161,0.3);">
+                            🚀 تسجيل الدخول الآن (Se connecter)
+                        </a>
+                    </td>
+                </tr>
+
+                <!-- SECURITY NOTICE -->
+                <tr>
+                    <td style="padding:0 40px 35px;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:15px;">
+                            <tr>
+                                <td style="color:#92400e;font-size:13px;line-height:1.6;">
+                                    <strong>💡 نصيحة أمنية:</strong> يُرجى الحفاظ على سرية بيانات حسابك وعدم مشاركتها مع أي شخص. كما يمكنك تغيير كلمة المرور في أي وقت بعد الدخول من خلال صفحة الملف الشخصي.
+                                    <br><br>
+                                    <span style="font-size:12px;" dir="ltr"><strong>Conseil de sécurité :</strong> Veuillez garder vos identifiants confidentiels. Vous pouvez modifier votre mot de passe à tout moment depuis votre profil.</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                    <td style="background-color:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+                        <p style="margin:0;color:#94a3b8;font-size:12px;">© {$year} Tabibi - طبيبي. جميع الحقوق محفوظة.</p>
+                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">هذا البريد إلكتروني تلقائي، يرجى عدم الرد.</p>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
+HTML;
+    }
 
     private static function buildPasswordResetTemplate(string $toName, string $otpCode): string {
         $year = date('Y');
