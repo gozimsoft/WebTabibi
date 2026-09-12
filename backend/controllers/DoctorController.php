@@ -96,6 +96,24 @@ class DoctorController {
         $doctor_id = $stmt->fetchColumn();
 
         if ($doctor_id) {
+            require_once __DIR__ . '/../helpers/UserValidationHelper.php';
+
+            // التحقق من عدم تكرار رقم الهاتف
+            if (!empty($data['phone'])) {
+                $newPhone = trim($data['phone']);
+                if (UserValidationHelper::isPhoneDuplicate($newPhone, $doctor_id)) {
+                    Response::error("رقم الهاتف مستخدم مسبقًا في حساب آخر.", 409);
+                }
+            }
+
+            // التحقق من عدم تكرار البريد الإلكتروني إذا تم تعديله
+            if (!empty($data['email'])) {
+                $newEmail = trim($data['email']);
+                if (UserValidationHelper::isEmailDuplicate($newEmail, $doctor_id)) {
+                    Response::error("البريد الإلكتروني مستخدم مسبقًا في حساب آخر.", 409);
+                }
+            }
+
             $allowed = [
                 'fullname', 'email', 'phone', 'fix', 'casnos', 'speakinglanguage', 
                 'rpps', 'numregister', 'pricing', 'degrees', 'academytitles', 
@@ -109,6 +127,11 @@ class DoctorController {
                     $fields[] = "`$field` = ?";
                     $values[] = $data[$field];
                 }
+            }
+
+            // عند إدخال أو تعديل رقم الهاتف، يسجل دائماً كمؤكد (phonevalidation = 1)
+            if (!empty($data['phone'])) {
+                $fields[] = "`phonevalidation` = 1";
             }
 
             if (!empty($fields)) {

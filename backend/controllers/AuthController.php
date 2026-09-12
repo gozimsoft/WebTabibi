@@ -131,10 +131,10 @@ class AuthController {
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
                 ->execute([$userId, strtolower(trim($data['username'])), $passwordEncoded]);
 
-            // Insert Patient with emailvalidation = 1
+            // Insert Patient with emailvalidation = 1 and phonevalidation = 1
             $pdo->prepare("
-                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, nin, emailvalidation)
-                VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0, ?, 1)
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, nin, emailvalidation, phonevalidation)
+                VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0, ?, 1, 1)
             ")->execute([
                 $patientId,
                 trim($data['fullname']),
@@ -421,10 +421,10 @@ class AuthController {
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
                 ->execute([$userId, $username, $passwordEncoded]);
 
-            // Insert Patient with emailvalidation = 1
+            // Insert Patient with emailvalidation = 1 and phonevalidation = 1
             $pdo->prepare("
-                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, emailvalidation)
-                VALUES (?, '', ?, '', ?, NULL, 0, ?, 'Algérie', 0, 1)
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, emailvalidation, phonevalidation)
+                VALUES (?, '', ?, '', ?, NULL, 0, ?, 'Algérie', 0, 1, 1)
             ")->execute([
                 $patientId,
                 $fullname,

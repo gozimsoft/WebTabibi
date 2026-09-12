@@ -70,6 +70,24 @@ class ClinicController
         // 2. Update clinics table
         $clinicid = $session['clinic_id'] ?? self::getClinicId($session['user_id']);
         if ($clinicid) {
+            require_once __DIR__ . '/../helpers/UserValidationHelper.php';
+
+            // التحقق من عدم تكرار رقم الهاتف
+            if (!empty($data['phone'])) {
+                $newPhone = trim($data['phone']);
+                if (UserValidationHelper::isPhoneDuplicate($newPhone, $clinicid)) {
+                    Response::error("رقم الهاتف مستخدم مسبقًا في حساب آخر.", 409);
+                }
+            }
+
+            // التحقق من عدم تكرار البريد الإلكتروني إذا تم تعديله
+            if (!empty($data['email'])) {
+                $newEmail = trim($data['email']);
+                if (UserValidationHelper::isEmailDuplicate($newEmail, $clinicid)) {
+                    Response::error("البريد الإلكتروني مستخدم مسبقًا في حساب آخر.", 409);
+                }
+            }
+
             $allowed = ['clinicname', 'email', 'phone', 'address', 'notes', 'fax', 'website', 'typeclinic', 'cliniccoordinates', 'latitude', 'longitude', 'services', 'postcode', 'aboutclinic', 'hospitalization', 'hiderating', 'emergency', 'ambulances'];
             $fields = [];
             $values = [];
@@ -79,6 +97,12 @@ class ClinicController
                     $values[] = $data[$field];
                 }
             }
+
+            // عند إدخال أو تعديل رقم الهاتف، يسجل دائماً كمؤكد (phonevalidation = 1)
+            if (!empty($data['phone'])) {
+                $fields[] = "`phonevalidation` = 1";
+            }
+
             if (!empty($fields)) {
                 $values[] = $clinicid;
                 $pdo->prepare("UPDATE clinics SET " . implode(', ', $fields) . " WHERE id = ?")->execute($values);

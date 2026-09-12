@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,6 +25,7 @@ import GoogleCalendarButton from "./components/GoogleCalendarButton";
 import analytics from "./utils/analytics";
 import AppointmentManager from "./pages/AppointmentManager";
 import UserGuide from "./pages/UserGuide";
+import AppDownloadPage from "./pages/AppDownload";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
@@ -606,6 +607,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
+    { label: t("mobile_app", "تطبيق طبيبي"), icon: <Smartphone size={18} />, path: "/app" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
@@ -4677,6 +4679,7 @@ function RegisterDoctorPage({ navigate, qs }) {
 
 // ── PAGE: ADMIN DASHBOARD ─────────────────────────────────────
 function AdminDashboardPage({ navigate, user }) {
+  const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const { show, Toast } = useToast();
   const [tab, setTab] = useState('overview'); // overview | clinics | doctors
@@ -5697,34 +5700,30 @@ function ProfilePage({ user, navigate }) {
                 {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
                 {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
               </Badge>
-              <Badge color={verStatus.phone_verified ? "#059669" : "#ea580c"}>
-                {verStatus.phone_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-                {verStatus.phone_verified ? t("phone_verified") : t("phone_unverified")}
-              </Badge>
+              {form.phone && (
+                <Badge color="#059669">
+                  <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
+                  {t("phone_verified")}
+                </Badge>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Verification section for patient */}
-      {verStatus && (!verStatus.email_verified || !verStatus.phone_verified) && (
+      {/* Verification section for patient - Email only */}
+      {verStatus && !verStatus.email_verified && (
         <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
           <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
           <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
             {t("id_verification_desc")}
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {!verStatus.email_verified && verStatus.has_email && (
+            {verStatus.has_email ? (
               <Btn variant="ghost" onClick={() => setOTP("email")} style={{ fontSize: 13, padding: "8px 18px" }}>
                 <Mail size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_email_btn")}
               </Btn>
-            )}
-            {!verStatus.phone_verified && verStatus.has_phone && (
-              <Btn variant="ghost" onClick={() => setOTP("phone")} style={{ fontSize: 13, padding: "8px 18px" }}>
-                <Phone size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_phone_btn")}
-              </Btn>
-            )}
-            {!verStatus.has_email && (
+            ) : (
               <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {t("add_email_first")}</div>
             )}
           </div>
@@ -6141,6 +6140,7 @@ function Footer({ navigate }) {
 
           <div style={{ display: "flex", gap: isMobile ? 16 : 28, flexWrap: "wrap", justifyContent: "center" }}>
             {[
+              { label: t("footer_mobile_app", "تطبيق طبيبي"), path: "/app" },
               { label: t("footer_privacy"), path: "/privacy" },
               { label: t("footer_terms"), path: "/terms" },
               { label: t("join_as_doctor"), path: "/register-doctor" },
@@ -6219,7 +6219,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 20, fontFamily: "sans-serif", color: "#333", paddingTop: 50 }}>
-          <h2 style={{ color: "#e11d48" }}>Oops, something went wrong on Android!</h2>
+          <h2 style={{ color: "#e11d48" }}>Oops, something went wrong!</h2>
           <details style={{ whiteSpace: "pre-wrap", background: "#f1f5f9", padding: 15, borderRadius: 8, marginTop: 10, fontSize: 12 }}>
             <summary style={{ fontWeight: "bold", color: "#e11d48", cursor: "pointer", marginBottom: 10 }}>
               {this.state.error && this.state.error.toString()}
@@ -6497,6 +6497,8 @@ function MainApp() {
         return <LawPDFViewerPage navigate={navigate} />;
       case "/terms":
         return <TermsOfUsePage navigate={navigate} />;
+      case "/app":
+        return <AppDownloadPage key="app_download" navigate={navigate} user={user} />;
       case "/appointments":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         if (user.user_type === 1 || user.user_type === 2) { setTimeout(() => navigate("/appointmanager"), 0); return null; }

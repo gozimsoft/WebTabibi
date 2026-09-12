@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, ListSkeleton, DoctorImage, Stars, Badge, useToast, VerifiedBadge, AvailabilityPulse } from "../components/SharedUI";
-import { MapPin, Phone, Building, Globe, Activity, Heart, Shield } from "lucide-react";
+import { MapPin, Phone, Building, Globe, Activity, Heart, Shield, Mail, Clock, CreditCard } from "lucide-react";
 import analytics from "../utils/analytics";
 
 

@@ -107,7 +107,10 @@ _(ملاحظة: الاسم يحتوي على خطأ إملائي مقصود `apo
 ### 8. جداول مساعدة أخرى
 
 - **البيانات الجغرافية والديموغرافية**: `wilayas`, `baladiyas`.
-- **الطبية والتشخيصية**: `specialties`, `reasons`, `medicines`.
+- **الطبية والتشخيصية**: 
+  - `specialties`: جدول التخصصات الطبية المعيارية (28 تخصصاً معتمداً بما فيها جراحة الوجه والفكين) بحقول `id` (`char(36)`), `namear` (`varchar(100)`), `namefr` (`varchar(100)`).
+  - `reasons`: جدول أسباب ومبررات الزيارات الطبية المعيارية (716 سبباً موزعة ومربوطة بـ 27 تخصصاً) بالحقول: `id` (`char(36)`), `name` (`varchar(255)`), `namear` (`varchar(255)`), `namefr` (`varchar(255)`), `specialtie_id` (`char(36)` - مفتاح خارجي مرتبط بـ `specialties.id`).
+  - `medicines`: الأدوية والمستلزمات.
 - **التقييمات**: `doctorsratings`, `patientratings`.
 - **الدعم الفني (Tickets)**: `tickets` (التذاكر)، `ticketmessages` (رسائل التذاكر).
 - **إحصائيات الزيارات**: `site_visits` (سجل زيارات الموقع يتضمن `ip_address`, `country`, `wilaya`, `visit_date`).

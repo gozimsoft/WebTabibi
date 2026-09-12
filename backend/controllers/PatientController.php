@@ -36,10 +36,28 @@ class PatientController {
         $pdo     = Database::getInstance();
 
         // Get patient id
-        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id, phone, email FROM patients WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $patient = $stmt->fetch();
         if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
+
+        require_once __DIR__ . '/../helpers/UserValidationHelper.php';
+
+        // التحقق من عدم تكرار رقم الهاتف
+        if (!empty($data['phone'])) {
+            $newPhone = trim($data['phone']);
+            if (UserValidationHelper::isPhoneDuplicate($newPhone, $patient['id'])) {
+                Response::error("رقم الهاتف مستخدم مسبقًا في حساب آخر.", 409);
+            }
+        }
+
+        // التحقق من عدم تكرار البريد الإلكتروني إذا تم تعديله
+        if (!empty($data['email'])) {
+            $newEmail = trim($data['email']);
+            if (UserValidationHelper::isEmailDuplicate($newEmail, $patient['id'])) {
+                Response::error("البريد الإلكتروني مستخدم مسبقًا في حساب آخر.", 409);
+            }
+        }
 
         $allowed = ['fullname','phone','email','birthdate','address','gender','baladiya_id',
                     'birthplace','birthcountry','postcode','speakinglanguage','country',
@@ -55,6 +73,11 @@ class PatientController {
         }
 
         if (empty($fields)) Response::error('لا توجد حقول لتحديثها.', 422);
+
+        // عند إدخال أو تعديل رقم الهاتف، يتم تعيينه كمؤكد مباشرة (phonevalidation = 1)
+        if (!empty($data['phone'])) {
+            $fields[] = "`phonevalidation` = 1";
+        }
 
         $values[] = $patient['id'];
         $pdo->prepare("UPDATE patients SET " . implode(', ', $fields) . " WHERE id = ?")
