@@ -142,6 +142,19 @@ try {
         require_once __DIR__ . '/controllers/DoctorController.php';
         DoctorController::uploadDoctor();
     }
+    // ── Doctor Consultation Reasons ───────────────────────────
+    if ($uri === '/doctors/reasons' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::getReasons();
+    }
+    if ($uri === '/doctors/reasons' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::addReason();
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'reasons' && isset($parts[2]) && $method === 'DELETE') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::deleteReason($parts[2]);
+    }
 
     // GET /api/doctor/appointments — Doctor appointment manager
     if ($uri === '/doctor/appointments' && $method === 'GET') {

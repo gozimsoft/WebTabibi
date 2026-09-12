@@ -599,8 +599,14 @@ class ClinicController
     public static function getReasons(): void
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT * FROM reasons ORDER BY name  ");
-        $stmt->execute();
+        $specId = trim($_GET['specialtie_id'] ?? $_GET['specialty_id'] ?? '');
+        if (!empty($specId)) {
+            $stmt = $pdo->prepare("SELECT * FROM reasons WHERE specialtie_id = ? ORDER BY COALESCE(namear, name) ASC");
+            $stmt->execute([$specId]);
+        } else {
+            $stmt = $pdo->prepare("SELECT * FROM reasons ORDER BY COALESCE(namear, name) ASC");
+            $stmt->execute();
+        }
         Response::success($stmt->fetchAll());
     }
 

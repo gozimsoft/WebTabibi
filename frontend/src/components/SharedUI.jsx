@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ShieldCheck } from "lucide-react";
 
 export const Spinner = ({ size = 24 }) => (
@@ -27,69 +28,61 @@ export const Skeleton = ({ width, height, borderRadius = 12, style = {} }) => (
 );
 
 export const CardSkeleton = () => (
-  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 20, display: "flex", gap: 14 }}>
-    <Skeleton width={50} height={50} borderRadius={12} />
-    <div style={{ flex: 1 }}>
-      <Skeleton width="60%" height={16} style={{ marginBottom: 10 }} />
-      <Skeleton width="40%" height={12} />
+  <div style={{ background: "var(--card-bg)", borderRadius: 16, padding: 20, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+      <Skeleton width={56} height={56} borderRadius={28} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+        <Skeleton width="60%" height={18} />
+        <Skeleton width="40%" height={14} />
+      </div>
     </div>
+    <Skeleton width="100%" height={36} borderRadius={8} />
   </div>
 );
 
 export const ListSkeleton = ({ count = 3 }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-    {Array(count).fill(0).map((_, i) => <CardSkeleton key={i} />)}
+  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    {Array.from({ length: count }).map((_, i) => (
+      <CardSkeleton key={i} />
+    ))}
   </div>
 );
 
 export const DoctorDetailSkeleton = () => (
-  <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
-    <Skeleton width={120} height={20} style={{ marginBottom: 20 }} />
-    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 28, marginBottom: 20 }}>
-      <div style={{ display: "flex", gap: 32, flexDirection: "row" }}>
-        <Skeleton width={200} height={200} borderRadius={32} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <Skeleton width={80} height={24} borderRadius={20} />
-            <Skeleton width={60} height={24} borderRadius={20} />
-          </div>
-          <Skeleton width="40%" height={32} style={{ marginBottom: 16 }} />
-          <Skeleton width="30%" height={20} style={{ marginBottom: 12 }} />
-          <Skeleton width="50%" height={20} style={{ marginBottom: 12 }} />
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            <Skeleton width={100} height={15} />
-            <Skeleton width={100} height={15} />
-          </div>
-        </div>
+  <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ background: "var(--card-bg)", borderRadius: 20, padding: 24, border: "1px solid var(--border)", display: "flex", gap: 20, alignItems: "center" }}>
+      <Skeleton width={90} height={90} borderRadius={45} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+        <Skeleton width="50%" height={24} />
+        <Skeleton width="30%" height={16} />
+        <Skeleton width="40%" height={14} />
       </div>
     </div>
-    <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
-      <Skeleton width={80} height={30} borderRadius={0} />
-      <Skeleton width={80} height={30} borderRadius={0} />
-      <Skeleton width={80} height={30} borderRadius={0} />
-    </div>
-    <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 24 }}>
-      <Skeleton width="100%" height={150} />
+    <div style={{ background: "var(--card-bg)", borderRadius: 20, padding: 24, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 14 }}>
+      <Skeleton width="35%" height={20} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} height={42} borderRadius={10} />
+        ))}
+      </div>
     </div>
   </div>
 );
 
 export const AppointmentSkeleton = () => (
-  <div style={{ background: "var(--card-bg)", borderRadius: 16, border: "1px solid #0891b2", padding: 20, marginBottom: 16 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-      <div style={{ display: "flex", gap: 12 }}>
-        <Skeleton width={48} height={48} borderRadius={10} />
-        <div>
-          <Skeleton width={120} height={16} style={{ marginBottom: 6 }} />
-          <Skeleton width={80} height={12} />
+  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    {Array.from({ length: 3 }).map((_, i) => (
+      <div key={i} style={{ background: "var(--card-bg)", borderRadius: 16, padding: 18, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <Skeleton width={48} height={48} borderRadius={24} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Skeleton width={140} height={16} />
+            <Skeleton width={90} height={12} />
+          </div>
         </div>
+        <Skeleton width={80} height={32} borderRadius={8} />
       </div>
-      <Skeleton width={70} height={24} borderRadius={20} />
-    </div>
-    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", justifyContent: "space-between" }}>
-      <Skeleton width={150} height={14} />
-      <Skeleton width={100} height={14} />
-    </div>
+    ))}
   </div>
 );
 
@@ -99,20 +92,50 @@ export function useToast() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4500);
   }, []);
-  const Toast = () => toast ? (
-    <div style={{
-      position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-      background: toast.type === "error" ? "#fee2e2" : "#d1fae5",
-      color: toast.type === "error" ? "#991b1b" : "#065f46",
-      border: `1px solid ${toast.type === "error" ? "#fca5a5" : "#6ee7b7"}`,
-      borderRadius: 12, padding: "12px 20px", fontWeight: 600, fontSize: 14,
-      boxShadow: "0 8px 30px rgba(0,0,0,0.15)", display: "flex", gap: 12, alignItems: "center", maxWidth: 380
-    }}>
-      <span style={{ fontSize: 20 }}>{toast.type === "error" ? "❌" : "✅"}</span>
-      <span style={{ flex: 1 }}>{toast.msg}</span>
-      <button onClick={() => setToast(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "inherit" }}>×</button>
-    </div>
-  ) : null;
+  const Toast = () => {
+    if (!toast || typeof document === "undefined") return null;
+    const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+    return createPortal(
+      <div style={{
+        position: "fixed",
+        top: isMobile ? 72 : 88,
+        right: isMobile ? 16 : 24,
+        left: isMobile ? 16 : "auto",
+        zIndex: 9999999,
+        background: toast.type === "error" ? "#fee2e2" : "#d1fae5",
+        color: toast.type === "error" ? "#991b1b" : "#065f46",
+        border: `1px solid ${toast.type === "error" ? "#fca5a5" : "#6ee7b7"}`,
+        borderRadius: 14,
+        padding: "14px 20px",
+        fontWeight: 600,
+        fontSize: 14,
+        boxShadow: "0 14px 35px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.08)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        maxWidth: isMobile ? "calc(100vw - 32px)" : 420,
+        pointerEvents: "auto",
+        animation: "fadeIn 0.2s ease-out"
+      }}>
+        <span style={{ fontSize: 20, lineHeight: 1 }}>{toast.type === "error" ? "❌" : "✅"}</span>
+        <span style={{ flex: 1, wordBreak: "break-word", lineHeight: 1.4 }}>{toast.msg}</span>
+        <button
+          type="button"
+          onClick={() => setToast(null)}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 22, lineHeight: 1, color: "inherit", opacity: 0.7,
+            padding: "0 4px", display: "flex", alignItems: "center"
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+          onMouseLeave={e => e.currentTarget.style.opacity = "0.7"}
+        >
+          ×
+        </button>
+      </div>,
+      document.body
+    );
+  };
   return { show, Toast };
 }
 

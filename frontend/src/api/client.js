@@ -52,6 +52,9 @@ export const api = {
   },
   doctor: {
     getProfile: () => request('GET', '/doctors/profile'),
+    getReasons: () => request('GET', '/doctors/reasons'),
+    addReason: (body) => request('POST', '/doctors/reasons', body),
+    deleteReason: (id) => request('DELETE', `/doctors/reasons/${id}`),
     getAppointments: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request('GET', `/doctor/appointments${qs ? '?' + qs : ''}`);

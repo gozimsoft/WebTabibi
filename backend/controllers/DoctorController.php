@@ -292,4 +292,155 @@ class DoctorController {
             Response::serverError('حدث خطأ في الخادم أثناء مزامنة بيانات الطبيب.');
         }
     }
+
+    // GET /api/doctors/reasons
+    public static function getReasons(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $stmt = $pdo->prepare("
+            SELECT dr.id, dr.reason_id, dr.doctor_id, dr.clinic_id, dr.reason_name, dr.reason_time, dr.reason_color,
+                   c.clinicname
+            FROM doctorsreasons dr
+            LEFT JOIN clinics c ON c.id = dr.clinic_id
+            WHERE dr.doctor_id = ?
+            ORDER BY dr.reason_name ASC
+        ");
+        $stmt->execute([$doctorId]);
+        Response::success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    // POST /api/doctors/reasons
+    public static function addReason(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id, specialtie_id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctor = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$doctor) Response::notFound('لم يتم العثور على حساب الطبيب.');
+        $doctorId = $doctor['id'];
+
+        // Determine clinic_id (clinic_id is NOT NULL in schema)
+        $clinicId = trim($data['clinic_id'] ?? '');
+        if (empty($clinicId)) {
+            $stmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND UPPER(status) IN ('APPROVED','ACCEPTED') LIMIT 1");
+            $stmt->execute([$doctorId]);
+            $clinicId = $stmt->fetchColumn();
+        }
+        if (empty($clinicId)) {
+            $stmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? LIMIT 1");
+            $stmt->execute([$doctorId]);
+            $clinicId = $stmt->fetchColumn();
+        }
+        if (empty($clinicId)) {
+            $stmt = $pdo->query("SELECT id FROM clinics LIMIT 1");
+            $clinicId = $stmt->fetchColumn();
+        }
+        if (empty($clinicId)) {
+            Response::error('يجب ربط الطبيب بعيادة أولاً لإضافة أسباب الاستشارة.', 422);
+        }
+
+        // Support bulk items or single item
+        $items = [];
+        if (!empty($data['items']) && is_array($data['items'])) {
+            $items = $data['items'];
+        } elseif (!empty($data['reasons']) && is_array($data['reasons'])) {
+            $items = $data['reasons'];
+        } elseif (!empty($data['reason_name'])) {
+            $items = [$data];
+        }
+
+        if (empty($items)) {
+            Response::error('يرجى تحديد أو إدخال سبب استشارة واحد على الأقل.', 422);
+        }
+
+        $checkStmt = $pdo->prepare("
+            SELECT id FROM doctorsreasons 
+            WHERE doctor_id = ? AND (reason_name = ? OR (reason_id IS NOT NULL AND reason_id = ?))
+            LIMIT 1
+        ");
+
+        $insertStmt = $pdo->prepare("
+            INSERT INTO doctorsreasons (id, reason_id, doctor_id, clinic_id, reason_name, reason_time, reason_color)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $inserted = [];
+        $pdo->beginTransaction();
+        try {
+            foreach ($items as $item) {
+                $reasonName = trim($item['reason_name'] ?? '');
+                if (empty($reasonName)) continue;
+                $reasonId = !empty($item['reason_id']) ? trim($item['reason_id']) : null;
+                $reasonTime = isset($item['reason_time']) && (int)$item['reason_time'] > 0 
+                    ? (int)$item['reason_time'] 
+                    : (isset($data['reason_time']) && (int)$data['reason_time'] > 0 ? (int)$data['reason_time'] : 30);
+                $reasonColor = isset($item['reason_color']) ? (int)$item['reason_color'] : 0;
+
+                // Check duplicate
+                $checkStmt->execute([$doctorId, $reasonName, $reasonId]);
+                if ($checkStmt->fetch()) {
+                    continue; // Skip if already exists for this doctor
+                }
+
+                $newId = UUIDHelper::generate();
+                $insertStmt->execute([$newId, $reasonId, $doctorId, $clinicId, $reasonName, $reasonTime, $reasonColor]);
+                $inserted[] = [
+                    'id' => $newId,
+                    'reason_id' => $reasonId,
+                    'doctor_id' => $doctorId,
+                    'clinic_id' => $clinicId,
+                    'reason_name' => $reasonName,
+                    'reason_time' => $reasonTime,
+                    'reason_color' => $reasonColor
+                ];
+            }
+            $pdo->commit();
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::error('فشل في حفظ أسباب الاستشارة: ' . $e->getMessage(), 500);
+        }
+
+        Response::success([
+            'count' => count($inserted),
+            'items' => $inserted
+        ], count($inserted) > 0 ? 'تمت إضافة أسباب الاستشارة بنجاح.' : 'جميع الأسباب المحددة مضافة بالفعل.');
+    }
+
+    // DELETE /api/doctors/reasons/{id}
+    public static function deleteReason(string $id): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $stmt = $pdo->prepare("DELETE FROM doctorsreasons WHERE id = ? AND doctor_id = ?");
+        $stmt->execute([$id, $doctorId]);
+
+        if ($stmt->rowCount() === 0) {
+            Response::notFound('لم يتم العثور على سبب الاستشارة أو ليس لديك صلاحية لحذفه.');
+        }
+
+        Response::success(null, 'تم حذف سبب الاستشارة بنجاح.');
+    }
 }

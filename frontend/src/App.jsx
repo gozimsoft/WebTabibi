@@ -115,6 +115,9 @@ const api = {
     profile: () => req("GET", "/doctors/profile"),
     update: b => req("PUT", "/doctors/profile", b),
     uploadPhoto: fd => reqFile("POST", "/doctors/photo", fd),
+    getReasons: () => req("GET", "/doctors/reasons"),
+    addReason: b => req("POST", "/doctors/reasons", b),
+    deleteReason: id => req("DELETE", `/doctors/reasons/${id}`),
   },
   clinics: {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
@@ -128,6 +131,7 @@ const api = {
     get: id => req("GET", `/doctors/${id}`),
   },
   specialties: () => req("GET", "/specialties"),
+  reasons: specId => req("GET", `/reasons${specId ? '?specialty_id=' + specId : ''}`, null, false),
   wilayas: () => req("GET", "/wilayas"),
   appointments: {
     slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, false),
@@ -611,8 +615,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
-      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true },
-      { label: "طلبات الانضمام", icon: <Check size={18} />, path: "/requests", private: true }
+      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true }
     ] : [])
   ];
 
@@ -945,6 +948,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                       user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                       (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
+                      (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
                       { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets" },
                       { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
@@ -5590,6 +5594,19 @@ function ProfilePage({ user, navigate }) {
   const [creds, setCreds] = useState({ current_password: "", new_username: "", new_password: "", confirm_new_password: "" });
   const [savingCreds, setSavingCreds] = useState(false);
 
+  // --- حالة أسباب ومبررات الاستشارة للطبيب ---
+  const [reasons, setReasons] = useState([]);
+  const [loadingReasons, setLoadingReasons] = useState(false);
+  const [allDbReasons, setAllDbReasons] = useState([]);
+  const [loadingDbReasons, setLoadingDbReasons] = useState(false);
+  const [selectedReasonIds, setSelectedReasonIds] = useState([]);
+  const [reasonSearchQuery, setReasonSearchQuery] = useState("");
+  const [reasonScope, setReasonScope] = useState("specialty");
+  const [customReasonName, setCustomReasonName] = useState("");
+  const [newReasonTime, setNewReasonTime] = useState(30);
+  const [addingReason, setAddingReason] = useState(false);
+  const [showAddReasonModal, setShowAddReasonModal] = useState(false);
+
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
 
@@ -5604,11 +5621,148 @@ function ProfilePage({ user, navigate }) {
       if (user?.user_type === 0) vs = await api.verify.status().catch(() => null);
 
       setForm(p); setVS(vs);
+      if (user?.user_type === 1) {
+        if (p?.reasons && p.reasons.length > 0) {
+          setReasons(p.reasons);
+        } else {
+          api.doctor.getReasons().then(r => setReasons(r || [])).catch(() => {});
+        }
+      }
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
   };
 
   useEffect(() => { load(); }, []);
+
+  // جلب مبررات الاستشارة من قاعدة البيانات عند فتح النافذة المنبثقة
+  useEffect(() => {
+    if (showAddReasonModal && allDbReasons.length === 0) {
+      setLoadingDbReasons(true);
+      api.reasons()
+        .then(r => setAllDbReasons(r || []))
+        .catch(() => {})
+        .finally(() => setLoadingDbReasons(false));
+    }
+  }, [showAddReasonModal, allDbReasons.length]);
+
+  const specialtyDbReasons = React.useMemo(() => {
+    if (!form?.specialtie_id) return [];
+    return allDbReasons.filter(r => r.specialtie_id === form.specialtie_id);
+  }, [allDbReasons, form?.specialtie_id]);
+
+  useEffect(() => {
+    if (showAddReasonModal) {
+      if (form?.specialtie_id && specialtyDbReasons.length > 0) {
+        setReasonScope("specialty");
+      } else {
+        setReasonScope("all");
+      }
+    }
+  }, [showAddReasonModal, specialtyDbReasons.length, form?.specialtie_id]);
+
+  const displayedDbReasons = React.useMemo(() => {
+    const list = (reasonScope === "specialty" && specialtyDbReasons.length > 0)
+      ? specialtyDbReasons
+      : allDbReasons;
+
+    if (!reasonSearchQuery.trim()) return list;
+
+    const q = reasonSearchQuery.trim().toLowerCase();
+    return list.filter(r => {
+      const name = (r.name || "").toLowerCase();
+      const namear = (r.namear || "").toLowerCase();
+      const namefr = (r.namefr || "").toLowerCase();
+      return name.includes(q) || namear.includes(q) || namefr.includes(q);
+    });
+  }, [reasonScope, specialtyDbReasons, allDbReasons, reasonSearchQuery]);
+
+  const isReasonAlreadyAdded = (item) => {
+    return reasons.some(dr =>
+      (dr.reason_id && dr.reason_id === item.id) ||
+      (dr.reason_name && (
+        dr.reason_name === item.namear ||
+        dr.reason_name === item.namefr ||
+        dr.reason_name === item.name
+      ))
+    );
+  };
+
+  const toggleReasonSelection = (id) => {
+    setSelectedReasonIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllVisible = () => {
+    const availableIds = displayedDbReasons
+      .filter(r => !isReasonAlreadyAdded(r))
+      .map(r => r.id);
+
+    const allSelected = availableIds.length > 0 && availableIds.every(id => selectedReasonIds.includes(id));
+    if (allSelected) {
+      setSelectedReasonIds(prev => prev.filter(id => !availableIds.includes(id)));
+    } else {
+      setSelectedReasonIds(prev => Array.from(new Set([...prev, ...availableIds])));
+    }
+  };
+
+  const handleAddReasons = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const itemsToAdd = [];
+
+    selectedReasonIds.forEach(id => {
+      const r = allDbReasons.find(item => item.id === id);
+      if (r) {
+        const name = i18n.language === 'ar'
+          ? (r.namear || r.namefr || r.name)
+          : (r.namefr || r.name || r.namear);
+        itemsToAdd.push({
+          reason_id: r.id,
+          reason_name: name,
+          reason_time: parseInt(newReasonTime) || 30
+        });
+      }
+    });
+
+    if (customReasonName.trim()) {
+      itemsToAdd.push({
+        reason_id: null,
+        reason_name: customReasonName.trim(),
+        reason_time: parseInt(newReasonTime) || 30
+      });
+    }
+
+    if (itemsToAdd.length === 0) {
+      return show(t("select_at_least_one_reason", "يرجى تحديد سبب استشارة واحد على الأقل أو كتابة اسم مخصص"), "error");
+    }
+
+    setAddingReason(true);
+    try {
+      await api.doctor.addReason({ items: itemsToAdd });
+      show(t("reasons_add_success", "تمت إضافة أسباب الاستشارة بنجاح إلى ملفك الشخصي"), "success");
+      setSelectedReasonIds([]);
+      setCustomReasonName("");
+      setReasonSearchQuery("");
+      setShowAddReasonModal(false);
+      const updated = await api.doctor.getReasons();
+      setReasons(updated || []);
+    } catch (err) {
+      show(err.message, "error");
+    } finally {
+      setAddingReason(false);
+    }
+  };
+
+  const handleDeleteReason = async (id) => {
+    if (!window.confirm(t("confirm_delete_reason", "هل أنت متأكد من حذف سبب الاستشارة هذا؟"))) return;
+    try {
+      await api.doctor.deleteReason(id);
+      show(t("reason_delete_success", "تم حذف سبب الاستشارة بنجاح"), "success");
+      setReasons(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      show(err.message, "error");
+    }
+  };
 
   const save = async e => {
     e.preventDefault(); setSaving(true);
@@ -5679,7 +5833,7 @@ function ProfilePage({ user, navigate }) {
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
       <input type="file" ref={fileInput} onChange={handlePhotoUpload} accept="image/*" style={{ display: "none" }} />
       {/* Header */}
-      <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 28 }}>
+      <div style={{ display: "flex", gap: 18, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", marginBottom: 28 }}>
         <div
           onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
           style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,var(--brand),#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
@@ -5709,6 +5863,16 @@ function ProfilePage({ user, navigate }) {
             </div>
           )}
         </div>
+        {(user?.user_type === 1 || user?.user_type === 2) && (
+          <Btn
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/requests")}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", fontWeight: 700, borderRadius: 12 }}
+          >
+            <Check size={18} /> {t("join_requests", "طلبات الانضمام")}
+          </Btn>
+        )}
       </div>
 
       {/* Verification section for patient - Email only */}
@@ -5817,6 +5981,87 @@ function ProfilePage({ user, navigate }) {
           </Card>
         )}
 
+        {/* Consultation Reasons (Doctor Only) */}
+        {user?.user_type === 1 && (
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+              <div>
+                <h3 style={{ color: "#0c4a6e", margin: "0 0 4px", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Stethoscope size={18} color="var(--brand)" /> {t("doctor_reasons_title", "أسباب ومبررات الاستشارة")}
+                </h3>
+                <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                  {t("doctor_reasons_desc", "الأسباب التي تظهر لمرضاك للاختيار منها عند حجز موعد جديد")}
+                </p>
+              </div>
+              <Btn
+                type="button"
+                onClick={() => setShowAddReasonModal(true)}
+                style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <Plus size={16} /> {t("add_reason_btn", "إضافة سبب استشارة")}
+              </Btn>
+            </div>
+
+            {loadingReasons ? (
+              <div style={{ padding: 24, textAlign: "center" }}><Spinner size={20} /></div>
+            ) : reasons.length === 0 ? (
+              <div style={{
+                padding: "24px 16px", textAlign: "center", background: "var(--bg)",
+                borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b"
+              }}>
+                <FileText size={32} style={{ color: "#94a3b8", marginBottom: 8 }} />
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_doctor_reasons", "لم تقم بإضافة أسباب استشارة بعد")}</div>
+                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                  {t("no_doctor_reasons_hint", "أضف أسباب الكشف ليتمكن المرضى من تحديد مبرر الزيارة عند الحجز")}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                {reasons.map(r => (
+                  <div key={r.id} style={{
+                    padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
+                    border: "1.5px solid var(--border)", display: "flex", alignItems: "center",
+                    justifyContent: "space-between", gap: 10, transition: "all 0.2s"
+                  }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#0c4a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {r.reason_name}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                          background: "var(--brand-light)", color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4
+                        }}>
+                          <Clock size={11} /> {r.reason_time || 30} {t("minutes_short", "دقيقة")}
+                        </span>
+                        {r.clinicname && (
+                          <span style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {r.clinicname}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReason(r.id)}
+                      title={t("delete", "حذف")}
+                      style={{
+                        background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
+                        padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.2s"
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fee2e2"; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "none"; }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
         {user?.user_type === 0 && (
           <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -5839,6 +6084,37 @@ function ProfilePage({ user, navigate }) {
                 onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
               >
                 <UserPlus size={20} />
+              </button>
+            </div>
+          </Card>
+        )}
+
+        {(user?.user_type === 1 || user?.user_type === 2) && (
+          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                  <Check size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
+                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
+                    {user?.user_type === 2 ? "إدارة ومتابعة طلبات انضمام الأطباء للعيادة" : "إدارة ومتابعة طلبات الانضمام للعيادات"}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/requests")}
+                style={{
+                  padding: "10px 18px", borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                  fontWeight: 700, fontSize: 14, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.03)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <Check size={18} /> {t("join_requests", "طلبات الانضمام")}
               </button>
             </div>
           </Card>
@@ -5931,6 +6207,264 @@ function ProfilePage({ user, navigate }) {
         </Card>
       )}
 
+
+      {/* Modal: إضافة أسباب استشارة متعددة من قاعدة البيانات */}
+      {showAddReasonModal && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+          zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{
+            background: "var(--card-bg)", borderRadius: 20, width: "100%", maxWidth: 540,
+            maxHeight: "92vh", display: "flex", flexDirection: "column",
+            boxShadow: "0 24px 48px rgba(0,0,0,0.2)", position: "relative", overflow: "hidden"
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: "18px 22px", borderBottom: "1px solid var(--border)",
+              display: "flex", justifyContent: "space-between", alignItems: "center"
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "#0c4a6e", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Plus size={18} color="var(--brand)" /> {t("add_reason_modal_title", "Ajouter un nouveau motif de consultation")}
+                </h3>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)" }}>
+                  {t("select_reasons_from_db", "اختر أسباب الاستشارة من قاعدة البيانات")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddReasonModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 6, borderRadius: 8 }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleAddReasons} style={{ display: "flex", flexDirection: "column", flex: 1, overflowY: "auto", padding: "16px 22px 10px" }}>
+              {/* Scope Switch (Specialty vs All) */}
+              {specialtyDbReasons.length > 0 && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setReasonScope("specialty")}
+                    style={{
+                      flex: 1, padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      border: reasonScope === "specialty" ? "1.5px solid var(--brand)" : "1.5px solid var(--border)",
+                      background: reasonScope === "specialty" ? "var(--brand-light)" : "var(--bg)",
+                      color: reasonScope === "specialty" ? "var(--brand)" : "var(--text-secondary)",
+                      transition: "all 0.15s"
+                    }}
+                  >
+                    {t("my_specialty_reasons", "مبررات تخصصي")} ({specialtyDbReasons.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReasonScope("all")}
+                    style={{
+                      flex: 1, padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      border: reasonScope === "all" ? "1.5px solid var(--brand)" : "1.5px solid var(--border)",
+                      background: reasonScope === "all" ? "var(--brand-light)" : "var(--bg)",
+                      color: reasonScope === "all" ? "var(--brand)" : "var(--text-secondary)",
+                      transition: "all 0.15s"
+                    }}
+                  >
+                    {t("all_reasons", "جميع المبررات الطبية")} ({allDbReasons.length})
+                  </button>
+                </div>
+              )}
+
+              {/* Search Bar */}
+              <div style={{ position: "relative", marginBottom: 10 }}>
+                <Search size={16} style={{
+                  position: "absolute", top: "50%", transform: "translateY(-50%)",
+                  [i18n.language === 'ar' ? "right" : "left"]: 12, color: "#94a3b8"
+                }} />
+                <input
+                  type="text"
+                  value={reasonSearchQuery}
+                  onChange={e => setReasonSearchQuery(e.target.value)}
+                  placeholder={t("search_reasons", "ابحث في أسباب ومبررات الاستشارة...")}
+                  style={{
+                    width: "100%", padding: "9px 12px",
+                    [i18n.language === 'ar' ? "paddingRight" : "paddingLeft"]: 36,
+                    borderRadius: 10, border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 13, outline: "none", boxSizing: "border-box"
+                  }}
+                />
+              </div>
+
+              {/* Status & Select All Row */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                  {displayedDbReasons.length} {t("results", "سبب")}
+                  {selectedReasonIds.length > 0 && (
+                    <span style={{
+                      marginInlineStart: 8, padding: "2px 8px", borderRadius: 6,
+                      background: "var(--brand-light)", color: "var(--brand)", fontSize: 11, fontWeight: 800
+                    }}>
+                      {selectedReasonIds.length} {t("selected_count", "محدد")}
+                    </span>
+                  )}
+                </span>
+                {displayedDbReasons.filter(r => !isReasonAlreadyAdded(r)).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllVisible}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 700, color: "var(--brand)", padding: 0
+                    }}
+                  >
+                    {displayedDbReasons.filter(r => !isReasonAlreadyAdded(r)).every(r => selectedReasonIds.includes(r.id))
+                      ? t("deselect_all", "إلغاء تحديد الكل")
+                      : t("select_all", "تحديد الكل")}
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable Reasons Multi-Select List */}
+              <div style={{
+                maxHeight: 220, minHeight: 140, overflowY: "auto",
+                border: "1.5px solid var(--border)", borderRadius: 12, background: "var(--bg)",
+                padding: 6, display: "flex", flexDirection: "column", gap: 6, marginBottom: 12
+              }}>
+                {loadingDbReasons ? (
+                  <div style={{ padding: 32, textAlign: "center" }}><Spinner size={22} /></div>
+                ) : displayedDbReasons.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                    {t("no_reasons_found", "لم يتم العثور على أسباب مطابقة لبحثك")}
+                  </div>
+                ) : (
+                  displayedDbReasons.map(r => {
+                    const alreadyAdded = isReasonAlreadyAdded(r);
+                    const isSelected = selectedReasonIds.includes(r.id);
+                    const primaryName = i18n.language === 'ar' ? (r.namear || r.namefr || r.name) : (r.namefr || r.name || r.namear);
+                    const secondaryName = i18n.language === 'ar' ? (r.namefr || r.name) : (r.namear || "");
+
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => { if (!alreadyAdded) toggleReasonSelection(r.id); }}
+                        style={{
+                          padding: "9px 12px", borderRadius: 10,
+                          background: isSelected ? "#ecfeff" : "var(--card-bg)",
+                          border: isSelected ? "1.5px solid var(--brand)" : "1px solid var(--border)",
+                          cursor: alreadyAdded ? "not-allowed" : "pointer",
+                          opacity: alreadyAdded ? 0.6 : 1,
+                          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                          transition: "all 0.15s"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected || alreadyAdded}
+                            disabled={alreadyAdded}
+                            onChange={() => { if (!alreadyAdded) toggleReasonSelection(r.id); }}
+                            style={{
+                              width: 17, height: 17, accentColor: "var(--brand)",
+                              cursor: alreadyAdded ? "not-allowed" : "pointer"
+                            }}
+                          />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{
+                              fontWeight: isSelected ? 800 : 600, fontSize: 13,
+                              color: isSelected ? "var(--brand)" : "#1e293b",
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                            }}>
+                              {primaryName}
+                            </div>
+                            {secondaryName && secondaryName !== primaryName && (
+                              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {secondaryName}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {alreadyAdded && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6,
+                            background: "#e2e8f0", color: "#64748b", whiteSpace: "nowrap"
+                          }}>
+                            {t("already_added", "مضاف مسبقاً")}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Consultation Duration */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                  {t("reason_duration_label", "مدة الكشف المتوقعة")}
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[15, 20, 30, 45, 60].map(mins => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setNewReasonTime(mins)}
+                      style={{
+                        padding: "7px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        border: newReasonTime === mins ? "1.5px solid var(--brand)" : "1.5px solid var(--border)",
+                        background: newReasonTime === mins ? "var(--brand-light)" : "var(--bg)",
+                        color: newReasonTime === mins ? "var(--brand)" : "var(--text-secondary)",
+                        transition: "all 0.15s"
+                      }}
+                    >
+                      {mins} {t("minutes_short", "دقيقة")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional Custom Reason Name */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", marginBottom: 5, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                  {t("add_custom_reason_optional", "أو اكتب اسماً مخصصاً إضافياً (اختياري)")}
+                </label>
+                <input
+                  type="text"
+                  value={customReasonName}
+                  onChange={e => setCustomReasonName(e.target.value)}
+                  placeholder={t("reason_name_placeholder", "Ex : Consultation de suivi, Bilan général...")}
+                  style={{
+                    width: "100%", padding: "9px 12px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 13, outline: "none", boxSizing: "border-box"
+                  }}
+                />
+              </div>
+
+              {/* Footer Actions */}
+              <div style={{
+                borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: "auto",
+                display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center"
+              }}>
+                <Btn type="button" variant="ghost" onClick={() => setShowAddReasonModal(false)}>
+                  {t("cancel", "إلغاء")}
+                </Btn>
+                <Btn
+                  type="submit"
+                  loading={addingReason}
+                  disabled={selectedReasonIds.length === 0 && !customReasonName.trim()}
+                  style={{ padding: "10px 22px", display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <Plus size={16} />
+                  {selectedReasonIds.length > 0
+                    ? `${t("add_selected_reasons", "إضافة المبررات المحددة")} (${selectedReasonIds.length + (customReasonName.trim() ? 1 : 0)})`
+                    : t("add_reason_btn", "إضافة")}
+                </Btn>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* OTP Modal */}
       {otpModal && (
@@ -6121,7 +6655,7 @@ function Footer({ navigate }) {
       bottom: 0,
       left: 0,
       right: 0,
-      zIndex: 1000,
+      zIndex: 90,
       boxShadow: isMobile ? "none" : "0 -4px 20px rgba(0,0,0,0.03)"
     }}>
       <div style={{
