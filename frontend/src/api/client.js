@@ -68,11 +68,7 @@ export const api = {
     getOne: (id) => request('GET', `/clinics/${id}`),
     getDoctorAtClinic: (cId, dId) => request('GET', `/clinics/${cId}/doctors/${dId}`),
   },
-  specialties: async () => {
-    const list = await request('GET', '/specialties');
-    const exclude = ["Médecine générale", "Cardiologie", "Dentisterie"];
-    return list.filter(s => !exclude.includes(s.namefr));
-  },
+  specialties: () => request('GET', '/specialties'),
   wilayas: () => request('GET', '/wilayas'),
   appointments: {
     getSlots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),

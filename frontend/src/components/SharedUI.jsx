@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { ShieldCheck } from "lucide-react";
 
 export const Spinner = ({ size = 24 }) => (
   <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>

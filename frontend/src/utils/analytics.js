@@ -17,7 +17,7 @@ class Analytics {
   _getOrCreateSession() {
     let sid = sessionStorage.getItem(SESSION_KEY);
     if (!sid) {
-      sid = crypto.randomUUID?.() || Math.random().toString(36).substring(2, 15);
+      sid = (typeof window !== "undefined" && window.crypto?.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
       sessionStorage.setItem(SESSION_KEY, sid);
     }
     return sid;
@@ -26,7 +26,7 @@ class Analytics {
   _getOrCreateVisitor() {
     let vid = localStorage.getItem(VISITOR_KEY);
     if (!vid) {
-      vid = crypto.randomUUID?.() || Math.random().toString(36).substring(2, 15);
+      vid = (typeof window !== "undefined" && window.crypto?.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
       localStorage.setItem(VISITOR_KEY, vid);
     }
     return vid;

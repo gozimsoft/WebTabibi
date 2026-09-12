@@ -1,0 +1,4298 @@
+[
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Consultation de médecine générale",
+    "namear": "استشارة طب عام"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Bilan de santé",
+    "namear": "فحص طبي شامل"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Contrôle médical",
+    "namear": "مراقبة طبية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Suivi d'une maladie chronique",
+    "namear": "متابعة مرض مزمن"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Fièvre",
+    "namear": "حمى / ارتفاع الحرارة"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Fatigue",
+    "namear": "تعب وإرهاق"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleurs générales",
+    "namear": "آلام عامة بالجسم"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Maux de tête",
+    "namear": "صداع / ألم الرأس"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Vertiges",
+    "namear": "دوار / دوخة"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Malaise",
+    "namear": "وعكة صحية / إغماء خفيف"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Toux",
+    "namear": "سعال / كحة"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Rhume / symptômes grippaux",
+    "namear": "زكام / أعراض الإنفلونزا"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Mal de gorge",
+    "namear": "ألم في الحلق"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleurs abdominales",
+    "namear": "آلام البطن"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Nausées / vomissements",
+    "namear": "غثيان / قيء"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Diarrhée",
+    "namear": "إسهال"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Constipation",
+    "namear": "إمساك"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleurs musculaires",
+    "namear": "آلام عضلية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleurs articulaires",
+    "namear": "آلام المفاصل"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleurs dorsales / lombaires",
+    "namear": "آلام الظهر / أسفل الظهر"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Allergie",
+    "namear": "حساسية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Problème cutané",
+    "namear": "مشكلة جلدية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Infection suspectée",
+    "namear": "اشتباه في عدوى"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Renouvellement d'ordonnance",
+    "namear": "تجديد وصفة طبية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Lecture / interprétation d'analyses",
+    "namear": "قراءة وتفسير التحاليل الطبية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Demande d'orientation vers un spécialiste",
+    "namear": "طلب توجيه إلى طبيب مختص"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Certificat médical",
+    "namear": "شهادة طبية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Arrêt de travail",
+    "namear": "عطلة مرضية / توقف عن العمل"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Aptitude médicale",
+    "namear": "شهادة كفاءة طبية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Vaccination",
+    "namear": "تطعيم / تلقيح"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Prévention / conseils de santé",
+    "namear": "وقاية ونصائح صحية"
+  },
+  {
+    "section": "MEDECINE GENERALE",
+    "specialty_ar": "طب عام",
+    "namefr": "Autre motif de consultation",
+    "namear": "سبب استشارة آخر"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Consultation de médecine interne",
+    "namear": "استشارة الطب الباطني"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Bilan diagnostique",
+    "namear": "فحص تشخيصي شامل"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Bilan de symptômes persistants",
+    "namear": "فحص الأعراض المستمرة"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Suivi d'une maladie systémique",
+    "namear": "متابعة مرض جهازي"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Suivi d'une maladie auto-immune",
+    "namear": "متابعة مرض مناعي ذاتي"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Suivi de plusieurs maladies chroniques",
+    "namear": "متابعة أمراض مزمنة متعددة"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Fièvre prolongée",
+    "namear": "حمى ممتدة / مستمرة"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Fatigue persistante",
+    "namear": "تعب وإرهاق مزمن"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Perte de poids inexpliquée",
+    "namear": "فقدان وزن غير مبرر"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Douleurs inexpliquées",
+    "namear": "آلام غير مفسرة"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Bilan inflammatoire",
+    "namear": "فحص الالتهابات"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Bilan immunologique",
+    "namear": "فحص مناعي"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Bilan de maladies rares",
+    "namear": "فحص الأمراض النادرة"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Suivi thérapeutique",
+    "namear": "متابعة العلاج"
+  },
+  {
+    "section": "MEDECINE INTERNE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Avis spécialisé",
+    "namear": "رأي طبي متخصص"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Consultation de cardiologie",
+    "namear": "استشارة أمراض القلب"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Bilan cardiovasculaire",
+    "namear": "فحص القلب والأوعية الدموية"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Suivi d'hypertension artérielle",
+    "namear": "متابعة ضغط الدم المرتفع"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Suivi d'insuffisance cardiaque",
+    "namear": "متابعة قصور القلب"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Palpitations",
+    "namear": "خفقان القلب"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Douleur thoracique",
+    "namear": "ألم في الصدر"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Essoufflement",
+    "namear": "ضيق في التنفس"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Malaise / syncope",
+    "namear": "إغماء / فقدان الوعي"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Troubles du rythme cardiaque",
+    "namear": "اضطراب نبضات القلب"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Bilan avant chirurgie",
+    "namear": "فحص القلب قبل الجراحة"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Suivi après infarctus",
+    "namear": "متابعة بعد الجلطة القلبية"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Suivi après intervention cardiovasculaire",
+    "namear": "متابعة بعد عملية القلب والأوعية"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Contrôle de pacemaker / défibrillateur",
+    "namear": "فحص ومراقبة جهاز تنظيم ضربات القلب"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Électrocardiogramme",
+    "namear": "تخطيط كهربية القلب (ECG)"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Échocardiographie",
+    "namear": "إيكوغرافيا القلب (Écho)"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Test d'effort",
+    "namear": "اختبار الجهد للقلب"
+  },
+  {
+    "section": "CARDIOLOGIE",
+    "specialty_ar": "طب أمراض القلب",
+    "namefr": "Bilan des facteurs de risque cardiovasculaire",
+    "namear": "تقييم عوامل الخطر القلبية"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Consultation de dermatologie",
+    "namear": "استشارة الأمراض الجلدية"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Acné",
+    "namear": "حب الشباب"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Eczéma",
+    "namear": "إكزيما"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Psoriasis",
+    "namear": "صدفية"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Éruption cutanée",
+    "namear": "طفح جلدي"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Démangeaisons",
+    "namear": "حكة جلدية"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Rougeurs cutanées",
+    "namear": "احمرار الجلد"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Taches cutanées",
+    "namear": "بقع جلدية وتصبغات"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Lésion cutanée",
+    "namear": "آفة / تشوه جلدي"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Grain de beauté / nævus",
+    "namear": "شامة / حبة خال"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Contrôle d'un grain de beauté",
+    "namear": "فحص ومراقبة الشامات"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Chute de cheveux",
+    "namear": "تساقط الشعر"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Pellicules / problème du cuir chevelu",
+    "namear": "قشرة / مشاكل فروة الرأس"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Infection cutanée",
+    "namear": "عدوى جلدية"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Mycose cutanée",
+    "namear": "فطريات الجلد"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Verrues",
+    "namear": "ثآليل"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Herpès",
+    "namear": "هربس (داء القبلة)"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Urticaire",
+    "namear": "شرى / حساسية جلدية حادة"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Cicatrice",
+    "namear": "ندبات وآثار جروح"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Brûlure",
+    "namear": "حروق"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Plaie cutanée",
+    "namear": "جروح وتقرحات جلدية"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Problème des ongles",
+    "namear": "مشاكل وأمراض الأظافر"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Suivi d'une maladie dermatologique",
+    "namear": "متابعة مرض جلدي"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Dépistage / contrôle des cancers cutanés",
+    "namear": "كشف ومراقبة أورام الجلد"
+  },
+  {
+    "section": "DERMATOLOGIE",
+    "specialty_ar": "الأمراض الجلدية والتناسلية",
+    "namefr": "Avis dermatologique",
+    "namear": "استشارة رأي جلدي"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Consultation d'endocrinologie",
+    "namear": "استشارة الغدد الصماء والسكري"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Suivi du diabète",
+    "namear": "متابعة داء السكري"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Bilan de diabète",
+    "namear": "فحص شامل للسكري"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Équilibre glycémique",
+    "namear": "ضبط ومراقبة مستوى السكر"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Suivi du diabète gestationnel",
+    "namear": "متابعة سكري الحمل"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Hypoglycémie",
+    "namear": "هبوط السكر في الدم"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Hyperglycémie",
+    "namear": "ارتفاع السكر في الدم"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Bilan thyroïdien",
+    "namear": "فحص الغدة الدرقية"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Suivi d'hypothyroïdie",
+    "namear": "متابعة خمول الغدة الدرقية"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Suivi d'hyperthyroïdie",
+    "namear": "متابعة نشاط الغدة الدرقية"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Nodule thyroïdien",
+    "namear": "عقدة في الغدة الدرقية"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Maladie de la thyroïde",
+    "namear": "أمراض الغدة الدرقية"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Trouble hormonal",
+    "namear": "اضطراب الهرمونات"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Trouble de la croissance",
+    "namear": "اضطرابات النمو"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Trouble de la puberté",
+    "namear": "اضطرابات البلوغ"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Obésité",
+    "namear": "سمنة مفرطة"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Surpoids",
+    "namear": "زيادة الوزن"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Bilan métabolique",
+    "namear": "فحص الأيض والتمثيل الغذائي"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Trouble du cholestérol",
+    "namear": "اضطراب الكولسترول والدهون"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Trouble du calcium",
+    "namear": "اضطراب الكالسيوم والمعادن"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Ostéoporose",
+    "namear": "هشاشة العظام"
+  },
+  {
+    "section": "ENDOCRINOLOGIE / DIABETOLOGIE",
+    "specialty_ar": "مرض السكري و الغدد الصماء",
+    "namefr": "Suivi d'un traitement hormonal",
+    "namear": "متابعة العلاج الهرموني"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Consultation gynécologique",
+    "namear": "استشارة طب النساء"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Consultation de suivi gynécologique",
+    "namear": "متابعة دورية لطب النساء"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi de grossesse",
+    "namear": "متابعة الحمل"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Première consultation de grossesse",
+    "namear": "أول استشارة لتأكيد الحمل"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi prénatal",
+    "namear": "متابعة ما قبل الولادة"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Consultation postnatale",
+    "namear": "استشارة ما بعد الولادة"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Contraception",
+    "namear": "منع الحمل"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Choix / changement de contraception",
+    "namear": "اختيار / تغيير وسيلة منع الحمل"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Pose de dispositif intra-utérin (DIU)",
+    "namear": "تركيب اللولب الرحمي"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Contrôle de DIU",
+    "namear": "فحص ومراقبة اللولب"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Retrait de DIU",
+    "namear": "إزالة اللولب الرحمي"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Troubles des règles",
+    "namear": "اضطرابات الدورة الشهرية"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Règles douloureuses",
+    "namear": "آلام الدورة الشهرية"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Règles irrégulières",
+    "namear": "عدم انتظام الدورة الشهرية"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Saignements gynécologiques",
+    "namear": "نزيف نسائي غير طبيعي"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Douleurs pelviennes",
+    "namear": "آلام الحوض وأسفل البطن"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Pertes vaginales",
+    "namear": "إفرازات مهبلية غير طبيعية"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Démangeaisons génitales",
+    "namear": "حكة في المنطقة الحساسة"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Infection gynécologique",
+    "namear": "التهابات نسائية"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Ménopause",
+    "namear": "سن اليأس وانقطاع الطمث"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Symptômes de ménopause",
+    "namear": "أعراض سن اليأس"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Infertilité",
+    "namear": "تأخر الإنجاب والعقم"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Bilan de fertilité",
+    "namear": "فحص وتقييم الخصوبة"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Préconception",
+    "namear": "استشارة ما قبل التخطيط للحمل"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Frottis / dépistage du col de l'utérus",
+    "namear": "مسحة عنق الرحم (Frottis)"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Résultat de frottis",
+    "namear": "قراءة نتائج مسحة الرحم"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Kyste ovarien",
+    "namear": "تكيس المبيض / كيس المبيض"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Fibrome",
+    "namear": "ورم ليفي رحمي (Fibrome)"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Endométriose",
+    "namear": "بطانة الرحم المهاجرة (Endométriose)"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi d'une pathologie gynécologique",
+    "namear": "متابعة أمراض النساء"
+  },
+  {
+    "section": "GYNECOLOGIE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Santé sexuelle",
+    "namear": "الصحة الجنسية والإنجابية"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi de grossesse",
+    "namear": "متابعة الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Première consultation prénatale",
+    "namear": "أول فحص قبل الولادة"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi du premier trimestre",
+    "namear": "متابعة الثلث الأول من الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi du deuxième trimestre",
+    "namear": "متابعة الثلث الثاني من الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi du troisième trimestre",
+    "namear": "متابعة الثلث الثالث من الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Grossesse à risque",
+    "namear": "حمل عالي الخطورة"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Surveillance de grossesse",
+    "namear": "مراقبة دقيقة للحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Échographie obstétricale",
+    "namear": "إيكوغرافيا الحمل والجنين"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Dépistage prénatal",
+    "namear": "كشف وفحص ما قبل الولادة"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi du diabète gestationnel",
+    "namear": "متابعة سكري الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi de l'hypertension gravidique",
+    "namear": "متابعة ضغط الدم أثناء الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Douleurs pendant la grossesse",
+    "namear": "آلام أثناء الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Saignements pendant la grossesse",
+    "namear": "نزيف أثناء الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Nausées / vomissements de grossesse",
+    "namear": "غثيان وقيء الحمل"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Préparation à l'accouchement",
+    "namear": "التحضير للولادة"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Consultation post-partum",
+    "namear": "فحص فترة النفاس"
+  },
+  {
+    "section": "OBSTETRIQUE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi après accouchement",
+    "namear": "متابعة ما بعد الولادة"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Consultation pédiatrique",
+    "namear": "استشارة طب الأطفال"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Consultation de suivi de l'enfant",
+    "namear": "متابعة صحة ونمو الطفل"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi du nouveau-né",
+    "namear": "متابعة حديثي الولادة"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Bilan de croissance",
+    "namear": "فحص الطول والوزن والنمو"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Bilan du développement",
+    "namear": "تقييم التطور الحركي والذهني"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Vaccination",
+    "namear": "تطعيم / تلقيح"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Fièvre chez l'enfant",
+    "namear": "حمى عند الطفل"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Toux chez l'enfant",
+    "namear": "سعال عند الطفل"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Rhume / symptômes ORL",
+    "namear": "زكام والتهاب الأنف والحلق"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Douleur abdominale chez l'enfant",
+    "namear": "مغص وآلام البطن عند الطفل"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Vomissements",
+    "namear": "قيء واستفراغ"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Diarrhée",
+    "namear": "إسهال"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Constipation",
+    "namear": "إمساك"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Éruption cutanée",
+    "namear": "طفح جلدي"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Allergie",
+    "namear": "حساسية"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Difficultés alimentaires",
+    "namear": "صعوبات الرضاعة والتغذية"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Troubles du sommeil",
+    "namear": "اضطرابات النوم"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Retard de croissance",
+    "namear": "تأخر النمو البدني"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Retard du développement",
+    "namear": "تأخر التطور والمهارات"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Troubles du comportement",
+    "namear": "اضطرابات السلوك لدى الطفل"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi d'une maladie chronique",
+    "namear": "متابعة مرض مزمن"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Asthme",
+    "namear": "ربو وضيق تنفس"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Difficultés respiratoires",
+    "namear": "صعوبات في التنفس"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Bilan scolaire",
+    "namear": "فحص طبي مدرسي"
+  },
+  {
+    "section": "PEDIATRIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Certificat médical enfant",
+    "namear": "شهادة طبية للطفل"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi du nouveau-né",
+    "namear": "متابعة حديثي الولادة"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi du prématuré",
+    "namear": "متابعة الأطفال الخدج"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Bilan néonatal",
+    "namear": "فحص حديثي الولادة الشامل"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Difficultés d'alimentation",
+    "namear": "صعوبة الرضاعة والأكل"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Prise de poids insuffisante",
+    "namear": "ضعف زيادة الوزن"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Ictère néonatal",
+    "namear": "اليرقان (بوصفير) لحديثي الولادة"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi après hospitalisation néonatale",
+    "namear": "متابعة بعد خروج الطفل من المستشفى"
+  },
+  {
+    "section": "NEONATOLOGIE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi du développement",
+    "namear": "متابعة التطور والنمو"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Consultation ophtalmologique",
+    "namear": "استشارة طب وجراحة العيون"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Baisse de vision",
+    "namear": "ضعف أو نقص حدة النظر"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Vision floue",
+    "namear": "تشوش وضبابية في الرؤية"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Douleur oculaire",
+    "namear": "ألم في العين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Rougeur de l'œil",
+    "namear": "احمرار العين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Sécheresse oculaire",
+    "namear": "جفاف العين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Démangeaisons oculaires",
+    "namear": "حكة وحساسية في العين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Larmoiement",
+    "namear": "إفراز دموع مفرط"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Infection oculaire",
+    "namear": "التهاب وعدوى العين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Maux de tête liés à la vision",
+    "namear": "صداع ناتج عن إجهاد العين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Contrôle de la vue",
+    "namear": "فحص وقياس النظر"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Prescription / renouvellement de lunettes",
+    "namear": "وصفة / تجديد النظارات الطبية"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Lentilles de contact",
+    "namear": "فحص وتركيب العدسات اللاصقة"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Suivi de glaucome",
+    "namear": "متابعة ضغط العين (الغلوكوما / الماء الأزرق)"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Dépistage du glaucome",
+    "namear": "كشف ضغط العين (الغلوكوما)"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Suivi de cataracte",
+    "namear": "متابعة إعتام عدسة العين (الماء الأبيض)"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Cataracte",
+    "namear": "الماء الأبيض (الكاتاراكت)"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Suivi de rétinopathie diabétique",
+    "namear": "متابعة شبكية العين لمرضى السكري"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Problème rétinien",
+    "namear": "أمراض واعتلال الشبكية"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Contrôle après chirurgie oculaire",
+    "namear": "مراقبة بعد عملية جراحية للعين"
+  },
+  {
+    "section": "OPHTALMOLOGIE",
+    "specialty_ar": "طب وجراحة العيون",
+    "namefr": "Consultation pédiatrique ophtalmologique",
+    "namear": "استشارة طب عيون الأطفال"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Consultation ORL",
+    "namear": "استشارة الأنف والأذن والحنجرة"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Douleur d'oreille",
+    "namear": "ألم في الأذن"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Baisse de l'audition",
+    "namear": "نقص أو ضعف السمع"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Bourdonnements d'oreille",
+    "namear": "طنين الأذن"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Vertiges",
+    "namear": "دوار / دوخة"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Écoulement de l'oreille",
+    "namear": "إفرازات وسيلان من الأذن"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Sinusite",
+    "namear": "التهاب الجيوب الأنفية"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Nez bouché",
+    "namear": "انسداد الأنف وصعوبة التنفس الأنفي"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Saignement de nez",
+    "namear": "رعاف / نزيف الأنف"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Difficultés respiratoires nasales",
+    "namear": "صعوبة التنفس من الأنف"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Mal de gorge",
+    "namear": "ألم في الحلق"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Troubles de la voix",
+    "namear": "اضطراب الصوت وبحة الصوت"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Enrouement",
+    "namear": "بحة الصوت المستمرة"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Difficulté à avaler",
+    "namear": "صعوبة وألم في البلع"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Ronflement",
+    "namear": "الشخير أثناء النوم"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Apnée du sommeil",
+    "namear": "انقطاع التنفس أثناء النوم"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Amygdales",
+    "namear": "التهاب ومشاكل اللوزتين"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Troubles de l'équilibre",
+    "namear": "اضطراب التوازن والدوخة الدهليزية"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Bilan auditif",
+    "namear": "فحص وتخطيط السمع"
+  },
+  {
+    "section": "ORL",
+    "specialty_ar": "طب وجراحة الأنف والأذن والحنجرة",
+    "namefr": "Suivi ORL",
+    "namear": "متابعة أنف وأذن وحنجرة"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Consultation de pneumologie",
+    "namear": "استشارة الأمراض الصدرية والتنفسية"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Toux persistante",
+    "namear": "سعال وكحة مزمنة"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Essoufflement",
+    "namear": "ضيق في التنفس"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Douleur thoracique",
+    "namear": "ألم في الصدر"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Sifflements respiratoires",
+    "namear": "صفير وخشخشة في الصدر"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Asthme",
+    "namear": "ربو وضيق تنفس"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Suivi de BPCO",
+    "namear": "متابعة الانسداد الرئوي المزمن (BPCO)"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Bronchite chronique",
+    "namear": "التهاب الشعب الهوائية المزمن"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Infection respiratoire",
+    "namear": "عدوى الجهاز التنفسي"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Pneumonie",
+    "namear": "التهاب رئوي حاد"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Apnée du sommeil",
+    "namear": "انقطاع التنفس أثناء النوم"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Ronflement",
+    "namear": "الشخير أثناء النوم"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Allergie respiratoire",
+    "namear": "حساسية الجهاز التنفسي والربو"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Bilan respiratoire",
+    "namear": "فحص وظائف الجهاز التنفسي"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Exploration fonctionnelle respiratoire",
+    "namear": "قياس وظائف التنفس (EFR)"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Suivi après infection respiratoire",
+    "namear": "متابعة بعد عدوى رئوية"
+  },
+  {
+    "section": "PNEUMOLOGIE",
+    "specialty_ar": "طب الأمراض الصدرية و الجهاز التنفسي",
+    "namefr": "Sevrage tabagique",
+    "namear": "المساعدة على الإقلاع عن التدخين"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Consultation de gastro-entérologie",
+    "namear": "استشارة أمراض الجهاز الهضمي"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Douleurs abdominales",
+    "namear": "آلام البطن"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Ballonnements",
+    "namear": "انتفاخ وغازات البطن"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Reflux gastro-œsophagien",
+    "namear": "ارتجاع المريء وحموضة المعدة"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Brûlures d'estomac",
+    "namear": "حرقة وحموضة المعدة"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Nausées",
+    "namear": "غثيان ولعيان النفس"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Vomissements",
+    "namear": "قيء واستفراغ"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Diarrhée chronique",
+    "namear": "إسهال مزمن"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Constipation chronique",
+    "namear": "إمساك مزمن"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Sang dans les selles",
+    "namear": "دم مع البراز"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Troubles digestifs",
+    "namear": "عسر واضطرابات الهضم"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Intolérance alimentaire",
+    "namear": "عدم تحمل الأغذية وحساسية الغلوتين"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Maladie inflammatoire intestinale",
+    "namear": "أمراض الأمعاء الالتهابية (كرون / قولون)"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Syndrome de l'intestin irritable",
+    "namear": "القولون العصبي (مصران خبيث/متهيج)"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Maladie du foie",
+    "namear": "أمراض الكبد"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Bilan hépatique",
+    "namear": "فحص وظائف الكبد"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Hépatite",
+    "namear": "التهاب الكبد الفيروسي"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Calculs biliaires",
+    "namear": "حصوات المرارة"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Maladie de la vésicule biliaire",
+    "namear": "أمراض والتهاب المرارة"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Suivi de cirrhose",
+    "namear": "متابعة تليف الكبد"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Coloscopie",
+    "namear": "تنظير القولون (كولونوسكوبي)"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Gastroscopie / endoscopie",
+    "namear": "تنظير المعدة (منظار علوي)"
+  },
+  {
+    "section": "GASTRO-ENTEROLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Suivi après endoscopie",
+    "namear": "متابعة ما بعد المنظار الهضمي"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Consultation de néphrologie",
+    "namear": "استشارة أمراض الكلى"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Bilan rénal",
+    "namear": "فحص وتقييم وظائف الكلى"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Insuffisance rénale",
+    "namear": "قصور وفشل الكلى"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Suivi d'insuffisance rénale chronique",
+    "namear": "متابعة القصور الكلوي المزمن"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Protéinurie",
+    "namear": "وجود بروتين (زلال) في البول"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Hématurie",
+    "namear": "وجود دم في البول"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Hypertension d'origine rénale",
+    "namear": "ارتفاع ضغط الدم الكلوي"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Œdèmes",
+    "namear": "تورم وانتفاخ الجسم (وذمة)"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Troubles des électrolytes",
+    "namear": "اضطراب أملاح ومعادن الدم"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Calculs rénaux",
+    "namear": "حصى الكلى والمجاري البولية"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Suivi de dialyse",
+    "namear": "متابعة الغسيل الكلوي (الدياليز)"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Préparation à la dialyse",
+    "namear": "التحضير لبدء الغسيل الكلوي"
+  },
+  {
+    "section": "NEPHROLOGIE",
+    "specialty_ar": "أخصائي أمراض الكلى",
+    "namefr": "Suivi après transplantation rénale",
+    "namear": "متابعة بعد زراعة الكلى"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Consultation d'urologie",
+    "namear": "استشارة جراحة المسالك البولية"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Douleur urinaire",
+    "namear": "ألم أثناء التبول"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Brûlures urinaires",
+    "namear": "حرقة وحرارة البول"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Infection urinaire",
+    "namear": "التهاب المجاري البولية"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Sang dans les urines",
+    "namear": "دم في البول"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Difficultés à uriner",
+    "namear": "صعوبة وتقطع التبول"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Urgences urinaires",
+    "namear": "رغبة ملحة ومتكررة للتبول"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Incontinence urinaire",
+    "namear": "سلس البول وتسرب غير إرادي"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Rétention urinaire",
+    "namear": "احتباس البول الحاد"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Calculs urinaires",
+    "namear": "حصى المسالك البولية والمثانة"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Douleur rénale",
+    "namear": "مغص كلوي وألم الكلى"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Problèmes de prostate",
+    "namear": "مشاكل وأمراض البروستات"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Hypertrophie bénigne de la prostate",
+    "namear": "تضخم البروستات الحميد"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Dépistage / suivi de cancer de la prostate",
+    "namear": "كشف ومتابعة أورام البروستات"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Troubles de l'érection",
+    "namear": "ضعف واضطرابات الانتصاب"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Infertilité masculine",
+    "namear": "عقم وتأخر الإنجاب عند الرجال"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Douleur testiculaire",
+    "namear": "ألم أو تورم الخصية"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Suivi après chirurgie urologique",
+    "namear": "متابعة بعد جراحة المسالك البولية"
+  },
+  {
+    "section": "UROLOGIE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Vasectomie / suivi",
+    "namear": "ربط القنوات المنوية / متابعة"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Consultation de neurologie",
+    "namear": "استشارة طب المخ والأعصاب"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Maux de tête",
+    "namear": "صداع / ألم الرأس"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Migraine",
+    "namear": "شقيقة / صداع نصفي"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Vertiges",
+    "namear": "دوار / دوخة"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Troubles de l'équilibre",
+    "namear": "اضطراب التوازن والدوخة الدهليزية"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Perte de connaissance",
+    "namear": "فقدان الوعي المؤقت"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Convulsions",
+    "namear": "تشنجات عصبية"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Épilepsie",
+    "namear": "داء الصرع والتشنجات"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Tremblements",
+    "namear": "رجفان ورعشة في اليدين أو الجسم"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Troubles de la mémoire",
+    "namear": "مشاكل واضطراب الذاكرة"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Troubles de la concentration",
+    "namear": "تشتت وضعف التركيز"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Fourmillements",
+    "namear": "تنميل ووخز في الأطراف"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Engourdissements",
+    "namear": "خدر وثقل الأطراف"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Faiblesse musculaire",
+    "namear": "ضعف عضلي وثقل الحركة"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Paralysie",
+    "namear": "شلل أو عجز حركي"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Douleurs nerveuses",
+    "namear": "آلام عصبية حادة (عرق النسا وغيره)"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Neuropathie",
+    "namear": "اعتلال والتهاب الأعصاب المحيطية"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Sclérose en plaques",
+    "namear": "التصلب المتعدد (SEP)"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Maladie de Parkinson",
+    "namear": "مرض باركنسون (الشلل الرعاش)"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Suivi neurologique",
+    "namear": "متابعة عصبية دورية"
+  },
+  {
+    "section": "NEUROLOGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Bilan après AVC",
+    "namear": "تقييم ومتابعة بعد الجلطة الدماغية (AVC)"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Consultation psychiatrique",
+    "namear": "استشارة الأمراض العقلية والنفسية"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Anxiété",
+    "namear": "قلق وتوتر نفسي"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Crises d'angoisse",
+    "namear": "نوبات هلع وخوف شديد"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Dépression",
+    "namear": "اكتئاب وإحباط نفسي"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Troubles de l'humeur",
+    "namear": "اضطراب المزاج وتقلباته"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Troubles du sommeil",
+    "namear": "اضطرابات النوم"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Stress important",
+    "namear": "ضغط نفسي وتوتر حاد"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Épuisement psychique",
+    "namear": "إنهاك واستنزاف نفسي"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Troubles obsessionnels compulsifs",
+    "namear": "وسواس قهري (TOC)"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Troubles alimentaires",
+    "namear": "اضطرابات الشهية والأكل النفسية"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Addiction",
+    "namear": "إدمان المواد أو السلوكيات"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Sevrage / accompagnement d'une addiction",
+    "namear": "علاج ومرافقة الإقلاع عن الإدمان"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Trouble bipolaire",
+    "namear": "الاضطراب ثنائي القطب"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Troubles psychotiques",
+    "namear": "اضطرابات ذهانية وهلاوس"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Suivi psychiatrique",
+    "namear": "متابعة نفسية وعقلية دورية"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Suivi d'un traitement psychiatrique",
+    "namear": "متابعة الأدوية والعلاج النفسي"
+  },
+  {
+    "section": "PSYCHIATRIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Évaluation psychique",
+    "namear": "تقييم وتشخيص نفسي شامل"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Consultation psychologique",
+    "namear": "استشارة أخصائي نفسي"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Anxiété",
+    "namear": "قلق وتوتر نفسي"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Stress",
+    "namear": "توتر وضغط نفسي"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Difficultés émotionnelles",
+    "namear": "صعوبات وتحديات عاطفية"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Dépression",
+    "namear": "اكتئاب وإحباط نفسي"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Problèmes relationnels",
+    "namear": "مشاكل واضطرابات العلاقات"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Difficultés familiales",
+    "namear": "خلافات وصعوبات أسرية"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Deuil",
+    "namear": "صدمة الفقدان والحداد"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Burn-out",
+    "namear": "احتراق وظيفي وإرهاق العمل"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Troubles du sommeil",
+    "namear": "اضطرابات النوم"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Difficultés scolaires",
+    "namear": "صعوبات التعلم والدراسة"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Difficultés professionnelles",
+    "namear": "مشاكل وضغوط بيئة العمل"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Accompagnement psychologique",
+    "namear": "مرافقة وإرشاد نفسي"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Thérapie individuelle",
+    "namear": "علاج نفسي فردي"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Thérapie de couple",
+    "namear": "علاج نفسي للمتزوجين / الأزواج"
+  },
+  {
+    "section": "PSYCHOLOGIE",
+    "specialty_ar": "الامراض العقلية و النفسية",
+    "namefr": "Thérapie familiale",
+    "namear": "علاج وإرشاد أسري"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Consultation de rhumatologie",
+    "namear": "استشارة أمراض المفاصل والروماتيزم"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleurs articulaires",
+    "namear": "آلام المفاصل"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleurs musculaires",
+    "namear": "آلام عضلية"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Mal de dos",
+    "namear": "آلام الظهر"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Lombalgie",
+    "namear": "ألم أسفل الظهر (اللومباغو)"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Cervicalgie",
+    "namear": "ألم الرقبة والعنق"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Sciatique",
+    "namear": "عرق النسا / آلام العصب الوركي"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Arthrose",
+    "namear": "خشونة واحتكاك المفاصل (الأرتروز)"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Arthrite",
+    "namear": "التهاب المفاصل الروماتويدي"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Polyarthrite rhumatoïde",
+    "namear": "الروماتيزم المفصلي الحاد"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Goutte",
+    "namear": "داء النقرس (داء الملوك)"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Ostéoporose",
+    "namear": "هشاشة العظام"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleurs inflammatoires",
+    "namear": "آلام مفاصل التهابية"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Raideur articulaire",
+    "namear": "تيبس وصعوبة حركة المفاصل"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Gonflement articulaire",
+    "namear": "انتفاخ وتورم المفاصل"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Tendinite",
+    "namear": "التهاب الأوتار"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Bursite",
+    "namear": "التهاب الجراب الزلالي"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Fibromyalgie",
+    "namear": "الألم العضلي الليفي (الفيبروميالغيا)"
+  },
+  {
+    "section": "RHUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Suivi d'une maladie rhumatismale",
+    "namear": "متابعة مرض روماتيزمي مزمن"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Consultation orthopédique",
+    "namear": "استشارة جراحة العظام والمفاصل"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur osseuse",
+    "namear": "آلام العظام"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur articulaire",
+    "namear": "ألم المفاصل"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Traumatisme",
+    "namear": "رضوض وإصابات الحوادث"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Fracture",
+    "namear": "كسور العظام"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Entorse",
+    "namear": "التواء وتمزق الأربطة"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Luxation",
+    "namear": "خلع في المفصل"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur du genou",
+    "namear": "ألم الركبة والغضروف المفصلي"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur de l'épaule",
+    "namear": "ألم الكتف وأوتاره"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur de la hanche",
+    "namear": "ألم مفصل الورك"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur de la cheville",
+    "namear": "ألم الكاحل"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur du poignet",
+    "namear": "ألم المعصم والرسغ"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur du coude",
+    "namear": "ألم المرفق والكوع"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur du pied",
+    "namear": "ألم القدم والكعب"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Mal de dos",
+    "namear": "آلام الظهر"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Hernie discale",
+    "namear": "انزلاق غضروفي (الديسك / الهرني)"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Déformation osseuse",
+    "namear": "تشوهات واعوجاج العظام"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Problème ligamentaire",
+    "namear": "إصابات وتمزق الأربطة الصليبية"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Problème tendineux",
+    "namear": "مشاكل وتمزق الأوتار"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Suivi après fracture",
+    "namear": "متابعة التئام الكسور وتثبيتها"
+  },
+  {
+    "section": "ORTHOPEDIE / TRAUMATOLOGIE",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Contrôle après chirurgie orthopédique",
+    "namear": "فحص ومراقبة بعد جراحة العظام"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Consultation de chirurgie générale",
+    "namear": "استشارة الجراحة العامة"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Avis chirurgical",
+    "namear": "رأي وتقييم جراحي"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Douleur abdominale nécessitant un avis chirurgical",
+    "namear": "ألم بطني حاد يتطلب تدخلاً جراحياً"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Hernie",
+    "namear": "فتق بطني أو إربي (فتقة)"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Masse / boule",
+    "namear": "كتلة أو ورم موضعي"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Kyste",
+    "namear": "كيس دهني أو جلدي"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Lipome",
+    "namear": "ورم شحمي حميد (ليبوم)"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Plaie",
+    "namear": "جرح قطعي أو مفتوح"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Abcès",
+    "namear": "خراج ودمل صديدي"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Problème de cicatrice",
+    "namear": "مشاكل وتلوث الندبات الجراحية"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Suivi post-opératoire",
+    "namear": "متابعة ورعاية ما بعد الجراحة"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Consultation préopératoire",
+    "namear": "استشارة ما قبل العملية الجراحية"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Contrôle بعد intervention",
+    "namear": "مراقبة بعد التدخل الجراحي"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Ablation de lésion",
+    "namear": "استئصال كتلة أو تشوه جلدي"
+  },
+  {
+    "section": "CHIRURGIE GENERALE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Avis sur une intervention",
+    "namear": "استشارة حول إجراء عملية جراحية"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Consultation de chirurgie vasculaire",
+    "namear": "استشارة جراحة الأوعية الدموية"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Varices",
+    "namear": "دوالي الساقين (الدفالي)"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Jambes lourdes",
+    "namear": "ثقل وإجهاد الساقين"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Douleurs des jambes",
+    "namear": "آلام الساقين والقدمين"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Gonflement des jambes",
+    "namear": "تورم وانتفاخ القدمين والساقين"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Troubles de circulation",
+    "namear": "اضطرابات الدورة الدموية في الأطراف"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Artériopathie",
+    "namear": "انسداد واعتلال الشرايين المحيطية"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Plaie vasculaire",
+    "namear": "جروح وقرحة ناتجة عن قصور الأوعية"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Ulcère",
+    "namear": "قرحة الساقين المزمنة"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Anévrisme",
+    "namear": "تمدد الأوعية الدموية (أم الدم / أنيفريزم)"
+  },
+  {
+    "section": "CHIRURGIE VASCULAIRE",
+    "specialty_ar": "جراحة عامة",
+    "namefr": "Suivi après intervention vasculaire",
+    "namear": "متابعة بعد جراحة الأوعية والدوالي"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Consultation de neurochirurgie",
+    "namear": "استشارة جراحة المخ والأعصاب"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Hernie discale",
+    "namear": "انزلاق غضروفي (الديسك / الهرني)"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Compression nerveuse",
+    "namear": "ضغط على الأعصاب والنخاع الشوكي"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Douleur rachidienne",
+    "namear": "آلام العمود الفقري الحادة"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Sciatique",
+    "namear": "عرق النسا / آلام العصب الوركي"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Douleur cervicale",
+    "namear": "آلام الرقبة والفقرات العنقية"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Traumatisme crânien",
+    "namear": "رضوض وإصابات الرأس والجمجمة"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Tumeur cérébrale",
+    "namear": "أورام الدماغ"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Tumeur rachidienne",
+    "namear": "أورام العمود الفقري والحبل الشوكي"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Avis neurochirurgical",
+    "namear": "استشارة جراح مخ وأعصاب"
+  },
+  {
+    "section": "NEUROCHIRURGIE",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Suivi après chirurgie",
+    "namear": "متابعة بعد عملية جراحية"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Consultation de chirurgie pédiatrique",
+    "namear": "استشارة جراحة الأطفال"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Hernie chez l'enfant",
+    "namear": "فتق عند الأطفال"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Masse / kyste",
+    "namear": "كتلة أو كيس"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Malformation",
+    "namear": "تصحيح العيوب والتشوهات الخلقية"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Douleur abdominale chirurgicale",
+    "namear": "ألم بطني جراحي حاد"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Traumatisme",
+    "namear": "رضوض وإصابات الحوادث"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Suivi post-opératoire",
+    "namear": "متابعة ورعاية ما بعد الجراحة"
+  },
+  {
+    "section": "CHIRURGIE PEDIATRIQUE",
+    "specialty_ar": "طب وجراحة الأطفال",
+    "namefr": "Avis chirurgical pédiatrique",
+    "namear": "رأي واستشارة جراح أطفال"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Consultation d'oncologie",
+    "namear": "استشارة طب الأورام والسرطان"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Bilan oncologique",
+    "namear": "فحص وتقييم الأورام الشامل"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Avis spécialisé",
+    "namear": "رأي طبي متخصص"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Suivi d'un cancer",
+    "namear": "متابعة مرضى الأورام والسرطان"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Suivi après traitement",
+    "namear": "متابعة بعد إنهاء العلاج"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Chimiothérapie",
+    "namear": "العلاج الكيميائي ومتابعته"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Thérapie ciblée",
+    "namear": "العلاج الموجه للأورام"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Immunothérapie",
+    "namear": "العلاج المناعي للأورام"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Radiothérapie",
+    "namear": "العلاج الإشعاعي ومتابعة آثاره"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Gestion des effets secondaires",
+    "namear": "علاج الآثار الجانبية للأدوية والأورام"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Douleurs liées au cancer",
+    "namear": "تسكين آلام مرضى الأورام"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Soins de support",
+    "namear": "الرعاية التلطيفية والداعمة"
+  },
+  {
+    "section": "ONCOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Surveillance après rémission",
+    "namear": "مراقبة دورية بعد الشفاء التام"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Consultation d'hématologie",
+    "namear": "استشارة أمراض الدم"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Anémie",
+    "namear": "فقر الدم ونقص الحديد (أنيميا)"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Fatigue liée à une anémie",
+    "namear": "إرهاق وخمول ناتج عن فقر الدم"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Anomalie de la numération sanguine",
+    "namear": "خلل في تعداد خلايا الدم (FNS)"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Troubles de la coagulation",
+    "namear": "اضطراب تخثر وتجلط الدم"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Saignements inhabituels",
+    "namear": "نزيف متكرر غير معتاد"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Thrombose",
+    "namear": "تجلط وخثرات الأوردة والشرايين"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Leucopénie",
+    "namear": "نقص كرات الدم البيضاء"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Thrombopénie",
+    "namear": "نقص الصفائح الدموية"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Maladie du sang",
+    "namear": "أمراض واعتلالات خلايا الدم"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Suivi d'une maladie hématologique",
+    "namear": "متابعة مرض دم مزمن"
+  },
+  {
+    "section": "HEMATOLOGIE",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Suivi après traitement",
+    "namear": "متابعة بعد إنهاء العلاج"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Consultation d'infectiologie",
+    "namear": "استشارة الأمراض المعدية والوبائية"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection persistante",
+    "namear": "عدوى بكتيرية أو فيروسية مستمرة"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Fièvre prolongée",
+    "namear": "حمى ممتدة / مستمرة"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection bactérienne",
+    "namear": "عدوى بكتيرية"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection virale",
+    "namear": "عدوى فيروسية"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection parasitaire",
+    "namear": "طفيليات وعدوى معوية أو جلدية"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection tropicale",
+    "namear": "أمراض المناطق الحارة والاستوائية"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Hépatite infectieuse",
+    "namear": "التهاب الكبد الوبائي المعدي"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection sexuellement transmissible",
+    "namear": "أمراض منقولة جنسياً (IST)"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "VIH",
+    "namear": "فيروس نقص المناعة البشرية (السيدا / VIH)"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Tuberculose",
+    "namear": "مرض السل (التدرن الرئوي)"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Infection récidivante",
+    "namear": "عدوى متكررة ومتجددة"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Avis sur antibiothérapie",
+    "namear": "استشارة واستخدام المضادات الحيوية"
+  },
+  {
+    "section": "INFECTIOLOGIE",
+    "specialty_ar": "الأمراض المعدية",
+    "namefr": "Suivi d'une infection complexe",
+    "namear": "متابعة حالات العدوى المعقدة"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Consultation d'allergologie",
+    "namear": "استشارة أمراض الحساسية والمناعة"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Allergie alimentaire",
+    "namear": "حساسية الأطعمة والأغذية"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Allergie médicamenteuse",
+    "namear": "حساسية الأدوية والعقاقير"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Allergie respiratoire",
+    "namear": "حساسية الجهاز التنفسي والربو"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Rhinite allergique",
+    "namear": "التهاب وحساسية الأنف المزمنة"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Asthme allergique",
+    "namear": "الربو التحسسي"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Urticaire",
+    "namear": "شرى / حساسية جلدية حادة"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Eczéma allergique",
+    "namear": "إكزيما وحساسية تلامسية"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Réaction allergique",
+    "namear": "رد فعل تحسسي حاد"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Bilan allergologique",
+    "namear": "فحص وتشخيص الحساسية الشامل"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Tests allergologiques",
+    "namear": "اختبارات وخز الجلد للحساسية (Prick Test)"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Désensibilisation",
+    "namear": "علاج إزالة التحسس المناعي"
+  },
+  {
+    "section": "ALLERGOLOGIE / IMMUNOLOGIE",
+    "specialty_ar": "أمراض الحساسية",
+    "namefr": "Allergies saisonnières",
+    "namear": "حساسية الربيع والمواسم (حبوب اللقاح)"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Consultation de réadaptation",
+    "namear": "استشارة الطب الفيزيائي وإعادة التأهيل"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Rééducation après accident",
+    "namear": "إعادة التأهيل الحركي بعد الحوادث"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Rééducation après AVC",
+    "namear": "إعادة التأهيل بعد الجلطة الدماغية"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Rééducation après chirurgie",
+    "namear": "إعادة التأهيل والترويض بعد الجراحة"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Douleurs chroniques",
+    "namear": "علاج الآلام الحركية المزمنة"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Handicap moteur",
+    "namear": "تقييم ورعاية العجز والإعاقة الحركية"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Troubles de la mobilité",
+    "namear": "صعوبة واضطراب المشي والحركة"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Réadaptation fonctionnelle",
+    "namear": "إعادة التأهيل الوظيفي والاستقلالية"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Rééducation musculosquelettique",
+    "namear": "ترويض وتقوية العضلات والمفاصل"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Rééducation neurologique",
+    "namear": "إعادة التأهيل العصبي الحركي"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Prescription de rééducation",
+    "namear": "وصف حصص الترويض الطبي (Kinésithérapie)"
+  },
+  {
+    "section": "MEDECINE PHYSIQUE ET READAPTATION",
+    "specialty_ar": "الطب الفيزيائي وإعادة التأهيل الحركي",
+    "namefr": "Évaluation fonctionnelle",
+    "namear": "تقييم القدرة الحركية والوظيفية"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Visite médicale d'embauche",
+    "namear": "فحص طبي للتوظيف والعمل"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Visite périodique",
+    "namear": "فحص طبي دوري للموظفين"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Visite de reprise",
+    "namear": "فحص استئناف العمل بعد المرض"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Visite de pré-reprise",
+    "namear": "فحص ما قبل استئناف العمل"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Aptitude au poste",
+    "namear": "شهادة لياقة للمنصب والمهام"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Inaptitude au poste",
+    "namear": "تقييم عدم اللياقة للعمل"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Évaluation des risques professionnels",
+    "namear": "تقييم المخاطر المهنية في العمل"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Accident du travail",
+    "namear": "إصابة وحادث عمل"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Maladie professionnelle",
+    "namear": "مرض مهني"
+  },
+  {
+    "section": "MEDECINE DU TRAVAIL",
+    "specialty_ar": "طب عام",
+    "namefr": "Prévention en santé au travail",
+    "namear": "وقاية وصحة العمل"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Certificat médical sportif",
+    "namear": "شهادة طبية لممارسة الرياضة"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Bilan médico-sportif",
+    "namear": "فحص وتقييم رياضي شامل"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Aptitude sportive",
+    "namear": "شهادة لياقة رياضية"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Douleur liée au sport",
+    "namear": "آلام ناتجة عن النشاط الرياضي"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Blessure sportive",
+    "namear": "إصابات الملاعب والرياضة"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Entorse sportive",
+    "namear": "التواء ناتج عن الرياضة"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Tendinite sportive",
+    "namear": "التهاب أوتار رياضي"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Reprise après blessure",
+    "namear": "إعادة التأهيل بعد الإصابة الرياضية"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Suivi du sportif",
+    "namear": "متابعة صحية للرياضيين"
+  },
+  {
+    "section": "MEDECINE DU SPORT",
+    "specialty_ar": "طب العظام و المفاصل",
+    "namefr": "Évaluation de la condition physique",
+    "namear": "تقييم اللياقة والقدرة البدنية"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Consultation gériatrique",
+    "namear": "استشارة طب المسنين والشيخوخة"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Bilan global de la personne âgée",
+    "namear": "فحص شامل للمسنين وكبار السن"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Troubles de la mémoire",
+    "namear": "مشاكل واضطراب الذاكرة"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Chutes répétées",
+    "namear": "السقوط المتكرر وفقدان التوازن"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Troubles de l'équilibre",
+    "namear": "اضطراب التوازن والدوخة الدهليزية"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Fragilité",
+    "namear": "تقييم الوهن والضعف العام للمسنين"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Perte d'autonomie",
+    "namear": "تقييم فقدان الاستقلالية الحركية"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Polymédication",
+    "namear": "مراجعة وضبط الأدوية المتعددة للمسنين"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Dénutrition",
+    "namear": "علاج سوء التغذية ونقص الفيتامينات"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Troubles cognitifs",
+    "namear": "اضطرابات الإدراك والتفكير"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Suivi des maladies chroniques",
+    "namear": "متابعة الأمراض المزمنة لكبار السن"
+  },
+  {
+    "section": "GERIATRIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Évaluation gériatrique",
+    "namear": "تقييم طبي شامل للمسن"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Consultation dentaire",
+    "namear": "استشارة طب وجراحة الأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Douleur dentaire",
+    "namear": "ألم حاد في الضرس أو السن"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Carie",
+    "namear": "تسوس الأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Sensibilité dentaire",
+    "namear": "حساسية الأسنان للبرودة والحرارة"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Infection dentaire",
+    "namear": "التهاب وعدوى الأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Abcès dentaire",
+    "namear": "خراج والتهاب صديدي في اللثة أو السن"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Saignement des gencives",
+    "namear": "نزيف اللثة أثناء تنظيف الأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Gingivite",
+    "namear": "التهاب وتورم اللثة"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Parodontite",
+    "namear": "التهاب أنسجة ودواعم السن"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Détartrage",
+    "namear": "تنظيف وإزالة الجير من الأسنان (Détartrage)"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Contrôle dentaire",
+    "namear": "فحص دوري لصحة الفم والأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Extraction dentaire",
+    "namear": "خلع وقلع الأسنان أو ضرس العقل"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Dent cassée",
+    "namear": "ترميم الأسنان المكسورة والمتآكلة"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Prothèse dentaire",
+    "namear": "تركيب الأسنان الثابتة والمتحركة (طقم)"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Implant dentaire",
+    "namear": "زراعة الأسنان (Implant)"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Orthodontie",
+    "namear": "تقويم وتعديل اعوجاج الأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Contrôle orthodontique",
+    "namear": "متابعة جهاز تقويم الأسنان"
+  },
+  {
+    "section": "DENTAIRE / ODONTOLOGIE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Urgence dentaire",
+    "namear": "طوارئ وعلاج ألم الأسنان الحاد"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Douleur maxillo-faciale",
+    "namear": "آلام الفك والوجه"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Traumatisme facial",
+    "namear": "إصابات ورضوض الوجه والفكين"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Fracture faciale",
+    "namear": "كسور الفك وعظام الوجه"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Kyste buccal",
+    "namear": "أكياس الفم والفكين"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Lésion buccale",
+    "namear": "تقرحات وآفات تجويف الفم"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Problème de mâchoire",
+    "namear": "مشاكل وصعوبة فتح الفك"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Articulation temporo-mandibulaire",
+    "namear": "اضطراب مفصل الفك الصدغي (ATM)"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Extraction complexe",
+    "namear": "خلع جراحي معقد لضرس العقل المدفون"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Avis chirurgical maxillo-facial",
+    "namear": "استشارة جراحة الوجه والفكين"
+  },
+  {
+    "section": "STOMATOLOGIE / CHIRURGIE MAXILLO-FACIALE",
+    "specialty_ar": "طب وجراحة الأسنان",
+    "namefr": "Suivi post-opératoire",
+    "namear": "متابعة ورعاية ما بعد الجراحة"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Échographie",
+    "namear": "فحص بالموجات فوق الصوتية (إيكوغرافيا)"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Échographie abdominale",
+    "namear": "إيكوغرافيا البطن والكبد والكلى"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Échographie pelvienne",
+    "namear": "إيكوغرافيا الحوض والرحم والمثانة"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Échographie obstétricale",
+    "namear": "إيكوغرافيا الحمل والجنين"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Échographie mammaire",
+    "namear": "إيكوغرافيا الثدي"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Radiographie",
+    "namear": "أشعة سينية عادية (راديو X)"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Scanner / TDM",
+    "namear": "أشعة مقطعية سكانير (TDM / Scanner)"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "IRM",
+    "namear": "رنين مغناطيسي (IRM)"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Mammographie",
+    "namear": "أشعة الماموغرافي لفحص الثدي"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Doppler",
+    "namear": "فحص الدوبلر لتدفق الأوعية والشرايين"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Imagerie musculosquelettique",
+    "namear": "تصوير العظام والمفاصل والأوتار"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Imagerie neurologique",
+    "namear": "تصوير المخ والعمود الفقري"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Imagerie thoracique",
+    "namear": "تصوير الصدر والرئتين"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Imagerie abdominale",
+    "namear": "تصوير أعضاء البطن"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Imagerie urologique",
+    "namear": "تصوير الجهاز البولي والكلى"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Imagerie vasculaire",
+    "namear": "تصوير الأوعية الدموية"
+  },
+  {
+    "section": "RADIOLOGIE / IMAGERIE MEDICALE",
+    "specialty_ar": "علم الأشعة_راديولوجي",
+    "namefr": "Contrôle / suivi radiologique",
+    "namear": "متابعة ومقارنة الفحوصات الإشعاعية"
+  },
+  {
+    "section": "ANESTHESIOLOGIE",
+    "specialty_ar": "طب التخدير",
+    "namefr": "Consultation pré-anesthésique",
+    "namear": "استشارة التخدير قبل العملية الجراحية"
+  },
+  {
+    "section": "ANESTHESIOLOGIE",
+    "specialty_ar": "طب التخدير",
+    "namefr": "Évaluation avant chirurgie",
+    "namear": "تقييم جاهزية المريض للجراحة"
+  },
+  {
+    "section": "ANESTHESIOLOGIE",
+    "specialty_ar": "طب التخدير",
+    "namefr": "Évaluation des risques anesthésiques",
+    "namear": "تقييم مخاطر التخدير وتحديد نوعه"
+  },
+  {
+    "section": "ANESTHESIOLOGIE",
+    "specialty_ar": "طب التخدير",
+    "namefr": "Consultation de douleur",
+    "namear": "استشارة علاج وتسكين الآلام"
+  },
+  {
+    "section": "ANESTHESIOLOGIE",
+    "specialty_ar": "طب التخدير",
+    "namefr": "Prise en charge de douleur chronique",
+    "namear": "بروتوكول تسكين الآلام المزمنة"
+  },
+  {
+    "section": "ANESTHESIOLOGIE",
+    "specialty_ar": "طب التخدير",
+    "namefr": "Suivi après anesthésie",
+    "namear": "متابعة الإفاقة والتعافي بعد التخدير"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleur thoracique",
+    "namear": "ألم في الصدر"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Difficulté respiratoire",
+    "namear": "صعوبة وضيق حاد في التنفس"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Malaise",
+    "namear": "وعكة صحية / إغماء خفيف"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Perte de connaissance",
+    "namear": "فقدان الوعي المؤقت"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Traumatisme",
+    "namear": "رضوض وإصابات الحوادث"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Plaie",
+    "namear": "جرح قطعي أو مفتوح"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Brûlure",
+    "namear": "حروق"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Douleur abdominale aiguë",
+    "namear": "ألم حاد ومفاجئ في البطن"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Réaction allergique",
+    "namear": "رد فعل تحسسي حاد"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Fièvre importante",
+    "namear": "حمى وحرارة شديدة الارتفاع"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Intoxication",
+    "namear": "تسمم غذائي أو دوائي"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Crise d'asthme",
+    "namear": "أزمة ونوبة ربو حادة"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Convulsion",
+    "namear": "تشنجات عصبية حادة"
+  },
+  {
+    "section": "MEDECINE D'URGENCE",
+    "specialty_ar": "طب عام",
+    "namefr": "Saignement important",
+    "namear": "نزيف حاد يتطلب تدخلاً"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Consultation de médecine esthétique",
+    "namear": "استشارة الطب التجميلي"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Acné et cicatrices",
+    "namear": "علاج حب الشباب والندبات التجميلية"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Taches pigmentaires",
+    "namear": "علاج التصبغات والكلف بالبشرة"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Rides",
+    "namear": "علاج التجاعيد وحقن البوتوكس / الفيلر"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Relâchement cutané",
+    "namear": "شد وتجديد نضارة البشرة والوجه"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Cicatrices",
+    "namear": "تحسين وتجميل مظهر الندبات"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Chute de cheveux",
+    "namear": "تساقط الشعر"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Traitement esthétique du visage",
+    "namear": "علاجات تجميل ونضارة الوجه"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Traitement esthétique du corps",
+    "namear": "علاجات نحت وتجميل الجسم"
+  },
+  {
+    "section": "MEDECINE ESTHETIQUE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Évaluation esthétique",
+    "namear": "تقييم واستشارة تجميلية شاملة"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Consultation de chirurgie plastique",
+    "namear": "استشارة جراحة التجميل والترميم"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Reconstruction après traumatisme",
+    "namear": "ترميم التشوهات بعد الحوادث"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Reconstruction après brûlure",
+    "namear": "ترميم آثار وعقود الحروق"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Cicatrice",
+    "namear": "ندبات وآثار جروح"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Malformation",
+    "namear": "تصحيح العيوب والتشوهات الخلقية"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Reconstruction après cancer",
+    "namear": "إعادة بناء الثدي وترميم آثار الأورام"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Plaie complexe",
+    "namear": "علاج وترميم الجروح المعقدة"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Avis chirurgical",
+    "namear": "رأي وتقييم جراحي"
+  },
+  {
+    "section": "PLASTIQUE / RECONSTRUCTRICE",
+    "specialty_ar": "طب وجراحة تجميلية",
+    "namefr": "Suivi post-opératoire",
+    "namear": "متابعة ورعاية ما بعد الجراحة"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Consultation nutritionnelle",
+    "namear": "استشارة التغذية والحمية العلاجية"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Surpoids",
+    "namear": "زيادة الوزن"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Obésité",
+    "namear": "سمنة مفرطة"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Perte de poids",
+    "namear": "برنامج إنقاص الوزن والتخسيس"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Prise de poids",
+    "namear": "برنامج زيادة الوزن وعلاج النحافة"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Diabète et nutrition",
+    "namear": "حمية غذائية مخصصة لمرضى السكري"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Cholestérol et nutrition",
+    "namear": "نظام غذائي لخفض الكولسترول والدهون"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Nutrition pendant la grossesse",
+    "namear": "تغذية الحامل والمرضع الصحية"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Nutrition de l'enfant",
+    "namear": "تغذية ونمو الرضع والأطفال"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Troubles alimentaires",
+    "namear": "اضطرابات الشهية والأكل النفسية"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Rééquilibrage alimentaire",
+    "namear": "تعديل النمط الغذائي ونظام صحي متوازن"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Nutrition sportive",
+    "namear": "تغذية وبناء أجسام للرياضيين"
+  },
+  {
+    "section": "NUTRITION / DIETETIQUE",
+    "specialty_ar": "طب التغذية و الحمية",
+    "namefr": "Dénutrition",
+    "namear": "علاج سوء التغذية ونقص الفيتامينات"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Consultation d'hépatologie",
+    "namear": "استشارة أمراض الكبد المتخصصة"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Bilan hépatique",
+    "namear": "فحص وظائف الكبد"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Hépatite",
+    "namear": "التهاب الكبد الفيروسي"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Stéatose hépatique",
+    "namear": "تشحم الكبد (الكبد الدهني)"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Cirrhose",
+    "namear": "تليف الكبد المزمن (السكيروز)"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Fibrose hépatique",
+    "namear": "تليف أنسجة الكبد"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Anomalie des enzymes hépatiques",
+    "namear": "ارتفاع أنزيمات الكبد"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Douleur hépatique",
+    "namear": "ألم في جهة الكبد"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Suivi d'une maladie du foie",
+    "namear": "متابعة أمراض الكبد المزمنة"
+  },
+  {
+    "section": "HEPATOLOGIE",
+    "specialty_ar": "طب الجهاز الهضمي",
+    "namefr": "Suivi après traitement",
+    "namear": "متابعة بعد إنهاء العلاج"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Consultation du sommeil",
+    "namear": "استشارة اضطرابات وأمراض النوم"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Insomnie",
+    "namear": "الأرق وصعوبة النوم"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Somnolence diurne",
+    "namear": "النعاس المفرط خلال النهار"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Ronflement",
+    "namear": "الشخير أثناء النوم"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Apnée du sommeil",
+    "namear": "انقطاع التنفس أثناء النوم"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Réveils nocturnes",
+    "namear": "الاستيقاظ المتكرر ليلاً"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Troubles du rythme veille-sommeil",
+    "namear": "اضطراب الساعة البيولوجية للنوم"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Fatigue chronique liée au sommeil",
+    "namear": "إرهاق مزمن ناتج عن قلة جودة النوم"
+  },
+  {
+    "section": "MEDECINE DU SOMMEIL",
+    "specialty_ar": "طب وجراحة المخ و الأعصاب",
+    "namefr": "Bilan du sommeil",
+    "namear": "تخطيط وفحص النوم الشامل (Polysomnographie)"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Consultation de génétique",
+    "namear": "استشارة الأمراض الوراثية والجينية"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Conseil génétique",
+    "namear": "استشارة وإرشاد وراثي للعائلة"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Antécédents familiaux",
+    "namear": "دراسة التاريخ والأمراض الوراثية العائلية"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Suspicion de maladie génétique",
+    "namear": "اشتباه في متلازمة أو مرض وراثي"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Maladie génétique connue",
+    "namear": "متابعة ورعاية الأمراض الوراثية المؤكدة"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Diagnostic génétique",
+    "namear": "تشخيص وتحاليل الجينات والكروموسومات"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Préconception et génétique",
+    "namear": "فحص وراثي قبل الزواج والتخطيط للإنجاب"
+  },
+  {
+    "section": "GENETIQUE MEDICALE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Diagnostic prénatal génétique",
+    "namear": "الفحص الوراثي للجنين قبل الولادة"
+  },
+  {
+    "section": "MEDECINE NUCLEAIRE",
+    "specialty_ar": "الطب النووي",
+    "namefr": "Scintigraphie",
+    "namear": "فحص التصوير الومضاني (السانتيغرافي)"
+  },
+  {
+    "section": "MEDECINE NUCLEAIRE",
+    "specialty_ar": "الطب النووي",
+    "namefr": "TEP / PET scan",
+    "namear": "فحص التصوير المقطعي البوزيتروني (PET Scan)"
+  },
+  {
+    "section": "MEDECINE NUCLEAIRE",
+    "specialty_ar": "الطب النووي",
+    "namefr": "Bilan oncologique en médecine nucléaire",
+    "namear": "تقييم الأورام بالطب النووي"
+  },
+  {
+    "section": "MEDECINE NUCLEAIRE",
+    "specialty_ar": "الطب النووي",
+    "namefr": "Bilan thyroïdien",
+    "namear": "فحص الغدة الدرقية"
+  },
+  {
+    "section": "MEDECINE NUCLEAIRE",
+    "specialty_ar": "الطب النووي",
+    "namefr": "Suivi thérapeutique",
+    "namear": "متابعة العلاج"
+  },
+  {
+    "section": "MEDECINE NUCLEAIRE",
+    "specialty_ar": "الطب النووي",
+    "namefr": "Exploration fonctionnelle",
+    "namear": "الفحوصات الوظيفية بالمواد المشعة"
+  },
+  {
+    "section": "PATHOLOGIE / ANATOMOPATHOLOGIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Analyse anatomopathologique",
+    "namear": "تحليل الأنسجة والخزعات المخبرية"
+  },
+  {
+    "section": "PATHOLOGIE / ANATOMOPATHOLOGIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Biopsie",
+    "namear": "فحص عينات وخزعات الأنسجة (Biopsie)"
+  },
+  {
+    "section": "PATHOLOGIE / ANATOMOPATHOLOGIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Cytologie",
+    "namear": "تحليل وفحص الخلايا (Cytologie)"
+  },
+  {
+    "section": "PATHOLOGIE / ANATOMOPATHOLOGIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Analyse d'une pièce opératoire",
+    "namear": "فحص الأنسجة المستأصلة جراحياً"
+  },
+  {
+    "section": "PATHOLOGIE / ANATOMOPATHOLOGIE",
+    "specialty_ar": "الطب الباطني (داخلي)",
+    "namefr": "Deuxième avis anatomopathologique",
+    "namear": "رأي مخبري ثانٍ في تحليل العينات"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Consultation de santé sexuelle",
+    "namear": "استشارة الصحة الجنسية"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Contraception",
+    "namear": "منع الحمل"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Infection sexuellement transmissible",
+    "namear": "أمراض منقولة جنسياً (IST)"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Dépistage IST",
+    "namear": "فحص الأمراض المنقولة جنسياً"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Troubles de l'érection",
+    "namear": "ضعف واضطرابات الانتصاب"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Éjaculation précoce",
+    "namear": "سرعة القذف"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Baisse de libido",
+    "namear": "نقص الرغبة الجنسية"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Douleurs sexuelles",
+    "namear": "آلام أثناء العلاقة الحميمية"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Troubles sexuels féminins",
+    "namear": "اضطرابات الأداء الجنسي عند النساء"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Infertilité",
+    "namear": "تأخر الإنجاب والعقم"
+  },
+  {
+    "section": "SANTE SEXUELLE",
+    "specialty_ar": "طب وجراحة المسالك البولية",
+    "namefr": "Conseil en santé sexuelle",
+    "namear": "استشارة وتوجيه في الصحة الجنسية"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Bilan de fertilité",
+    "namear": "فحص وتقييم الخصوبة"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Infertilité féminine",
+    "namear": "عقم وتأخر الإنجاب عند النساء"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Infertilité masculine",
+    "namear": "عقم وتأخر الإنجاب عند الرجال"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Consultation préconceptionnelle",
+    "namear": "استشارة ما قبل الحمل والتخطيط للإنجاب"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Suivi de traitement de fertilité",
+    "namear": "متابعة بروتوكول علاج الخصوبة"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Bilan hormonal de fertilité",
+    "namear": "فحص الهرمونات والخصوبة"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Conseil en fertilité",
+    "namear": "استشارة وتوجيه في الخصوبة والإنجاب"
+  },
+  {
+    "section": "REPRODUCTION / FERTILITE",
+    "specialty_ar": "طب النساء والتوليد",
+    "namefr": "Assistance médicale à la procréation",
+    "namear": "المساعدة الطبية على الإنجاب (أطفال الأنابيب / PMA)"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Consultation douleur",
+    "namear": "استشارة علاج وتسكين الآلام"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Douleur chronique",
+    "namear": "علاج الآلام المزمنة المستعصية"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Douleur cancéreuse",
+    "namear": "تسكين آلام الأورام"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Douleur neuropathique",
+    "namear": "علاج آلام الأعصاب الحادة"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Douleur musculosquelettique",
+    "namear": "آلام الجهاز العضلي الهيكلي"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Soins palliatifs",
+    "namear": "رعاية تلطيفية للمرضى"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Accompagnement de fin de vie",
+    "namear": "مرافقة ورعاية الحالات المتقدمة"
+  },
+  {
+    "section": "SOINS PALLIATIFS / DOULEUR",
+    "specialty_ar": "طب أمراض الدم والأورام",
+    "namefr": "Gestion des symptômes",
+    "namear": "التحكم في الأعراض المزعجة"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Deuxième avis médical",
+    "namear": "أخذ رأي طبي ثانٍ"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Lecture d'analyses médicales",
+    "namear": "قراءة وتفسير التحاليل الطبية"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Lecture d'un compte rendu d'imagerie",
+    "namear": "قراءة وتفسير تقارير الأشعة والتصوير"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Renouvellement d'ordonnance",
+    "namear": "تجديد وصفة طبية"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Demande d'orientation vers un spécialiste",
+    "namear": "طلب توجيه إلى طبيب مختص"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Consultation de suivi",
+    "namear": "استشارة متابعة طبية"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Consultation après hospitalisation",
+    "namear": "استشارة بعد الخروج من المستشفى"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Consultation après passage aux urgences",
+    "namear": "استشارة بعد زيارة الطوارئ"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Bilan préopératoire",
+    "namear": "فحوصات ما قبل التدخل الجراحي"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Bilan post-opératoire",
+    "namear": "فحوصات ومتابعة ما بعد الجراحة"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Certificat médical",
+    "namear": "شهادة طبية"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Avis médical",
+    "namear": "استشارة وإبداء رأي طبي"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Demande de dossier médical",
+    "namear": "طلب واستخراج الملف الطبي"
+  },
+  {
+    "section": "AUTRES MOTIFS TRANSVERSAUX",
+    "specialty_ar": "طب عام",
+    "namefr": "Autre motif",
+    "namear": "سبب آخر"
+  }
+]

@@ -88,3 +88,30 @@
   - كلمة المرور: `FJHajf552:`
 
 إذا تم تسجيل الدخول بنجاح، فتهانينا! النظام يعمل بالكامل الآن ومربوط مع قاعدة البيانات.
+ 
+---
+
+## 📱 الخطوة 5: بناء تطبيق الأندرويد (Release Mode)
+
+لبناء وتوليد تطبيق أندرويد موقع وجاهز للإنتاج (APK & AAB):
+
+1. بناء ملفات الويب في مجلد `frontend`:
+   ```bash
+   cd frontend
+   npm run build
+   ```
+2. مزامنة الملفات مع مجلد الأندرويد:
+   ```bash
+   npx cap sync android
+   ```
+3. الانتقال لمجلد `android` والتجميع عبر Gradle:
+   ```bash
+   cd android
+   # لتوليد ملف الـ APK الموقع:
+   .\gradlew assembleRelease
+   # لتوليد حزمة متجر جوجل بلاي AAB:
+   .\gradlew bundleRelease
+   ```
+4. مسارات الملفات الناتجة:
+   - **ملف الـ APK**: `frontend/android/app/build/outputs/apk/release/app-release.apk`
+   - **ملف الـ AAB**: `frontend/android/app/build/outputs/bundle/release/app-release.aab`
