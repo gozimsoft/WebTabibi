@@ -343,7 +343,7 @@ Bien que le présent plan prépare l'externalisation future des fichiers actifs,
    - `frontend/android/keystore.properties.example`
 2. **Étape 2 :** Créer les fichiers locaux opérationnels (non versionnés) avec les valeurs de travail actuelles :
    - `backend/.env` (reprend les valeurs fonctionnelles actuelles)
-   - `frontend/android/keystore.properties` (reprend `tabibi2026`)
+   - `frontend/android/keystore.properties` (reprend `[KEYSTORE_PASSWORD]`)
 3. **Étape 3 :** Adapter `backend/config/database.php` avec le chargeur d'environnement natif sécurisé et les fallbacks.
 4. **Étape 4 :** Adapter `frontend/android/app/build.gradle` pour lire `keystore.properties`.
 5. **Étape 5 :** Désindexer des commits Git (sans supprimer les fichiers locaux du disque) :

@@ -14,6 +14,14 @@
   - إضافة نقطة نهاية مخصصة `GET /api/tickets/unread-count` متوافقة مع حسابات الأطباء والعيادات.
 - **إعداد وثيقة خطة تأمين الأسرار والإعدادات (Phase 05A)**:
   - إضافة ملف التوثيق الشامل [`Docs/TABIBI_PHASE_05A_SECURISATION_PLAN.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05A_SECURISATION_PLAN.md).
+- **تنفيذ تأمين وإخراج الأسرار والإعدادات الحساسة (Phase 05B)**:
+  - إخراج أسرار قاعدة البيانات وخدمة البريد من الكود إلى ملف بيئة محلي غير متبع `backend/.env`.
+  - إضافة محمل بيئة PHP أصلي وخفيف في [`backend/config/database.php`](file:///c:/xampp/htdocs/tabibi/backend/config/database.php) دون أي مكتبات خارجية.
+  - إخراج بيانات توقيع الأندرويد من `build.gradle` إلى `frontend/android/keystore.properties` مع الاحتفاظ الصارم بملف المفاتيح الأصلي `tabibi-release.jks`.
+  - إلغاء تتبع الملفات الحساسة من Git (`frontend/tabibi-release.jks`, `frontend/.env`, `Compile et signe APK .txt`) مع إبقائها محلياً.
+  - إضافة قوالب النماذج [`backend/.env.example`](file:///c:/xampp/htdocs/tabibi/backend/.env.example)، [`frontend/.env.example`](file:///c:/xampp/htdocs/tabibi/frontend/.env.example)، و [`frontend/android/keystore.properties.example`](file:///c:/xampp/htdocs/tabibi/frontend/android/keystore.properties.example).
+  - تحديث قواعد الحماية في [`.gitignore`](file:///c:/xampp/htdocs/tabibi/.gitignore).
+  - إضافة تقارير التوثيق الفني [`Docs/TABIBI_PHASE_05B_EXTERNALISATION_SECRETS.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05B_EXTERNALISATION_SECRETS.md)، [`Docs/TABIBI_PHASE_05C_AUDIT_ROTATION.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05C_AUDIT_ROTATION.md)، و [`Docs/TABIBI_PHASE_05C_B_RAPPORT_ROTATION.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05C_B_RAPPORT_ROTATION.md).
 
 ### Fixed
 - **إصلاح زر التواصل (`Contact`) في بطاقات المواعيد**:
