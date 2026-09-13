@@ -26,6 +26,7 @@ import analytics from "./utils/analytics";
 import AppointmentManager from "./pages/AppointmentManager";
 import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
+import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
@@ -118,6 +119,11 @@ const api = {
     getReasons: () => req("GET", "/doctors/reasons"),
     addReason: b => req("POST", "/doctors/reasons", b),
     deleteReason: id => req("DELETE", `/doctors/reasons/${id}`),
+    getAppointmentSettings: () => req("GET", "/doctors/appointment-settings"),
+    createAppointmentSetting: b => req("POST", "/doctors/appointment-settings", b),
+    updateAppointmentSetting: (id, b) => req("PUT", `/doctors/appointment-settings/${id}`, b),
+    deleteAppointmentSetting: id => req("DELETE", `/doctors/appointment-settings/${id}`),
+    appointments: p => req("GET", `/doctor/appointments${p ? '?' + new URLSearchParams(p) : ''}`),
   },
   clinics: {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
@@ -536,15 +542,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات الجديدة
-      const interval = setInterval(fetchNotifications, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
   // ── إغلاق قائمة الإشعارات عند الضغط خارجها
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -607,15 +604,57 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   };
 
   // ── عدد الإشعارات غير المقروءة
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter(n => !n.is_read || n.is_read == 0).length;
+  const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
+  const [pendingApptsCount, setPendingApptsCount] = useState(0);
+
+  // ── جلب عدد الرسائل والمواعيد غير المقروءة / النشطة
+  const fetchCounts = async () => {
+    if (!user) return;
+    try {
+      const tickets = await api.tickets.list();
+      if (Array.isArray(tickets)) {
+        if (user.user_type === 1 || user.user_type === 2) {
+          const active = tickets.filter(item => item.status === 'OPEN' || item.status === 'PENDING').length;
+          setUnreadTicketsCount(active);
+        } else {
+          const active = tickets.filter(item => item.status === 'PENDING').length;
+          setUnreadTicketsCount(active);
+        }
+      }
+    } catch { }
+
+    if (user.user_type === 1) {
+      try {
+        const appts = await api.doctor.appointments({ from: new Date().toISOString().slice(0, 10) });
+        if (Array.isArray(appts)) {
+          const upcoming = appts.filter(a => a.status != 1 && a.status != 2).length;
+          setPendingApptsCount(upcoming);
+        }
+      } catch { }
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      fetchCounts();
+      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات والرسائل الجديدة
+      const interval = setInterval(() => {
+        fetchNotifications();
+        fetchCounts();
+      }, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
     { label: t("mobile_app", "تطبيق طبيبي"), icon: <Smartphone size={18} />, path: "/app" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
-    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
+    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
-      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true }
+      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
     ] : [])
   ];
 
@@ -701,7 +740,19 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--brand-light)"; e.currentTarget.style.color = "var(--brand)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
                   <span style={{ opacity: 0.8, display: "flex" }}>{link.icon}</span>
-                  {link.label}
+                  <span>{link.label}</span>
+                  {link.badge > 0 && (
+                    <span style={{
+                      background: "#ef4444", color: "#fff",
+                      fontSize: 10, fontWeight: 800,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 5px", lineHeight: 1,
+                      boxShadow: "0 2px 5px rgba(239, 68, 68, 0.4)"
+                    }}>
+                      {link.badge > 99 ? "99+" : link.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -833,7 +884,19 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         notifications.map(n => (
                           <div
                             key={n.id}
-                            onClick={() => markAsRead(n.id, n.is_read)}
+                            onClick={() => {
+                              markAsRead(n.id, n.is_read);
+                              setNotifOpen(false);
+                              if (n.type === 'ticket') {
+                                navigate("/tickets");
+                              } else if (n.type === 'appointment') {
+                                if (user?.user_type === 1 || user?.user_type === 2) {
+                                  navigate("/appointmanager");
+                                } else {
+                                  navigate("/appointments");
+                                }
+                              }
+                            }}
                             style={{
                               padding: "12px 16px",
                               borderBottom: "1px solid var(--border)",
@@ -949,7 +1012,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                       (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                       (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
-                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets" },
+                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets", badge: unreadTicketsCount },
                       { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                     ].filter(Boolean).map(item => (
@@ -965,6 +1028,17 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
                         onMouseLeave={e => e.currentTarget.style.background = "none"}>
                         {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
+                        {item.badge > 0 && (
+                          <span style={{
+                            background: "#ef4444", color: "#fff",
+                            fontSize: 10, fontWeight: 800,
+                            minWidth: 18, height: 18, borderRadius: 9,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            padding: "0 5px", lineHeight: 1
+                          }}>
+                            {item.badge > 99 ? "99+" : item.badge}
+                          </span>
+                        )}
                       </button>
                     ))}
                     <button onClick={() => { onLogout(); setOpen(false); }} style={{ width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#dc2626", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center", gap: 12 }}>
@@ -1027,7 +1101,18 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
               textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 700, color: "var(--text-main)",
               display: "flex", alignItems: "center", gap: 12
             }}>
-              {link.icon} {link.label}
+              {link.icon} <span style={{ flex: 1 }}>{link.label}</span>
+              {link.badge > 0 && (
+                <span style={{
+                  background: "#ef4444", color: "#fff",
+                  fontSize: 10, fontWeight: 800,
+                  minWidth: 18, height: 18, borderRadius: 9,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 5px", lineHeight: 1
+                }}>
+                  {link.badge > 99 ? "99+" : link.badge}
+                </span>
+              )}
             </button>
           ))}
           {!user && (
@@ -4350,7 +4435,11 @@ function AppointmentsPage({ navigate, user }) {
                         <Btn variant="danger" onClick={() => cancel(a.id)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <Trash2 size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("cancel_btn")}
                         </Btn>
-                        <Btn variant="ghost" onClick={() => navigate("/chat")} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                        <Btn variant="ghost" onClick={() => {
+                          if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                          else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                          else navigate("/tickets/new");
+                        }} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
                         </Btn>
                       </>
@@ -4360,7 +4449,11 @@ function AppointmentsPage({ navigate, user }) {
                         <Btn variant="secondary" onClick={() => navigate(`/clinic/${a.clinicid}/doctor/${a.doctor_id}`)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           {t("book_new")}
                         </Btn>
-                        <Btn variant="ghost" onClick={() => navigate("/chat")} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                        <Btn variant="ghost" onClick={() => {
+                          if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                          else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                          else navigate("/tickets/new");
+                        }} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
                         </Btn>
                       </>
@@ -5327,23 +5420,23 @@ function TicketsPage({ navigate, user }) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {tickets.map(t => (
-          <Card key={t.id} onClick={() => navigate(`/tickets/${t.id}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+        {tickets.map(ticket => (
+          <Card key={ticket.id} onClick={() => navigate(`/tickets/${ticket.id}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{t.subject}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{ticket.subject}</div>
               <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                 {user.user_type === 0 ? (
-                  t.doctorname ? `${t("ticket_with_doctor")} ${t.doctorname}` : (t.clinicname ? `${t("ticket_with_clinic")} ${t.clinicname}` : t("ticket_general"))
+                  ticket.doctorname ? `${t("ticket_with_doctor")} ${ticket.doctorname}` : (ticket.clinicname ? `${t("ticket_with_clinic")} ${ticket.clinicname}` : t("ticket_general"))
                 ) : (
-                  `${t("ticket_from_patient")} ${t.patientname}`
+                  `${t("ticket_from_patient")} ${ticket.patientname}`
                 )}
               </div>
               <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                {t("last_update")} {new Date(t.updated_at).toLocaleString(i18n.language)}
+                {t("last_update")} {new Date(ticket.updated_at).toLocaleString(i18n.language)}
               </div>
             </div>
-            <Badge color={t.status === 'CLOSED' ? "#64748b" : (t.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
-              {t.status === 'OPEN' ? t("status_open") : (t.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
+            <Badge color={ticket.status === 'CLOSED' ? "#64748b" : (ticket.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
+              {ticket.status === 'OPEN' ? t("status_open") : (ticket.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
             </Badge>
           </Card>
         ))}
@@ -5606,6 +5699,7 @@ function ProfilePage({ user, navigate }) {
   const [newReasonTime, setNewReasonTime] = useState(30);
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
+  const [doctorActiveTab, setDoctorActiveTab] = useState("profile"); // 'profile' | 'reasons' | 'appointment_settings'
 
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
@@ -5875,6 +5969,194 @@ function ProfilePage({ user, navigate }) {
         )}
       </div>
 
+      {/* Doctor Tabs Bar (when user_type === 1) */}
+      {user?.user_type === 1 && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("profile")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <User size={17} />
+            {t("profile_info_tab", "الملف الشخصي")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("reasons")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "reasons" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "reasons" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "reasons" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Stethoscope size={17} />
+            {t("consultation_reasons_tab", "أسباب الاستشارة")}
+            {reasons.length > 0 && (
+              <span style={{
+                background: doctorActiveTab === "reasons" ? "rgba(255,255,255,0.25)" : "rgba(8, 145, 178, 0.12)",
+                color: doctorActiveTab === "reasons" ? "#ffffff" : "var(--brand, #0891b2)",
+                fontSize: 11,
+                padding: "2px 7px",
+                borderRadius: 10,
+                fontWeight: 800
+              }}>
+                {reasons.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("appointment_settings")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "appointment_settings" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "appointment_settings" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "appointment_settings" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Calendar size={17} />
+            {t("appointment_settings_tab", "إعدادات المواعيد")}
+          </button>
+        </div>
+      )}
+
+      {/* Appointment Settings Tab Content */}
+      {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
+        <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
+      )}
+
+      {/* Consultation Reasons Tab Content */}
+      {user?.user_type === 1 && doctorActiveTab === "reasons" && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h3 style={{ color: "#0c4a6e", margin: "0 0 4px", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <Stethoscope size={18} color="var(--brand)" /> {t("doctor_reasons_title", "أسباب ومبررات الاستشارة")}
+              </h3>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                {t("doctor_reasons_desc", "الأسباب التي تظهر لمرضاك للاختيار منها عند حجز موعد جديد")}
+              </p>
+            </div>
+            <Btn
+              type="button"
+              onClick={() => setShowAddReasonModal(true)}
+              style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <Plus size={16} /> {t("add_reason_btn", "إضافة سبب استشارة")}
+            </Btn>
+          </div>
+
+          {loadingReasons ? (
+            <div style={{ padding: 24, textAlign: "center" }}><Spinner size={20} /></div>
+          ) : reasons.length === 0 ? (
+            <div style={{
+              padding: "24px 16px", textAlign: "center", background: "var(--bg)",
+              borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b"
+            }}>
+              <FileText size={32} style={{ color: "#94a3b8", marginBottom: 8 }} />
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_doctor_reasons", "لم تقم بإضافة أسباب استشارة بعد")}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                {t("no_doctor_reasons_hint", "أضف أسباب الكشف ليتمكن المرضى من تحديد مبرر الزيارة عند الحجز")}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+              {reasons.map(r => (
+                <div key={r.id} style={{
+                  padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
+                  border: "1.5px solid var(--border)", display: "flex", alignItems: "center",
+                  justifyContent: "space-between", gap: 10, transition: "all 0.2s"
+                }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#0c4a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.reason_name}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                        background: "var(--brand-light)", color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4
+                      }}>
+                        <Clock size={11} /> {r.reason_time || 30} {t("minutes_short", "دقيقة")}
+                      </span>
+                      {r.clinicname && (
+                        <span style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {r.clinicname}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteReason(r.id)}
+                    title={t("delete", "حذف")}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
+                      padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fee2e2"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "none"; }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Verification section for patient - Email only */}
       {verStatus && !verStatus.email_verified && (
         <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
@@ -5894,8 +6176,10 @@ function ProfilePage({ user, navigate }) {
         </Card>
       )}
 
-      <form onSubmit={save}>
-        {/* Account Info (Doctor & Clinic) */}
+      {/* General Profile Form */}
+      {(user?.user_type !== 1 || doctorActiveTab === "profile") && (
+        <form onSubmit={save}>
+          {/* Account Info (Doctor & Clinic) */}
         {(user?.user_type === 1 || user?.user_type === 2) && (
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
@@ -5981,86 +6265,7 @@ function ProfilePage({ user, navigate }) {
           </Card>
         )}
 
-        {/* Consultation Reasons (Doctor Only) */}
-        {user?.user_type === 1 && (
-          <Card style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
-              <div>
-                <h3 style={{ color: "#0c4a6e", margin: "0 0 4px", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                  <Stethoscope size={18} color="var(--brand)" /> {t("doctor_reasons_title", "أسباب ومبررات الاستشارة")}
-                </h3>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("doctor_reasons_desc", "الأسباب التي تظهر لمرضاك للاختيار منها عند حجز موعد جديد")}
-                </p>
-              </div>
-              <Btn
-                type="button"
-                onClick={() => setShowAddReasonModal(true)}
-                style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <Plus size={16} /> {t("add_reason_btn", "إضافة سبب استشارة")}
-              </Btn>
-            </div>
 
-            {loadingReasons ? (
-              <div style={{ padding: 24, textAlign: "center" }}><Spinner size={20} /></div>
-            ) : reasons.length === 0 ? (
-              <div style={{
-                padding: "24px 16px", textAlign: "center", background: "var(--bg)",
-                borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b"
-              }}>
-                <FileText size={32} style={{ color: "#94a3b8", marginBottom: 8 }} />
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_doctor_reasons", "لم تقم بإضافة أسباب استشارة بعد")}</div>
-                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                  {t("no_doctor_reasons_hint", "أضف أسباب الكشف ليتمكن المرضى من تحديد مبرر الزيارة عند الحجز")}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-                {reasons.map(r => (
-                  <div key={r.id} style={{
-                    padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
-                    border: "1.5px solid var(--border)", display: "flex", alignItems: "center",
-                    justifyContent: "space-between", gap: 10, transition: "all 0.2s"
-                  }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: "#0c4a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.reason_name}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                          background: "var(--brand-light)", color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4
-                        }}>
-                          <Clock size={11} /> {r.reason_time || 30} {t("minutes_short", "دقيقة")}
-                        </span>
-                        {r.clinicname && (
-                          <span style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {r.clinicname}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteReason(r.id)}
-                      title={t("delete", "حذف")}
-                      style={{
-                        background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
-                        padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.2s"
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fee2e2"; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "none"; }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        )}
 
         {user?.user_type === 0 && (
           <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
@@ -6148,6 +6353,7 @@ function ProfilePage({ user, navigate }) {
           <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
         </Btn>
       </form>
+      )}
 
       {/* --- قسم بيانات الدخول للمريض --- */}
       {user?.user_type === 0 && (

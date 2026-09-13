@@ -156,6 +156,24 @@ try {
         DoctorController::deleteReason($parts[2]);
     }
 
+    // ── Doctor Appointment Settings (SettingApointements) ──────
+    if ($uri === '/doctors/appointment-settings' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::getAppointmentSettings();
+    }
+    if ($uri === '/doctors/appointment-settings' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::createAppointmentSetting();
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'appointment-settings' && isset($parts[2]) && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::updateAppointmentSetting($parts[2]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'appointment-settings' && isset($parts[2]) && $method === 'DELETE') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::deleteAppointmentSetting($parts[2]);
+    }
+
     // GET /api/doctor/appointments — Doctor appointment manager
     if ($uri === '/doctor/appointments' && $method === 'GET') {
         require_once __DIR__ . '/controllers/AppointmentController.php';

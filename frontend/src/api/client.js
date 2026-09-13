@@ -65,6 +65,10 @@ export const api = {
     },
     addAppointment: (body) => request('POST', '/appointments/manager/add', body),
     updateAppointmentStatus: (id, status) => request('PUT', `/appointments/${id}/status`, { status }),
+    getAppointmentSettings: () => request('GET', '/doctors/appointment-settings'),
+    createAppointmentSetting: (body) => request('POST', '/doctors/appointment-settings', body),
+    updateAppointmentSetting: (id, body) => request('PUT', `/doctors/appointment-settings/${id}`, body),
+    deleteAppointmentSetting: (id) => request('DELETE', `/doctors/appointment-settings/${id}`),
   },
   clinics: {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
