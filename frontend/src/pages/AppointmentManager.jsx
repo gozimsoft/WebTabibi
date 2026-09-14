@@ -334,8 +334,9 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
             {weekDays.map((d, i) => {
               const ds = fmt(d);
               const isToday = ds === today;
-              const jsDay = d.getDay(); // 0=Sun
-              const isWorking = workingStr[jsDay] === "1";
+              const jsDay = d.getDay(); // 0=Sun..6=Sat
+              const dayIndex = (jsDay + 6) % 7; // 0=Mon..6=Sun matching Delphi workingdays
+              const isWorking = workingStr[dayIndex] === "1";
               return (
                 <div key={i} style={{ padding: "10px 6px", textAlign: "center", borderRight: "1px solid var(--border, #f1f5f9)", background: isToday ? "var(--brand-light, #f0f9ff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? "var(--brand, #0284c7)" : "var(--text-secondary, #64748b)" }}>{t(DAYS_KEYS[jsDay])}</div>
@@ -358,7 +359,8 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                 const key = `${ds}__${slot}`;
                 const appts = bySlot[key] || [];
                 const jsDay = d.getDay();
-                const isWorking = workingStr[jsDay] === "1";
+                const dayIndex = (jsDay + 6) % 7;
+                const isWorking = workingStr[dayIndex] === "1";
                 const isToday = ds === today;
                 return (
                   <div key={di} style={{ borderRight: "1px solid var(--border, #f1f5f9)", padding: "3px 4px", minHeight: ROW_H, background: isToday ? "var(--brand-light, #f8fbff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)", position: "relative" }}>

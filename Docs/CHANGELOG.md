@@ -2,7 +2,37 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-09-13
+
+### Added
+- **إضافة تبويب إعدادات المواعيد في صفحة الملف الشخصي للطبيب (`DoctorAppointmentSettings`)**:
+  - مطابقة إعدادات نافذة Clinic لسطح المكتب (نوع الجدولة بالساعة أو بالترتيب، التكرار، مدة الموعد، تفعيل تأكيد المواعيد، الإشعار المسبق، الحجز المتزامن، نمط التقويم، أيام العطل الأسبوعية، وحساب المواعيد الشاغرة).
+  - إضافة واجهات برمجية في الخلفية (`GET /api/doctor/settings/appointments` و `POST /api/doctor/settings/appointments`) وإدراج الأعمدة تلقائياً إذا لم تكن موجودة.
+  - دعم الترجمات الكاملة (عربية، فرنسية، إنجليزية).
+- **إضافة شارة عدد الرسائل والتنبيهات غير المقروءة للطبيب في شريط التنقل العلوي (`Navbar`)**:
+  - عرض Badge أحمر ديناميكي بالرسائل غير المقروءة لكل من حسابات الأطباء والمستخدمين.
+  - إضافة نقطة نهاية مخصصة `GET /api/tickets/unread-count` متوافقة مع حسابات الأطباء والعيادات.
+- **إعداد وثيقة خطة تأمين الأسرار والإعدادات (Phase 05A)**:
+  - إضافة ملف التوثيق الشامل [`Docs/TABIBI_PHASE_05A_SECURISATION_PLAN.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05A_SECURISATION_PLAN.md).
+- **تنفيذ تأمين وإخراج الأسرار والإعدادات الحساسة (Phase 05B)**:
+  - إخراج أسرار قاعدة البيانات وخدمة البريد من الكود إلى ملف بيئة محلي غير متبع `backend/.env`.
+  - إضافة محمل بيئة PHP أصلي وخفيف في [`backend/config/database.php`](file:///c:/xampp/htdocs/tabibi/backend/config/database.php) دون أي مكتبات خارجية.
+  - إخراج بيانات توقيع الأندرويد من `build.gradle` إلى `frontend/android/keystore.properties` مع الاحتفاظ الصارم بملف المفاتيح الأصلي `tabibi-release.jks`.
+  - إلغاء تتبع الملفات الحساسة من Git (`frontend/tabibi-release.jks`, `frontend/.env`, `Compile et signe APK .txt`) مع إبقائها محلياً.
+  - إضافة قوالب النماذج [`backend/.env.example`](file:///c:/xampp/htdocs/tabibi/backend/.env.example)، [`frontend/.env.example`](file:///c:/xampp/htdocs/tabibi/frontend/.env.example)، و [`frontend/android/keystore.properties.example`](file:///c:/xampp/htdocs/tabibi/frontend/android/keystore.properties.example).
+  - تحديث قواعد الحماية في [`.gitignore`](file:///c:/xampp/htdocs/tabibi/.gitignore).
+  - إضافة تقارير التوثيق الفني [`Docs/TABIBI_PHASE_05B_EXTERNALISATION_SECRETS.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05B_EXTERNALISATION_SECRETS.md)، [`Docs/TABIBI_PHASE_05C_AUDIT_ROTATION.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05C_AUDIT_ROTATION.md)، و [`Docs/TABIBI_PHASE_05C_B_RAPPORT_ROTATION.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_PHASE_05C_B_RAPPORT_ROTATION.md).
+
+### Fixed
+- **إصلاح زر التواصل (`Contact`) في بطاقات المواعيد**:
+  - توجيه الزر إلى نظام التذاكر والرسائل المعتمد `/tickets/new?doctor_id=...` بدلاً من الرابط غير الموجود الذي كان يؤدي إلى صفحة 404.
+- **إصلاح خطأ `TypeError: t2 is not a function` في صفحة التذاكر (`TicketsPage`)**:
+  - تصحيح استدعاء دالة الترجمة `t` في قائمة التذاكر.
+
+---
+
 ## 2026-09-10
+
 
 ### Fixed
 - **إصلاح توجيه الروابط المباشرة لصفحة التطبيق (`https://tabibi.dz/app`) على الاستضافة**:

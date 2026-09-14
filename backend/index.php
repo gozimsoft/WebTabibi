@@ -124,6 +124,26 @@ try {
         require_once __DIR__ . '/controllers/PatientController.php';
         PatientController::getAppointments();
     }
+    if ($uri === '/patients/attending-doctor' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::getAttendingDoctor();
+    }
+    if ($uri === '/patients/attending-doctor' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::setAttendingDoctor();
+    }
+    if ($uri === '/patients/attending-doctor' && $method === 'DELETE') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::removeAttendingDoctor();
+    }
+    if ($uri === '/patients/attending-doctor/history' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::getAttendingDoctorHistory();
+    }
+    if ($uri === '/patients/attending-doctor/search' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::searchDoctorsForAttending();
+    }
 
     // ── Doctor ───────────────────────────────────────────────
     if ($uri === '/doctors/profile' && $method === 'GET') {
@@ -154,6 +174,42 @@ try {
     if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'reasons' && isset($parts[2]) && $method === 'DELETE') {
         require_once __DIR__ . '/controllers/DoctorController.php';
         DoctorController::deleteReason($parts[2]);
+    }
+
+    // ── Doctor Appointment Settings (SettingApointements) ──────
+    if ($uri === '/doctors/appointment-settings' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::getAppointmentSettings();
+    }
+    if ($uri === '/doctors/appointment-settings' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::createAppointmentSetting();
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'appointment-settings' && isset($parts[2]) && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::updateAppointmentSetting($parts[2]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'appointment-settings' && isset($parts[2]) && $method === 'DELETE') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::deleteAppointmentSetting($parts[2]);
+    }
+
+    // ── Doctor Off-Hours (DoctorsOffHours) ────────────────────
+    if ($uri === '/doctors/off-hours' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::getOffHours();
+    }
+    if ($uri === '/doctors/off-hours' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::createOffHour();
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'off-hours' && isset($parts[2]) && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::updateOffHour($parts[2]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'doctors' && isset($parts[1]) && $parts[1] === 'off-hours' && isset($parts[2]) && $method === 'DELETE') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::deleteOffHour($parts[2]);
     }
 
     // GET /api/doctor/appointments — Doctor appointment manager

@@ -443,4 +443,351 @@ class DoctorController {
 
         Response::success(null, 'تم حذف سبب الاستشارة بنجاح.');
     }
+
+    // ── Doctor Appointment Settings (DoctorsSettingApointements) ─────
+    // GET /api/doctors/appointment-settings
+    public static function getAppointmentSettings(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $stmt = $pdo->prepare("
+            SELECT dsa.*, c.clinicname, c.address as clinic_address
+            FROM doctorssettingapointements dsa
+            LEFT JOIN clinics c ON c.id = dsa.clinic_id
+            WHERE dsa.doctor_id = ?
+            ORDER BY dsa.daytimestart ASC
+        ");
+        $stmt->execute([$doctorId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            if (!empty($row['daytimestart']) && preg_match('/(\d{2}:\d{2})/', $row['daytimestart'], $m)) {
+                $row['daytimestart_formatted'] = $m[1];
+            } else {
+                $row['daytimestart_formatted'] = '08:00';
+            }
+            if (!empty($row['daytimeend']) && preg_match('/(\d{2}:\d{2})/', $row['daytimeend'], $m)) {
+                $row['daytimeend_formatted'] = $m[1];
+            } else {
+                $row['daytimeend_formatted'] = '16:00';
+            }
+        }
+
+        Response::success($rows);
+    }
+
+    // POST /api/doctors/appointment-settings
+    public static function createAppointmentSetting(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinicId = trim($data['clinic_id'] ?? '');
+
+        if (!$clinicId) {
+            $cStmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? LIMIT 1");
+            $cStmt->execute([$doctorId]);
+            $clinicId = $cStmt->fetchColumn() ?: '';
+        }
+
+        if (!$clinicId) {
+            Response::error('يجب ربط الإعداد بعيادة تابعة لك.', 422);
+        }
+
+        $timeScale = max(5, (int)($data['timescale'] ?? 30));
+        $rawStart = trim($data['daytimestart'] ?? '08:00');
+        $rawEnd = trim($data['daytimeend'] ?? '16:00');
+        
+        $startTime = preg_match('/^\d{2}:\d{2}/', $rawStart, $m1) ? $m1[0] . ':00' : '08:00:00';
+        $endTime = preg_match('/^\d{2}:\d{2}/', $rawEnd, $m2) ? $m2[0] . ':00' : '16:00:00';
+
+        $daytimeStart = "1899-12-30 " . $startTime;
+        $daytimeEnd = "1899-12-30 " . $endTime;
+        $weekBeginDay = (int)($data['weekbeginday'] ?? 0);
+        $workingDays = trim($data['workingdays'] ?? '1111110');
+        if (strlen($workingDays) < 7) {
+            $workingDays = str_pad($workingDays, 7, '0');
+        }
+        $countDays = max(1, (int)($data['countdays'] ?? 30));
+        $isRegistered = !empty($data['isregistered']) ? 1 : 0;
+
+        require_once __DIR__ . '/../helpers/UUIDHelper.php';
+        $id = UUIDHelper::generate();
+
+        $ins = $pdo->prepare("
+            INSERT INTO doctorssettingapointements 
+            (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $ins->execute([
+            $id, $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered
+        ]);
+
+        Response::success(['id' => $id], 'تمت إضافة إعدادات المواعيد بنجاح.');
+    }
+
+    // PUT /api/doctors/appointment-settings/:id
+    public static function updateAppointmentSetting(string $id): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $check = $pdo->prepare("SELECT id FROM doctorssettingapointements WHERE id = ? AND doctor_id = ? LIMIT 1");
+        $check->execute([$id, $doctorId]);
+        if (!$check->fetchColumn()) {
+            Response::notFound('الإعداد غير موجود أو لا تملك صلاحية تعديله.');
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinicId = trim($data['clinic_id'] ?? '');
+        $timeScale = max(5, (int)($data['timescale'] ?? 30));
+        $rawStart = trim($data['daytimestart'] ?? '08:00');
+        $rawEnd = trim($data['daytimeend'] ?? '16:00');
+        
+        $startTime = preg_match('/^\d{2}:\d{2}/', $rawStart, $m1) ? $m1[0] . ':00' : '08:00:00';
+        $endTime = preg_match('/^\d{2}:\d{2}/', $rawEnd, $m2) ? $m2[0] . ':00' : '16:00:00';
+
+        $daytimeStart = "1899-12-30 " . $startTime;
+        $daytimeEnd = "1899-12-30 " . $endTime;
+        $weekBeginDay = (int)($data['weekbeginday'] ?? 0);
+        $workingDays = trim($data['workingdays'] ?? '1111110');
+        if (strlen($workingDays) < 7) {
+            $workingDays = str_pad($workingDays, 7, '0');
+        }
+        $countDays = max(1, (int)($data['countdays'] ?? 30));
+        $isRegistered = !empty($data['isregistered']) ? 1 : 0;
+
+        if ($clinicId) {
+            $upd = $pdo->prepare("
+                UPDATE doctorssettingapointements 
+                SET clinic_id = ?, timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                WHERE id = ? AND doctor_id = ?
+            ");
+            $upd->execute([
+                $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered, $id, $doctorId
+            ]);
+        } else {
+            $upd = $pdo->prepare("
+                UPDATE doctorssettingapointements 
+                SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                WHERE id = ? AND doctor_id = ?
+            ");
+            $upd->execute([
+                $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered, $id, $doctorId
+            ]);
+        }
+
+        Response::success(['id' => $id], 'تم تحديث إعدادات المواعيد بنجاح.');
+    }
+
+    // DELETE /api/doctors/appointment-settings/:id
+    public static function deleteAppointmentSetting(string $id): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $del = $pdo->prepare("DELETE FROM doctorssettingapointements WHERE id = ? AND doctor_id = ?");
+        $del->execute([$id, $doctorId]);
+
+        if ($del->rowCount() === 0) {
+            Response::notFound('لم يتم العثور على الإعداد المطلوب حذفه.');
+        }
+
+        Response::success(null, 'تم حذف إعداد المواعيد بنجاح.');
+    }
+
+    // =========================================================================
+    // ── Doctors Off-Hours (أوقات خارج العمل / فترات الراحة) ────────────────────
+    // =========================================================================
+
+    // GET /api/doctors/off-hours
+    public static function getOffHours(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $stmt = $pdo->prepare("
+            SELECT doh.id, doh.day, doh.timebegin, doh.timeend, doh.doctor_id, doh.clinic_id, c.clinicname
+            FROM doctorsoffhours doh
+            LEFT JOIN clinics c ON c.id = doh.clinic_id
+            WHERE doh.doctor_id = ?
+            ORDER BY doh.day ASC, doh.timebegin ASC
+        ");
+        $stmt->execute([$doctorId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            if (!empty($row['timebegin']) && preg_match('/(\d{2}:\d{2})/', $row['timebegin'], $m)) {
+                $row['timebegin_formatted'] = $m[1];
+            } else {
+                $row['timebegin_formatted'] = '12:00';
+            }
+            if (!empty($row['timeend']) && preg_match('/(\d{2}:\d{2})/', $row['timeend'], $m)) {
+                $row['timeend_formatted'] = $m[1];
+            } else {
+                $row['timeend_formatted'] = '14:00';
+            }
+            $row['day'] = (int)($row['day'] ?? 0);
+        }
+
+        Response::success($rows);
+    }
+
+    // POST /api/doctors/off-hours
+    public static function createOffHour(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinicId = trim($data['clinic_id'] ?? '');
+
+        if (!$clinicId) {
+            $cStmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? LIMIT 1");
+            $cStmt->execute([$doctorId]);
+            $clinicId = $cStmt->fetchColumn() ?: '';
+        }
+
+        if (!$clinicId) {
+            Response::error('يجب ربط فترة خارج العمل بعيادة تابعة لك.', 422);
+        }
+
+        $day = max(0, min(6, (int)($data['day'] ?? 0)));
+        $rawStart = trim($data['timebegin'] ?? '12:00');
+        $rawEnd = trim($data['timeend'] ?? '14:00');
+
+        $startTime = preg_match('/^\d{2}:\d{2}/', $rawStart, $m1) ? $m1[0] . ':00' : '12:00:00';
+        $endTime = preg_match('/^\d{2}:\d{2}/', $rawEnd, $m2) ? $m2[0] . ':00' : '14:00:00';
+
+        $timeBegin = "1899-12-30 " . $startTime;
+        $timeEnd = "1899-12-30 " . $endTime;
+
+        require_once __DIR__ . '/../helpers/UUIDHelper.php';
+        $id = UUIDHelper::generate();
+
+        $ins = $pdo->prepare("
+            INSERT INTO doctorsoffhours (id, doctor_id, clinic_id, day, timebegin, timeend)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $ins->execute([$id, $doctorId, $clinicId, $day, $timeBegin, $timeEnd]);
+
+        Response::success(['id' => $id], 'تمت إضافة فترة خارج العمل بنجاح.');
+    }
+
+    // PUT /api/doctors/off-hours/:id
+    public static function updateOffHour(string $id): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $check = $pdo->prepare("SELECT id FROM doctorsoffhours WHERE id = ? AND doctor_id = ? LIMIT 1");
+        $check->execute([$id, $doctorId]);
+        if (!$check->fetchColumn()) {
+            Response::notFound('الفترة غير موجودة أو لا تملك صلاحية تعديلها.');
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinicId = trim($data['clinic_id'] ?? '');
+        $day = max(0, min(6, (int)($data['day'] ?? 0)));
+        $rawStart = trim($data['timebegin'] ?? '12:00');
+        $rawEnd = trim($data['timeend'] ?? '14:00');
+
+        $startTime = preg_match('/^\d{2}:\d{2}/', $rawStart, $m1) ? $m1[0] . ':00' : '12:00:00';
+        $endTime = preg_match('/^\d{2}:\d{2}/', $rawEnd, $m2) ? $m2[0] . ':00' : '14:00:00';
+
+        $timeBegin = "1899-12-30 " . $startTime;
+        $timeEnd = "1899-12-30 " . $endTime;
+
+        if ($clinicId) {
+            $upd = $pdo->prepare("
+                UPDATE doctorsoffhours 
+                SET clinic_id = ?, day = ?, timebegin = ?, timeend = ?
+                WHERE id = ? AND doctor_id = ?
+            ");
+            $upd->execute([$clinicId, $day, $timeBegin, $timeEnd, $id, $doctorId]);
+        } else {
+            $upd = $pdo->prepare("
+                UPDATE doctorsoffhours 
+                SET day = ?, timebegin = ?, timeend = ?
+                WHERE id = ? AND doctor_id = ?
+            ");
+            $upd->execute([$day, $timeBegin, $timeEnd, $id, $doctorId]);
+        }
+
+        Response::success(['id' => $id], 'تم تحديث فترة خارج العمل بنجاح.');
+    }
+
+    // DELETE /api/doctors/off-hours/:id
+    public static function deleteOffHour(string $id): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $del = $pdo->prepare("DELETE FROM doctorsoffhours WHERE id = ? AND doctor_id = ?");
+        $del->execute([$id, $doctorId]);
+
+        if ($del->rowCount() === 0) {
+            Response::notFound('لم يتم العثور على الفترة المطلوب حذفها.');
+        }
+
+        Response::success(null, 'تم حذف فترة خارج العمل بنجاح.');
+    }
 }

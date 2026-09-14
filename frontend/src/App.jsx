@@ -26,6 +26,9 @@ import analytics from "./utils/analytics";
 import AppointmentManager from "./pages/AppointmentManager";
 import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
+import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
+import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
+import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
@@ -118,6 +121,11 @@ const api = {
     getReasons: () => req("GET", "/doctors/reasons"),
     addReason: b => req("POST", "/doctors/reasons", b),
     deleteReason: id => req("DELETE", `/doctors/reasons/${id}`),
+    getAppointmentSettings: () => req("GET", "/doctors/appointment-settings"),
+    createAppointmentSetting: b => req("POST", "/doctors/appointment-settings", b),
+    updateAppointmentSetting: (id, b) => req("PUT", `/doctors/appointment-settings/${id}`, b),
+    deleteAppointmentSetting: id => req("DELETE", `/doctors/appointment-settings/${id}`),
+    appointments: p => req("GET", `/doctor/appointments${p ? '?' + new URLSearchParams(p) : ''}`),
   },
   clinics: {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
@@ -536,15 +544,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات الجديدة
-      const interval = setInterval(fetchNotifications, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
   // ── إغلاق قائمة الإشعارات عند الضغط خارجها
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -607,15 +606,57 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   };
 
   // ── عدد الإشعارات غير المقروءة
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter(n => !n.is_read || n.is_read == 0).length;
+  const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
+  const [pendingApptsCount, setPendingApptsCount] = useState(0);
+
+  // ── جلب عدد الرسائل والمواعيد غير المقروءة / النشطة
+  const fetchCounts = async () => {
+    if (!user) return;
+    try {
+      const tickets = await api.tickets.list();
+      if (Array.isArray(tickets)) {
+        if (user.user_type === 1 || user.user_type === 2) {
+          const active = tickets.filter(item => item.status === 'OPEN' || item.status === 'PENDING').length;
+          setUnreadTicketsCount(active);
+        } else {
+          const active = tickets.filter(item => item.status === 'PENDING').length;
+          setUnreadTicketsCount(active);
+        }
+      }
+    } catch { }
+
+    if (user.user_type === 1) {
+      try {
+        const appts = await api.doctor.appointments({ from: new Date().toISOString().slice(0, 10) });
+        if (Array.isArray(appts)) {
+          const upcoming = appts.filter(a => a.status != 1 && a.status != 2).length;
+          setPendingApptsCount(upcoming);
+        }
+      } catch { }
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      fetchCounts();
+      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات والرسائل الجديدة
+      const interval = setInterval(() => {
+        fetchNotifications();
+        fetchCounts();
+      }, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
     { label: t("mobile_app", "تطبيق طبيبي"), icon: <Smartphone size={18} />, path: "/app" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
-    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true },
+    { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
-      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true }
+      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
     ] : [])
   ];
 
@@ -701,7 +742,19 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--brand-light)"; e.currentTarget.style.color = "var(--brand)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
                   <span style={{ opacity: 0.8, display: "flex" }}>{link.icon}</span>
-                  {link.label}
+                  <span>{link.label}</span>
+                  {link.badge > 0 && (
+                    <span style={{
+                      background: "#ef4444", color: "#fff",
+                      fontSize: 10, fontWeight: 800,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 5px", lineHeight: 1,
+                      boxShadow: "0 2px 5px rgba(239, 68, 68, 0.4)"
+                    }}>
+                      {link.badge > 99 ? "99+" : link.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -833,7 +886,19 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         notifications.map(n => (
                           <div
                             key={n.id}
-                            onClick={() => markAsRead(n.id, n.is_read)}
+                            onClick={() => {
+                              markAsRead(n.id, n.is_read);
+                              setNotifOpen(false);
+                              if (n.type === 'ticket') {
+                                navigate("/tickets");
+                              } else if (n.type === 'appointment') {
+                                if (user?.user_type === 1 || user?.user_type === 2) {
+                                  navigate("/appointmanager");
+                                } else {
+                                  navigate("/appointments");
+                                }
+                              }
+                            }}
                             style={{
                               padding: "12px 16px",
                               borderBottom: "1px solid var(--border)",
@@ -949,7 +1014,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                       { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                       (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                       (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
-                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets" },
+                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets", badge: unreadTicketsCount },
                       { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
                       { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                     ].filter(Boolean).map(item => (
@@ -965,6 +1030,17 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
                         onMouseLeave={e => e.currentTarget.style.background = "none"}>
                         {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
+                        {item.badge > 0 && (
+                          <span style={{
+                            background: "#ef4444", color: "#fff",
+                            fontSize: 10, fontWeight: 800,
+                            minWidth: 18, height: 18, borderRadius: 9,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            padding: "0 5px", lineHeight: 1
+                          }}>
+                            {item.badge > 99 ? "99+" : item.badge}
+                          </span>
+                        )}
                       </button>
                     ))}
                     <button onClick={() => { onLogout(); setOpen(false); }} style={{ width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#dc2626", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center", gap: 12 }}>
@@ -1027,7 +1103,18 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
               textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 700, color: "var(--text-main)",
               display: "flex", alignItems: "center", gap: 12
             }}>
-              {link.icon} {link.label}
+              {link.icon} <span style={{ flex: 1 }}>{link.label}</span>
+              {link.badge > 0 && (
+                <span style={{
+                  background: "#ef4444", color: "#fff",
+                  fontSize: 10, fontWeight: 800,
+                  minWidth: 18, height: 18, borderRadius: 9,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 5px", lineHeight: 1
+                }}>
+                  {link.badge > 99 ? "99+" : link.badge}
+                </span>
+              )}
             </button>
           ))}
           {!user && (
@@ -3174,7 +3261,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   const idx = (weekBegin + i) % 7;
                   orderedDays.push({
                     name: days[idx],
-                    works: workingdays[i] === "1"
+                    works: workingdays[idx] === "1"
                   });
                 }
 
@@ -3413,12 +3500,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const getAvailableDates = () => {
     const schedule = doctor?.Schedule || {};
     const countdays = parseInt(schedule.countdays || 30);
-    const weekBegin = parseInt(schedule.weekbeginday || 0); // 0=Mon...6=Sun
     const workingdays = schedule.workingdays || "1111111";
 
     const dates = [];
-    // Map user's weekbeginday to Standard (0=Sun...6=Sat)
-    const stdWBD = (weekBegin + 1) % 7;
 
     for (let i = 0; i <= countdays; i++) {
       const d = new Date();
@@ -3430,9 +3514,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       const full = `${yyyy}-${mm}-${dd}`;
 
       const w = d.getDay(); // 0=Sun...6=Sat
-      const relIndex = (w - stdWBD + 7) % 7;
+      const dayIndex = (w + 6) % 7; // 0=Mon...6=Sun matching Delphi workingdays
 
-      if (workingdays[relIndex] === "1" || !schedule.workingdays) {
+      if (workingdays[dayIndex] === "1" || !schedule.workingdays) {
         dates.push({
           full: full,
           day: d.getDate(),
@@ -4350,7 +4434,11 @@ function AppointmentsPage({ navigate, user }) {
                         <Btn variant="danger" onClick={() => cancel(a.id)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <Trash2 size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("cancel_btn")}
                         </Btn>
-                        <Btn variant="ghost" onClick={() => navigate("/chat")} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                        <Btn variant="ghost" onClick={() => {
+                          if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                          else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                          else navigate("/tickets/new");
+                        }} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
                         </Btn>
                       </>
@@ -4360,7 +4448,11 @@ function AppointmentsPage({ navigate, user }) {
                         <Btn variant="secondary" onClick={() => navigate(`/clinic/${a.clinicid}/doctor/${a.doctor_id}`)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           {t("book_new")}
                         </Btn>
-                        <Btn variant="ghost" onClick={() => navigate("/chat")} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
+                        <Btn variant="ghost" onClick={() => {
+                          if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                          else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                          else navigate("/tickets/new");
+                        }} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
                           <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
                         </Btn>
                       </>
@@ -5327,23 +5419,23 @@ function TicketsPage({ navigate, user }) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {tickets.map(t => (
-          <Card key={t.id} onClick={() => navigate(`/tickets/${t.id}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+        {tickets.map(ticket => (
+          <Card key={ticket.id} onClick={() => navigate(`/tickets/${ticket.id}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{t.subject}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{ticket.subject}</div>
               <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                 {user.user_type === 0 ? (
-                  t.doctorname ? `${t("ticket_with_doctor")} ${t.doctorname}` : (t.clinicname ? `${t("ticket_with_clinic")} ${t.clinicname}` : t("ticket_general"))
+                  ticket.doctorname ? `${t("ticket_with_doctor")} ${ticket.doctorname}` : (ticket.clinicname ? `${t("ticket_with_clinic")} ${ticket.clinicname}` : t("ticket_general"))
                 ) : (
-                  `${t("ticket_from_patient")} ${t.patientname}`
+                  `${t("ticket_from_patient")} ${ticket.patientname}`
                 )}
               </div>
               <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                {t("last_update")} {new Date(t.updated_at).toLocaleString(i18n.language)}
+                {t("last_update")} {new Date(ticket.updated_at).toLocaleString(i18n.language)}
               </div>
             </div>
-            <Badge color={t.status === 'CLOSED' ? "#64748b" : (t.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
-              {t.status === 'OPEN' ? t("status_open") : (t.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
+            <Badge color={ticket.status === 'CLOSED' ? "#64748b" : (ticket.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
+              {ticket.status === 'OPEN' ? t("status_open") : (ticket.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
             </Badge>
           </Card>
         ))}
@@ -5606,6 +5698,9 @@ function ProfilePage({ user, navigate }) {
   const [newReasonTime, setNewReasonTime] = useState(30);
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
+  const [doctorActiveTab, setDoctorActiveTab] = useState("profile"); // 'profile' | 'reasons' | 'appointment_settings' | 'off_hours'
+  const [patientActiveTab, setPatientActiveTab] = useState("profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
+  const [clinicActiveTab, setClinicActiveTab] = useState("profile"); // 'profile' | 'security'
 
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
@@ -5875,28 +5970,414 @@ function ProfilePage({ user, navigate }) {
         )}
       </div>
 
-      {/* Verification section for patient - Email only */}
-      {verStatus && !verStatus.email_verified && (
-        <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
-          <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
-          <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
-            {t("id_verification_desc")}
-          </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {verStatus.has_email ? (
-              <Btn variant="ghost" onClick={() => setOTP("email")} style={{ fontSize: 13, padding: "8px 18px" }}>
-                <Mail size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_email_btn")}
-              </Btn>
-            ) : (
-              <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {t("add_email_first")}</div>
+      {/* Doctor Tabs Bar (when user_type === 1) */}
+      {user?.user_type === 1 && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("profile")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <User size={17} />
+            {t("profile_info_tab", "الملف الشخصي")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("reasons")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "reasons" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "reasons" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "reasons" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Stethoscope size={17} />
+            {t("consultation_reasons_tab", "أسباب الاستشارة")}
+            {reasons.length > 0 && (
+              <span style={{
+                background: doctorActiveTab === "reasons" ? "rgba(255,255,255,0.25)" : "rgba(8, 145, 178, 0.12)",
+                color: doctorActiveTab === "reasons" ? "#ffffff" : "var(--brand, #0891b2)",
+                fontSize: 11,
+                padding: "2px 7px",
+                borderRadius: 10,
+                fontWeight: 800
+              }}>
+                {reasons.length}
+              </span>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("appointment_settings")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "appointment_settings" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "appointment_settings" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "appointment_settings" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Calendar size={17} />
+            {t("appointment_settings_tab", "إعدادات المواعيد")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("off_hours")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "off_hours" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "off_hours" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "off_hours" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Clock size={17} />
+            {t("off_hours_tab", "أوقات خارج العمل")}
+          </button>
+        </div>
+      )}
+
+      {/* Patient Tabs Bar (when user_type === 0) */}
+      {user?.user_type === 0 && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("profile")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <User size={17} />
+            {t("profile_info_tab", "الملف الشخصي")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("attending_doctor")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "attending_doctor" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "attending_doctor" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "attending_doctor" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Stethoscope size={17} />
+            {t("attending_doctor_title", "طبيبي المعالج")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("emergency")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "emergency" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "emergency" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "emergency" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Shield size={17} />
+            {t("emergency_info", "جهة الطوارئ")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("security")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "security" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "security" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Lock size={17} />
+            {t("security_tab", "الأمان والحساب")}
+            {verStatus && !verStatus.email_verified && (
+              <span style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#ea580c",
+                display: "inline-block"
+              }} />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Clinic Tabs Bar (when user_type === 2) */}
+      {user?.user_type === 2 && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setClinicActiveTab("profile")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: clinicActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: clinicActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: clinicActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Building size={17} />
+            {t("clinic_info_tab", "معلومات العيادة")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setClinicActiveTab("security")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: clinicActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: clinicActiveTab === "security" ? "#ffffff" : "#64748b",
+              fontWeight: clinicActiveTab === "security" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Lock size={17} />
+            {t("security_tab", "الأمان والحساب")}
+          </button>
+        </div>
+      )}
+
+      {/* ─── DOCTOR TABS CONTENT ─── */}
+      {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
+        <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
+      )}
+
+      {user?.user_type === 1 && doctorActiveTab === "off_hours" && (
+        <DoctorOffHoursSettings doctor={form} showToast={show} isMobile={isMobile} />
+      )}
+
+      {user?.user_type === 1 && doctorActiveTab === "reasons" && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h3 style={{ color: "#0c4a6e", margin: "0 0 4px", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <Stethoscope size={18} color="var(--brand)" /> {t("doctor_reasons_title", "أسباب ومبررات الاستشارة")}
+              </h3>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                {t("doctor_reasons_desc", "الأسباب التي تظهر لمرضاك للاختيار منها عند حجز موعد جديد")}
+              </p>
+            </div>
+            <Btn
+              type="button"
+              onClick={() => setShowAddReasonModal(true)}
+              style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <Plus size={16} /> {t("add_reason_btn", "إضافة سبب استشارة")}
+            </Btn>
           </div>
+
+          {loadingReasons ? (
+            <div style={{ padding: 24, textAlign: "center" }}><Spinner size={20} /></div>
+          ) : reasons.length === 0 ? (
+            <div style={{
+              padding: "24px 16px", textAlign: "center", background: "var(--bg)",
+              borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b"
+            }}>
+              <FileText size={32} style={{ color: "#94a3b8", marginBottom: 8 }} />
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_doctor_reasons", "لم تقم بإضافة أسباب استشارة بعد")}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+                {t("no_doctor_reasons_hint", "أضف أسباب الكشف ليتمكن المرضى من تحديد مبرر الزيارة عند الحجز")}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+              {reasons.map(r => (
+                <div key={r.id} style={{
+                  padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
+                  border: "1.5px solid var(--border)", display: "flex", alignItems: "center",
+                  justifyContent: "space-between", gap: 10, transition: "all 0.2s"
+                }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#0c4a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.reason_name}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                        background: "var(--brand-light)", color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4
+                      }}>
+                        <Clock size={11} /> {r.reason_time || 30} {t("minutes_short", "دقيقة")}
+                      </span>
+                      {r.clinicname && (
+                        <span style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {r.clinicname}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteReason(r.id)}
+                    title={t("delete", "حذف")}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
+                      padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fee2e2"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "none"; }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
-      <form onSubmit={save}>
-        {/* Account Info (Doctor & Clinic) */}
-        {(user?.user_type === 1 || user?.user_type === 2) && (
+      {user?.user_type === 1 && doctorActiveTab === "profile" && (
+        <form onSubmit={save}>
+          {/* Account Info */}
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
@@ -5904,71 +6385,23 @@ function ProfilePage({ user, navigate }) {
               <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.password || ""} onChange={e => f("password", e.target.value)} />
             </div>
           </Card>
-        )}
 
-        {/* Personal Info */}
-        <Card style={{ marginBottom: 14 }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {user?.user_type === 2 ? "معلومات العيادة" : t("personal_info")}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-            <Input label={user?.user_type === 2 ? "اسم العيادة" : t("fullname")} value={form.fullname || form.clinicname || ""} onChange={e => f(user?.user_type === 2 ? "clinicname" : "fullname", e.target.value)} />
-            <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
-            <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
-            {(user?.user_type === 0 || user?.user_type === 1) && (
+          {/* Personal Info */}
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label={t("fullname")} value={form.fullname || ""} onChange={e => f("fullname", e.target.value)} />
+              <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
+              <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
               <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
-            )}
-            {user?.user_type === 2 && (
-              <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
-            )}
+              <Input label="رقم الهاتف الثابت" value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
+              <Input label="اللغات المتحدث بها" value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
+              <Input label="تسعيرة الكشف الأساسية" type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
+              <Input label="الرمز البريدي" value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
+            </div>
+          </Card>
 
-            {user?.user_type === 2 && (
-              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("clinic_gps")}</label>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <input type="number" step="any" placeholder="Latitude" value={form.latitude || 0} onChange={e => f("latitude", parseFloat(e.target.value) || 0)}
-                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
-                    <input type="number" step="any" placeholder="Longitude" value={form.longitude || 0} onChange={e => f("longitude", parseFloat(e.target.value) || 0)}
-                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
-                  </div>
-                  <Btn variant="secondary" onClick={detectLocation} style={{ padding: "10px 16px", fontSize: 12 }}>
-                    <MapPin size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 6 }} /> {t("detect_location")}
-                  </Btn>
-                </div>
-              </div>
-            )}
-
-            {user?.user_type === 0 && (
-              <>
-                <Input label={t("birth_date")} type="date" value={(form.birthdate || "").substring(0, 10)} onChange={e => f("birthdate", e.target.value)} />
-                <Input label={t("address")} value={form.address || ""} onChange={e => f("address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
-                  <select value={form.gender ?? 0} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                    <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
-                  <select value={form.bloodtype || ""} onChange={e => f("bloodtype", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                    <option value="">{t("not_specified")}</option>
-                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
-                  </select>
-                </div>
-              </>
-            )}
-
-            {user?.user_type === 1 && (
-              <>
-                <Input label="رقم الهاتف الثابت" value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
-                <Input label="اللغات المتحدث بها" value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
-                <Input label="تسعيرة الكشف الأساسية" type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
-                <Input label="الرمز البريدي" value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
-              </>
-            )}
-          </div>
-        </Card>
-
-        {user?.user_type === 1 && (
+          {/* Professional Info */}
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Briefcase size={18} /> المعلومات المهنية</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
@@ -5979,117 +6412,8 @@ function ProfilePage({ user, navigate }) {
               <Input label="الألقاب الأكاديمية" value={form.academytitles || ""} onChange={e => f("academytitles", e.target.value)} />
             </div>
           </Card>
-        )}
 
-        {/* Consultation Reasons (Doctor Only) */}
-        {user?.user_type === 1 && (
-          <Card style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
-              <div>
-                <h3 style={{ color: "#0c4a6e", margin: "0 0 4px", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                  <Stethoscope size={18} color="var(--brand)" /> {t("doctor_reasons_title", "أسباب ومبررات الاستشارة")}
-                </h3>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("doctor_reasons_desc", "الأسباب التي تظهر لمرضاك للاختيار منها عند حجز موعد جديد")}
-                </p>
-              </div>
-              <Btn
-                type="button"
-                onClick={() => setShowAddReasonModal(true)}
-                style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <Plus size={16} /> {t("add_reason_btn", "إضافة سبب استشارة")}
-              </Btn>
-            </div>
-
-            {loadingReasons ? (
-              <div style={{ padding: 24, textAlign: "center" }}><Spinner size={20} /></div>
-            ) : reasons.length === 0 ? (
-              <div style={{
-                padding: "24px 16px", textAlign: "center", background: "var(--bg)",
-                borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b"
-              }}>
-                <FileText size={32} style={{ color: "#94a3b8", marginBottom: 8 }} />
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_doctor_reasons", "لم تقم بإضافة أسباب استشارة بعد")}</div>
-                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                  {t("no_doctor_reasons_hint", "أضف أسباب الكشف ليتمكن المرضى من تحديد مبرر الزيارة عند الحجز")}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-                {reasons.map(r => (
-                  <div key={r.id} style={{
-                    padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
-                    border: "1.5px solid var(--border)", display: "flex", alignItems: "center",
-                    justifyContent: "space-between", gap: 10, transition: "all 0.2s"
-                  }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: "#0c4a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.reason_name}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                          background: "var(--brand-light)", color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4
-                        }}>
-                          <Clock size={11} /> {r.reason_time || 30} {t("minutes_short", "دقيقة")}
-                        </span>
-                        {r.clinicname && (
-                          <span style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {r.clinicname}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteReason(r.id)}
-                      title={t("delete", "حذف")}
-                      style={{
-                        background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
-                        padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.2s"
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fee2e2"; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "none"; }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        )}
-
-        {user?.user_type === 0 && (
-          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
-                  <Users size={22} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("family_members")}</div>
-                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>{t("family_desc")}</div>
-                </div>
-              </div>
-              <button onClick={() => navigate("/family")}
-                style={{
-                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff",
-                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-              >
-                <UserPlus size={20} />
-              </button>
-            </div>
-          </Card>
-        )}
-
-        {(user?.user_type === 1 || user?.user_type === 2) && (
+          {/* Join Requests */}
           <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -6099,7 +6423,7 @@ function ProfilePage({ user, navigate }) {
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
                   <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
-                    {user?.user_type === 2 ? "إدارة ومتابعة طلبات انضمام الأطباء للعيادة" : "إدارة ومتابعة طلبات الانضمام للعيادات"}
+                    إدارة ومتابعة طلبات الانضمام للعيادات
                   </div>
                 </div>
               </div>
@@ -6118,93 +6442,283 @@ function ProfilePage({ user, navigate }) {
               </button>
             </div>
           </Card>
-        )}
 
-        {/* Emergency (Patient Only) */}
-        {user?.user_type === 0 && (
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
+
+      {/* ─── PATIENT TABS CONTENT ─── */}
+      {/* 1. Patient Profile Tab */}
+      {user?.user_type === 0 && patientActiveTab === "profile" && (
+        <form onSubmit={save}>
+          <Card style={{ marginBottom: 16 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <User size={18} /> {t("personal_info")}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label={t("fullname")} value={form.fullname || ""} onChange={e => f("fullname", e.target.value)} />
+              <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
+              <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
+              <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
+              <Input label={t("birth_date")} type="date" value={(form.birthdate || "").substring(0, 10)} onChange={e => f("birthdate", e.target.value)} />
+              <Input label={t("address")} value={form.address || ""} onChange={e => f("address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                <select value={form.gender ?? 0} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                  <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
+                <select value={form.bloodtype || ""} onChange={e => f("bloodtype", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                  <option value="">{t("not_specified")}</option>
+                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Family Members Shortcut Card */}
+          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("family_members")}</div>
+                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>{t("family_desc")}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/family")}
+                style={{
+                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <UserPlus size={20} />
+              </button>
+            </div>
+          </Card>
+
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
+
+      {/* 2. Patient Attending Doctor Tab */}
+      {user?.user_type === 0 && patientActiveTab === "attending_doctor" && (
+        <PatientAttendingDoctorCard showToast={show} isMobile={isMobile} />
+      )}
+
+      {/* 3. Patient Emergency Tab */}
+      {user?.user_type === 0 && patientActiveTab === "emergency" && (
+        <form onSubmit={save}>
           <Card style={{ marginBottom: 20 }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Shield size={18} /> {t("emergency_info")}</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <Shield size={18} /> {t("emergency_info")}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 14 }}>
               <Input label={t("emergency_phone")} value={form.emergancyphone || ""} onChange={e => f("emergancyphone", e.target.value)} />
               <Input label={t("emergency_email")} type="email" value={form.emergancyemail || ""} onChange={e => f("emergancyemail", e.target.value)} />
             </div>
             <div style={{ marginBottom: 0 }}>
               <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("emergency_notes")}</label>
-              <textarea value={form.emergancynote || ""} onChange={e => f("emergancynote", e.target.value)} rows={2}
-                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+              <textarea
+                value={form.emergancynote || ""}
+                onChange={e => f("emergancynote", e.target.value)}
+                rows={3}
+                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" }}
+              />
             </div>
           </Card>
-        )}
 
-        {user?.user_type === 2 && (
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
+
+      {/* 4. Patient Security & Credentials Tab */}
+      {user?.user_type === 0 && patientActiveTab === "security" && (
+        <div>
+          {/* Identity Verification banner */}
+          {verStatus && !verStatus.email_verified && (
+            <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
+              <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
+              <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
+                {t("id_verification_desc")}
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {verStatus.has_email ? (
+                  <Btn variant="ghost" onClick={() => setOTP("email")} style={{ fontSize: 13, padding: "8px 18px" }}>
+                    <Mail size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_email_btn")}
+                  </Btn>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {t("add_email_first")}</div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Login Credentials Card */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Lock size={16} color="#fff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16 }}>{t("login_credentials", "بيانات الدخول")}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("login_credentials_desc", "تغيير اسم المستخدم أو كلمة المرور")}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                  <User size={14} color="#0891b2" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي")}: </span>
+                  <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+                </div>
+                <Input
+                  label={t("new_username", "اسم المستخدم الجديد")}
+                  value={creds.new_username}
+                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                  placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
+                />
+              </div>
+              <div>
+                <Input
+                  label={t("new_password", "كلمة المرور الجديدة")}
+                  type="password"
+                  value={creds.new_password}
+                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                  placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+                />
+                <Input
+                  label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                  type="password"
+                  value={creds.confirm_new_password}
+                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                onClick={saveCredentials}
+                loading={savingCreds}
+                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+              >
+                {t("save_changes")}
+              </Btn>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── CLINIC TABS CONTENT ─── */}
+      {/* 1. Clinic Profile Tab */}
+      {user?.user_type === 2 && clinicActiveTab === "profile" && (
+        <form onSubmit={save}>
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <Building size={18} /> {t("clinic_info_tab", "معلومات العيادة")}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label="اسم العيادة" value={form.clinicname || ""} onChange={e => f("clinicname", e.target.value)} />
+              <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
+              <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
+              <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
+
+              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("clinic_gps")}</label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <input type="number" step="any" placeholder="Latitude" value={form.latitude || 0} onChange={e => f("latitude", parseFloat(e.target.value) || 0)}
+                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+                    <input type="number" step="any" placeholder="Longitude" value={form.longitude || 0} onChange={e => f("longitude", parseFloat(e.target.value) || 0)}
+                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+                  </div>
+                  <Btn variant="secondary" onClick={detectLocation} style={{ padding: "10px 16px", fontSize: 12 }}>
+                    <MapPin size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 6 }} /> {t("detect_location")}
+                  </Btn>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
             <textarea value={form.notes || ""} onChange={e => f("notes", e.target.value)} rows={4}
               style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
           </Card>
-        )}
 
-        <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
-          <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
-        </Btn>
-      </form>
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
 
-      {/* --- قسم بيانات الدخول للمريض --- */}
-      {user?.user_type === 0 && (
-        <Card style={{ marginTop: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
-              <Lock size={16} color="#fff" />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16 }}>{t("login_credentials", "بيانات الدخول")}</h3>
-              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("login_credentials_desc", "تغيير اسم المستخدم أو كلمة المرور")}</p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                <User size={14} color="#0891b2" />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي")}: </span>
-                <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+      {/* 2. Clinic Security & Join Requests Tab */}
+      {user?.user_type === 2 && clinicActiveTab === "security" && (
+        <div>
+          <form onSubmit={save} style={{ marginBottom: 20 }}>
+            <Card style={{ marginBottom: 14 }}>
+              <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <Lock size={18} /> بيانات الدخول
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+                <Input label="اسم المستخدم" value={form.username || ""} onChange={e => f("username", e.target.value)} />
+                <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.password || ""} onChange={e => f("password", e.target.value)} />
               </div>
-              <Input
-                label={t("new_username", "اسم المستخدم الجديد")}
-                value={creds.new_username}
-                onChange={e => setCreds({ ...creds, new_username: e.target.value })}
-                placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
-              />
-            </div>
-            <div>
-              <Input
-                label={t("new_password", "كلمة المرور الجديدة")}
-                type="password"
-                value={creds.new_password}
-                onChange={e => setCreds({ ...creds, new_password: e.target.value })}
-                placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
-              />
-              <Input
-                label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
-                type="password"
-                value={creds.confirm_new_password}
-                onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
+            </Card>
 
-          <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
-            <Btn
-              type="button"
-              onClick={saveCredentials}
-              loading={savingCreds}
-              style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
-            >
-              {t("save_changes")}
+            <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+              <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
             </Btn>
-          </div>
-        </Card>
+          </form>
+
+          {/* Join Requests Shortcut Card */}
+          <Card style={{ border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                  <Check size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
+                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
+                    إدارة ومتابعة طلبات انضمام الأطباء للعيادة
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/requests")}
+                style={{
+                  padding: "10px 18px", borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                  fontWeight: 700, fontSize: 14, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.03)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <Check size={18} /> {t("join_requests", "طلبات الانضمام")}
+              </button>
+            </div>
+          </Card>
+        </div>
       )}
 
 

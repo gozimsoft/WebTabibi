@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 80,
       host: 'localhost',
+      watch: {
+        ignored: ['**/android/**', '**/ios/**'],
+      },
       proxy: {
         '/api': {
           target: apiTarget,
@@ -20,6 +23,9 @@ export default defineConfig(({ mode }) => {
           ws: true,
         }
       }
+    },
+    optimizeDeps: {
+      entries: ['index.html', 'src/**/*.{js,jsx}'],
     },
     build: {
       outDir: 'dist',

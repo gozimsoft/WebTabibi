@@ -158,19 +158,17 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   const getAvailableDates = () => {
     const schedule = doctor?.Schedule || {};
     const countdays = parseInt(schedule.countdays || 30);
-    const weekBegin = parseInt(schedule.weekbeginday || 0);
     const workingdays = schedule.workingdays || "1111111";
     const dates = [];
-    const stdWBD = (weekBegin + 1) % 7;
     for (let i = 0; i <= countdays; i++) {
       const d = new Date(); d.setDate(d.getDate() + i);
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
       const full = `${yyyy}-${mm}-${dd}`;
-      const w = d.getDay();
-      const relIndex = (w - stdWBD + 7) % 7;
-      if (workingdays[relIndex] === "1" || !schedule.workingdays) {
+      const w = d.getDay(); // 0=Sun...6=Sat
+      const dayIndex = (w + 6) % 7; // 0=Mon...6=Sun matching Delphi workingdays
+      if (workingdays[dayIndex] === "1" || !schedule.workingdays) {
         dates.push({
           full: full, day: d.getDate(),
           month: d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { month: "short" }),

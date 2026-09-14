@@ -317,27 +317,23 @@ class AppointmentController
         // Standard date('w') gives 0=Sun...6=Sat
         $w = (int) date('w', strtotime($date));
 
-        // Map user's weekbeginday (0=Mon...6=Sun) to Standard (0=Sun...6=Sat)
-        // 0=Mon -> 1, 1=Tue -> 2, ..., 5=Sat -> 6, 6=Sun -> 0
-        $stdWBD = ($weekBegin + 1) % 7;
+        // workingdays is fixed index: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+        $dayIndex = ($w + 6) % 7;
 
-        // Calculate relative index in workingdays array
-        $relIndex = ($w - $stdWBD + 7) % 7;
-
-        if (strlen($workingdays) > $relIndex && $workingdays[$relIndex] === '0') {
+        if (strlen($workingdays) > $dayIndex && $workingdays[$dayIndex] === '0') {
             Response::success(['date' => $date, 'slots' => [], 'timescale' => $timescale]);
             return;
         }
 
         $slots = self::buildSlots($date, $dayStart, $dayEnd, $timescale);
 
-        // Remove off-hours
+        // Remove off-hours (Day in doctorsoffhours: 0=Mon...6=Sun)
         $stmt = $pdo->prepare(
             "SELECT Day, timebegin, timeend FROM doctorsoffhours WHERE doctor_id = ? AND clinic_id = ?"
         );
         $stmt->execute([$doctor_id, $clinicid]);
         $offHours = $stmt->fetchAll();
-        $slots = self::filterOffHours($slots, $date, $relIndex, $offHours);
+        $slots = self::filterOffHours($slots, $date, $dayIndex, $offHours);
 
         // Remove already-booked slots (use new schema: clinicsdoctor_id, status != 0)
         $stmt = $pdo->prepare("

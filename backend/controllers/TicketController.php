@@ -37,6 +37,42 @@ class TicketController {
         $pdo->prepare("INSERT INTO ticketmessages (id, ticket_id, sender_type, sender_id, message) VALUES (?, ?, 'patient', ?, ?)")
             ->execute([self::uuid(), $ticketId, $patientId, $message]);
 
+        // إرسال تنبيه للطبيب أو العيادة المستلمة
+        try {
+            require_once __DIR__ . '/../helpers/NotificationHelper.php';
+            $patStmt = $pdo->prepare("SELECT fullname FROM patients WHERE id = ? LIMIT 1");
+            $patStmt->execute([$patientId]);
+            $patientName = $patStmt->fetchColumn() ?: 'المريض';
+
+            if ($doctor_id) {
+                $docStmt = $pdo->prepare("SELECT user_id FROM doctors WHERE id = ? LIMIT 1");
+                $docStmt->execute([$doctor_id]);
+                $docUserId = $docStmt->fetchColumn();
+                if ($docUserId) {
+                    NotificationHelper::notify(
+                        $docUserId,
+                        "رسالة جديدة من مريض",
+                        "أرسل لك المريض $patientName استفساراً جديداً: $subject",
+                        "ticket"
+                    );
+                }
+            } else if ($clinicid) {
+                $cliStmt = $pdo->prepare("SELECT user_id FROM clinics WHERE id = ? LIMIT 1");
+                $cliStmt->execute([$clinicid]);
+                $cliUserId = $cliStmt->fetchColumn();
+                if ($cliUserId) {
+                    NotificationHelper::notify(
+                        $cliUserId,
+                        "رسالة جديدة من مريض",
+                        "أرسل لكم المريض $patientName استفساراً جديداً: $subject",
+                        "ticket"
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send ticket notification: " . $e->getMessage());
+        }
+
         Response::success(['id' => $ticketId], 'تم إنشاء تذكرة الدعم بنجاح.');
     }
 
@@ -166,6 +202,55 @@ class TicketController {
         $newStatus = ($type === 'patient') ? 'OPEN' : 'PENDING';
         $pdo->prepare("UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             ->execute([$newStatus, $id]);
+
+        // إرسال تنبيه للطرف الآخر
+        try {
+            require_once __DIR__ . '/../helpers/NotificationHelper.php';
+            if ($type === 'patient') {
+                // المريض رد -> تنبيه الطبيب أو العيادة
+                if (!empty($ticket['doctor_id'])) {
+                    $docStmt = $pdo->prepare("SELECT user_id FROM doctors WHERE id = ? LIMIT 1");
+                    $docStmt->execute([$ticket['doctor_id']]);
+                    $docUserId = $docStmt->fetchColumn();
+                    if ($docUserId) {
+                        NotificationHelper::notify(
+                            $docUserId,
+                            "رد جديد على رسالة",
+                            "أرسل المريض رداً جديداً بخصوص: " . $ticket['subject'],
+                            "ticket"
+                        );
+                    }
+                } else if (!empty($ticket['clinic_id'])) {
+                    $cliStmt = $pdo->prepare("SELECT user_id FROM clinics WHERE id = ? LIMIT 1");
+                    $cliStmt->execute([$ticket['clinic_id']]);
+                    $cliUserId = $cliStmt->fetchColumn();
+                    if ($cliUserId) {
+                        NotificationHelper::notify(
+                            $cliUserId,
+                            "رد جديد على رسالة",
+                            "أرسل المريض رداً جديداً بخصوص: " . $ticket['subject'],
+                            "ticket"
+                        );
+                    }
+                }
+            } else {
+                // الطبيب أو العيادة ردت -> تنبيه المريض
+                $patStmt = $pdo->prepare("SELECT user_id FROM patients WHERE id = ? LIMIT 1");
+                $patStmt->execute([$ticket['patient_id']]);
+                $patUserId = $patStmt->fetchColumn();
+                if ($patUserId) {
+                    $senderName = ($type === 'doctor') ? 'الطبيب' : 'العيادة';
+                    NotificationHelper::notify(
+                        $patUserId,
+                        "رد جديد من $senderName",
+                        "تلقيت رداً جديداً بخصوص: " . $ticket['subject'],
+                        "ticket"
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            error_log("Failed to send ticket reply notification: " . $e->getMessage());
+        }
 
         Response::success(null, 'تم إرسال ردك بنجاح.');
     }
