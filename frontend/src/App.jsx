@@ -27,6 +27,8 @@ import AppointmentManager from "./pages/AppointmentManager";
 import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
+import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
+import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
@@ -3259,7 +3261,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   const idx = (weekBegin + i) % 7;
                   orderedDays.push({
                     name: days[idx],
-                    works: workingdays[i] === "1"
+                    works: workingdays[idx] === "1"
                   });
                 }
 
@@ -3498,12 +3500,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const getAvailableDates = () => {
     const schedule = doctor?.Schedule || {};
     const countdays = parseInt(schedule.countdays || 30);
-    const weekBegin = parseInt(schedule.weekbeginday || 0); // 0=Mon...6=Sun
     const workingdays = schedule.workingdays || "1111111";
 
     const dates = [];
-    // Map user's weekbeginday to Standard (0=Sun...6=Sat)
-    const stdWBD = (weekBegin + 1) % 7;
 
     for (let i = 0; i <= countdays; i++) {
       const d = new Date();
@@ -3515,9 +3514,9 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       const full = `${yyyy}-${mm}-${dd}`;
 
       const w = d.getDay(); // 0=Sun...6=Sat
-      const relIndex = (w - stdWBD + 7) % 7;
+      const dayIndex = (w + 6) % 7; // 0=Mon...6=Sun matching Delphi workingdays
 
-      if (workingdays[relIndex] === "1" || !schedule.workingdays) {
+      if (workingdays[dayIndex] === "1" || !schedule.workingdays) {
         dates.push({
           full: full,
           day: d.getDate(),
@@ -5699,7 +5698,9 @@ function ProfilePage({ user, navigate }) {
   const [newReasonTime, setNewReasonTime] = useState(30);
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
-  const [doctorActiveTab, setDoctorActiveTab] = useState("profile"); // 'profile' | 'reasons' | 'appointment_settings'
+  const [doctorActiveTab, setDoctorActiveTab] = useState("profile"); // 'profile' | 'reasons' | 'appointment_settings' | 'off_hours'
+  const [patientActiveTab, setPatientActiveTab] = useState("profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
+  const [clinicActiveTab, setClinicActiveTab] = useState("profile"); // 'profile' | 'security'
 
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
@@ -6068,15 +6069,232 @@ function ProfilePage({ user, navigate }) {
             <Calendar size={17} />
             {t("appointment_settings_tab", "إعدادات المواعيد")}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("off_hours")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "off_hours" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "off_hours" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "off_hours" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Clock size={17} />
+            {t("off_hours_tab", "أوقات خارج العمل")}
+          </button>
         </div>
       )}
 
-      {/* Appointment Settings Tab Content */}
+      {/* Patient Tabs Bar (when user_type === 0) */}
+      {user?.user_type === 0 && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("profile")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <User size={17} />
+            {t("profile_info_tab", "الملف الشخصي")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("attending_doctor")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "attending_doctor" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "attending_doctor" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "attending_doctor" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Stethoscope size={17} />
+            {t("attending_doctor_title", "طبيبي المعالج")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("emergency")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "emergency" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "emergency" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "emergency" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Shield size={17} />
+            {t("emergency_info", "جهة الطوارئ")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPatientActiveTab("security")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: patientActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: patientActiveTab === "security" ? "#ffffff" : "#64748b",
+              fontWeight: patientActiveTab === "security" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Lock size={17} />
+            {t("security_tab", "الأمان والحساب")}
+            {verStatus && !verStatus.email_verified && (
+              <span style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#ea580c",
+                display: "inline-block"
+              }} />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Clinic Tabs Bar (when user_type === 2) */}
+      {user?.user_type === 2 && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setClinicActiveTab("profile")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: clinicActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: clinicActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: clinicActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Building size={17} />
+            {t("clinic_info_tab", "معلومات العيادة")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setClinicActiveTab("security")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: clinicActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: clinicActiveTab === "security" ? "#ffffff" : "#64748b",
+              fontWeight: clinicActiveTab === "security" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Lock size={17} />
+            {t("security_tab", "الأمان والحساب")}
+          </button>
+        </div>
+      )}
+
+      {/* ─── DOCTOR TABS CONTENT ─── */}
       {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
         <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
       )}
 
-      {/* Consultation Reasons Tab Content */}
+      {user?.user_type === 1 && doctorActiveTab === "off_hours" && (
+        <DoctorOffHoursSettings doctor={form} showToast={show} isMobile={isMobile} />
+      )}
+
       {user?.user_type === 1 && doctorActiveTab === "reasons" && (
         <Card style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
@@ -6157,30 +6375,9 @@ function ProfilePage({ user, navigate }) {
         </Card>
       )}
 
-      {/* Verification section for patient - Email only */}
-      {verStatus && !verStatus.email_verified && (
-        <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
-          <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
-          <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
-            {t("id_verification_desc")}
-          </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {verStatus.has_email ? (
-              <Btn variant="ghost" onClick={() => setOTP("email")} style={{ fontSize: 13, padding: "8px 18px" }}>
-                <Mail size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_email_btn")}
-              </Btn>
-            ) : (
-              <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {t("add_email_first")}</div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* General Profile Form */}
-      {(user?.user_type !== 1 || doctorActiveTab === "profile") && (
+      {user?.user_type === 1 && doctorActiveTab === "profile" && (
         <form onSubmit={save}>
-          {/* Account Info (Doctor & Clinic) */}
-        {(user?.user_type === 1 || user?.user_type === 2) && (
+          {/* Account Info */}
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
@@ -6188,71 +6385,23 @@ function ProfilePage({ user, navigate }) {
               <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.password || ""} onChange={e => f("password", e.target.value)} />
             </div>
           </Card>
-        )}
 
-        {/* Personal Info */}
-        <Card style={{ marginBottom: 14 }}>
-          <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {user?.user_type === 2 ? "معلومات العيادة" : t("personal_info")}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-            <Input label={user?.user_type === 2 ? "اسم العيادة" : t("fullname")} value={form.fullname || form.clinicname || ""} onChange={e => f(user?.user_type === 2 ? "clinicname" : "fullname", e.target.value)} />
-            <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
-            <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
-            {(user?.user_type === 0 || user?.user_type === 1) && (
+          {/* Personal Info */}
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label={t("fullname")} value={form.fullname || ""} onChange={e => f("fullname", e.target.value)} />
+              <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
+              <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
               <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
-            )}
-            {user?.user_type === 2 && (
-              <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
-            )}
+              <Input label="رقم الهاتف الثابت" value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
+              <Input label="اللغات المتحدث بها" value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
+              <Input label="تسعيرة الكشف الأساسية" type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
+              <Input label="الرمز البريدي" value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
+            </div>
+          </Card>
 
-            {user?.user_type === 2 && (
-              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("clinic_gps")}</label>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <input type="number" step="any" placeholder="Latitude" value={form.latitude || 0} onChange={e => f("latitude", parseFloat(e.target.value) || 0)}
-                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
-                    <input type="number" step="any" placeholder="Longitude" value={form.longitude || 0} onChange={e => f("longitude", parseFloat(e.target.value) || 0)}
-                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
-                  </div>
-                  <Btn variant="secondary" onClick={detectLocation} style={{ padding: "10px 16px", fontSize: 12 }}>
-                    <MapPin size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 6 }} /> {t("detect_location")}
-                  </Btn>
-                </div>
-              </div>
-            )}
-
-            {user?.user_type === 0 && (
-              <>
-                <Input label={t("birth_date")} type="date" value={(form.birthdate || "").substring(0, 10)} onChange={e => f("birthdate", e.target.value)} />
-                <Input label={t("address")} value={form.address || ""} onChange={e => f("address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
-                  <select value={form.gender ?? 0} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                    <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
-                  <select value={form.bloodtype || ""} onChange={e => f("bloodtype", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
-                    <option value="">{t("not_specified")}</option>
-                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
-                  </select>
-                </div>
-              </>
-            )}
-
-            {user?.user_type === 1 && (
-              <>
-                <Input label="رقم الهاتف الثابت" value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
-                <Input label="اللغات المتحدث بها" value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
-                <Input label="تسعيرة الكشف الأساسية" type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
-                <Input label="الرمز البريدي" value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
-              </>
-            )}
-          </div>
-        </Card>
-
-        {user?.user_type === 1 && (
+          {/* Professional Info */}
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Briefcase size={18} /> المعلومات المهنية</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
@@ -6263,38 +6412,8 @@ function ProfilePage({ user, navigate }) {
               <Input label="الألقاب الأكاديمية" value={form.academytitles || ""} onChange={e => f("academytitles", e.target.value)} />
             </div>
           </Card>
-        )}
 
-
-
-        {user?.user_type === 0 && (
-          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
-                  <Users size={22} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("family_members")}</div>
-                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>{t("family_desc")}</div>
-                </div>
-              </div>
-              <button onClick={() => navigate("/family")}
-                style={{
-                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff",
-                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-              >
-                <UserPlus size={20} />
-              </button>
-            </div>
-          </Card>
-        )}
-
-        {(user?.user_type === 1 || user?.user_type === 2) && (
+          {/* Join Requests */}
           <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -6304,7 +6423,7 @@ function ProfilePage({ user, navigate }) {
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
                   <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
-                    {user?.user_type === 2 ? "إدارة ومتابعة طلبات انضمام الأطباء للعيادة" : "إدارة ومتابعة طلبات الانضمام للعيادات"}
+                    إدارة ومتابعة طلبات الانضمام للعيادات
                   </div>
                 </div>
               </div>
@@ -6323,94 +6442,283 @@ function ProfilePage({ user, navigate }) {
               </button>
             </div>
           </Card>
-        )}
 
-        {/* Emergency (Patient Only) */}
-        {user?.user_type === 0 && (
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
+
+      {/* ─── PATIENT TABS CONTENT ─── */}
+      {/* 1. Patient Profile Tab */}
+      {user?.user_type === 0 && patientActiveTab === "profile" && (
+        <form onSubmit={save}>
+          <Card style={{ marginBottom: 16 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <User size={18} /> {t("personal_info")}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label={t("fullname")} value={form.fullname || ""} onChange={e => f("fullname", e.target.value)} />
+              <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
+              <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
+              <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
+              <Input label={t("birth_date")} type="date" value={(form.birthdate || "").substring(0, 10)} onChange={e => f("birthdate", e.target.value)} />
+              <Input label={t("address")} value={form.address || ""} onChange={e => f("address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
+                <select value={form.gender ?? 0} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                  <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
+                <select value={form.bloodtype || ""} onChange={e => f("bloodtype", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                  <option value="">{t("not_specified")}</option>
+                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Family Members Shortcut Card */}
+          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("family_members")}</div>
+                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>{t("family_desc")}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/family")}
+                style={{
+                  width: 42, height: 42, borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <UserPlus size={20} />
+              </button>
+            </div>
+          </Card>
+
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
+
+      {/* 2. Patient Attending Doctor Tab */}
+      {user?.user_type === 0 && patientActiveTab === "attending_doctor" && (
+        <PatientAttendingDoctorCard showToast={show} isMobile={isMobile} />
+      )}
+
+      {/* 3. Patient Emergency Tab */}
+      {user?.user_type === 0 && patientActiveTab === "emergency" && (
+        <form onSubmit={save}>
           <Card style={{ marginBottom: 20 }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Shield size={18} /> {t("emergency_info")}</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <Shield size={18} /> {t("emergency_info")}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 14 }}>
               <Input label={t("emergency_phone")} value={form.emergancyphone || ""} onChange={e => f("emergancyphone", e.target.value)} />
               <Input label={t("emergency_email")} type="email" value={form.emergancyemail || ""} onChange={e => f("emergancyemail", e.target.value)} />
             </div>
             <div style={{ marginBottom: 0 }}>
               <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("emergency_notes")}</label>
-              <textarea value={form.emergancynote || ""} onChange={e => f("emergancynote", e.target.value)} rows={2}
-                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+              <textarea
+                value={form.emergancynote || ""}
+                onChange={e => f("emergancynote", e.target.value)}
+                rows={3}
+                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" }}
+              />
             </div>
           </Card>
-        )}
 
-        {user?.user_type === 2 && (
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
+      )}
+
+      {/* 4. Patient Security & Credentials Tab */}
+      {user?.user_type === 0 && patientActiveTab === "security" && (
+        <div>
+          {/* Identity Verification banner */}
+          {verStatus && !verStatus.email_verified && (
+            <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
+              <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
+              <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
+                {t("id_verification_desc")}
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {verStatus.has_email ? (
+                  <Btn variant="ghost" onClick={() => setOTP("email")} style={{ fontSize: 13, padding: "8px 18px" }}>
+                    <Mail size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("confirm_email_btn")}
+                  </Btn>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {t("add_email_first")}</div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Login Credentials Card */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Lock size={16} color="#fff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16 }}>{t("login_credentials", "بيانات الدخول")}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("login_credentials_desc", "تغيير اسم المستخدم أو كلمة المرور")}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                  <User size={14} color="#0891b2" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي")}: </span>
+                  <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+                </div>
+                <Input
+                  label={t("new_username", "اسم المستخدم الجديد")}
+                  value={creds.new_username}
+                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                  placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
+                />
+              </div>
+              <div>
+                <Input
+                  label={t("new_password", "كلمة المرور الجديدة")}
+                  type="password"
+                  value={creds.new_password}
+                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                  placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+                />
+                <Input
+                  label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                  type="password"
+                  value={creds.confirm_new_password}
+                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                onClick={saveCredentials}
+                loading={savingCreds}
+                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+              >
+                {t("save_changes")}
+              </Btn>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── CLINIC TABS CONTENT ─── */}
+      {/* 1. Clinic Profile Tab */}
+      {user?.user_type === 2 && clinicActiveTab === "profile" && (
+        <form onSubmit={save}>
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <Building size={18} /> {t("clinic_info_tab", "معلومات العيادة")}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input label="اسم العيادة" value={form.clinicname || ""} onChange={e => f("clinicname", e.target.value)} />
+              <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
+              <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
+              <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
+
+              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("clinic_gps")}</label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <input type="number" step="any" placeholder="Latitude" value={form.latitude || 0} onChange={e => f("latitude", parseFloat(e.target.value) || 0)}
+                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+                    <input type="number" step="any" placeholder="Longitude" value={form.longitude || 0} onChange={e => f("longitude", parseFloat(e.target.value) || 0)}
+                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+                  </div>
+                  <Btn variant="secondary" onClick={detectLocation} style={{ padding: "10px 16px", fontSize: 12 }}>
+                    <MapPin size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 6 }} /> {t("detect_location")}
+                  </Btn>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
             <textarea value={form.notes || ""} onChange={e => f("notes", e.target.value)} rows={4}
               style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
           </Card>
-        )}
 
-        <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
-          <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
-        </Btn>
-      </form>
+          <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+            <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+          </Btn>
+        </form>
       )}
 
-      {/* --- قسم بيانات الدخول للمريض --- */}
-      {user?.user_type === 0 && (
-        <Card style={{ marginTop: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
-              <Lock size={16} color="#fff" />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16 }}>{t("login_credentials", "بيانات الدخول")}</h3>
-              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("login_credentials_desc", "تغيير اسم المستخدم أو كلمة المرور")}</p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                <User size={14} color="#0891b2" />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي")}: </span>
-                <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+      {/* 2. Clinic Security & Join Requests Tab */}
+      {user?.user_type === 2 && clinicActiveTab === "security" && (
+        <div>
+          <form onSubmit={save} style={{ marginBottom: 20 }}>
+            <Card style={{ marginBottom: 14 }}>
+              <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <Lock size={18} /> بيانات الدخول
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+                <Input label="اسم المستخدم" value={form.username || ""} onChange={e => f("username", e.target.value)} />
+                <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.password || ""} onChange={e => f("password", e.target.value)} />
               </div>
-              <Input
-                label={t("new_username", "اسم المستخدم الجديد")}
-                value={creds.new_username}
-                onChange={e => setCreds({ ...creds, new_username: e.target.value })}
-                placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
-              />
-            </div>
-            <div>
-              <Input
-                label={t("new_password", "كلمة المرور الجديدة")}
-                type="password"
-                value={creds.new_password}
-                onChange={e => setCreds({ ...creds, new_password: e.target.value })}
-                placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
-              />
-              <Input
-                label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
-                type="password"
-                value={creds.confirm_new_password}
-                onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
+            </Card>
 
-          <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
-            <Btn
-              type="button"
-              onClick={saveCredentials}
-              loading={savingCreds}
-              style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
-            >
-              {t("save_changes")}
+            <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+              <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
             </Btn>
-          </div>
-        </Card>
+          </form>
+
+          {/* Join Requests Shortcut Card */}
+          <Card style={{ border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                  <Check size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
+                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
+                    إدارة ومتابعة طلبات انضمام الأطباء للعيادة
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/requests")}
+                style={{
+                  padding: "10px 18px", borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                  fontWeight: 700, fontSize: 14, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.03)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <Check size={18} /> {t("join_requests", "طلبات الانضمام")}
+              </button>
+            </div>
+          </Card>
+        </div>
       )}
 
 
