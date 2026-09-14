@@ -1,14 +1,29 @@
+import os
+from pathlib import Path
 import mysql.connector
 import pandas as pd
 from collections import defaultdict, Counter
 
-# Connect to database
+# Load environment variables from backend/.env if present
+env_path = Path(__file__).resolve().parent.parent / 'backend' / '.env'
+if env_path.exists():
+    with open(env_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                k, v = line.split('=', 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k not in os.environ:
+                    os.environ[k] = v
+
+# Connect to database using externalized environment variables
 conn = mysql.connector.connect(
-    host='197.140.142.6',
-    port=3306,
-    user='uyyuppcc_admin',
-    password='EV]s6^lwR0OnG029',
-    database='uyyuppcc_DBTabibi'
+    host=os.getenv('DB_HOST', '127.0.0.1'),
+    port=int(os.getenv('DB_PORT', 3306)),
+    user=os.getenv('DB_USER', 'root'),
+    password=os.getenv('DB_PASS', ''),
+    database=os.getenv('DB_NAME', 'tabibi_db')
 )
 cursor = conn.cursor(dictionary=True)
 

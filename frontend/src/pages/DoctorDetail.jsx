@@ -271,7 +271,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
                 const orderedDays = [];
                 for (let i = 0; i < 7; i++) {
                   const idx = (weekBegin + i) % 7;
-                  orderedDays.push({ name: t(daysKeys[idx]), works: workingdays[i] === "1" });
+                  orderedDays.push({ name: t(daysKeys[idx]), works: workingdays[idx] === "1" });
                 }
                 return orderedDays.map((d, i) => (
                   <div key={i} style={{

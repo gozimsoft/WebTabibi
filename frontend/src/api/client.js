@@ -49,6 +49,11 @@ export const api = {
     // تغيير اسم المستخدم أو كلمة المرور — يتطلب كلمة المرور الحالية للتحقق من الهوية
     updateCredentials: (body) => request('PUT', '/patients/credentials', body),
     getAppointments: () => request('GET', '/patients/appointments'),
+    getAttendingDoctor: () => request('GET', '/patients/attending-doctor'),
+    setAttendingDoctor: (doctorId) => request('POST', '/patients/attending-doctor', { doctor_id: doctorId }),
+    removeAttendingDoctor: () => request('DELETE', '/patients/attending-doctor'),
+    getAttendingDoctorHistory: () => request('GET', '/patients/attending-doctor/history'),
+    searchDoctors: (query = '') => request('GET', `/patients/attending-doctor/search?q=${encodeURIComponent(query)}`),
   },
   doctor: {
     getProfile: () => request('GET', '/doctors/profile'),
@@ -65,6 +70,14 @@ export const api = {
     },
     addAppointment: (body) => request('POST', '/appointments/manager/add', body),
     updateAppointmentStatus: (id, status) => request('PUT', `/appointments/${id}/status`, { status }),
+    getAppointmentSettings: () => request('GET', '/doctors/appointment-settings'),
+    createAppointmentSetting: (body) => request('POST', '/doctors/appointment-settings', body),
+    updateAppointmentSetting: (id, body) => request('PUT', `/doctors/appointment-settings/${id}`, body),
+    deleteAppointmentSetting: (id) => request('DELETE', `/doctors/appointment-settings/${id}`),
+    getOffHours: () => request('GET', '/doctors/off-hours'),
+    createOffHour: (body) => request('POST', '/doctors/off-hours', body),
+    updateOffHour: (id, body) => request('PUT', `/doctors/off-hours/${id}`, body),
+    deleteOffHour: (id) => request('DELETE', `/doctors/off-hours/${id}`),
   },
   clinics: {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
