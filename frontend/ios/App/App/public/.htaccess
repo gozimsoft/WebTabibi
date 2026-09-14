@@ -1,0 +1,25 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # تمرير ترويسة المصادقة Authorization إلى PHP
+  RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # استثناء الملفات والمجلدات الحقيقية الموجودة (CSS, JS, صور, APK...)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # توجيه طلبات الـ API إلى مجلد الـ backend
+  RewriteCond %{REQUEST_URI} ^/api/ [NC]
+  RewriteRule ^api/(.*)$ backend/index.php [QSA,L]
+
+  # توجيه جميع المسارات الأخرى (مثل /app) إلى صفحة التطبيق الرئيسية index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Security Headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-XSS-Protection "1; mode=block"
+</IfModule>

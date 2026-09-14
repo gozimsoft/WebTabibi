@@ -1,0 +1,8 @@
+{
+	"appId": "com.tabibi.app",
+	"appName": "Tabibi",
+	"webDir": "dist",
+	"packageClassList": [
+		"AppPlugin"
+	]
+}
