@@ -5,6 +5,8 @@
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../helpers/UUIDHelper.php';
+require_once __DIR__ . '/../helpers/PasswordHelper.php';
+require_once __DIR__ . '/../helpers/ConsentHelper.php';
 
 class AuthController {
 
@@ -18,6 +20,12 @@ class AuthController {
         if (empty($data['username']) || empty($data['password']) || empty($data['fullname']) || empty($data['email'])) {
             // رسالة بشرية: حقول ناقصة عند التسجيل
             Response::error('يرجى ملء جميع الحقول المطلوبة (الاسم الكامل، اسم المستخدم، البريد الإلكتروني، كلمة المرور) قبل المتابعة.', 422);
+        }
+
+        // PHASE 02C : Validation du consentement obligatoire (Art. 6, 9, 32 Loi 18-07)
+        // Les cases CGU et Politique de confidentialité doivent être cochées explicitement
+        if (empty($data['consent_cgu']) || empty($data['consent_privacy'])) {
+            Response::error('يجب قبول شروط الاستخدام وسياسة الخصوصية للمتابعة. (Art. 6 Loi 18-07)', 422);
         }
 
         $pdo = Database::getInstance();
@@ -117,7 +125,8 @@ class AuthController {
 
         // إنشاء الحساب ووضع verified = 1 داخل نفس الـ Transaction
         // حتى إذا فشل إنشاء الحساب، يُعاد الرمز إلى verified = 0 تلقائياً
-        $passwordEncoded = base64_encode($data['password']);
+        // PHASE 02B : Nouveau mot de passe hashé avec Bcrypt (password_hash)
+        $passwordHashed = PasswordHelper::hash($data['password']);
         require_once __DIR__ . '/../helpers/UUIDHelper.php';
         $userId    = UUIDHelper::generate();
         $patientId = UUIDHelper::generate();
@@ -129,12 +138,18 @@ class AuthController {
 
             // Insert User
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
-                ->execute([$userId, strtolower(trim($data['username'])), $passwordEncoded]);
+                ->execute([$userId, strtolower(trim($data['username'])), $passwordHashed]);
+
+            // PHASE 02C : Enregistrement des consentements dans patients (preuve directe)
+            $consentCgu     = !empty($data['consent_cgu'])     ? 1 : 0;
+            $consentPrivacy = !empty($data['consent_privacy']) ? 1 : 0;
+            $consentVersion = ConsentHelper::DOC_VERSION;
+            $consentAt      = date('Y-m-d H:i:s');
 
             // Insert Patient with emailvalidation = 1 and phonevalidation = 1
             $pdo->prepare("
-                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, nin, emailvalidation, phonevalidation)
-                VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0, ?, 1, 1)
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, nin, emailvalidation, phonevalidation, consent_cgu, consent_privacy, consent_version, consent_at)
+                VALUES (?, '', ?, ?, ?, ?, ?, ?, 'Algérie', 0, ?, 1, 1, ?, ?, ?, ?)
             ")->execute([
                 $patientId,
                 trim($data['fullname']),
@@ -144,6 +159,10 @@ class AuthController {
                 isset($data['gender']) ? (int)$data['gender'] : 0,
                 $userId,
                 $data['nin'] ?? null,
+                $consentCgu,
+                $consentPrivacy,
+                $consentVersion,
+                $consentAt,
             ]);
 
             $pdo->commit();
@@ -153,6 +172,12 @@ class AuthController {
             // رسالة بشرية: خطأ داخلي عند إنشاء الحساب
             Response::serverError('حدث خطأ أثناء إنشاء حسابك. يرجى المحاولة مرة أخرى. إذا استمرت المشكلة يرجى التواصل مع الدعم الفني.');
         }
+
+        // PHASE 02C : Enregistrement dans consent_logs après le commit
+        ConsentHelper::logMultiple($pdo, $userId, $patientId, [
+            ConsentHelper::TYPE_CGU      => !empty($data['consent_cgu'])     ? 1 : 0,
+            ConsentHelper::TYPE_PRIVACY  => !empty($data['consent_privacy']) ? 1 : 0,
+        ], 'registration');
 
         // Auto login since verified
         $token = self::createSession($userId);
@@ -223,11 +248,16 @@ class AuthController {
             Response::error("اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من المعلومات والمحاولة مجدداً.", 401);
         }
 
-        // Verify password (base64 encoded)
-        $encoded = base64_encode($data['password']);
-        if ($user['password'] !== $encoded) {
+        // PHASE 02B : Vérification duale (legacy Base64 + Bcrypt) avec migration silencieuse
+        if (!PasswordHelper::verify($data['password'], $user['password'])) {
             // رسالة بشرية: كلمة المرور غير متطابقة
             Response::error("اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من المعلومات والمحاولة مجدداً.", 401);
+        }
+
+        // Migration silencieuse : si l'ancien format est détecté, on rehash immédiatement
+        if (PasswordHelper::needsMigration($user['password'])) {
+            $newHash = PasswordHelper::hash($data['password']);
+            $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$newHash, $user['id']]);
         }
 
         // Fetch profile info based on usertype
@@ -411,7 +441,8 @@ class AuthController {
             $suffix++;
         }
 
-        $passwordEncoded = base64_encode(bin2hex(random_bytes(10))); // Random password
+        // PHASE 02B : Mot de passe aléatoire hashé en Bcrypt (compte Google, jamais utilisé pour login classique)
+        $passwordHashed = PasswordHelper::hash(bin2hex(random_bytes(10)));
         $userId    = UUIDHelper::generate();
         $patientId = UUIDHelper::generate();
 
@@ -419,7 +450,7 @@ class AuthController {
         try {
             // Insert User
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
-                ->execute([$userId, $username, $passwordEncoded]);
+                ->execute([$userId, $username, $passwordHashed]);
 
             // Insert Patient with emailvalidation = 1 and phonevalidation = 1
             $pdo->prepare("
@@ -764,9 +795,9 @@ class AuthController {
             Response::error('لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني.', 404);
         }
 
-        // Update password in users table
-        $passwordEncoded = base64_encode($password);
-        $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$passwordEncoded, $user['user_id']]);
+        // PHASE 02B : Réinitialisation du mot de passe en Bcrypt (password_hash)
+        $passwordHashed = PasswordHelper::hash($password);
+        $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$passwordHashed, $user['user_id']]);
 
         // Mark OTP as used
         $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = ?")->execute([$resetRecord['id']]);

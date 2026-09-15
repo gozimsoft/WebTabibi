@@ -38,6 +38,9 @@ class Analytics {
 
   track(eventName, metadata = {}) {
     if (!this.enabled) return;
+    if (typeof localStorage !== "undefined" && localStorage.getItem("tabibi_analytics_disabled") === "true") {
+      return;
+    }
 
     const payload = {
       event: eventName,

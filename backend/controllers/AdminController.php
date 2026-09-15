@@ -7,6 +7,7 @@ require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../helpers/UUIDHelper.php';
 require_once __DIR__ . '/../helpers/EmailHelper.php';
+require_once __DIR__ . '/../helpers/PasswordHelper.php';
 
 class AdminController {
 
@@ -190,7 +191,19 @@ class AdminController {
             $userId   = UUIDHelper::generate();
             $clinicid = UUIDHelper::generate();
             $username = strtolower(str_replace(' ', '_', $reg['clinicname'])) . '_' . substr($id, 0, 6);
-            $plainPassword = base64_decode($reg['password']) ?: $reg['password'];
+
+            // PHASE 02B : Le mot de passe dans clinicregistrations est maintenant un hash Bcrypt.
+            // Il est copié tel quel dans users.password (pas de double hash).
+            // Pour l'email d'approbation, on ne peut pas récupérer le mot de passe original
+            // depuis un hash Bcrypt (c'est le comportement attendu d'un vrai hash).
+            // Les comptes legacy (Base64) : on décode pour l'email.
+            // Les nouveaux comptes (Bcrypt) : on informe la clinique de réinitialiser son mot de passe.
+            if (PasswordHelper::isLegacy($reg['password'])) {
+                $plainPassword = base64_decode($reg['password']) ?: $reg['password'];
+            } else {
+                // Hash Bcrypt : impossible de retrouver le mot de passe original
+                $plainPassword = null; // signifie : mot de passe défini par la clinique lors de l'inscription
+            }
 
             // Create User (usertype=2 = Clinic)
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,2)")
@@ -277,7 +290,18 @@ class AdminController {
             $doctorIdToUse  = $isVirtualClaim ? $reg['doctor_id'] : UUIDHelper::generate();
             $userId         = UUIDHelper::generate();
             $username       = strtolower(str_replace(' ', '_', $reg['fullname'])) . '_' . substr($id, 0, 6);
-            $plainPassword  = base64_decode($reg['password']) ?: $reg['password'];
+
+            // PHASE 02B : Le mot de passe dans doctorregistrations est maintenant un hash Bcrypt.
+            // Il est copié tel quel dans users.password (pas de double hash).
+            // Pour l'email d'approbation, on ne peut pas récupérer le mot de passe original
+            // depuis un hash Bcrypt (c'est le comportement attendu d'un vrai hash).
+            // Les comptes legacy (Base64) : on décode pour l'email.
+            // Les nouveaux comptes (Bcrypt) : $plainPassword = null.
+            if (PasswordHelper::isLegacy($reg['password'])) {
+                $plainPassword = base64_decode($reg['password']) ?: $reg['password'];
+            } else {
+                $plainPassword = null; // signifie : mot de passe défini par le médecin lors de l'inscription
+            }
 
             if ($isVirtualClaim) {
                 // Fetch the existing virtual doctor to see if they already have a user_id

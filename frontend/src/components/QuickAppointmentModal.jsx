@@ -25,6 +25,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [note, setNote] = useState("");
+  const [consentHealth, setConsentHealth] = useState(false);
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [booking, setBooking] = useState(false);
@@ -116,6 +117,12 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
     if (!selectedSlot) {
       return showToast(t("select_slot_label", "يرجى اختيار الوقت المتاح"), "error");
     }
+    if (!consentHealth) {
+      return showToast(
+        t("consent_health_required", "يرجى الموافقة على معالجة البيانات الصحية لإتمام حجز الموعد وفقاً للقانون 18-07."),
+        "error"
+      );
+    }
 
     setBooking(true);
     try {
@@ -125,6 +132,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
         time: selectedSlot,
         reason_id: selectedReasonId || undefined,
         note: note.trim() || undefined,
+        consent_health: 1,
       });
 
       showToast(t("booking_success_msg", "تم حجز الموعد بنجاح!"), "success");
@@ -446,6 +454,43 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
               />
             </div>
 
+            {/* 6. Health Data Consent Checkbox (Art. 8 & 9 Loi 18-07) */}
+            <div style={{
+              marginBottom: 20,
+              padding: "12px 14px",
+              background: "#f0fdfa",
+              border: "1px solid #a5f3fc",
+              borderRadius: 12
+            }}>
+              <label style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                cursor: "pointer",
+                userSelect: "none"
+              }}>
+                <input
+                  type="checkbox"
+                  checked={consentHealth}
+                  onChange={(e) => setConsentHealth(e.target.checked)}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    accentColor: "#0284c7",
+                    cursor: "pointer",
+                    marginTop: 2,
+                    flexShrink: 0
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "#0f766e", lineHeight: 1.5 }}>
+                  {t(
+                    "consent_health_label",
+                    "أوافق صراحة على معالجة واستخدام بياناتي الصحية وملاحظاتي الطبية لغرض حجز وتنظيم الاستشارة الطبية وفقاً للمادتين 8 و 9 من القانون 18-07."
+                  )}
+                </span>
+              </label>
+            </div>
+
             {/* Actions */}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
               <Btn variant="secondary" type="button" onClick={onClose} style={{ padding: "10px 18px", fontSize: 13 }}>
@@ -453,15 +498,15 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
               </Btn>
               <Btn
                 type="submit"
-                disabled={booking || !selectedSlot}
+                disabled={booking || !selectedSlot || !consentHealth}
                 style={{
                   padding: "10px 24px",
                   fontSize: 14,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
-                  boxShadow: "0 4px 14px rgba(2, 132, 199, 0.3)"
+                  background: (!consentHealth || !selectedSlot) ? "#94a3b8" : "linear-gradient(135deg, #0284c7, #0369a1)",
+                  boxShadow: (!consentHealth || !selectedSlot) ? "none" : "0 4px 14px rgba(2, 132, 199, 0.3)"
                 }}
               >
                 {booking ? <Spinner size={16} /> : <Zap size={16} fill="#fff" />}

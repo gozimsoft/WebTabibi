@@ -33,7 +33,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = rtrim($uri, '/');
 
-$uri = preg_replace('#^/api#', '', $uri);  // strip /api prefix
+$uri = preg_replace('#^(/tabibi/backend|/api)#', '', $uri);  // strip /tabibi/backend or /api prefix
 $parts = array_values(array_filter(explode('/', ltrim($uri, '/'))));
 
 try {
@@ -143,6 +143,23 @@ try {
     if ($uri === '/patients/attending-doctor/search' && $method === 'GET') {
         require_once __DIR__ . '/controllers/PatientController.php';
         PatientController::searchDoctorsForAttending();
+    }
+
+    // ── PHASE 02C : Consentements & Droits utilisateurs ──────────
+    // GET  /api/consent/my          → État des consentements de l'utilisateur
+    // POST /api/consent/withdraw    → Retrait d'un consentement (Art. 35-36 Loi 18-07)
+    // DELETE /api/patients/account  → Suppression/anonymisation de compte patient (Art. 35)
+    if ($uri === '/consent/my' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/ConsentController.php';
+        ConsentController::getMy();
+    }
+    if ($uri === '/consent/withdraw' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/ConsentController.php';
+        ConsentController::withdraw();
+    }
+    if ($uri === '/patients/account' && $method === 'DELETE') {
+        require_once __DIR__ . '/controllers/ConsentController.php';
+        ConsentController::deleteAccount();
     }
 
     // ── Doctor ───────────────────────────────────────────────

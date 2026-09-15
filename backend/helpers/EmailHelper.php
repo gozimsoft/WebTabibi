@@ -151,13 +151,17 @@ class EmailHelper {
         string $toName,
         string $accountType,
         string $username,
-        string $plainPassword
+        ?string $plainPassword = null
     ): bool {
         $typeLabel = ($accountType === 'clinic') ? 'العيادة' : 'الطبيب';
         $subject   = "🎉 تم قبول طلب انضمام {$typeLabel} - بيانات تسجيل الدخول | Tabibi طبيبي";
         $html      = self::buildApprovalCredentialsTemplate($toName, $accountType, $username, $toEmail, $plainPassword);
         $loginUrl  = (defined('FRONTEND_URL') ? rtrim(FRONTEND_URL, '/') : 'http://localhost:80') . '/#/login';
-        $text      = "مرحباً {$toName}،\n\nيسرنا إبلاغك بأنه تمت الموافقة على طلب انضمامك إلى منصة طبيبي (Tabibi).\n\nبيانات الدخول إلى حسابك:\n- نوع الحساب: {$typeLabel}\n- اسم المستخدم: {$username}\n- البريد الإلكتروني: {$toEmail}\n- كلمة المرور: {$plainPassword}\n\nرابط تسجيل الدخول: {$loginUrl}\n\nفريق منصة طبيبي";
+        // PHASE 02B : Si $plainPassword est null (hash Bcrypt), on ne peut pas afficher le mot de passe en clair
+        $passwordLine = $plainPassword
+            ? "- كلمة المرور: {$plainPassword}"
+            : "- كلمة المرور: كلمة المرور التي اخترتها عند التسجيل";
+        $text      = "مرحباً {$toName}،\n\nيسرنا إبلاغك بأنه تمت الموافقة على طلب انضمامك إلى منصة طبيبي (Tabibi).\n\nبيانات الدخول إلى حسابك:\n- نوع الحساب: {$typeLabel}\n- اسم المستخدم: {$username}\n- البريد الإلكتروني: {$toEmail}\n{$passwordLine}\n\nرابط تسجيل الدخول: {$loginUrl}\n\nفريق منصة طبيبي";
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
@@ -275,12 +279,14 @@ HTML;
         string $accountType,
         string $username,
         string $toEmail,
-        string $plainPassword
+        ?string $plainPassword = null
     ): string {
         $year       = date('Y');
         $typeTitle  = ($accountType === 'clinic') ? 'عيادة (Clinique)' : 'طبيب (Médecin)';
         $typeAr     = ($accountType === 'clinic') ? 'عيادتكم' : 'حسابكم كطبيب';
         $loginUrl   = (defined('FRONTEND_URL') ? rtrim(FRONTEND_URL, '/') : 'http://localhost:80') . '/#/login';
+        // PHASE 02B : Si $plainPassword est null (hash Bcrypt), afficher un message approprié
+        $plainPasswordDisplay = $plainPassword ?: 'كلمة المرور التي اخترتها عند التسجيل';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -397,7 +403,7 @@ HTML;
                                             </td>
                                             <td align="left">
                                                 <span style="display:inline-block;background-color:#dcfce7;color:#15803d;padding:6px 14px;border-radius:8px;font-size:15px;font-weight:900;font-family:monospace;letter-spacing:1px;" dir="ltr">
-                                                    {$plainPassword}
+                                                    {$plainPasswordDisplay}
                                                 </span>
                                             </td>
                                         </tr></table>

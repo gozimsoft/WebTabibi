@@ -6,6 +6,7 @@ require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../helpers/UUIDHelper.php';
+require_once __DIR__ . '/../helpers/PasswordHelper.php';
 
 class DoctorController {
 
@@ -82,7 +83,8 @@ class DoctorController {
         }
         if (!empty($data['password'])) {
             $userFields[] = "`password` = ?";
-            $userValues[] = base64_encode($data['password']); // encoding using the app's standard
+            // PHASE 02B : Nouveau mot de passe hashé en Bcrypt
+            $userValues[] = PasswordHelper::hash($data['password']);
         }
 
         if (!empty($userFields)) {

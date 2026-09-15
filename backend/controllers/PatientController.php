@@ -5,6 +5,8 @@
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../helpers/UUIDHelper.php';
+require_once __DIR__ . '/../helpers/PasswordHelper.php';
 
 class PatientController {
 
@@ -134,7 +136,8 @@ class PatientController {
                 Response::error('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.', 422);
             }
             $updates[] = "`password` = ?";
-            $values[]  = base64_encode($data['new_password']);
+            // PHASE 02B : Nouveau mot de passe hashé en Bcrypt
+            $values[]  = PasswordHelper::hash($data['new_password']);
         }
 
         // لا يوجد شيء للتحديث

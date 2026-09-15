@@ -8,6 +8,8 @@
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../helpers/UUIDHelper.php';
+require_once __DIR__ . '/../helpers/PasswordHelper.php';
+require_once __DIR__ . '/../helpers/ConsentHelper.php';
 
 class RegistrationController {
 
@@ -24,6 +26,11 @@ class RegistrationController {
                 // رسالة بشرية: حقل مطلوب ناقص عند تسجيل عيادة
                 Response::error("يرجى ملء جميع الحقول المطلوبة: اسم العيادة، البريد الإلكتروني، رقم الهاتف، وكلمة المرور.", 422);
             }
+        }
+
+        // PHASE 02C : Validation du consentement CGU + Politique de confidentialité (Art. 6, 32 Loi 18-07)
+        if (empty($data['consent_cgu']) || empty($data['consent_privacy'])) {
+            Response::error('يجب قبول شروط الاستخدام وسياسة الخصوصية للمتابعة.', 422);
         }
 
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
@@ -46,7 +53,8 @@ class RegistrationController {
         }
 
         $id             = UUIDHelper::generate();
-        $passwordEncoded = base64_encode($data['password']);
+        // PHASE 02B : Hash Bcrypt pour demande inscription clinique
+        $passwordHashed = PasswordHelper::hash($data['password']);
 
         $pdo->prepare("
             INSERT INTO clinicregistrations (id, clinicname, email, phone, address, notes, password, status)
@@ -58,7 +66,7 @@ class RegistrationController {
             trim($data['phone']),
             $data['address'] ?? '',
             $data['notes']   ?? '',
-            $passwordEncoded,
+            $passwordHashed,
         ]);
 
         // Send email validation OTP
@@ -103,6 +111,11 @@ class RegistrationController {
             }
         }
 
+        // PHASE 02C : Validation du consentement CGU + Politique de confidentialité (Art. 6, 32 Loi 18-07)
+        if (empty($data['consent_cgu']) || empty($data['consent_privacy'])) {
+            Response::error('يجب قبول شروط الاستخدام وسياسة الخصوصية للمتابعة.', 422);
+        }
+
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             // رسالة بشرية: بريد إلكتروني غير صالح للطبيب
             Response::error('البريد الإلكتروني الذي أدخلته غير صحيح. يرجى إدخال بريد إلكتروني صالح (مثال: exemple@gmail.com).', 422);
@@ -124,7 +137,8 @@ class RegistrationController {
         }
 
         $id             = UUIDHelper::generate();
-        $passwordEncoded = base64_encode($data['password']);
+        // PHASE 02B : Hash Bcrypt pour demande inscription médecin
+        $passwordHashed = PasswordHelper::hash($data['password']);
         $doctorId       = !empty($data['doctor_id']) ? $data['doctor_id'] : null;
 
         $pdo->prepare("
@@ -136,7 +150,7 @@ class RegistrationController {
             trim($data['speciality']),
             trim($data['email']),
             trim($data['phone']),
-            $passwordEncoded,
+            $passwordHashed,
             $data['nin'] ?? null,
             $doctorId
         ]);

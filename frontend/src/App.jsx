@@ -8,7 +8,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -171,6 +171,12 @@ const api = {
     clinic: b => req("POST", "/register/clinic", b, false),
     doctor: b => req("POST", "/register/doctor", b, false),
     status: p => req("GET", `/register/status?${new URLSearchParams(p)}`, null, false),
+  },
+  // ── PHASE 02C : Consentements & Droits utilisateurs ──────────
+  consent: {
+    my: () => req("GET", "/consent/my"),
+    withdraw: b => req("POST", "/consent/withdraw", b),
+    deleteAccount: () => req("DELETE", "/patients/account"),
   },
   admin: {
     stats: () => req("GET", "/admin/stats"),
@@ -517,6 +523,8 @@ function LanguageSwitcher() {
 function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [privacySubmenuOpen, setPrivacySubmenuOpen] = useState(false);
+  const [legalSubmenuOpen, setLegalSubmenuOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   // ── حالة قائمة الإشعارات
@@ -526,6 +534,77 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const isMobile = useIsMobile();
   const name = user?.profile?.fullname?.split(" ")[0] || user?.profile?.clinicname?.split(" ")[0] || user?.username || "U";
   const animClass = useRandomAnimation(30);
+
+  const handleDownloadData = async () => {
+    try {
+      if (show) show(t("export_preparing"), "info");
+      let fullProfile = user;
+      if (user?.user_type === 0) {
+        try {
+          const p = await api.patient.profile();
+          const appts = await api.patient.appointments().catch(() => []);
+          fullProfile = { ...user, profile_details: p, appointments: appts };
+        } catch (err) {
+          console.warn("Could not fetch extra profile for export", err);
+        }
+      } else if (user?.user_type === 1) {
+        try {
+          const p = await api.doctor.profile();
+          fullProfile = { ...user, profile_details: p };
+        } catch (err) {}
+      } else if (user?.user_type === 2) {
+        try {
+          const p = await api.clinics.profile();
+          fullProfile = { ...user, profile_details: p };
+        } catch (err) {}
+      }
+
+      // Nettoyage et sécurisation stricts : suppression de tout token, hash ou credential
+      const sanitizeExport = (obj) => {
+        if (!obj || typeof obj !== "object") return obj;
+        if (Array.isArray(obj)) return obj.map(sanitizeExport);
+        const sensitiveKeys = new Set([
+          "password", "password_hash", "token", "jwt", "access_token", "refresh_token",
+          "secret", "auth_token", "remember_token", "salt", "ip_hash", "user_agent_hash",
+          "apikey", "api_key"
+        ]);
+        const clean = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const lower = k.toLowerCase();
+          if (sensitiveKeys.has(lower) || lower.includes("token") || lower.includes("password") || lower.includes("secret")) {
+            continue; // Exclure tout champ confidentiel ou credential
+          }
+          if ((lower === "photoprofile" || lower === "photo" || lower === "logo") && typeof v === "string" && v.startsWith("data:")) {
+            clean[k] = "[Fichier média volumineux exclu de l'export JSON]";
+            continue;
+          }
+          clean[k] = sanitizeExport(v);
+        }
+        return clean;
+      };
+
+      const exportPayload = {
+        notice: "Extraction des données personnelles — Plateforme TABIBI (Loi 18-07 Art. 34)",
+        contact_requests: "contact@tabibi.dz",
+        extracted_at: new Date().toISOString(),
+        user_account: sanitizeExport(fullProfile)
+      };
+
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute("href", blobUrl);
+      dlAnchorElem.setAttribute("download", `tabibi_export_user_${user?.id || 'me'}_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(dlAnchorElem);
+      dlAnchorElem.click();
+      document.body.removeChild(dlAnchorElem);
+      URL.revokeObjectURL(blobUrl);
+
+      if (show) show(t("export_success"), "success");
+    } catch (e) {
+      if (show) show(t("export_error"), "error");
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -1067,49 +1146,221 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                     top: "calc(100% + 12px)",
                     background: "var(--card-bg)", border: "1px solid #0891b2",
                     borderRadius: 16, boxShadow: "var(--shadow-lg)",
-                    minWidth: 220, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
+                    minWidth: 240, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
                   }}>
                     <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-main)" }}>{user.profile?.fullname || user.profile?.clinicname || user.username}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</div>
                     </div>
-                    {[
-                      user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
-                      { icon: <User size={16} />, label: t("profile"), path: "/profile" },
-                      (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
-                      (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
-                      { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets", badge: unreadTicketsCount },
-                      { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
-                      { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
-                    ].filter(Boolean).map(item => (
-                      <button key={item.path} onClick={() => {
-                        analytics.track("nav_click_user_menu", { label: item.label, path: item.path });
-                        navigate(item.path);
-                        setOpen(false);
-                      }} style={{
-                        width: "100%", padding: "12px 16px", background: "none", border: "none",
-                        cursor: "pointer", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center",
-                        gap: 12, fontSize: 15, color: "var(--text-secondary)", transition: "background 0.2s"
-                      }}
-                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "none"}>
-                        {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
-                        {item.badge > 0 && (
-                          <span style={{
-                            background: "#ef4444", color: "#fff",
-                            fontSize: 10, fontWeight: 800,
-                            minWidth: 18, height: 18, borderRadius: 9,
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            padding: "0 5px", lineHeight: 1
-                          }}>
-                            {item.badge > 99 ? "99+" : item.badge}
-                          </span>
+                    <div style={{ maxHeight: "calc(85vh - 120px)", overflowY: "auto" }}>
+                      {[
+                        user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
+                        { icon: <User size={16} />, label: t("profile"), path: "/profile" },
+                        (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
+                        (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
+                        { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets", badge: unreadTicketsCount },
+                        { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
+                        { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
+                      ].filter(Boolean).map(item => (
+                        <button key={item.path} onClick={() => {
+                          analytics.track("nav_click_user_menu", { label: item.label, path: item.path });
+                          navigate(item.path);
+                          setOpen(false);
+                        }} style={{
+                          width: "100%", padding: "11px 16px", background: "none", border: "none",
+                          cursor: "pointer", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center",
+                          gap: 12, fontSize: 14, color: "var(--text-secondary)", transition: "background 0.2s"
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                          {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
+                          {item.badge > 0 && (
+                            <span style={{
+                              background: "#ef4444", color: "#fff",
+                              fontSize: 10, fontWeight: 800,
+                              minWidth: 18, height: 18, borderRadius: 9,
+                              display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              padding: "0 5px", lineHeight: 1
+                            }}>
+                              {item.badge > 99 ? "99+" : item.badge}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+
+                      {/* Separator */}
+                      <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+
+                      {/* ── Privacy & Data Submenu ── */}
+                      <div>
+                        <button
+                          onClick={() => setPrivacySubmenuOpen(!privacySubmenuOpen)}
+                          style={{
+                            width: "100%", padding: "11px 16px",
+                            background: privacySubmenuOpen ? "rgba(8, 145, 178, 0.08)" : "none",
+                            border: "none", cursor: "pointer",
+                            textAlign: i18n.language === 'ar' ? "right" : "left",
+                            display: "flex", alignItems: "center", gap: 12,
+                            fontSize: 14, fontWeight: 600, color: "var(--text-main)",
+                            transition: "background 0.2s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(8, 145, 178, 0.08)"}
+                          onMouseLeave={e => { if (!privacySubmenuOpen) e.currentTarget.style.background = "none"; }}
+                        >
+                          <ShieldCheck size={16} color="var(--brand)" />
+                          <span style={{ flex: 1 }}>{t("menu_privacy_data", "الخصوصية والبيانات")}</span>
+                          <ChevronDown size={14} style={{
+                            color: "var(--text-muted)",
+                            transform: privacySubmenuOpen ? "rotate(180deg)" : "none",
+                            transition: "transform 0.2s ease"
+                          }} />
+                        </button>
+
+                        {privacySubmenuOpen && (
+                          <div style={{ background: "rgba(8, 145, 178, 0.04)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "4px 0" }}>
+                            {[
+                              {
+                                icon: <Check size={14} />,
+                                label: t("menu_my_consents", "موافقاتي"),
+                                action: () => { navigate("/profile?tab=security"); setOpen(false); }
+                              },
+                              {
+                                icon: <Scale size={14} />,
+                                label: t("menu_my_data_rights", "حقوقي في البيانات"),
+                                action: () => { navigate("/profile?tab=security"); setOpen(false); }
+                              },
+                              {
+                                icon: <Download size={14} />,
+                                label: t("menu_download_data", "تحميل بياناتي"),
+                                action: () => { handleDownloadData(); setOpen(false); }
+                              },
+                              {
+                                icon: <Trash2 size={14} color="#dc2626" />,
+                                label: t("menu_delete_account", "حذف حسابي"),
+                                danger: true,
+                                action: () => { navigate("/profile?tab=security"); setOpen(false); }
+                              },
+                            ].map(sub => (
+                              <button
+                                key={sub.label}
+                                onClick={sub.action}
+                                style={{
+                                  width: "100%",
+                                  padding: i18n.language === 'ar' ? "9px 28px 9px 16px" : "9px 16px 9px 28px",
+                                  background: "none", border: "none", cursor: "pointer",
+                                  textAlign: i18n.language === 'ar' ? "right" : "left",
+                                  display: "flex", alignItems: "center", gap: 10,
+                                  fontSize: 13, color: sub.danger ? "#dc2626" : "var(--text-secondary)",
+                                  fontWeight: 500, transition: "all 0.15s"
+                                }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.background = sub.danger ? "#fef2f2" : "var(--bg)";
+                                  if (!sub.danger) e.currentTarget.style.color = "var(--brand)";
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.background = "none";
+                                  e.currentTarget.style.color = sub.danger ? "#dc2626" : "var(--text-secondary)";
+                                }}
+                              >
+                                {sub.icon}
+                                <span>{sub.label}</span>
+                              </button>
+                            ))}
+                          </div>
                         )}
+                      </div>
+
+                      {/* Separator */}
+                      <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+
+                      {/* ── Legal Submenu ── */}
+                      <div>
+                        <button
+                          onClick={() => setLegalSubmenuOpen(!legalSubmenuOpen)}
+                          style={{
+                            width: "100%", padding: "11px 16px",
+                            background: legalSubmenuOpen ? "rgba(8, 145, 178, 0.08)" : "none",
+                            border: "none", cursor: "pointer",
+                            textAlign: i18n.language === 'ar' ? "right" : "left",
+                            display: "flex", alignItems: "center", gap: 12,
+                            fontSize: 14, fontWeight: 600, color: "var(--text-main)",
+                            transition: "background 0.2s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(8, 145, 178, 0.08)"}
+                          onMouseLeave={e => { if (!legalSubmenuOpen) e.currentTarget.style.background = "none"; }}
+                        >
+                          <FileText size={16} color="var(--brand)" />
+                          <span style={{ flex: 1 }}>{t("menu_legal", "المعلومات القانونية")}</span>
+                          <ChevronDown size={14} style={{
+                            color: "var(--text-muted)",
+                            transform: legalSubmenuOpen ? "rotate(180deg)" : "none",
+                            transition: "transform 0.2s ease"
+                          }} />
+                        </button>
+
+                        {legalSubmenuOpen && (
+                          <div style={{ background: "rgba(8, 145, 178, 0.04)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "4px 0" }}>
+                            {[
+                              {
+                                icon: <FileText size={14} />,
+                                label: t("footer_terms", "شروط الاستخدام"),
+                                action: () => { navigate("/terms"); setOpen(false); }
+                              },
+                              {
+                                icon: <Shield size={14} />,
+                                label: t("footer_privacy", "سياسة الخصوصية"),
+                                action: () => { navigate("/privacy"); setOpen(false); }
+                              },
+                              {
+                                icon: <Scale size={14} />,
+                                label: t("footer_legal", "Mentions Légales"),
+                                action: () => { navigate("/legal"); setOpen(false); }
+                              },
+                            ].map(sub => (
+                              <button
+                                key={sub.label}
+                                onClick={sub.action}
+                                style={{
+                                  width: "100%",
+                                  padding: i18n.language === 'ar' ? "9px 28px 9px 16px" : "9px 16px 9px 28px",
+                                  background: "none", border: "none", cursor: "pointer",
+                                  textAlign: i18n.language === 'ar' ? "right" : "left",
+                                  display: "flex", alignItems: "center", gap: 10,
+                                  fontSize: 13, color: "var(--text-secondary)",
+                                  fontWeight: 500, transition: "all 0.15s"
+                                }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.background = "var(--bg)";
+                                  e.currentTarget.style.color = "var(--brand)";
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.background = "none";
+                                  e.currentTarget.style.color = "var(--text-secondary)";
+                                }}
+                              >
+                                {sub.icon}
+                                <span>{sub.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Separator */}
+                      <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+
+                      <button onClick={() => { onLogout(); setOpen(false); }} style={{
+                        width: "100%", padding: "13px 16px", background: "none", border: "none",
+                        color: "#dc2626", textAlign: i18n.language === 'ar' ? "right" : "left",
+                        display: "flex", alignItems: "center", gap: 12, cursor: "pointer",
+                        fontSize: 14, fontWeight: 600, transition: "background 0.2s"
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"}
+                        onMouseLeave={e => e.currentTarget.style.background = "none"}
+                      >
+                        <LogOut size={16} /> {t("logout")}
                       </button>
-                    ))}
-                    <button onClick={() => { onLogout(); setOpen(false); }} style={{ width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#dc2626", textAlign: i18n.language === 'ar' ? "right" : "left", display: "flex", alignItems: "center", gap: 12 }}>
-                      <LogOut size={16} /> {t("logout")}
-                    </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -1181,6 +1432,41 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
               )}
             </button>
           ))}
+          {user && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <button
+                onClick={() => { navigate("/profile?tab=security"); setMobileMenu(false); }}
+                style={{
+                  background: "var(--bg)", border: "1px solid var(--border)", padding: "12px 16px", borderRadius: 12,
+                  textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 600, color: "var(--text-main)",
+                  display: "flex", alignItems: "center", gap: 10, fontSize: 13
+                }}
+              >
+                <ShieldCheck size={16} color="var(--brand)" />
+                <span style={{ flex: 1 }}>{t("menu_privacy_data", "الخصوصية والبيانات")}</span>
+              </button>
+              <button
+                onClick={() => { navigate("/legal"); setMobileMenu(false); }}
+                style={{
+                  background: "var(--bg)", border: "1px solid var(--border)", padding: "12px 16px", borderRadius: 12,
+                  textAlign: i18n.language === 'ar' ? "right" : "left", fontWeight: 600, color: "var(--text-main)",
+                  display: "flex", alignItems: "center", gap: 10, fontSize: 13
+                }}
+              >
+                <FileText size={16} color="var(--brand)" />
+                <span style={{ flex: 1 }}>{t("menu_legal", "المعلومات القانونية")}</span>
+              </button>
+              <button
+                onClick={() => { onLogout(); setMobileMenu(false); }}
+                style={{
+                  padding: 14, background: "none", color: "#dc2626", border: "1px solid #fecaca",
+                  borderRadius: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+                }}
+              >
+                <LogOut size={16} /> {t("logout")}
+              </button>
+            </div>
+          )}
           {!user && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
               <button onClick={() => { navigate("/login"); setMobileMenu(false); }} style={{ padding: 16, background: "var(--brand)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 700 }}>{t("login")}</button>
@@ -2098,6 +2384,10 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
   const [form, setForm] = useState({ username: "", password: "", email: "", fullname: "", phone: "", gender: 0, nin: "" });
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
+  // PHASE 02C : consentements obligatoires — jamais pré-cochés
+  const [consentCgu, setConsentCgu] = useState(false);
+  const [consentPrivacy, setConsentPrivacy] = useState(false);
+  const consentValid = consentCgu && consentPrivacy;
   // حالة عرض شاشة OTP بعد إرسال طلب التسجيل
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -2139,7 +2429,11 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
     e.preventDefault(); setError(""); setL(true);
     analytics.track("register_attempt", { username: form.username, email: form.email });
     try {
-      const res = await onRegister(form);
+      const res = await onRegister({
+        ...form,
+        consent_cgu: consentCgu ? 1 : 0,
+        consent_privacy: consentPrivacy ? 1 : 0,
+      });
       analytics.track("register_success", { username: form.username, email: form.email });
       // الخادم يعيد requires_verification عند الحاجة لتأكيد الإيميل
       if (res && res.requires_verification) {
@@ -2248,7 +2542,41 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
                   </div>
                 </div>
                 <Input label={t("password") + " *"} type="password" value={form.password} onChange={e => f("password", e.target.value)} placeholder={t("password_hint")} required />
-                <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6 }}>
+
+                {/* PHASE 02C : Consentements obligatoires — Art. 6, 9, 32 Loi 18-07 */}
+                <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, color: "#0369a1", fontWeight: 700, marginBottom: 10 }}>يجب قبول ما يلي قبل إنشاء الحساب:</div>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 10 }}>
+                    <input
+                      type="checkbox"
+                      id="consent_cgu_patient"
+                      checked={consentCgu}
+                      onChange={e => setConsentCgu(e.target.checked)}
+                      style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--brand)", flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>
+                      أقر بأنني قرأت وأوافق على{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>شروط الاستخدام (CGU)</button>
+                      {" "}الخاصة بمنصة طبيبي. *
+                    </span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      id="consent_privacy_patient"
+                      checked={consentPrivacy}
+                      onChange={e => setConsentPrivacy(e.target.checked)}
+                      style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--brand)", flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>
+                      أوافق على{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>سياسة الخصوصية وحماية البيانات الشخصية</button>
+                      {" "}وفق أحكام القانون الجزائري 18-07. *
+                    </span>
+                  </label>
+                </div>
+
+                <Btn type="submit" loading={loading} disabled={!consentValid} style={{ width: "100%", justifyContent: "center", padding: 12, marginTop: 6, opacity: consentValid ? 1 : 0.5, cursor: consentValid ? "pointer" : "not-allowed" }}>
                   {loading ? t("creating_account") : t("create_account_btn")}
                 </Btn>
               </form>
@@ -3535,7 +3863,12 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const confirmBook = async () => {
     setL(true);
     try {
-      const body = { clinics_doctor_id: doctor.clinicsdoctor_id, date, time: selSlot };
+      const body = {
+        clinics_doctor_id: doctor.clinicsdoctor_id,
+        date,
+        time: selSlot,
+        consent_health: agreed ? 1 : 0
+      };
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       if (patientMessage) body.message = patientMessage;
@@ -4604,6 +4937,10 @@ function RegisterClinicPage({ navigate }) {
   const [done, setDone] = useState(false);
   const [form, setForm] = useState({ clinic_name: '', email: '', phone: '', password: '', address: '', notes: '', latitude: 0, longitude: 0 });
   const [errors, setErrors] = useState({});
+  // PHASE 02C : consentements obligatoires
+  const [consentCguClinic, setConsentCguClinic] = useState(false);
+  const [consentPrivacyClinic, setConsentPrivacyClinic] = useState(false);
+  const consentClinicValid = consentCguClinic && consentPrivacyClinic;
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
 
@@ -4636,9 +4973,10 @@ function RegisterClinicPage({ navigate }) {
 
   const submit = async () => {
     if (!validate()) return;
+    if (!consentClinicValid) { show('يجب قبول شروط الاستخدام وسياسة الخصوصية', 'error'); return; }
     setLoading(true);
     try {
-      await api.register.clinic(form);
+      await api.register.clinic({ ...form, consent_cgu: 1, consent_privacy: 1 });
       setDone(true);
     } catch (e) { show(e.message, 'error'); }
     finally { setLoading(false); }
@@ -4706,18 +5044,25 @@ function RegisterClinicPage({ navigate }) {
           </div>
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>{t("gps_hint")}</p>
         </div>
-        <div style={{ background: '#f0fdfa', borderRadius: 12, border: '1px solid #ccfbf1', padding: '16px 20px', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0f766e', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
-            <Shield size={16} /> {t("why_join_tabibi")}
-          </div>
-          <ul style={{ margin: 0, [i18n.language === 'ar' ? 'paddingRight' : 'paddingLeft']: 20, fontSize: 13, color: '#134e4a', lineHeight: 2, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
-            <li>{t("why_join_1")}</li>
-            <li>{t("why_join_2")}</li>
-            <li>{t("why_join_3")}</li>
-            <li>{t("why_join_4")}</li>
-          </ul>
+        {/* PHASE 02C : Consentements obligatoires */}
+        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '14px 20px', marginBottom: 20 }}>
+          <div style={{ fontSize: 12, color: '#0369a1', fontWeight: 700, marginBottom: 10 }}>يجب قبول ما يلي قبل إرسال الطلب:</div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 10 }}>
+            <input type="checkbox" id="consent_cgu_clinic" checked={consentCguClinic} onChange={e => setConsentCguClinic(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--brand)', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.5 }}>أقر بأنني قرأت وأوافق على{' '}
+              <button type="button" onClick={() => navigate('/terms')} style={{ color: 'var(--brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>شروط الاستخدام</button>{' '}الخاصة بمنصة طبيبي. *
+            </span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" id="consent_privacy_clinic" checked={consentPrivacyClinic} onChange={e => setConsentPrivacyClinic(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--brand)', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.5 }}>أوافق على{' '}
+              <button type="button" onClick={() => navigate('/privacy')} style={{ color: 'var(--brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>سياسة الخصوصية وحماية البيانات</button>{' '}وفق القانون الجزائري 18-07. *
+            </span>
+          </label>
         </div>
-        <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
+        <Btn onClick={submit} loading={loading} disabled={!consentClinicValid} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16, opacity: consentClinicValid ? 1 : 0.5 }}>
           <Send size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("submit_join_btn")}
         </Btn>
         <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 14 }}>
@@ -4738,6 +5083,10 @@ function RegisterDoctorPage({ navigate, qs }) {
   const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '', doctor_id: '' });
   const [errors, setErrors] = useState({});
   const [specs, setSpecs] = useState([]);
+  // PHASE 02C : consentements obligatoires
+  const [consentCguDoc, setConsentCguDoc] = useState(false);
+  const [consentPrivacyDoc, setConsentPrivacyDoc] = useState(false);
+  const consentDocValid = consentCguDoc && consentPrivacyDoc;
 
   useEffect(() => {
     api.specialties().then(setSpecs).catch(() => { });
@@ -4763,9 +5112,10 @@ function RegisterDoctorPage({ navigate, qs }) {
 
   const submit = async () => {
     if (!validate()) return;
+    if (!consentDocValid) { show('يجب قبول شروط الاستخدام وسياسة الخصوصية', 'error'); return; }
     setLoading(true);
     try {
-      await api.register.doctor(form);
+      await api.register.doctor({ ...form, consent_cgu: 1, consent_privacy: 1 });
       setDone(true);
     } catch (e) { show(e.message, 'error'); }
     finally { setLoading(false); }
@@ -4821,15 +5171,25 @@ function RegisterDoctorPage({ navigate, qs }) {
           <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
           <Input label={t("nin_label") || "الرقم الوطني"} placeholder="الرقم الوطني (NIN)" value={form.nin} onChange={e => set('nin', e.target.value)} error={errors.nin} />
         </div>
-        <div style={{ background: '#eff6ff', borderRadius: 12, border: '1px solid #bfdbfe', padding: '16px 20px', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e40af', fontWeight: 700, marginBottom: 8, fontSize: 14 }}>
-            <AlertCircle size={16} /> {t("important_note")}
-          </div>
-          <p style={{ margin: 0, fontSize: 13, color: '#1e3a8a', lineHeight: 1.8, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
-            {t("doctor_join_hint")}
-          </p>
+        {/* PHASE 02C : Consentements obligatoires */}
+        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '14px 20px', marginBottom: 20 }}>
+          <div style={{ fontSize: 12, color: '#0369a1', fontWeight: 700, marginBottom: 10 }}>يجب قبول ما يلي قبل إرسال الطلب:</div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 10 }}>
+            <input type="checkbox" id="consent_cgu_doctor" checked={consentCguDoc} onChange={e => setConsentCguDoc(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: '#2563eb', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.5 }}>أقر بأنني قرأت وأوافق على{' '}
+              <button type="button" onClick={() => navigate('/terms')} style={{ color: '#2563eb', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>شروط الاستخدام</button>{' '}الخاصة بمنصة طبيبي. *
+            </span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" id="consent_privacy_doctor" checked={consentPrivacyDoc} onChange={e => setConsentPrivacyDoc(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: '#2563eb', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.5 }}>أوافق على{' '}
+              <button type="button" onClick={() => navigate('/privacy')} style={{ color: '#2563eb', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>سياسة الخصوصية وحماية البيانات</button>{' '}وفق القانون الجزائري 18-07. *
+            </span>
+          </label>
         </div>
-        <Btn onClick={submit} loading={loading} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16 }}>
+        <Btn onClick={submit} loading={loading} disabled={!consentDocValid} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16, opacity: consentDocValid ? 1 : 0.5 }}>
           <Send size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("submit_join_btn")}
         </Btn>
       </Card>
@@ -5333,6 +5693,91 @@ function PrivacyPolicyPage({ navigate }) {
   );
 }
 
+// ── PAGE: LEGAL NOTICE (MENTIONS LÉGALES) ────────────────────
+// Chantier 4 — Art. 32 Loi 18-07 : Identification légale de l'éditeur
+function LegalNoticePage({ navigate }) {
+  const { i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const isAr = i18n.language === 'ar';
+
+  const sections = [
+    {
+      title: isAr ? "1. تعريف الناشر" : "1. Éditeur de la plateforme",
+      content: isAr
+        ? "منصة طبيبي هي خدمة رقمية تطورها شركة STELLARSOFT، شركة برمجيات جزائرية. يمكن التواصل معنا عبر: contact@tabibi.dz"
+        : "La plateforme Tabibi est un service numérique édité par la société STELLARSOFT, société algérienne de développement logiciel. Contact : contact@tabibi.dz"
+    },
+    {
+      title: isAr ? "2. مسؤول معالجة البيانات" : "2. Responsable du traitement des données",
+      content: isAr
+        ? "وفقًا لأحكام القانون رقم 18-07 المؤرخ في 10 يونيو 2018 المتعلق بحماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، تُعدّ STELLARSOFT الجهة المسؤولة عن معالجة البيانات الشخصية للمستخدمين الذين يصلون إلى منصة طبيبي."
+        : "Conformément à la loi n° 18-07 du 10 juin 2018 relative à la protection des personnes physiques dans le traitement des données à caractère personnel, STELLARSOFT est responsable du traitement des données personnelles des utilisateurs accédant à la plateforme Tabibi."
+    },
+    {
+      title: isAr ? "3. الاتصال بشأن حماية البيانات الشخصية" : "3. Contact relatif aux données personnelles",
+      content: isAr
+        ? "لممارسة حقوقك (حق الاطلاع، التصحيح، الحذف، المعارضة) المنصوص عليها في المواد 33-36 من القانون 18-07، يُرجى التواصل عبر: contact@tabibi.dz"
+        : "Pour exercer vos droits (accès, rectification, suppression, opposition) prévus aux articles 33 à 36 de la loi 18-07, veuillez contacter : contact@tabibi.dz"
+    },
+    {
+      title: isAr ? "4. استضافة المنصة" : "4. Hébergement",
+      content: isAr
+        ? "يتم استضافة منصة طبيبي على خوادم متوافقة مع التشريعات الجزائرية المتعلقة بحماية البيانات. تسعى STELLARSOFT إلى ضمان أن تتم معالجة بيانات المستخدمين داخل الأراضي الجزائرية وفقًا للمادة 44 من القانون 18-07."
+        : "La plateforme Tabibi est hébergée sur des serveurs conformes à la législation algérienne en matière de protection des données. STELLARSOFT s'efforce de garantir que les données des utilisateurs sont traitées sur le territoire algérien conformément à l'article 44 de la loi 18-07."
+    },
+    {
+      title: isAr ? "5. الملكية الفكرية" : "5. Propriété intellectuelle",
+      content: isAr
+        ? "جميع عناصر منصة طبيبي (الشعار، التصميم، الكود المصدري، المحتوى) هي ملك حصري لشركة STELLARSOFT ومحمية بموجب القوانين المعمول بها. يُحظر أي إعادة استخدام أو نسخ دون إذن كتابي مسبق."
+        : "L'ensemble des éléments de la plateforme Tabibi (logo, design, code source, contenus) sont la propriété exclusive de STELLARSOFT et protégés par les lois en vigueur. Toute reproduction ou réutilisation sans autorisation préalable écrite est interdite."
+    },
+    {
+      title: isAr ? "6. قانون الإشعار وتاريخ التحديث" : "6. Loi applicable et mise à jour",
+      content: isAr
+        ? "يخضع هذا الإشعار القانوني للقانون الجزائري، ولا سيما القانون رقم 18-07 المؤرخ في 10 يونيو 2018 والقانون رقم 25-11 المؤرخ في 24 يوليو 2025. آخر تحديث: سبتمبر 2026."
+        : "Le présent avis légal est soumis au droit algérien, notamment à la loi n° 18-07 du 10 juin 2018 et à la loi n° 25-11 du 24 juillet 2025. Dernière mise à jour : septembre 2026."
+    }
+  ];
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: isMobile ? "16px" : "28px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 36 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: "#f0f9ff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+          <Scale size={32} color="var(--brand)" />
+        </div>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: "#0c4a6e", marginBottom: 8 }}>
+          {isAr ? "الإشعار القانوني — منصة طبيبي" : "Mentions Légales — Plateforme Tabibi"}
+        </h1>
+        <p style={{ color: "#64748b", fontSize: 14 }}>
+          {isAr
+            ? "وفقًا لأحكام القانون رقم 18-07 المؤرخ في 10 يونيو 2018 والقانون رقم 25-11 المؤرخ في 24 يوليو 2025."
+            : "Conformément aux dispositions de la loi n° 18-07 du 10 juin 2018 et de la loi n° 25-11 du 24 juillet 2025."}
+        </p>
+      </div>
+      <Card style={{ padding: isMobile ? 20 : 40 }}>
+        {sections.map((s, i) => (
+          <div key={i} style={{ marginBottom: 28, borderBottom: i < sections.length - 1 ? "1px solid var(--border)" : "none", paddingBottom: i < sections.length - 1 ? 24 : 0 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "var(--brand)", marginBottom: 10 }}>{s.title}</h3>
+            <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.8, textAlign: "justify", margin: 0 }}>{s.content}</p>
+          </div>
+        ))}
+        <div style={{ marginTop: 24, padding: "16px 20px", background: "#f0f9ff", borderRadius: 10, border: "1px solid #bae6fd" }}>
+          <div style={{ fontSize: 13, color: "#0369a1", fontWeight: 700, marginBottom: 6 }}>
+            {isAr ? "📧 التواصل المباشر" : "📧 Contact direct"}
+          </div>
+          <div style={{ fontSize: 14, color: "#1e293b" }}>
+            {isAr ? "للاستفسارات وممارسة حقوقك المتعلقة بالبيانات الشخصية:" : "Pour toute demande relative aux données personnelles ou exercice de vos droits :"}
+            {" "}<a href="mailto:contact@tabibi.dz" style={{ color: "var(--brand)", fontWeight: 700 }}>contact@tabibi.dz</a>
+          </div>
+        </div>
+        <div style={{ marginTop: 20, textAlign: "center" }}>
+          <Btn onClick={() => navigate("/")}>{isAr ? "العودة للرئيسية" : "Retour à l'accueil"}</Btn>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ── PAGE: TERMS OF USE ────────────────────────────────────────
 function TermsOfUsePage({ navigate }) {
   const { t } = useTranslation();
@@ -5735,7 +6180,7 @@ function NewTicketPage({ navigate, user, qs }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: PROFILE (ACCOUNT SETTINGS)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function ProfilePage({ user, navigate }) {
+function ProfilePage({ user, navigate, qs }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
 
@@ -5763,8 +6208,19 @@ function ProfilePage({ user, navigate }) {
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
   const [doctorActiveTab, setDoctorActiveTab] = useState("profile"); // 'profile' | 'reasons' | 'appointment_settings' | 'off_hours'
-  const [patientActiveTab, setPatientActiveTab] = useState("profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
-  const [clinicActiveTab, setClinicActiveTab] = useState("profile"); // 'profile' | 'security'
+  const initialTab = (qs && new URLSearchParams(qs).get("tab") === "security") ? "security" : "profile";
+  const [patientActiveTab, setPatientActiveTab] = useState(initialTab); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
+  const [clinicActiveTab, setClinicActiveTab] = useState(initialTab); // 'profile' | 'security'
+
+  useEffect(() => {
+    if (qs) {
+      const tab = new URLSearchParams(qs).get("tab");
+      if (tab === "security") {
+        setPatientActiveTab("security");
+        setClinicActiveTab("security");
+      }
+    }
+  }, [qs]);
 
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
@@ -6688,6 +7144,81 @@ function ProfilePage({ user, navigate }) {
               </Btn>
             </div>
           </Card>
+
+          {/* PHASE 02C : Droits & Vie privée — Art. 33-36 Loi 18-07 */}
+          <Card style={{ marginTop: 16, border: "1px solid #fee2e2" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#dc2626,#b91c1c)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Scale size={16} color="#fff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#7f1d1d", fontSize: 16 }}>حقوقك القانونية (Art. 33-36 Loi 18-07)</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>ممارسة حقوق الوصول، المعارضة، والحذف وفق القانون 18-07</p>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ padding: "12px 16px", background: "#fef2f2", borderRadius: 10, border: "1px solid #fecaca" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 4 }}>🚫 المعارضة للاستخدام التجاري (Art. 36)</div>
+                <div style={{ fontSize: 12, color: "#7f1d1d", lineHeight: 1.6, marginBottom: 10 }}>
+                  يحق لك المعارضة دون أسباب وبدون تكلفة لاستخدام بياناتك في الاستهداف التجاري أو الإعلاني.
+                </div>
+                <Btn
+                  variant="ghost"
+                  style={{ fontSize: 12, padding: "6px 14px", color: "#dc2626", borderColor: "#fecaca" }}
+                  onClick={async () => {
+                    try {
+                      await api.consent.withdraw({ type: 'opposition_promo' });
+                      show('تم تسجيل معارضتك بنجاح. لن تتلقى رسائل تجارية بعد الآن.', 'success');
+                    } catch (e) { show(e.message, 'error'); }
+                  }}
+                >
+                  تسجيل المعارضة للاستخدام التجاري
+                </Btn>
+              </div>
+
+              <div style={{ padding: "12px 16px", background: "#fff7ed", borderRadius: 10, border: "1px solid #fed7aa" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#9a3412", marginBottom: 4 }}>📋 الاطلاع على موافقاتي (Art. 33)</div>
+                <div style={{ fontSize: 12, color: "#7c2d12", lineHeight: 1.6, marginBottom: 10 }}>
+                  يمكنك الاطلاع على سجل الموافقات التي أعطيتها لمنصة طبيبي.
+                </div>
+                <Btn
+                  variant="ghost"
+                  style={{ fontSize: 12, padding: "6px 14px", color: "#ea580c", borderColor: "#fed7aa" }}
+                  onClick={() => navigate('/privacy')}
+                >
+                  الاطلاع على سياسة الخصوصية
+                </Btn>
+              </div>
+
+              <div style={{ padding: "12px 16px", background: "#fef2f2", borderRadius: 10, border: "2px solid #fca5a5" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 4 }}>⚠️ حذف الحساب وإخفاء البيانات (Art. 35)</div>
+                <div style={{ fontSize: 12, color: "#7f1d1d", lineHeight: 1.6, marginBottom: 10 }}>
+                  يحق لك طلب حذف حسابك وإخفاء بياناتك الشخصية. ملاحظة: سجلات المواعيد المنجزة قد تُحفظ بصيغة مجهولة الهوية لصالح الطبيب المعالج وفق الالتزامات القانونية.
+                </div>
+                <Btn
+                  variant="ghost"
+                  style={{ fontSize: 12, padding: "6px 14px", color: "#dc2626", borderColor: "#fca5a5", background: "#fff" }}
+                  onClick={async () => {
+                    const confirmed = window.confirm('⚠️ هل أنت متأكد من حذف حسابك؟ هذا الإجراء لا يمكن التراجع عنه. سيتم إخفاء جميع بياناتك الشخصية.');
+                    if (!confirmed) return;
+                    try {
+                      await api.consent.deleteAccount();
+                      show('تم حذف الحساب بنجاح. سيتم تسجيل خروجك.', 'success');
+                      setTimeout(() => { localStorage.clear(); window.location.href = '/'; }, 2000);
+                    } catch (e) { show(e.message, 'error'); }
+                  }}
+                >
+                  <Trash2 size={13} style={{ marginLeft: 6 }} /> طلب حذف الحساب
+                </Btn>
+              </div>
+
+              <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", paddingTop: 8 }}>
+                {t("privacy_contact_note", "للتواصل بشأن حقوقك المتعلقة بالبيانات الشخصية:")}{" "}
+                <a href="mailto:contact@tabibi.dz" style={{ color: "var(--brand)", fontWeight: 700 }}>contact@tabibi.dz</a>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -7222,58 +7753,367 @@ const BackgroundDecoration = () => (
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── GLOBAL LAYOUT: FOOTER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function Footer({ navigate }) {
-  const { t, i18n } = useTranslation();
-  const isMobile = useIsMobile();
+function FooterDropdown({ label, items, isOpen, onToggle, onClose, align = "center" }) {
   return (
-    <footer style={{
-      background: "var(--card-bg)",
-      borderTop: "1px solid var(--border)",
-      position: isMobile ? "relative" : "fixed",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 90,
-      boxShadow: isMobile ? "none" : "0 -4px 20px rgba(0,0,0,0.03)"
-    }}>
-      <div style={{
-        maxWidth: 1200, margin: "0 auto", padding: isMobile ? "20px" : "18px 40px",
-        display: "flex", flexDirection: isMobile ? "column" : "row",
-        alignItems: "center", justifyContent: "space-between", gap: isMobile ? 16 : 0
-      }}>
-        <div onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Tabibi" style={{ width: 32, height: 32, objectFit: "contain" }} />
-          <span style={{ fontSize: 16, fontWeight: 900, color: "var(--brand)" }}>{t("app_name")}</span>
-          <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500, [i18n.language === 'ar' ? "marginRight" : "marginLeft"]: 8 }}>
-            {t("footer_copy")}
-          </span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: isMobile ? "center" : "flex-end", gap: 10 }}>
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        style={{
+          background: "none", border: "none", cursor: "pointer",
+          fontSize: 12, color: isOpen ? "var(--brand)" : "var(--text-secondary)",
+          fontWeight: 600, transition: "color 0.2s", padding: "4px 6px",
+          display: "inline-flex", alignItems: "center", gap: 5,
+          borderRadius: 6
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = "var(--brand)"}
+        onMouseLeave={e => { if (!isOpen) e.currentTarget.style.color = "var(--text-secondary)"; }}
+      >
+        <span>{label}</span>
+        <ChevronDown size={13} style={{
+          transform: isOpen ? "rotate(180deg)" : "none",
+          transition: "transform 0.2s ease"
+        }} />
+      </button>
 
-          <div style={{ display: "flex", gap: isMobile ? 16 : 28, flexWrap: "wrap", justifyContent: "center" }}>
-            {[
-              { label: t("footer_mobile_app", "تطبيق طبيبي"), path: "/app" },
-              { label: t("footer_privacy"), path: "/privacy" },
-              { label: t("footer_terms"), path: "/terms" },
-              { label: t("join_as_doctor"), path: "/register-doctor" },
-              { label: t("footer_learn_more"), path: "/learn-more" }
-            ].map(link => (
+      {isOpen && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 998 }}
+            onClick={onClose}
+          />
+          <div style={{
+            position: "absolute",
+            bottom: "calc(100% + 10px)",
+            left: align === "right" ? "auto" : 0,
+            right: align === "right" ? 0 : "auto",
+            background: "var(--card-bg)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            boxShadow: "0 -8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+            minWidth: 200,
+            padding: "6px 0",
+            zIndex: 999,
+            display: "flex",
+            flexDirection: "column",
+            animation: "fadeIn 0.15s ease",
+          }}>
+            {items.map((item, idx) => (
               <button
-                key={link.label}
-                onClick={() => link.path.startsWith("/") ? navigate(link.path) : null}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
-                  transition: "color 0.2s", padding: 0
+                key={idx}
+                onClick={() => {
+                  onClose();
+                  item.action();
                 }}
-                onMouseEnter={e => e.target.style.color = "var(--brand)"}
-                onMouseLeave={e => e.target.style.color = "var(--text-secondary)"}
-              >{link.label}</button>
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "9px 16px",
+                  textAlign: "start",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                  transition: "background 0.15s, color 0.15s"
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "var(--bg)";
+                  e.currentTarget.style.color = "var(--brand)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "none";
+                  e.currentTarget.style.color = "var(--text-secondary)";
+                }}
+              >
+                {item.icon && <span style={{ display: "flex", opacity: 0.8 }}>{item.icon}</span>}
+                <span>{item.label}</span>
+              </button>
             ))}
           </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CookiesPrivacyModal({ isOpen, onClose, show, navigate }) {
+  const { t, i18n } = useTranslation();
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(
+    localStorage.getItem("tabibi_analytics_disabled") !== "true"
+  );
+
+  if (!isOpen) return null;
+
+  const handleSave = () => {
+    if (!analyticsEnabled) {
+      localStorage.setItem("tabibi_analytics_disabled", "true");
+    } else {
+      localStorage.removeItem("tabibi_analytics_disabled");
+    }
+    if (show) show(t("cookies_saved_success"), "success");
+    onClose();
+  };
+
+  const handleAcceptAll = () => {
+    localStorage.removeItem("tabibi_analytics_disabled");
+    setAnalyticsEnabled(true);
+    if (show) show(t("cookies_saved_success"), "success");
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 10000, padding: 16
+    }}>
+      <div style={{
+        background: "var(--card-bg)",
+        border: "1px solid var(--border)",
+        borderRadius: 20,
+        boxShadow: "var(--shadow-xl)",
+        maxWidth: 520, width: "100%",
+        padding: 24,
+        maxHeight: "90vh", overflowY: "auto",
+        animation: "fadeIn 0.2s ease"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(8,145,178,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Lock size={20} color="var(--brand)" />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--text-main)" }}>
+                {t("cookies_modal_title")}
+              </h3>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                {t("cookies_modal_subtitle")}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+          {/* Essential cookies */}
+          <div style={{ padding: 14, background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>
+                {t("cookies_essential_title")}
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 800, color: "#059669",
+                background: "#ecfdf5", border: "1px solid #a7f3d0",
+                padding: "2px 8px", borderRadius: 12
+              }}>
+                {t("cookies_status_active")}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              {t("cookies_essential_desc")}
+            </p>
+          </div>
+
+          {/* Analytics cookies */}
+          <div style={{ padding: 14, background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>
+                {t("cookies_analytics_title")}
+              </span>
+              <label style={{ position: "relative", display: "inline-block", width: 40, height: 22, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={analyticsEnabled}
+                  onChange={e => setAnalyticsEnabled(e.target.checked)}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: "absolute", inset: 0,
+                  background: analyticsEnabled ? "var(--brand)" : "#cbd5e1",
+                  borderRadius: 22, transition: "0.2s"
+                }}>
+                  <span style={{
+                    position: "absolute",
+                    left: analyticsEnabled ? 20 : 3,
+                    top: 3, width: 16, height: 16,
+                    background: "#fff", borderRadius: "50%",
+                    transition: "0.2s"
+                  }} />
+                </span>
+              </label>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              {t("cookies_analytics_desc")}
+            </p>
+          </div>
+
+          <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", marginTop: 4 }}>
+            <span>{t("terms9_title", "Pour en savoir plus")} : </span>
+            <button
+              onClick={() => { onClose(); navigate("/privacy"); }}
+              style={{ background: "none", border: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 700, padding: 0, fontSize: 12, textDecoration: "underline" }}
+            >
+              {t("footer_privacy")}
+            </button>
+            {" • "}
+            <button
+              onClick={() => { onClose(); navigate("/legal"); }}
+              style={{ background: "none", border: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 700, padding: 0, fontSize: 12, textDecoration: "underline" }}
+            >
+              {t("footer_legal")}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <Btn variant="secondary" onClick={handleSave} style={{ fontSize: 13, padding: "8px 18px" }}>
+            {t("cookies_save")}
+          </Btn>
+          <Btn onClick={handleAcceptAll} style={{ fontSize: 13, padding: "8px 20px" }}>
+            {t("cookies_accept_all")}
+          </Btn>
         </div>
       </div>
-    </footer>
+    </div>
+  );
+}
+
+function Footer({ navigate, show }) {
+  const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
+  const [proMenuOpen, setProMenuOpen] = useState(false);
+  const [legalMenuOpen, setLegalMenuOpen] = useState(false);
+  const [cookiesModalOpen, setCookiesModalOpen] = useState(false);
+
+  return (
+    <>
+      <footer style={{
+        background: "var(--card-bg)",
+        borderTop: "1px solid var(--border)",
+        position: isMobile ? "relative" : "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 90,
+        boxShadow: isMobile ? "none" : "0 -4px 20px rgba(0,0,0,0.03)"
+      }}>
+        <div style={{
+          maxWidth: 1200, margin: "0 auto", padding: isMobile ? "20px" : "18px 40px",
+          display: "flex", flexDirection: isMobile ? "column" : "row",
+          alignItems: "center", justifyContent: "space-between", gap: isMobile ? 16 : 0
+        }}>
+          <div onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Tabibi" style={{ width: 32, height: 32, objectFit: "contain" }} />
+            <span style={{ fontSize: 16, fontWeight: 900, color: "var(--brand)" }}>{t("app_name")}</span>
+            <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500, [i18n.language === 'ar' ? "marginRight" : "marginLeft"]: 8 }}>
+              {t("footer_copy")}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: isMobile ? 14 : 24, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+            {/* 1. Mobile App */}
+            <button
+              onClick={() => navigate("/app")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
+                transition: "color 0.2s", padding: "4px 6px"
+              }}
+              onMouseEnter={e => e.target.style.color = "var(--brand)"}
+              onMouseLeave={e => e.target.style.color = "var(--text-secondary)"}
+            >
+              {t("footer_mobile_app", "تطبيق طبيبي")}
+            </button>
+
+            {/* 2. For Professionals ▾ */}
+            <FooterDropdown
+              label={t("footer_for_professionals", "للمهنيين")}
+              isOpen={proMenuOpen}
+              onToggle={() => {
+                setProMenuOpen(!proMenuOpen);
+                setLegalMenuOpen(false);
+              }}
+              onClose={() => setProMenuOpen(false)}
+              align={i18n.language === 'ar' ? 'right' : 'left'}
+              items={[
+                {
+                  label: t("join_as_doctor", "انضم كطبيب"),
+                  icon: <UserPlus size={14} color="var(--brand)" />,
+                  action: () => navigate("/register-doctor")
+                },
+                {
+                  label: t("join_as_clinic", "انضم كعيادة"),
+                  icon: <Building size={14} color="var(--brand)" />,
+                  action: () => navigate("/register-clinic")
+                }
+              ]}
+            />
+
+            {/* 3. Privacy & Legal ▾ */}
+            <FooterDropdown
+              label={t("footer_privacy_legal", "الخصوصية والقانونية")}
+              isOpen={legalMenuOpen}
+              onToggle={() => {
+                setLegalMenuOpen(!legalMenuOpen);
+                setProMenuOpen(false);
+              }}
+              onClose={() => setLegalMenuOpen(false)}
+              align={i18n.language === 'ar' ? 'right' : 'left'}
+              items={[
+                {
+                  label: t("footer_privacy", "سياسة الخصوصية"),
+                  icon: <Shield size={14} color="var(--brand)" />,
+                  action: () => navigate("/privacy")
+                },
+                {
+                  label: t("footer_terms", "شروط الاستخدام"),
+                  icon: <FileText size={14} color="var(--brand)" />,
+                  action: () => navigate("/terms")
+                },
+                {
+                  label: t("footer_legal", "Mentions Légales"),
+                  icon: <Scale size={14} color="var(--brand)" />,
+                  action: () => navigate("/legal")
+                },
+                {
+                  label: t("footer_cookies_settings", "ملفات تعريف الارتباط والخصوصية"),
+                  icon: <Lock size={14} color="var(--brand)" />,
+                  action: () => setCookiesModalOpen(true)
+                }
+              ]}
+            />
+
+            {/* 4. About */}
+            <button
+              onClick={() => navigate("/learn-more")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
+                transition: "color 0.2s", padding: "4px 6px"
+              }}
+              onMouseEnter={e => e.target.style.color = "var(--brand)"}
+              onMouseLeave={e => e.target.style.color = "var(--text-secondary)"}
+            >
+              {t("footer_learn_more", "حول طبيبي")}
+            </button>
+          </div>
+        </div>
+      </footer>
+
+      {/* Cookies / Privacy Settings Modal */}
+      <CookiesPrivacyModal
+        isOpen={cookiesModalOpen}
+        onClose={() => setCookiesModalOpen(false)}
+        show={show}
+        navigate={navigate}
+      />
+    </>
   );
 }
 
@@ -7609,6 +8449,8 @@ function MainApp() {
         return <LawPDFViewerPage navigate={navigate} />;
       case "/terms":
         return <TermsOfUsePage navigate={navigate} />;
+      case "/legal":
+        return <LegalNoticePage navigate={navigate} />;
       case "/app":
         return <AppDownloadPage key="app_download" navigate={navigate} user={user} />;
       case "/appointments":
@@ -7617,7 +8459,7 @@ function MainApp() {
         return <AppointmentsPage key="appts" navigate={navigate} user={user} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <ProfilePage key="profile" user={user} navigate={navigate} />;
+        return <ProfilePage key={route} user={user} navigate={navigate} qs={qs} />;
       case "/family":
         if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
         return <FamilyPage navigate={navigate} user={user} />;
@@ -7698,7 +8540,7 @@ function MainApp() {
           </motion.div>
         </AnimatePresence>
       </div>
-      <Footer navigate={navigate} />
+      <Footer navigate={navigate} show={show} />
 
       {showExitModal && (
         <ExitModal

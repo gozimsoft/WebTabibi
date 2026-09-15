@@ -459,6 +459,11 @@ class AppointmentController
                 Response::error("يرجى تحديد الطبيب والتاريخ والوقت لإتمام الحجز.", 422);
         }
 
+        // التحقق من الموافقة الصريحة على معالجة البيانات الصحية (القانون 18-07 المادتين 8 و 9)
+        if (empty($data['consent_health'])) {
+            Response::error("الموافقة الصريحة على معالجة البيانات الصحية لإتمام حجز الموعد مطلوبة وفقاً للمادتين 8 و 9 من القانون 18-07.", 422);
+        }
+
         $pdo = Database::getInstance();
 
         $stmt = $pdo->prepare("SELECT * FROM patients WHERE user_id = ? LIMIT 1");
@@ -552,8 +557,8 @@ class AppointmentController
         $pdo->prepare("
             INSERT INTO apointements
                 (id, apointementdate, note, patientname, clinicsdoctor_id,
-                 reason_id, patient_id, phone, status, updatedat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+                 reason_id, patient_id, phone, status, consent_health, consent_at, updatedat)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, NOW(), NOW())
         ")->execute([
                     $appointmentId,
                     $appointmentDatetime,
@@ -564,6 +569,21 @@ class AppointmentController
                     $patientId,
                     $patient['phone'] ?? ''
                 ]);
+
+        // تسجيل الموافقة على البيانات الصحية في consent_logs وفقاً للقانون 18-07
+        require_once __DIR__ . '/../helpers/ConsentHelper.php';
+        try {
+            ConsentHelper::log(
+                $pdo,
+                $session['user_id'],
+                $patientId,
+                ConsentHelper::TYPE_HEALTH_DATA,
+                1,
+                'appointment'
+            );
+        } catch (Throwable $e) {
+            error_log('Consent logging error (appointment): ' . $e->getMessage());
+        }
 
         // إرسال تنبيه للطبيب والعيادة والمريض عند حجز موعد جديد
         require_once __DIR__ . '/../helpers/NotificationHelper.php';

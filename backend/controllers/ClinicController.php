@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Response.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../helpers/PasswordHelper.php';
 
 class ClinicController
 {
@@ -60,7 +61,8 @@ class ClinicController
         }
         if (!empty($data['password'])) {
             $userFields[] = "`password` = ?";
-            $userValues[] = base64_encode($data['password']);
+            // PHASE 02B : Nouveau mot de passe hashé en Bcrypt
+            $userValues[] = PasswordHelper::hash($data['password']);
         }
         if (!empty($userFields)) {
             $userValues[] = $session['user_id'];
