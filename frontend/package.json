@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:sync": "npm run build && node cap-sync.cjs sync android",
+    "android:build": "npm run build && node cap-sync.cjs sync android && cd android && gradlew assembleRelease",
+    "android:bundle": "npm run build && node cap-sync.cjs sync android && cd android && gradlew bundleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
