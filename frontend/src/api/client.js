@@ -31,6 +31,25 @@ async function request(method, path, body = null, auth = true) {
   }
 }
 
+// Broadcast helper for real-time cross-tab and in-app synchronization
+export const notifyAppointmentSync = (detail = {}) => {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tabibi:appointment_sync', { detail }));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('tabibi_sync');
+        bc.postMessage({ type: 'appointment_updated', detail, timestamp: Date.now() });
+        bc.close();
+      }
+      try {
+        localStorage.setItem('tabibi_sync_tick', Date.now().toString());
+      } catch (e) {}
+    }
+  } catch (e) {
+    console.error('Error broadcasting appointment sync:', e);
+  }
+};
+
 // Auth
 export const api = {
   auth: {
@@ -64,12 +83,29 @@ export const api = {
       const qs = new URLSearchParams(params).toString();
       return request('GET', `/doctor/appointments${qs ? '?' + qs : ''}`);
     },
+    // Alias to prevent broken calls
+    appointments: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/doctor/appointments${qs ? '?' + qs : ''}`);
+    },
     getForManager: (params = {}) => {
       const qs = new URLSearchParams(params).toString();
       return request('GET', `/appointments/manager${qs ? '?' + qs : ''}`);
     },
-    addAppointment: (body) => request('POST', '/appointments/manager/add', body),
-    updateAppointmentStatus: (id, status) => request('PUT', `/appointments/${id}/status`, { status }),
+    syncCheck: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/appointments/sync-check${qs ? '?' + qs : ''}`);
+    },
+    addAppointment: async (body) => {
+      const res = await request('POST', '/appointments/manager/add', body);
+      notifyAppointmentSync({ action: 'add' });
+      return res;
+    },
+    updateAppointmentStatus: async (id, status) => {
+      const res = await request('PUT', `/appointments/${id}/status`, { status });
+      notifyAppointmentSync({ action: 'status_update', id, status });
+      return res;
+    },
     getAppointmentSettings: () => request('GET', '/doctors/appointment-settings'),
     createAppointmentSetting: (body) => request('POST', '/doctors/appointment-settings', body),
     updateAppointmentSetting: (id, body) => request('PUT', `/doctors/appointment-settings/${id}`, body),
@@ -88,9 +124,17 @@ export const api = {
   wilayas: () => request('GET', '/wilayas'),
   appointments: {
     getSlots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
-    book: (body) => request('POST', '/appointments', body),
+    book: async (body) => {
+      const res = await request('POST', '/appointments', body);
+      notifyAppointmentSync({ action: 'book', body });
+      return res;
+    },
     getOne: (id) => request('GET', `/appointments/${id}`),
-    cancel: (id) => request('DELETE', `/appointments/${id}`),
+    cancel: async (id) => {
+      const res = await request('DELETE', `/appointments/${id}`);
+      notifyAppointmentSync({ action: 'cancel', id });
+      return res;
+    },
   },
   chat: {
     getThreads: () => request('GET', '/chat/threads'),

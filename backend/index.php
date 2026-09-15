@@ -310,6 +310,11 @@ try {
         require_once __DIR__ . '/controllers/AppointmentController.php';
         AppointmentController::getForManager();
     }
+    // GET /api/appointments/sync-check — Lightweight real-time sync check
+    if ($uri === '/appointments/sync-check' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::checkSync();
+    }
     // POST /api/appointments/manager/add — Add new appointment from web dashboard
     if ($uri === '/appointments/manager/add' && $method === 'POST') {
         require_once __DIR__ . '/controllers/AppointmentController.php';

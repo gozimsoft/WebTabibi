@@ -104,7 +104,7 @@ class AppointmentController
 
         $stmt = $pdo->prepare("
             SELECT
-                a.id, a.apointementdate, a.status, a.note,
+                a.id, a.apointementdate, a.status, a.note, a.updatedat,
                 COALESCE(p.fullname, a.patientname) as patientname,
                 COALESCE(p.phone,    a.phone)        as phone,
                 COALESCE(dr.reason_name, r.name)     as reason_name,
@@ -143,6 +143,64 @@ class AppointmentController
         $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         Response::success(['appointments' => $appointments, 'settings' => $settings]);
+    }
+
+    // ── GET /appointments/sync-check — Fast lightweight signature check for real-time sync ──
+    public static function checkSync(): void
+    {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo     = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctor = $stmt->fetch();
+        if (!$doctor) Response::notFound('Médecin introuvable');
+        $doctorId = $doctor['id'];
+
+        $clinicId = trim($_GET['clinic_id'] ?? '');
+        $params = [$doctorId];
+        $clinicSQL = "";
+        if ($clinicId && $clinicId !== 'all') {
+            $clinicSQL = " AND cd.clinic_id = ?";
+            $params[] = $clinicId;
+        }
+
+        // Fast aggregated checksum: count of appointments, latest updatedat timestamp, and sum of statuses
+        $stmt = $pdo->prepare("
+            SELECT
+                COUNT(*) as total_count,
+                COALESCE(MAX(a.updatedat), '') as last_updated,
+                COALESCE(SUM(a.status), 0) as status_checksum
+            FROM apointements a
+            JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
+            WHERE cd.doctor_id = ? $clinicSQL
+        ");
+        $stmt->execute($params);
+        $apptSig = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Also get unread notifications count for doctor user
+        $notifStmt = $pdo->prepare("
+            SELECT COUNT(*) as unread_count, COALESCE(MAX(created_at), '') as last_notif
+            FROM notifications
+            WHERE user_id = ? AND (is_read = 0 OR is_read IS NULL)
+        ");
+        $notifStmt->execute([$session['user_id']]);
+        $notifSig = $notifStmt->fetch(PDO::FETCH_ASSOC);
+
+        $signature = md5(
+            ($apptSig['total_count'] ?? 0) . '_' .
+            ($apptSig['last_updated'] ?? '') . '_' .
+            ($apptSig['status_checksum'] ?? 0) . '_' .
+            ($notifSig['unread_count'] ?? 0) . '_' .
+            ($notifSig['last_notif'] ?? '')
+        );
+
+        Response::success([
+            'signature'            => $signature,
+            'appointments_count'   => (int)($apptSig['total_count'] ?? 0),
+            'last_updated'         => $apptSig['last_updated'] ?? '',
+            'unread_notifications' => (int)($notifSig['unread_count'] ?? 0),
+        ]);
     }
 
     // ── PUT /appointments/:id/status — Update status from web dashboard ─

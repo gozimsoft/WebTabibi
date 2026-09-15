@@ -538,7 +538,22 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     if (!user) return;
     try {
       const data = await api.notifications.list();
-      setNotifications(data || []);
+      const newNotifications = Array.isArray(data) ? data : [];
+      setNotifications(prev => {
+        const prevSig = prev.map(n => `${n.id}:${n.is_read}`).join(',');
+        const newSig = newNotifications.map(n => `${n.id}:${n.is_read}`).join(',');
+        if (prevSig !== newSig) {
+          const hasNewAppointment = newNotifications.some(n =>
+            n.type === 'appointment' && (!n.is_read || n.is_read == 0) &&
+            !prev.some(p => p.id === n.id)
+          );
+          if (hasNewAppointment) {
+            window.dispatchEvent(new CustomEvent('tabibi:appointment_sync'));
+          }
+          return newNotifications;
+        }
+        return prev;
+      });
     } catch (err) {
       console.error("فشل في جلب الإشعارات:", err);
     }
@@ -628,9 +643,10 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
     if (user.user_type === 1) {
       try {
-        const appts = await api.doctor.appointments({ from: new Date().toISOString().slice(0, 10) });
+        const res = await api.doctor.getAppointments({ from: new Date().toISOString().slice(0, 10) });
+        const appts = res?.appointments || (Array.isArray(res) ? res : []);
         if (Array.isArray(appts)) {
-          const upcoming = appts.filter(a => a.status != 1 && a.status != 2).length;
+          const upcoming = appts.filter(a => Number(a.status) === 0).length;
           setPendingApptsCount(upcoming);
         }
       } catch { }
@@ -638,16 +654,64 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      fetchCounts();
-      // تحديث تلقائي كل 15 ثانية لجلب الإشعارات والرسائل الجديدة
-      const interval = setInterval(() => {
+    if (!user) return;
+    fetchNotifications();
+    fetchCounts();
+
+    let timer = null;
+    const scheduleNext = () => {
+      // 5s when active tab, 15s when in background
+      const interval = document.hidden ? 15000 : 5000;
+      timer = setTimeout(async () => {
+        await Promise.all([fetchNotifications(), fetchCounts()]);
+        scheduleNext();
+      }, interval);
+    };
+    scheduleNext();
+
+    const onWake = () => {
+      if (!document.hidden) {
         fetchNotifications();
         fetchCounts();
-      }, 15000);
-      return () => clearInterval(interval);
-    }
+      }
+    };
+
+    const onSyncEvent = () => {
+      fetchNotifications();
+      fetchCounts();
+    };
+
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    window.addEventListener("tabibi:appointment_sync", onSyncEvent);
+
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('tabibi_sync');
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === 'appointment_updated') {
+            onSyncEvent();
+          }
+        };
+      }
+    } catch (e) {}
+
+    const onStorage = (e) => {
+      if (e.key === 'tabibi_sync_tick') {
+        onSyncEvent();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("tabibi:appointment_sync", onSyncEvent);
+      window.removeEventListener("storage", onStorage);
+      if (bc) bc.close();
+    };
   }, [user]);
 
   const navLinks = [

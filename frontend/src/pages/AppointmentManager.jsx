@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import {
@@ -492,25 +492,63 @@ export default function AppointmentManager({ navigate, user }) {
     }
   };
 
-  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const lastSignatureRef = useRef("");
+
+  const areAppointmentsEqual = (prev, next) => {
+    if (prev === next) return true;
+    if (!prev || !next || prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i++) {
+      const a = prev[i];
+      const b = next[i];
+      if (
+        a.id !== b.id ||
+        a.status !== b.status ||
+        a.apointementdate !== b.apointementdate ||
+        a.patientname !== b.patientname ||
+        a.phone !== b.phone ||
+        a.clinic_id !== b.clinic_id ||
+        a.updatedat !== b.updatedat
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false) => {
+    if (!silent) {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+    }
     try {
       let data = [];
       if (user?.user_type === 1) {
         const params = clinicId !== "all" ? { clinic_id: clinicId } : {};
         const res = await api.doctor.getForManager(params);
         data = res.appointments || [];
-        if (res.settings) setScheduleSettings(res.settings);
+        if (res.settings) {
+          setScheduleSettings(prev => {
+            if (JSON.stringify(prev) === JSON.stringify(res.settings)) return prev;
+            return res.settings;
+          });
+        }
       } else {
-        show(t("appt_mgr_clinic_dev"), "error");
+        if (!silent) show(t("appt_mgr_clinic_dev"), "error");
       }
-      setAppointments(Array.isArray(data) ? data : []);
+      const incoming = Array.isArray(data) ? data : [];
+      setAppointments(prev => {
+        if (areAppointmentsEqual(prev, incoming)) {
+          return prev;
+        }
+        return incoming;
+      });
     } catch (err) {
-      show(err.message || t("error_occurred"), "error");
+      if (!silent) show(err.message || t("error_occurred"), "error");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -535,6 +573,83 @@ export default function AppointmentManager({ navigate, user }) {
       fetchAppointments(false, selectedClinicId);
     }
   }, [selectedClinicId]);
+
+  // ── مزامنة ذكية شبه فورية في الخلفية (Real-Time Auto-Sync)
+  useEffect(() => {
+    if (user?.user_type !== 1) return;
+
+    // فحص سريع عبر توقيع الـ API (حجم البيانات أقل من 150 بايت واستجابة فورية)
+    const checkAndSync = async () => {
+      try {
+        const res = await api.doctor.syncCheck({ clinic_id: selectedClinicId });
+        if (res && res.signature) {
+          if (lastSignatureRef.current && lastSignatureRef.current !== res.signature) {
+            // هناك حجز جديد، إلغاء، أو تغيير في المواعيد أو الإشعارات
+            fetchAppointments(false, selectedClinicId, true);
+          }
+          lastSignatureRef.current = res.signature;
+        } else {
+          fetchAppointments(false, selectedClinicId, true);
+        }
+      } catch {
+        fetchAppointments(false, selectedClinicId, true);
+      }
+    };
+
+    let timer = null;
+    const scheduleNext = () => {
+      // 4 ثوانٍ عند بقاء الصفحة نشطة و15 ثانية عند مغادرة النافذة لتوفير موارد الخادم
+      const delay = document.hidden ? 15000 : 4000;
+      timer = setTimeout(async () => {
+        await checkAndSync();
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+
+    // استجابة فورية (0 مللي ثانية) للأحداث المحلية داخل المتصفح أو بين التبويبات
+    const onImmediateSync = () => {
+      fetchAppointments(false, selectedClinicId, true);
+    };
+
+    const onWake = () => {
+      if (!document.hidden) {
+        checkAndSync();
+      }
+    };
+
+    window.addEventListener("tabibi:appointment_sync", onImmediateSync);
+    window.addEventListener("focus", onWake);
+    document.addEventListener("visibilitychange", onWake);
+
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('tabibi_sync');
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === 'appointment_updated') {
+            onImmediateSync();
+          }
+        };
+      }
+    } catch (e) {}
+
+    const onStorage = (e) => {
+      if (e.key === 'tabibi_sync_tick') {
+        onImmediateSync();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("tabibi:appointment_sync", onImmediateSync);
+      window.removeEventListener("focus", onWake);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("storage", onStorage);
+      if (bc) bc.close();
+    };
+  }, [selectedClinicId, user]);
 
   const handleUpdateStatus = async (id, status) => {
     try {
