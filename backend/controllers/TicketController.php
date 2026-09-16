@@ -85,26 +85,48 @@ class TicketController {
 
         if ($user['usertype'] == 0) { // Patient
             $myId = self::getPatientId($user['user_id']);
-            $sql = "SELECT t.*, d.fullname as doctorname, c.clinicname 
+            $sql = "SELECT t.*, 
+                        d.fullname as doctorname, 
+                        d.phone as doctor_phone,
+                        c.clinicname,
+                        (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
+                        (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
+                        (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_id != ?) as unread_count
                     FROM tickets t 
                     LEFT JOIN doctors d ON d.id = t.doctor_id 
                     LEFT JOIN clinics c ON c.id = t.clinic_id 
                     WHERE t.patient_id = ? ORDER BY t.updated_at DESC";
-            $params = [$myId];
+            $params = [$myId, $myId];
         } else if ($user['usertype'] == 1) { // Doctor
             $myId = self::getDoctorId($user['user_id']);
-            $sql = "SELECT t.*, p.fullname as patientname 
+            $sql = "SELECT t.*, 
+                        p.fullname as patientname,
+                        p.phone as patient_phone,
+                        p.email as patient_email,
+                        (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
+                        (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
+                        (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_id != ?) as unread_count
                     FROM tickets t 
                     LEFT JOIN patients p ON p.id = t.patient_id 
                     WHERE t.doctor_id = ? ORDER BY t.updated_at DESC";
-            $params = [$myId];
-        } else if ($user['usertype'] == 2) {
-            $sql = "SELECT t.*, p.fullname as patientname 
+            $params = [$myId, $myId];
+        } else if ($user['usertype'] == 2) { // Clinic
+            $myId = self::getClinicId($user['user_id']);
+            $sql = "SELECT t.*, 
+                        p.fullname as patientname,
+                        p.phone as patient_phone,
+                        p.email as patient_email,
+                        (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
+                        (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
+                        (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_id != ?) as unread_count
                     FROM tickets t 
                     LEFT JOIN patients p ON p.id = t.patient_id 
                     JOIN clinics c ON c.id = t.clinic_id
                     WHERE c.user_id = ? ORDER BY t.updated_at DESC";
-            $params = [$user['user_id']];
+            $params = [$myId, $user['user_id']];
         }
 
         try {
@@ -123,7 +145,14 @@ class TicketController {
         $pdo = Database::getInstance();
 
         // Security check: user must be part of the ticket
-        $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT t.*, 
+                p.fullname as patientname, p.phone as patient_phone, p.email as patient_email,
+                d.fullname as doctorname, d.phone as doctor_phone, c.clinicname
+            FROM tickets t 
+            LEFT JOIN patients p ON p.id = t.patient_id
+            LEFT JOIN doctors d ON d.id = t.doctor_id
+            LEFT JOIN clinics c ON c.id = t.clinic_id
+            WHERE t.id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -138,14 +167,8 @@ class TicketController {
             $myId = self::getDoctorId($user['user_id']);
             if ($ticket['doctor_id'] === $myId) $isAllowed = true;
         } else if ($user['usertype'] == 2) {
-            // Check if this ticket belongs to the clinic this user is registered for
-            $stmt = $pdo->prepare("
-                SELECT 1 FROM clinics 
-                WHERE user_id = ? AND id = ? 
-                LIMIT 1
-            ");
-            $stmt->execute([$user['user_id'], $ticket['clinic_id']]);
-            if ($stmt->fetch()) $isAllowed = true;
+            $myId = self::getClinicId($user['user_id']);
+            if ($ticket['clinic_id'] === $myId) $isAllowed = true;
         }
 
         if (!$isAllowed) Response::error('ليس لديك صلاحية الاطلاع على هذه التذكرة.', 403);

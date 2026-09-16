@@ -243,6 +243,16 @@ function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryToken = urlParams.get("token") || urlParams.get("auth_token");
+    if (queryToken) {
+      localStorage.setItem("tabibi_token", queryToken);
+      // Clean query parameter from URL without reload
+      urlParams.delete("token");
+      urlParams.delete("auth_token");
+      const cleanSearch = urlParams.toString() ? `?${urlParams.toString()}` : "";
+      window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch}`);
+    }
     if (!getToken()) { setLoading(false); return; }
     api.auth.me()
       .then(d => setUser(d))
@@ -5901,57 +5911,818 @@ function RequestsPage({ navigate, user }) {
 }
 
 // ── PAGE: tickets ──────────────────────────────────────────────
-function TicketsPage({ navigate, user }) {
+// ── PAGE: tickets (Master-Detail Inbox) ────────────────────────
+function TicketsPage({ navigate, user, initialTicketId = null }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
-  const [tickets, setTickets] = useState([]);
-  const [loading, setL] = useState(true);
+  const isRTL = i18n.language === 'ar';
   const { show, Toast } = useToast();
 
-  const load = async () => {
+  const [tickets, setTickets] = useState([]);
+  const [loading, setL] = useState(true);
+  const [selectedId, setSelectedId] = useState(initialTicketId || null);
+  const [selectedData, setSelectedData] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTab, setFilterTab] = useState("ALL"); // 'ALL' | 'TO_HANDLE' | 'PENDING' | 'CLOSED'
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef(null);
+
+  const isDoctorOrClinic = user?.user_type === 1 || user?.user_type === 2;
+
+  // Initial load of tickets list
+  const loadTickets = async (silent = false) => {
     try {
-      setL(true);
+      if (!silent) setL(true);
       const data = await api.tickets.list();
-      setTickets(data);
-    } catch (e) { show(e.message, "error"); }
-    finally { setL(false); }
+      setTickets(Array.isArray(data) ? data : []);
+    } catch (e) {
+      if (!silent) show(e.message, "error");
+    } finally {
+      if (!silent) setL(false);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    loadTickets();
+    const interval = setInterval(() => loadTickets(true), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
-  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
+  // Time formatting helper
+  const formatSmartTime = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (isToday) return `${t("today_at")} ${timeStr}`;
+    if (isYesterday) return `${t("yesterday_at")} ${timeStr}`;
+    return d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { day: 'numeric', month: 'short' });
+  };
+
+  // Initials & avatar styling
+  const getInitials = (name) => {
+    if (!name) return "P";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const getAvatarColor = (name, status = null) => {
+    if (String(status || '').toUpperCase() === 'CLOSED') {
+      return { bg: "linear-gradient(135deg, #94a3b8, #64748b)", text: "#fff" };
+    }
+    const palettes = [
+      { bg: "linear-gradient(135deg, #0284c7, #0369a1)", text: "#fff" },
+      { bg: "linear-gradient(135deg, #0d9488, #0f766e)", text: "#fff" },
+      { bg: "linear-gradient(135deg, #6366f1, #4f46e5)", text: "#fff" },
+      { bg: "linear-gradient(135deg, #8b5cf6, #7c3aed)", text: "#fff" },
+      { bg: "linear-gradient(135deg, #ec4899, #be185d)", text: "#fff" },
+      { bg: "linear-gradient(135deg, #f59e0b, #d97706)", text: "#fff" },
+    ];
+    let h = 0;
+    for (let i = 0; i < (name || "").length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return palettes[Math.abs(h) % palettes.length];
+  };
+
+  // Compute counts
+  const countAll = tickets.length;
+  const countToHandle = tickets.filter(tk => (tk.unread_count > 0) || (isDoctorOrClinic ? tk.status === 'OPEN' : tk.status === 'PENDING')).length;
+  const countPending = tickets.filter(tk => isDoctorOrClinic ? tk.status === 'PENDING' : tk.status === 'OPEN').length;
+  const countClosed = tickets.filter(tk => tk.status === 'CLOSED').length;
+  const unreadTotal = tickets.reduce((acc, tk) => acc + (parseInt(tk.unread_count) || 0), 0);
+
+  // Filtered tickets
+  const filteredTickets = tickets.filter(tk => {
+    if (filterTab === 'TO_HANDLE') {
+      const isToHandle = (tk.unread_count > 0) || (isDoctorOrClinic ? tk.status === 'OPEN' : tk.status === 'PENDING');
+      if (!isToHandle) return false;
+    } else if (filterTab === 'PENDING') {
+      const isPending = isDoctorOrClinic ? tk.status === 'PENDING' : tk.status === 'OPEN';
+      if (!isPending) return false;
+    } else if (filterTab === 'CLOSED') {
+      if (tk.status !== 'CLOSED') return false;
+    }
+
+    if (unreadOnly && !(tk.unread_count > 0)) return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const name = (isDoctorOrClinic ? (tk.patientname || "") : (tk.doctorname || tk.clinicname || "")).toLowerCase();
+      const sub = (tk.subject || "").toLowerCase();
+      const msg = (tk.last_message || "").toLowerCase();
+      const phone = (tk.patient_phone || "").toLowerCase();
+      if (!name.includes(q) && !sub.includes(q) && !msg.includes(q) && !phone.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Auto-select first ticket on desktop if none selected
+  useEffect(() => {
+    if (!isMobile && !selectedId && filteredTickets.length > 0) {
+      setSelectedId(filteredTickets[0].id);
+    }
+  }, [isMobile, filteredTickets.length]);
+
+  // Load conversation details
+  const loadConversation = useCallback(async (id, silent = false) => {
+    if (!id) return;
+    if (!silent) setLoadingDetail(true);
+    try {
+      const d = await api.tickets.get(id);
+      setSelectedData(d);
+      // Mark as read in local list
+      setTickets(prev => prev.map(t => t.id === id ? { ...t, unread_count: 0 } : t));
+    } catch (e) {
+      if (!silent) show(e.message, "error");
+    } finally {
+      if (!silent) setLoadingDetail(false);
+    }
+  }, [show]);
+
+  useEffect(() => {
+    if (selectedId) {
+      loadConversation(selectedId);
+      const timer = setInterval(() => loadConversation(selectedId, true), 8000);
+      return () => clearInterval(timer);
+    } else {
+      setSelectedData(null);
+    }
+  }, [selectedId, loadConversation]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [selectedData?.messages]);
+
+  // Send reply
+  const handleSendReply = async (e) => {
+    e?.preventDefault();
+    if (!replyText.trim() || sending || !selectedId) return;
+    const txt = replyText.trim();
+    setSending(true);
+    setReplyText("");
+    try {
+      await api.tickets.reply(selectedId, { message: txt });
+      await loadConversation(selectedId, true);
+      // Reload tickets to update last_message and timestamps in list
+      loadTickets(true);
+    } catch (e) {
+      show(e.message, "error");
+      setReplyText(txt);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Close ticket
+  const handleCloseTicket = async () => {
+    if (!selectedId) return;
+    if (!window.confirm(t("confirm_close_ticket"))) return;
+    try {
+      await api.tickets.close(selectedId);
+      show(t("ticket_closed_success"), "success");
+      await loadConversation(selectedId, true);
+      setTickets(prev => prev.map(t => t.id === selectedId ? { ...t, status: 'CLOSED' } : t));
+    } catch (e) {
+      show(e.message, "error");
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    if (status === 'OPEN') {
+      return <Badge color="#0ea5e9">{t("status_open")}</Badge>;
+    }
+    if (status === 'PENDING') {
+      return <Badge color="#ea580c">{t("status_pending")}</Badge>;
+    }
+    return <Badge color="#64748b">{t("status_closed")}</Badge>;
+  };
+
+  if (loading) return <div style={{ padding: 80, display: "flex", justifyContent: "center" }}><Spinner size={36} /></div>;
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{t("tickets_title")}</h1>
+    <div style={{
+      maxWidth: 1320,
+      margin: "0 auto",
+      padding: isMobile ? "12px 10px" : "20px 24px",
+      minHeight: "calc(100vh - 80px)",
+      display: "flex",
+      flexDirection: "column"
+    }}>
+      {/* Top Header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 16,
+        flexWrap: "wrap",
+        gap: 12
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: "linear-gradient(135deg, rgba(8,145,178,0.15), rgba(8,145,178,0.05))",
+            color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <MessageSquare size={22} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              {t("tickets_title")}
+              {countAll > 0 && (
+                <span style={{
+                  fontSize: 12, fontWeight: 800, padding: "2px 8px", borderRadius: 12,
+                  background: "#e0f2fe", color: "#0284c7"
+                }}>
+                  {countAll}
+                </span>
+              )}
+            </h1>
+          </div>
+        </div>
+
+        {user.user_type === 0 && (
+          <Btn onClick={() => navigate("/tickets/new")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 12 }}>
+            <Plus size={16} /> {t("new_message_title")}
+          </Btn>
+        )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {tickets.map(ticket => (
-          <Card key={ticket.id} onClick={() => navigate(`/tickets/${ticket.id}`)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{ticket.subject}</div>
-              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                {user.user_type === 0 ? (
-                  ticket.doctorname ? `${t("ticket_with_doctor")} ${ticket.doctorname}` : (ticket.clinicname ? `${t("ticket_with_clinic")} ${ticket.clinicname}` : t("ticket_general"))
-                ) : (
-                  `${t("ticket_from_patient")} ${ticket.patientname}`
+      {/* Main Inbox Container */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        borderRadius: 20,
+        border: "1px solid #e2e8f0",
+        background: "var(--card-bg, #ffffff)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
+        overflow: "hidden",
+        height: isMobile ? "calc(100vh - 120px)" : "calc(100vh - 175px)",
+        minHeight: 500
+      }}>
+        {/* ── LEFT PANEL (Master List) ────────────────────── */}
+        {(!isMobile || !selectedId) && (
+          <div style={{
+            width: isMobile ? "100%" : 410,
+            borderInlineEnd: isMobile ? "none" : "1px solid #e2e8f0",
+            display: "flex",
+            flexDirection: "column",
+            background: "#ffffff",
+            flexShrink: 0
+          }}>
+            {/* Search & Filters Header */}
+            <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid #f1f5f9" }}>
+              {/* Search input */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "#f8fafc", padding: "10px 14px", borderRadius: 14,
+                border: "1.5px solid #e2e8f0", transition: "all 0.2s",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.02)"
+              }}>
+                <Search size={18} style={{ color: "#94a3b8", flexShrink: 0 }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder={t("search_messages_placeholder")}
+                  style={{
+                    border: "none", background: "transparent", outline: "none",
+                    width: "100%", fontSize: 13.5, color: "#1e293b", fontFamily: "inherit"
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 0, display: "flex" }}
+                  >
+                    <X size={16} />
+                  </button>
                 )}
               </div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                {t("last_update")} {new Date(ticket.updated_at).toLocaleString(i18n.language)}
-              </div>
-            </div>
-            <Badge color={ticket.status === 'CLOSED' ? "#64748b" : (ticket.status === 'OPEN' ? "#0ea5e9" : "#ea580c")}>
-              {ticket.status === 'OPEN' ? t("status_open") : (ticket.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
-            </Badge>
-          </Card>
-        ))}
 
-        {tickets.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
-            لا توجد رسائل حالياً
+              {/* Status Filter Tabs */}
+              <div style={{
+                display: "flex", gap: 6, marginTop: 12, overflowX: "auto",
+                paddingBottom: 2, scrollbarWidth: "none"
+              }}>
+                {[
+                  { id: "ALL", label: t("filter_all"), count: countAll },
+                  { id: "TO_HANDLE", label: t("filter_to_handle"), count: countToHandle, highlight: countToHandle > 0 },
+                  { id: "PENDING", label: t("filter_waiting_patient"), count: countPending },
+                  { id: "CLOSED", label: t("filter_closed"), count: countClosed },
+                ].map(tab => {
+                  const isActive = filterTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setFilterTab(tab.id)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 20,
+                        border: "none",
+                        fontSize: 12,
+                        fontWeight: isActive ? 800 : 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        whiteSpace: "nowrap",
+                        transition: "all 0.2s",
+                        background: isActive ? "var(--brand, #0891b2)" : "#f1f5f9",
+                        color: isActive ? "#ffffff" : "#475569",
+                        boxShadow: isActive ? "0 2px 8px rgba(8,145,178,0.25)" : "none"
+                      }}
+                    >
+                      <span>{tab.label}</span>
+                      <span style={{
+                        fontSize: 11,
+                        padding: "1px 6px",
+                        borderRadius: 10,
+                        background: isActive ? "rgba(255,255,255,0.25)" : (tab.highlight ? "#fee2e2" : "#e2e8f0"),
+                        color: isActive ? "#ffffff" : (tab.highlight ? "#dc2626" : "#64748b"),
+                        fontWeight: 700
+                      }}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Unread toggle pill if there are unreads */}
+              {unreadTotal > 0 && (
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <label
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      fontSize: 12, fontWeight: 700, color: "#0284c7", cursor: "pointer",
+                      padding: "4px 8px", borderRadius: 8, background: "#f0f9ff"
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={unreadOnly}
+                      onChange={e => setUnreadOnly(e.target.checked)}
+                      style={{ accentColor: "var(--brand, #0891b2)", cursor: "pointer" }}
+                    />
+                    {t("unread_messages_only")} ({unreadTotal})
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Conversation list */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 8px" }}>
+              {filteredTickets.map(tk => {
+                const isSelected = selectedId === tk.id;
+                const contactName = isDoctorOrClinic
+                  ? (tk.patientname || t("sender_patient"))
+                  : (tk.doctorname ? tk.doctorname : (tk.clinicname ? tk.clinicname : t("ticket_general")));
+                const isClosed = String(tk.status || '').toUpperCase() === 'CLOSED';
+                const avatar = getAvatarColor(contactName, tk.status);
+                const hasUnread = parseInt(tk.unread_count) > 0;
+                const timeDisplay = formatSmartTime(tk.last_message_at || tk.updated_at);
+
+                return (
+                  <div
+                    key={tk.id}
+                    onClick={() => setSelectedId(tk.id)}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 14,
+                      marginBottom: 6,
+                      cursor: "pointer",
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "flex-start",
+                      transition: "all 0.18s ease",
+                      background: isSelected ? "rgba(8, 145, 178, 0.08)" : (hasUnread ? "#f0f9ff" : "transparent"),
+                      border: isSelected ? "1.5px solid var(--brand, #0891b2)" : (hasUnread ? "1.5px solid #bae6fd" : "1.5px solid transparent"),
+                      position: "relative"
+                    }}
+                  >
+                    {/* Unread dot */}
+                    {hasUnread && (
+                      <div style={{
+                        position: "absolute",
+                        top: 14,
+                        [isRTL ? "right" : "left"]: 6,
+                        width: 8, height: 8, borderRadius: "50%",
+                        background: "#0284c7", boxShadow: "0 0 6px rgba(2,132,199,0.6)"
+                      }} />
+                    )}
+
+                    {/* Avatar */}
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 14,
+                      background: isClosed ? "linear-gradient(135deg, #94a3b8, #64748b)" : avatar.bg,
+                      color: avatar.text,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: 800, fontSize: 15, flexShrink: 0,
+                      boxShadow: "0 3px 8px rgba(0,0,0,0.06)",
+                      opacity: isClosed ? 0.8 : 1
+                    }}>
+                      {getInitials(contactName)}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Name & Time */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{
+                          fontSize: 14.5, fontWeight: hasUnread ? 900 : 700,
+                          color: isSelected ? "#0c4a6e" : (isClosed ? "#64748b" : "#1e293b"),
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                        }}>
+                          {contactName}
+                        </span>
+                        <span style={{ fontSize: 11, color: hasUnread ? "#0284c7" : "#94a3b8", fontWeight: hasUnread ? 700 : 500, flexShrink: 0 }}>
+                          {timeDisplay}
+                        </span>
+                      </div>
+
+                      {/* Subject */}
+                      <div style={{
+                        fontSize: 12.5, fontWeight: 700, color: isClosed ? "#64748b" : "#475569",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        marginBottom: 4, display: "flex", alignItems: "center", gap: 4
+                      }}>
+                        <span style={{ color: isClosed ? "#94a3b8" : "var(--brand, #0891b2)", fontSize: 10 }}>●</span>
+                        <span>{tk.subject}</span>
+                      </div>
+
+                      {/* Snippet + Badges */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                        <span style={{
+                          fontSize: 12, color: hasUnread ? "#0f172a" : "#64748b",
+                          fontWeight: hasUnread ? 600 : 400,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          flex: 1
+                        }}>
+                          {tk.last_message ? (
+                            <>
+                              <span style={{ fontWeight: 600, color: "#64748b" }}>
+                                {tk.last_sender_type === 'doctor' ? (isDoctorOrClinic ? `${t("you")}: ` : `${t("sender_doctor")}: `) :
+                                  (tk.last_sender_type === 'clinic' ? (isDoctorOrClinic ? `${t("you")}: ` : `${t("sender_clinic")}: `) :
+                                    (!isDoctorOrClinic ? `${t("you")}: ` : `${t("patient")}: `))}
+                              </span>
+                              {tk.last_message}
+                            </>
+                          ) : (
+                            <span style={{ fontStyle: "italic", color: "#94a3b8" }}>{t("no_tickets")}</span>
+                          )}
+                        </span>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                          {hasUnread && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 900, padding: "2px 6px",
+                              borderRadius: 10, background: "#0284c7", color: "#ffffff"
+                            }}>
+                              +{tk.unread_count}
+                            </span>
+                          )}
+                          <span style={{
+                            fontSize: 10.5, fontWeight: 700, padding: "2px 6px", borderRadius: 6,
+                            background: tk.status === 'CLOSED' ? "#f1f5f9" : (tk.status === 'OPEN' ? "#e0f2fe" : "#fef3c7"),
+                            color: tk.status === 'CLOSED' ? "#64748b" : (tk.status === 'OPEN' ? "#0284c7" : "#b45309")
+                          }}>
+                            {tk.status === 'OPEN' ? t("status_open") : (tk.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredTickets.length === 0 && (
+                <div style={{
+                  padding: "40px 16px", textAlign: "center", color: "#94a3b8",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 10
+                }}>
+                  <div style={{ fontSize: 32 }}>🔍</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                    {searchQuery ? t("no_results_search") : t("no_tickets")}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── RIGHT PANEL (Conversation Detail) ───────────── */}
+        {(!isMobile || selectedId) && (
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            background: "#f8fafc",
+            minWidth: 0
+          }}>
+            {selectedId ? (
+              loadingDetail && !selectedData ? (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Spinner size={32} />
+                </div>
+              ) : selectedData ? (
+                <>
+                  {/* Conversation Header */}
+                  {(() => {
+                    const currentTicketInfo = tickets.find(t => t.id === selectedId) || selectedData?.ticket || {};
+                    const contactName = isDoctorOrClinic
+                      ? (selectedData?.ticket?.patientname || currentTicketInfo.patientname || t("sender_patient"))
+                      : (selectedData?.ticket?.doctorname || currentTicketInfo.doctorname || selectedData?.ticket?.clinicname || currentTicketInfo.clinicname || t("ticket_general"));
+                    const contactPhone = selectedData?.ticket?.patient_phone || currentTicketInfo.patient_phone;
+                    const avatar = getAvatarColor(contactName, selectedData?.ticket?.status || currentTicketInfo.status);
+
+                    return (
+                      <div style={{
+                        padding: "14px 20px",
+                        background: "#ffffff",
+                        borderBottom: "1px solid #e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                          {isMobile && (
+                            <button
+                              onClick={() => setSelectedId(null)}
+                              style={{
+                                background: "#f1f5f9", border: "none", borderRadius: 10,
+                                padding: 8, cursor: "pointer", display: "flex", alignItems: "center",
+                                color: "var(--brand, #0891b2)"
+                              }}
+                            >
+                              {isRTL ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
+                            </button>
+                          )}
+
+                          <div style={{
+                            width: 44, height: 44, borderRadius: 14,
+                            background: selectedData.ticket.status === 'CLOSED' ? "linear-gradient(135deg, #94a3b8, #64748b)" : avatar.bg,
+                            color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                            fontWeight: 800, fontSize: 16, flexShrink: 0,
+                            opacity: selectedData.ticket.status === 'CLOSED' ? 0.85 : 1
+                          }}>
+                            {getInitials(contactName)}
+                          </div>
+
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 16, fontWeight: 900, color: "#0c4a6e" }}>
+                                {contactName}
+                              </span>
+                              {getStatusBadge(selectedData.ticket.status)}
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "#64748b", marginTop: 2, flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 600, color: "#334155" }}>
+                                📌 {selectedData.ticket.subject}
+                              </span>
+                              {contactPhone && isDoctorOrClinic && (
+                                <a
+                                  href={`tel:${contactPhone}`}
+                                  style={{ display: "flex", alignItems: "center", gap: 4, color: "#0284c7", textDecoration: "none", fontWeight: 700 }}
+                                >
+                                  <Phone size={13} /> {contactPhone}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {user.user_type !== 0 && selectedData.ticket.status !== 'CLOSED' && (
+                            <Btn
+                              variant="danger"
+                              onClick={handleCloseTicket}
+                              style={{
+                                padding: "8px 14px", fontSize: 12.5, borderRadius: 10,
+                                display: "flex", alignItems: "center", gap: 6
+                              }}
+                            >
+                              <Lock size={14} /> {t("end_conversation")}
+                            </Btn>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Messages Scroll Area */}
+                  <div
+                    ref={scrollRef}
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                      padding: "20px 24px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      background: "#f8fafc"
+                    }}
+                  >
+                    {selectedData.messages.map((m, idx) => {
+                      const isMe = (user.user_type === 0 && m.sender_type === 'patient') ||
+                        (user.user_type === 1 && m.sender_type === 'doctor') ||
+                        (user.user_type === 2 && m.sender_type === 'clinic');
+
+                      const prevMsg = selectedData.messages[idx - 1];
+                      const nextMsg = selectedData.messages[idx + 1];
+                      const isFirstInGroup = !prevMsg || prevMsg.sender_type !== m.sender_type;
+                      const isLastInGroup = !nextMsg || nextMsg.sender_type !== m.sender_type;
+                      const align = isMe ? (isRTL ? "flex-start" : "flex-end") : (isRTL ? "flex-end" : "flex-start");
+
+                      return (
+                        <div
+                          key={m.id}
+                          style={{
+                            alignSelf: align,
+                            maxWidth: "75%",
+                            padding: "11px 16px",
+                            borderRadius: 18,
+                            borderTopRightRadius: (isMe && isRTL) || (!isMe && !isRTL) ? 18 : (isFirstInGroup ? 4 : 18),
+                            borderTopLeftRadius: (!isMe && isRTL) || (isMe && !isRTL) ? 18 : (isFirstInGroup ? 4 : 18),
+                            background: isMe
+                              ? "linear-gradient(135deg, var(--brand, #0891b2), var(--brand-dark, #0e7490))"
+                              : "#ffffff",
+                            color: isMe ? "#ffffff" : "#1e293b",
+                            boxShadow: isMe
+                              ? "0 4px 14px rgba(8,145,178,0.22)"
+                              : "0 2px 8px rgba(0,0,0,0.04)",
+                            border: isMe ? "none" : "1px solid #e2e8f0",
+                            marginBottom: isLastInGroup ? 8 : 2,
+                            display: "flex",
+                            flexDirection: "column",
+                            position: "relative"
+                          }}
+                        >
+                          {!isMe && isFirstInGroup && (
+                            <div style={{
+                              fontSize: 11, fontWeight: 800, color: "#0284c7",
+                              marginBottom: 4
+                            }}>
+                              {m.sender_type === 'doctor' ? t("sender_doctor") : (m.sender_type === 'clinic' ? t("sender_clinic") : t("sender_patient"))}
+                            </div>
+                          )}
+
+                          <div style={{
+                            fontSize: 14.5, lineHeight: 1.5, wordBreak: "break-word",
+                            whiteSpace: "pre-wrap"
+                          }}>
+                            {m.message}
+                          </div>
+
+                          <div style={{
+                            fontSize: 10,
+                            color: isMe ? "rgba(255,255,255,0.75)" : "#94a3b8",
+                            alignSelf: isRTL ? "flex-start" : "flex-end",
+                            marginTop: 4,
+                            fontWeight: 500
+                          }}>
+                            {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reply Input or Closed Notice */}
+                  {selectedData.ticket.status !== 'CLOSED' ? (
+                    <form
+                      onSubmit={handleSendReply}
+                      style={{
+                        padding: "14px 20px",
+                        background: "#ffffff",
+                        borderTop: "1px solid #e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        placeholder={t("write_message_here")}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendReply();
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "12px 18px",
+                          borderRadius: 24,
+                          border: "1.5px solid #e2e8f0",
+                          background: "#f8fafc",
+                          outline: "none",
+                          fontSize: 14.5,
+                          fontFamily: "inherit",
+                          color: "#1e293b",
+                          transition: "all 0.2s"
+                        }}
+                        onFocus={e => {
+                          e.target.style.borderColor = "var(--brand, #0891b2)";
+                          e.target.style.background = "#ffffff";
+                        }}
+                        onBlur={e => {
+                          e.target.style.borderColor = "#e2e8f0";
+                          e.target.style.background = "#f8fafc";
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!replyText.trim() || sending}
+                        style={{
+                          width: 44, height: 44, borderRadius: "50%",
+                          background: replyText.trim() ? "var(--brand, #0891b2)" : "#cbd5e1",
+                          color: "#ffffff", border: "none", display: "flex",
+                          alignItems: "center", justifyContent: "center",
+                          cursor: replyText.trim() && !sending ? "pointer" : "not-allowed",
+                          transition: "all 0.2s",
+                          boxShadow: replyText.trim() ? "0 4px 12px rgba(8,145,178,0.3)" : "none",
+                          flexShrink: 0
+                        }}
+                      >
+                        {sending ? (
+                          <Spinner size={18} color="#fff" />
+                        ) : (
+                          <Send size={18} style={{ transform: isRTL ? "scaleX(-1)" : "none" }} />
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    <div style={{
+                      padding: "14px 20px",
+                      background: "#f1f5f9",
+                      borderTop: "1px solid #e2e8f0",
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8
+                    }}>
+                      <Lock size={16} />
+                      <span>{t("conversation_closed")}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
+                  Conversation introuvable
+                </div>
+              )
+            ) : (
+              /* Empty state when no conversation is selected */
+              <div style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 40,
+                textAlign: "center"
+              }}>
+                <div style={{
+                  width: 80, height: 80, borderRadius: 24,
+                  background: "linear-gradient(135deg, rgba(8,145,178,0.12), rgba(8,145,178,0.04))",
+                  color: "var(--brand, #0891b2)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  marginBottom: 16
+                }}>
+                  <MessageSquare size={40} />
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e", margin: "0 0 8px" }}>
+                  {t("tickets_title")}
+                </h3>
+                <p style={{ fontSize: 14, color: "#64748b", maxWidth: 360, margin: 0, lineHeight: 1.5 }}>
+                  {t("select_conversation_prompt")}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -5961,172 +6732,7 @@ function TicketsPage({ navigate, user }) {
 }
 
 function TicketConversationPage({ ticketId, navigate, user }) {
-  const { t, i18n } = useTranslation();
-  const isMobile = useIsMobile();
-  const [data, setData] = useState(null);
-  const [loading, setL] = useState(true);
-  const [msg, setMsg] = useState("");
-  const [sending, setSending] = useState(false);
-  const { show, Toast } = useToast();
-  const scrollRef = useRef();
-
-  const load = async () => {
-    try {
-      const d = await api.tickets.get(ticketId);
-      setData(d);
-    } catch (e) { show(e.message, "error"); }
-    finally { setL(false); }
-  };
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 10000);
-    return () => clearInterval(interval);
-  }, [ticketId]);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [data]);
-
-  const onSend = async (e) => {
-    e?.preventDefault();
-    if (!msg.trim() || sending) return;
-    setSending(true);
-    try {
-      await api.tickets.reply(ticketId, { message: msg });
-      setMsg("");
-      load();
-    } catch (e) { show(e.message, "error"); }
-    finally { setSending(false); }
-  };
-
-  const onCloseTicket = async () => {
-    if (!window.confirm(t("confirm_close_ticket"))) return;
-    try {
-      await api.tickets.close(ticketId);
-      show(t("ticket_closed_success"), "success");
-      load();
-    } catch (e) { show(e.message, "error"); }
-  };
-
-  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
-  if (!data) return <div style={{ padding: 60, textAlign: "center" }}>Ticket not found</div>;
-
-  const { ticket, messages } = data;
-
-  return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "24px", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div>
-          <button onClick={() => navigate("/tickets")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-            <ArrowRight size={18} /> {t("back_to_messages")}
-          </button>
-          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{ticket.subject}</h1>
-        </div>
-        {user.user_type !== 0 && ticket.status !== 'CLOSED' && (
-          <Btn variant="danger" onClick={onCloseTicket}>{t("end_conversation")}</Btn>
-        )}
-      </div>
-
-      <div ref={scrollRef} style={{
-        flex: 1, overflowY: "auto", padding: "24px",
-        background: "var(--card-bg)", // Messenger iconic chat background
-        borderRadius: 24, border: "1px solid #0891b2",
-        display: "flex", flexDirection: "column", marginBottom: 20,
-        boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
-      }}>
-        {messages.map((m, idx) => {
-          const isMe = (user.user_type === 0 && m.sender_type === 'patient') ||
-            (user.user_type === 1 && m.sender_type === 'doctor') ||
-            (user.user_type === 2 && m.sender_type === 'clinic');
-
-          const prevMsg = messages[idx - 1];
-          const nextMsg = messages[idx + 1];
-          const isFirstInGroup = !prevMsg || prevMsg.sender_type !== m.sender_type;
-          const isLastInGroup = !nextMsg || nextMsg.sender_type !== m.sender_type;
-
-          const isRTL = i18n.language === 'ar';
-          const align = isMe ? (isRTL ? "flex-start" : "flex-end") : (isRTL ? "flex-end" : "flex-start");
-
-          return (
-            <div key={m.id} style={{
-              alignSelf: align,
-              maxWidth: "75%",
-              padding: "10px 14px",
-              borderRadius: 20,
-              borderTopRightRadius: (isMe && isRTL) || (!isMe && !isRTL) ? 20 : (isFirstInGroup ? 4 : 20),
-              borderTopLeftRadius: (!isMe && isRTL) || (isMe && !isRTL) ? 20 : (isFirstInGroup ? 4 : 20),
-              background: isMe ? "linear-gradient(135deg, var(--brand), var(--brand-dark))" : "var(--bg)",
-              color: isMe ? "#ffffff" : "var(--text-main)",
-              boxShadow: "none",
-              position: "relative",
-              marginBottom: isLastInGroup ? 12 : 2,
-              display: "flex",
-              flexDirection: "column"
-            }}>
-              {!isMe && isFirstInGroup && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#0284c7", marginBottom: 2, marginLeft: 2, marginRight: 2 }}>
-                  {m.sender_type === 'doctor' ? t("sender_doctor") : m.sender_type === 'clinic' ? t("sender_clinic") : t("sender_patient")}
-                </div>
-              )}
-
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 10, justifyContent: "space-between" }}>
-                <span style={{ fontSize: 15, lineHeight: 1.4, wordBreak: "break-word" }}>
-                  {m.message}
-                </span>
-
-                <span style={{
-                  fontSize: 10, color: isMe ? "rgba(255,255,255,0.7)" : "#0369a1",
-                  display: "flex", alignItems: "center", gap: 3,
-                  marginLeft: "auto", position: "relative", top: 2
-                }}>
-                  {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {ticket.status !== 'CLOSED' ? (
-        <form onSubmit={onSend} style={{
-          display: "flex", gap: 12, background: "var(--card-bg)", padding: "12px 16px",
-          borderRadius: 24, border: "1px solid #0891b2", boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
-          alignItems: "center"
-        }}>
-          <input
-            value={msg}
-            onChange={e => setMsg(e.target.value)}
-            placeholder={t("write_message_here")}
-            style={{
-              flex: 1, padding: "12px 16px", borderRadius: 16, border: "none",
-              background: "#f8fafc", outline: "none", fontSize: 15, transition: "all 0.2s"
-            }}
-            onFocus={(e) => e.target.style.background = "#f1f5f9"}
-            onBlur={(e) => e.target.style.background = "#f8fafc"}
-          />
-          <button
-            type="submit"
-            disabled={!msg.trim() || sending}
-            style={{
-              width: 46, height: 46, borderRadius: "50%", background: msg.trim() ? "var(--brand)" : "#cbd5e1",
-              color: "#fff", border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: msg.trim() ? "pointer" : "not-allowed", transition: "all 0.2s",
-              boxShadow: msg.trim() ? "0 4px 12px rgba(8,145,178,0.3)" : "none",
-              transform: msg.trim() ? "scale(1)" : "scale(0.95)"
-            }}
-          >
-            {sending ? <Spinner size={20} color="#fff" /> : <Send size={20} style={{ transform: "translateX(-2px)" }} />}
-          </button>
-        </form>
-      ) : (
-        <div style={{ textAlign: "center", padding: 15, background: "#f1f5f9", borderRadius: 12, color: "#64748b", fontWeight: 700 }}>
-          هذه المحادثة مغلقة
-        </div>
-      )}
-      <Toast />
-    </div>
-  );
+  return <TicketsPage initialTicketId={ticketId} navigate={navigate} user={user} />;
 }
 
 function NewTicketPage({ navigate, user, qs }) {
