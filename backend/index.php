@@ -42,6 +42,8 @@ try {
         Response::success(['status' => 'ok', 'api' => 'Tabibi v2', 'time' => date('c')]);
     }
     if ($uri === '/debug-email' && $method === 'GET') {
+        require_once __DIR__ . '/middleware/AuthMiddleware.php';
+        AuthMiddleware::adminOnly();
         require_once __DIR__ . '/helpers/EmailHelper.php';
         $pdo = Database::getInstance();
         $patient = $pdo->query("SELECT p.fullname, u.email FROM patients p JOIN users u ON u.id = p.user_id WHERE u.email != '' LIMIT 1")->fetch();

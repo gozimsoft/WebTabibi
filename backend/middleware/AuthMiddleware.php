@@ -49,12 +49,25 @@ class AuthMiddleware {
 
         // Check expiry
         $created = strtotime($session['created_at']);
-        if (time() - $created > 86400 * 30) { // Using 30 days if TOKEN_EXPIRY not defined, or adjust to your needs
+        $expiryDuration = defined('TOKEN_EXPIRY') ? (int)TOKEN_EXPIRY : 86400 * 30;
+        if (time() - $created > $expiryDuration) {
             // Delete expired session
             $pdo->prepare("DELETE FROM sessions WHERE token = ?")->execute([$token]);
             if (!$required) return null;
             // رسالة بشرية: انتهت صلاحية الجلسة
             Response::unauthorized('انتهت صلاحية جلستك (30 يوماً). يرجى تسجيل الدخول مرة أخرى للاستمرار.');
+        }
+
+        // Check if patient account was deleted
+        if ((int)$session['usertype'] === 0) {
+            $stmtDel = $pdo->prepare("SELECT deleteacount FROM patients WHERE user_id = ? LIMIT 1");
+            $stmtDel->execute([$session['user_id']]);
+            $delVal = $stmtDel->fetchColumn();
+            if (!empty($delVal)) {
+                $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$session['user_id']]);
+                if (!$required) return null;
+                Response::error('هذا الحساب تم حذفه بناءً على طلب صاحبه.', 403);
+            }
         }
 
         return $session;

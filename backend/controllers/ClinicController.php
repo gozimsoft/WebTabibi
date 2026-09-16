@@ -34,6 +34,7 @@ class ClinicController
         if (!empty($clinic['logo'])) {
             $clinic['logo'] = base64_encode($clinic['logo']);
         }
+        unset($clinic['password']);
 
         Response::success($clinic);
     }
@@ -172,6 +173,7 @@ class ClinicController
         $stmt->execute([$clinicid]);
         $clinic = $stmt->fetch();
         unset($clinic['logo']); // don't return blob
+        unset($clinic['password']);
 
         Response::success($clinic, 'تم تحديث ملف العيادة بنجاح.');
     }
@@ -472,6 +474,7 @@ class ClinicController
         }
         unset($clinic['DoctorsList']);
         $clinic['doctors'] = $doctors;
+        unset($clinic['password']);
 
         Response::success($clinic);
     }

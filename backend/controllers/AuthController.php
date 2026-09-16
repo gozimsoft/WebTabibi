@@ -337,6 +337,7 @@ class AuthController {
                 }
                 
                 unset($clinic['logo']);
+                unset($clinic['password']);
                 $profile = $clinic;
             }
         } elseif ($usertype === 3) {
@@ -555,6 +556,7 @@ class AuthController {
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
             unset($profile['logo']);
+            unset($profile['password']);
         } elseif ($usertype === 3) {
             $stmt = $pdo->prepare("SELECT id, username FROM users WHERE id = ? LIMIT 1");
             $stmt->execute([$userId]);
