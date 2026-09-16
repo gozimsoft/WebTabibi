@@ -720,13 +720,9 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     try {
       const tickets = await api.tickets.list();
       if (Array.isArray(tickets)) {
-        if (user.user_type === 1 || user.user_type === 2) {
-          const active = tickets.filter(item => item.status === 'OPEN' || item.status === 'PENDING').length;
-          setUnreadTicketsCount(active);
-        } else {
-          const active = tickets.filter(item => item.status === 'PENDING').length;
-          setUnreadTicketsCount(active);
-        }
+        // Only count actual unread messages so opened messages are removed from count
+        const unreadTotal = tickets.reduce((acc, tk) => acc + (parseInt(tk.unread_count) || 0), 0);
+        setUnreadTicketsCount(unreadTotal);
       }
     } catch { }
 
@@ -5912,7 +5908,7 @@ function RequestsPage({ navigate, user }) {
 
 // ── PAGE: tickets ──────────────────────────────────────────────
 // ── PAGE: tickets (Master-Detail Inbox) ────────────────────────
-function TicketsPage({ navigate, user, initialTicketId = null }) {
+function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = null }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const isRTL = i18n.language === 'ar';
@@ -6042,12 +6038,15 @@ function TicketsPage({ navigate, user, initialTicketId = null }) {
       setSelectedData(d);
       // Mark as read in local list
       setTickets(prev => prev.map(t => t.id === id ? { ...t, unread_count: 0 } : t));
+      if (typeof onTicketRead === 'function') {
+        onTicketRead(id);
+      }
     } catch (e) {
       if (!silent) show(e.message, "error");
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [show]);
+  }, [show, onTicketRead]);
 
   useEffect(() => {
     if (selectedId) {
@@ -6731,8 +6730,8 @@ function TicketsPage({ navigate, user, initialTicketId = null }) {
   );
 }
 
-function TicketConversationPage({ ticketId, navigate, user }) {
-  return <TicketsPage initialTicketId={ticketId} navigate={navigate} user={user} />;
+function TicketConversationPage({ ticketId, navigate, user, onTicketRead = null }) {
+  return <TicketsPage initialTicketId={ticketId} navigate={navigate} user={user} onTicketRead={onTicketRead} />;
 }
 
 function NewTicketPage({ navigate, user, qs }) {
@@ -9074,7 +9073,17 @@ function MainApp() {
         return <RequestsPage key="requests" navigate={navigate} user={user} />;
       case "/tickets":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        return <TicketsPage key="tickets" navigate={navigate} user={user} />;
+        return (
+          <TicketsPage
+            key="tickets"
+            navigate={navigate}
+            user={user}
+            onTicketRead={() => {
+              setUnreadTicketsCount(prev => Math.max(0, prev - 1));
+              fetchCounts();
+            }}
+          />
+        );
       case "/tickets/new":
         if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
         return <NewTicketPage key="new_ticket" navigate={navigate} user={user} qs={qs} />;
@@ -9086,7 +9095,18 @@ function MainApp() {
         if (route.startsWith("/tickets/")) {
           if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
           const tid = route.split("/")[2];
-          return <TicketConversationPage key={tid} ticketId={tid} navigate={navigate} user={user} />;
+          return (
+            <TicketConversationPage
+              key={tid}
+              ticketId={tid}
+              navigate={navigate}
+              user={user}
+              onTicketRead={() => {
+                setUnreadTicketsCount(prev => Math.max(0, prev - 1));
+                fetchCounts();
+              }}
+            />
+          );
         }
         if (route === "/guide") return <UserGuide navigate={navigate} />;
         return (

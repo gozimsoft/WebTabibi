@@ -92,12 +92,12 @@ class TicketController {
                         (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
                         (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
                         (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
-                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_id != ?) as unread_count
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_type != 'patient') as unread_count
                     FROM tickets t 
                     LEFT JOIN doctors d ON d.id = t.doctor_id 
                     LEFT JOIN clinics c ON c.id = t.clinic_id 
                     WHERE t.patient_id = ? ORDER BY t.updated_at DESC";
-            $params = [$myId, $myId];
+            $params = [$myId];
         } else if ($user['usertype'] == 1) { // Doctor
             $myId = self::getDoctorId($user['user_id']);
             $sql = "SELECT t.*, 
@@ -107,11 +107,11 @@ class TicketController {
                         (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
                         (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
                         (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
-                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_id != ?) as unread_count
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_type != 'doctor') as unread_count
                     FROM tickets t 
                     LEFT JOIN patients p ON p.id = t.patient_id 
                     WHERE t.doctor_id = ? ORDER BY t.updated_at DESC";
-            $params = [$myId, $myId];
+            $params = [$myId];
         } else if ($user['usertype'] == 2) { // Clinic
             $myId = self::getClinicId($user['user_id']);
             $sql = "SELECT t.*, 
@@ -121,12 +121,12 @@ class TicketController {
                         (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
                         (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
                         (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
-                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_id != ?) as unread_count
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_type != 'clinic') as unread_count
                     FROM tickets t 
                     LEFT JOIN patients p ON p.id = t.patient_id 
                     JOIN clinics c ON c.id = t.clinic_id
                     WHERE c.user_id = ? ORDER BY t.updated_at DESC";
-            $params = [$myId, $user['user_id']];
+            $params = [$user['user_id']];
         }
 
         try {
@@ -179,8 +179,24 @@ class TicketController {
         $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Mark as read for the receiver
-        $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_id != ?")
-            ->execute([$id, $myId]);
+        if ($user['usertype'] == 0) {
+            $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'patient'")
+                ->execute([$id]);
+        } else if ($user['usertype'] == 1) {
+            $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'doctor'")
+                ->execute([$id]);
+        } else if ($user['usertype'] == 2) {
+            $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'clinic'")
+                ->execute([$id]);
+        }
+
+        // Also mark any unread ticket notifications for this user as read
+        try {
+            $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type = 'ticket' AND is_read = 0")
+                ->execute([$user['user_id']]);
+        } catch (\Throwable $e) {
+            // Ignore notification table errors
+        }
 
         Response::success([
             'ticket' => $ticket,
