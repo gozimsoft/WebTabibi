@@ -281,8 +281,8 @@ function useAuth() {
     setUser(d);
     return d;
   };
-  const googleLogin = async credential => {
-    const d = await api.auth.google({ credential });
+  const googleLogin = async (credential, options = {}) => {
+    const d = await api.auth.google({ credential, ...options });
     localStorage.setItem("tabibi_token", d.token);
     setUser(d);
     return d;
@@ -2413,7 +2413,13 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
           callback: async (res) => {
             try {
               setError(""); setL(true);
-              await onGoogleLogin(res.credential);
+              // PHASE 02F : consentement CGU obligatoire avant création de compte (Loi 18-07)
+              if (!consentValid) {
+                setError(t('register.error_consent_required') || "Vous devez accepter les CGU et la politique de confidentialité avant de créer un compte.");
+                setL(false);
+                return;
+              }
+              await onGoogleLogin(res.credential, { accepted_cgu: true });
               navigate("/");
             } catch (e) { setError(e.message); setL(false); }
           },
@@ -8948,21 +8954,12 @@ function MainApp() {
     analytics.track("page_view", { route, query: qs });
   }, [route, qs]);
 
-  // Track site visits for Admin Stats
+  // PHASE 02F : Suppression de l'appel à ipapi.co (service tiers collectant l'IP - Loi 18-07)
+  // Le log de visite est conservé mais sans géolocalisation IP externe.
   useEffect(() => {
     if (!sessionStorage.getItem('tabibi_visited')) {
-      fetch('https://ipapi.co/json/')
-        .then(res => res.json())
-        .then(data => {
-          api.visits.log({ country: data.country_name, wilaya: data.region }).catch(() => {});
-        })
-        .catch(() => {
-          // Fallback if IP API fails
-          api.visits.log({}).catch(() => {});
-        })
-        .finally(() => {
-          sessionStorage.setItem('tabibi_visited', '1');
-        });
+      api.visits.log({}).catch(() => {});
+      sessionStorage.setItem('tabibi_visited', '1');
     }
   }, []);
 

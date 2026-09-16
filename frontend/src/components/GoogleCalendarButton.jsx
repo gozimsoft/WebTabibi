@@ -5,13 +5,13 @@ import { Btn } from "./SharedUI";
 
 /**
  * GoogleCalendarButton Component
- * @param {Object} appointment - Appointment data { doctorname, clinicname, apointementdate, ReasonName }
+ * @param {Object} appointment - Appointment data { doctorname, clinicname, apointementdate, patientname }
  * @param {string} variant - Btn variant (primary, secondary, etc.)
  * @param {Object} style - Custom styles for the button
  */
 export default function GoogleCalendarButton({ appointment, variant = "primary", style = {}, iconOnly = false }) {
   const { t } = useTranslation();
-  const { doctorname, clinicname, apointementdate, ReasonName, patientname } = appointment;
+  const { doctorname, clinicname, apointementdate, patientname } = appointment;
 
   const addToCalendar = (e) => {
     e.stopPropagation();
@@ -30,7 +30,6 @@ export default function GoogleCalendarButton({ appointment, variant = "primary",
       `${t("patient")}: ${patientname || t("self")}\n` +
       `${t("doctor")}: ${doctorname || "—"}\n` +
       `${t("clinic")}: ${clinicname || "—"}\n` +
-      `${t("step_reason")}: ${ReasonName || "—"}\n` +
       `${t("date")}: ${start.toLocaleDateString()}\n` +
       `${t("time")}: ${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +

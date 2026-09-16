@@ -635,8 +635,7 @@ class AppointmentController
                 $patient['fullname'],
                 $doctor['fullname'] ?? 'Médecin',
                 $clinic['clinicname'] ?? 'clinique',
-                $appointmentDatetime,
-                $reasonName
+                $appointmentDatetime
             );
         }
 

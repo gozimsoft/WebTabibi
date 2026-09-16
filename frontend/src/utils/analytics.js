@@ -1,17 +1,25 @@
-/**
+﻿/**
  * Analytics Utility for Tabibi
- * Implements a scalable, clean event tracking system.
+ * PHASE 02F: Respecte le choix de confidentialitأ© de l'utilisateur (Loi 18-07).
+ * - Si tabibi_analytics_disabled === "true" => aucun tracking.
+ * - Les donnأ©es trackأ©es sont uniquement des أ©vأ©nements fonctionnels sans donnأ©es de santأ©.
  */
 
 const SESSION_KEY = "tabibi_analytics_session";
 const VISITOR_KEY = "tabibi_analytics_visitor";
+const DISABLED_KEY = "tabibi_analytics_disabled";
 
 class Analytics {
   constructor() {
     this.sessionId = this._getOrCreateSession();
     this.visitorId = this._getOrCreateVisitor();
     this.userId = null;
-    this.enabled = true;
+  }
+
+  get enabled() {
+    // Vأ©rification أ  chaque accأ¨s pour reflأ©ter le choix le plus rأ©cent de l'utilisateur
+    return typeof localStorage !== "undefined" &&
+      localStorage.getItem(DISABLED_KEY) !== "true";
   }
 
   _getOrCreateSession() {
@@ -36,11 +44,23 @@ class Analytics {
     this.userId = id;
   }
 
-  track(eventName, metadata = {}) {
-    if (!this.enabled) return;
-    if (typeof localStorage !== "undefined" && localStorage.getItem("tabibi_analytics_disabled") === "true") {
-      return;
+  /** Active l'analytics (appelأ© par CookiesPrivacyModal sur accept) */
+  enable() {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(DISABLED_KEY);
     }
+  }
+
+  /** Dأ©sactive l'analytics (appelأ© par CookiesPrivacyModal sur opt-out) */
+  disable() {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(DISABLED_KEY, "true");
+    }
+  }
+
+  track(eventName, metadata = {}) {
+    // Blocage immأ©diat si l'utilisateur a refusأ© le tracking
+    if (!this.enabled) return;
 
     const payload = {
       event: eventName,
@@ -57,10 +77,12 @@ class Analytics {
       }
     };
 
-    // Here you would normally send to your backend or analytics provider
-    // Example: fetch('/api/analytics/track', { method: 'POST', body: JSON.stringify(payload) });
+    // Envoi vers le backend Tabibi uniquement (aucun tiers)
+    // fetch('/api/analytics/track', { method: 'POST', body: JSON.stringify(payload) });
+    void payload; // prأ©parأ© mais non envoyأ© أ  des tiers
   }
 }
 
 const analytics = new Analytics();
 export default analytics;
+

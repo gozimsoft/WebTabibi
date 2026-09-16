@@ -68,13 +68,10 @@ class VerificationController {
             $sent = self::sendEmailOTP($target, $patient['fullname'] ?? '', $code);
         }
 
-        $devCode = (defined('APP_ENV') && APP_ENV === 'production') ? null : $code;
-
         Response::success([
             'target'    => self::maskTarget('email', $target),
             'type'      => 'email',
             'expires_in'=> 600,
-            'dev_code'  => $devCode,
             'email_sent'=> $sent,
         ], "تم إرسال رمز التحقق بنجاح إلى " . self::maskTarget('email', $target));
     }

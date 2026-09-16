@@ -1,13 +1,13 @@
-<?php
+﻿<?php
 // ============================================================
-// helpers/EmailHelper.php  — SMTP natif (sans PHPMailer)
+// helpers/EmailHelper.php  â€” SMTP natif (sans PHPMailer)
 // ============================================================
 require_once __DIR__ . '/../config/database.php';
 
 class EmailHelper {
 
     /**
-     * Envoie un email via SMTP (Gmail) sans dépendance externe.
+     * Envoie un email via SMTP (Gmail) sans dأ©pendance externe.
      */
     private static function sendSmtp(
         string $toEmail,
@@ -25,7 +25,7 @@ class EmailHelper {
         $errno = $errstr = '';
         $sock = @fsockopen($host, $port, $errno, $errstr, 10);
         if (!$sock) {
-            error_log("[Tabibi Email] Cannot connect to {$host}:{$port} — {$errstr}");
+            error_log("[Tabibi Email] Cannot connect to {$host}:{$port} â€” {$errstr}");
             return false;
         }
 
@@ -112,12 +112,11 @@ class EmailHelper {
         string $toName,
         string $doctorname,
         string $clinicname,
-        string $appointmentDate,
-        string $reason
+        string $appointmentDate
     ): bool {
-        $subject = 'تأكيد موعدك | Confirmation de rendez-vous - Tabibi';
-        $html    = self::buildConfirmationTemplate($toName, $doctorname, $clinicname, $appointmentDate, $reason);
-        $text    = "مرحباً {$toName}، تم تأكيد موعدك مع {$doctorname} في {$clinicname} بتاريخ {$appointmentDate}. السبب: {$reason}.";
+        $subject = 'طھط£ظƒظٹط¯ ظ…ظˆط¹ط¯ظƒ | Confirmation de rendez-vous - Tabibi';
+        $html    = self::buildConfirmationTemplate($toName, $doctorname, $clinicname, $appointmentDate);
+        $text    = "ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ طھظ… طھط£ظƒظٹط¯ ظ…ظˆط¹ط¯ظƒ ظ…ط¹ {$doctorname} ظپظٹ {$clinicname} ط¨طھط§ط±ظٹط® {$appointmentDate}.";
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
@@ -126,9 +125,9 @@ class EmailHelper {
         string $toName,
         string $appointmentDate
     ): bool {
-        $subject = 'إلغاء موعدك | Annulation - Tabibi';
+        $subject = 'ط¥ظ„ط؛ط§ط، ظ…ظˆط¹ط¯ظƒ | Annulation - Tabibi';
         $html    = self::buildCancellationTemplate($toName, $appointmentDate);
-        $text    = "مرحباً {$toName}، تم إلغاء موعدك بتاريخ {$appointmentDate}.";
+        $text    = "ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ طھظ… ط¥ظ„ط؛ط§ط، ظ…ظˆط¹ط¯ظƒ ط¨طھط§ط±ظٹط® {$appointmentDate}.";
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
@@ -137,14 +136,14 @@ class EmailHelper {
         string $toName,
         string $otpCode
     ): bool {
-        $subject = 'إعادة تعيين كلمة المرور | Réinitialisation du mot de passe - Tabibi';
+        $subject = 'ط¥ط¹ط§ط¯ط© طھط¹ظٹظٹظ† ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± | Rأ©initialisation du mot de passe - Tabibi';
         $html    = self::buildPasswordResetTemplate($toName, $otpCode);
-        $text    = "مرحباً {$toName}، كود استعادة كلمة المرور الخاص بك هو: {$otpCode}. الرمز صالح لمدة 15 دقيقة.";
+        $text    = "ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ ظƒظˆط¯ ط§ط³طھط¹ط§ط¯ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط®ط§طµ ط¨ظƒ ظ‡ظˆ: {$otpCode}. ط§ظ„ط±ظ…ط² طµط§ظ„ط­ ظ„ظ…ط¯ط© 15 ط¯ظ‚ظٹظ‚ط©.";
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
     // ----------------------------------------------------------
-    // إرسال بيانات الدخول عند قبول حساب الطبيب أو العيادة من لوحة المطور/الأدمن
+    // ط¥ط±ط³ط§ظ„ ط¨ظٹط§ظ†ط§طھ ط§ظ„ط¯ط®ظˆظ„ ط¹ظ†ط¯ ظ‚ط¨ظˆظ„ ط­ط³ط§ط¨ ط§ظ„ط·ط¨ظٹط¨ ط£ظˆ ط§ظ„ط¹ظٹط§ط¯ط© ظ…ظ† ظ„ظˆط­ط© ط§ظ„ظ…ط·ظˆط±/ط§ظ„ط£ط¯ظ…ظ†
     // ----------------------------------------------------------
     public static function sendApprovalCredentials(
         string $toEmail,
@@ -153,34 +152,34 @@ class EmailHelper {
         string $username,
         ?string $plainPassword = null
     ): bool {
-        $typeLabel = ($accountType === 'clinic') ? 'العيادة' : 'الطبيب';
-        $subject   = "🎉 تم قبول طلب انضمام {$typeLabel} - بيانات تسجيل الدخول | Tabibi طبيبي";
+        $typeLabel = ($accountType === 'clinic') ? 'ط§ظ„ط¹ظٹط§ط¯ط©' : 'ط§ظ„ط·ط¨ظٹط¨';
+        $subject   = "ًںژ‰ طھظ… ظ‚ط¨ظˆظ„ ط·ظ„ط¨ ط§ظ†ط¶ظ…ط§ظ… {$typeLabel} - ط¨ظٹط§ظ†ط§طھ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ | Tabibi ط·ط¨ظٹط¨ظٹ";
         $html      = self::buildApprovalCredentialsTemplate($toName, $accountType, $username, $toEmail, $plainPassword);
         $loginUrl  = (defined('FRONTEND_URL') ? rtrim(FRONTEND_URL, '/') : 'http://localhost:80') . '/#/login';
         // PHASE 02B : Si $plainPassword est null (hash Bcrypt), on ne peut pas afficher le mot de passe en clair
         $passwordLine = $plainPassword
-            ? "- كلمة المرور: {$plainPassword}"
-            : "- كلمة المرور: كلمة المرور التي اخترتها عند التسجيل";
-        $text      = "مرحباً {$toName}،\n\nيسرنا إبلاغك بأنه تمت الموافقة على طلب انضمامك إلى منصة طبيبي (Tabibi).\n\nبيانات الدخول إلى حسابك:\n- نوع الحساب: {$typeLabel}\n- اسم المستخدم: {$username}\n- البريد الإلكتروني: {$toEmail}\n{$passwordLine}\n\nرابط تسجيل الدخول: {$loginUrl}\n\nفريق منصة طبيبي";
+            ? "- ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±: {$plainPassword}"
+            : "- ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±: ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„طھظٹ ط§ط®طھط±طھظ‡ط§ ط¹ظ†ط¯ ط§ظ„طھط³ط¬ظٹظ„";
+        $text      = "ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ\n\nظٹط³ط±ظ†ط§ ط¥ط¨ظ„ط§ط؛ظƒ ط¨ط£ظ†ظ‡ طھظ…طھ ط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظ‰ ط·ظ„ط¨ ط§ظ†ط¶ظ…ط§ظ…ظƒ ط¥ظ„ظ‰ ظ…ظ†طµط© ط·ط¨ظٹط¨ظٹ (Tabibi).\n\nط¨ظٹط§ظ†ط§طھ ط§ظ„ط¯ط®ظˆظ„ ط¥ظ„ظ‰ ط­ط³ط§ط¨ظƒ:\n- ظ†ظˆط¹ ط§ظ„ط­ط³ط§ط¨: {$typeLabel}\n- ط§ط³ظ… ط§ظ„ظ…ط³طھط®ط¯ظ…: {$username}\n- ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ: {$toEmail}\n{$passwordLine}\n\nط±ط§ط¨ط· طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„: {$loginUrl}\n\nظپط±ظٹظ‚ ظ…ظ†طµط© ط·ط¨ظٹط¨ظٹ";
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
     // ----------------------------------------------------------
-    // إرسال رمز التحقق OTP (تسجيل حساب جديد أو تأكيد الإيميل)
+    // ط¥ط±ط³ط§ظ„ ط±ظ…ط² ط§ظ„طھط­ظ‚ظ‚ OTP (طھط³ط¬ظٹظ„ ط­ط³ط§ط¨ ط¬ط¯ظٹط¯ ط£ظˆ طھط£ظƒظٹط¯ ط§ظ„ط¥ظٹظ…ظٹظ„)
     // ----------------------------------------------------------
     public static function sendOTP(
         string $toEmail,
         string $toName,
         string $otpCode
     ): bool {
-        $subject = '🔐 رمز التحقق | Code de vérification — Tabibi طبيبي';
+        $subject = 'ًں”گ ط±ظ…ط² ط§ظ„طھط­ظ‚ظ‚ | Code de vأ©rification â€” Tabibi ط·ط¨ظٹط¨ظٹ';
         $html    = self::buildOTPTemplate($toName, $otpCode);
-        $text    = "مرحباً {$toName}، رمز التحقق الخاص بك هو: {$otpCode}. الرمز صالح لمدة 10 دقائق.";
+        $text    = "ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ ط±ظ…ط² ط§ظ„طھط­ظ‚ظ‚ ط§ظ„ط®ط§طµ ط¨ظƒ ظ‡ظˆ: {$otpCode}. ط§ظ„ط±ظ…ط² طµط§ظ„ط­ ظ„ظ…ط¯ط© 10 ط¯ظ‚ط§ط¦ظ‚.";
         return self::sendSmtp($toEmail, $toName, $subject, $html, $text);
     }
 
     // ----------------------------------------------------------
-    // قالب HTML لرسالة OTP (تسجيل / تحقق من الإيميل)
+    // ظ‚ط§ظ„ط¨ HTML ظ„ط±ط³ط§ظ„ط© OTP (طھط³ط¬ظٹظ„ / طھط­ظ‚ظ‚ ظ…ظ† ط§ظ„ط¥ظٹظ…ظٹظ„)
     // ----------------------------------------------------------
     private static function buildOTPTemplate(string $toName, string $otpCode): string {
         $year = date('Y');
@@ -191,8 +190,7 @@ class EmailHelper {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
-        body { font-family: 'Tajawal', Arial, sans-serif; }
+        body { font-family: Arial, Tahoma, sans-serif; }
     </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Tajawal',Arial,sans-serif;">
@@ -204,8 +202,8 @@ class EmailHelper {
                 <!-- HEADER -->
                 <tr>
                     <td style="background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);padding:45px 40px;text-align:center;">
-                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">طبيبي <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
-                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">صحتكم، أولويتنا</p>
+                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">ط·ط¨ظٹط¨ظٹ <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
+                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">طµط­طھظƒظ…طŒ ط£ظˆظ„ظˆظٹطھظ†ط§</p>
                     </td>
                 </tr>
 
@@ -214,7 +212,7 @@ class EmailHelper {
                     <td align="center" style="padding:0 40px;">
                         <div style="display:inline-block;background-color:#ffffff;padding:12px 30px;border-radius:50px;margin-top:-30px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #e2e8f0;">
                             <table border="0" cellspacing="0" cellpadding="0"><tr>
-                                <td style="padding-left:10px;color:#0ea5e9;font-size:16px;font-weight:700;">🔐 تأكيد إنشاء الحساب</td>
+                                <td style="padding-left:10px;color:#0ea5e9;font-size:16px;font-weight:700;">ًں”گ طھط£ظƒظٹط¯ ط¥ظ†ط´ط§ط، ط§ظ„ط­ط³ط§ط¨</td>
                             </tr></table>
                         </div>
                     </td>
@@ -223,8 +221,8 @@ class EmailHelper {
                 <!-- GREETING -->
                 <tr>
                     <td style="padding:40px 40px 20px;text-align:right;">
-                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">مرحباً {$toName}،</p>
-                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">شكراً لتسجيلك في منصة طبيبي! لإكمال إنشاء حسابك، يرجى استخدام رمز التحقق التالي:</p>
+                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ</p>
+                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">ط´ظƒط±ط§ظ‹ ظ„طھط³ط¬ظٹظ„ظƒ ظپظٹ ظ…ظ†طµط© ط·ط¨ظٹط¨ظٹ! ظ„ط¥ظƒظ…ط§ظ„ ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ظƒطŒ ظٹط±ط¬ظ‰ ط§ط³طھط®ط¯ط§ظ… ط±ظ…ط² ط§ظ„طھط­ظ‚ظ‚ ط§ظ„طھط§ظ„ظٹ:</p>
                         <p dir="ltr" style="margin:5px 0 0;color:#64748b;font-size:13px;text-align:left;">Thank you for registering on Tabibi! Use the code below to verify your email address.</p>
                     </td>
                 </tr>
@@ -233,7 +231,7 @@ class EmailHelper {
                 <tr>
                     <td style="padding:0 40px 30px;text-align:center;">
                         <div style="background-color:#f0f9ff;border:2px dashed #0ea5e9;border-radius:16px;padding:30px;margin:10px 0;">
-                            <p style="margin:0 0 12px;font-size:14px;color:#64748b;font-weight:700;">رمز التحقق (Code de vérification)</p>
+                            <p style="margin:0 0 12px;font-size:14px;color:#64748b;font-weight:700;">ط±ظ…ط² ط§ظ„طھط­ظ‚ظ‚ (Code de vأ©rification)</p>
                             <h2 style="margin:0;font-size:48px;letter-spacing:14px;color:#0f172a;font-weight:900;font-family:monospace;">{$otpCode}</h2>
                         </div>
                     </td>
@@ -245,7 +243,7 @@ class EmailHelper {
                         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:15px;">
                             <tr>
                                 <td style="color:#92400e;font-size:13px;line-height:1.6;">
-                                    <strong>تنبيه:</strong> هذا الرمز صالح لمدة <strong>10 دقائق</strong> فقط. إذا لم تطلب إنشاء حساب، يرجى تجاهل هذه الرسالة.
+                                    <strong>طھظ†ط¨ظٹظ‡:</strong> ظ‡ط°ط§ ط§ظ„ط±ظ…ط² طµط§ظ„ط­ ظ„ظ…ط¯ط© <strong>10 ط¯ظ‚ط§ط¦ظ‚</strong> ظپظ‚ط·. ط¥ط°ط§ ظ„ظ… طھط·ظ„ط¨ ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨طŒ ظٹط±ط¬ظ‰ طھط¬ط§ظ‡ظ„ ظ‡ط°ظ‡ ط§ظ„ط±ط³ط§ظ„ط©.
                                     <br><br>
                                     <span style="font-size:12px;" dir="ltr"><strong>Note:</strong> This code expires in <strong>10 minutes</strong>. If you did not request this, please ignore this email.</span>
                                 </td>
@@ -257,8 +255,8 @@ class EmailHelper {
                 <!-- FOOTER -->
                 <tr>
                     <td style="background-color:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-                        <p style="margin:0;color:#94a3b8;font-size:12px;">© {$year} Tabibi - طبيبي. جميع الحقوق محفوظة.</p>
-                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">هذا البريد إلكتروني تلقائي، يرجى عدم الرد.</p>
+                        <p style="margin:0;color:#94a3b8;font-size:12px;">آ© {$year} Tabibi - ط·ط¨ظٹط¨ظٹ. ط¬ظ…ظٹط¹ ط§ظ„ط­ظ‚ظˆظ‚ ظ…ط­ظپظˆط¸ط©.</p>
+                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">ظ‡ط°ط§ ط§ظ„ط¨ط±ظٹط¯ ط¥ظ„ظƒطھط±ظˆظ†ظٹ طھظ„ظ‚ط§ط¦ظٹطŒ ظٹط±ط¬ظ‰ ط¹ط¯ظ… ط§ظ„ط±ط¯.</p>
                     </td>
                 </tr>
 
@@ -272,7 +270,7 @@ HTML;
     }
 
     // ----------------------------------------------------------
-    // قالب HTML لرسالة قبول الحساب وإرسال بيانات الدخول
+    // ظ‚ط§ظ„ط¨ HTML ظ„ط±ط³ط§ظ„ط© ظ‚ط¨ظˆظ„ ط§ظ„ط­ط³ط§ط¨ ظˆط¥ط±ط³ط§ظ„ ط¨ظٹط§ظ†ط§طھ ط§ظ„ط¯ط®ظˆظ„
     // ----------------------------------------------------------
     private static function buildApprovalCredentialsTemplate(
         string $toName,
@@ -282,11 +280,11 @@ HTML;
         ?string $plainPassword = null
     ): string {
         $year       = date('Y');
-        $typeTitle  = ($accountType === 'clinic') ? 'عيادة (Clinique)' : 'طبيب (Médecin)';
-        $typeAr     = ($accountType === 'clinic') ? 'عيادتكم' : 'حسابكم كطبيب';
+        $typeTitle  = ($accountType === 'clinic') ? 'ط¹ظٹط§ط¯ط© (Clinique)' : 'ط·ط¨ظٹط¨ (Mأ©decin)';
+        $typeAr     = ($accountType === 'clinic') ? 'ط¹ظٹط§ط¯طھظƒظ…' : 'ط­ط³ط§ط¨ظƒظ… ظƒط·ط¨ظٹط¨';
         $loginUrl   = (defined('FRONTEND_URL') ? rtrim(FRONTEND_URL, '/') : 'http://localhost:80') . '/#/login';
-        // PHASE 02B : Si $plainPassword est null (hash Bcrypt), afficher un message approprié
-        $plainPasswordDisplay = $plainPassword ?: 'كلمة المرور التي اخترتها عند التسجيل';
+        // PHASE 02B : Si $plainPassword est null (hash Bcrypt), afficher un message appropriأ©
+        $plainPasswordDisplay = $plainPassword ?: 'ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„طھظٹ ط§ط®طھط±طھظ‡ط§ ط¹ظ†ط¯ ط§ظ„طھط³ط¬ظٹظ„';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -295,8 +293,7 @@ HTML;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
-        body { font-family: 'Tajawal', Arial, sans-serif; }
+        body { font-family: Arial, Tahoma, sans-serif; }
     </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Tajawal',Arial,sans-serif;">
@@ -308,8 +305,8 @@ HTML;
                 <!-- HEADER -->
                 <tr>
                     <td style="background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);padding:45px 40px;text-align:center;">
-                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">طبيبي <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
-                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">صحتكم، أولويتنا</p>
+                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">ط·ط¨ظٹط¨ظٹ <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
+                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">طµط­طھظƒظ…طŒ ط£ظˆظ„ظˆظٹطھظ†ط§</p>
                     </td>
                 </tr>
 
@@ -319,8 +316,7 @@ HTML;
                         <div style="display:inline-block;background-color:#ffffff;padding:12px 30px;border-radius:50px;margin-top:-30px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #e2e8f0;">
                             <table border="0" cellspacing="0" cellpadding="0">
                                 <tr>
-                                    <td><img src="https://cdn-icons-png.flaticon.com/512/190/190411.png" width="24" height="24" style="display:block;"></td>
-                                    <td style="padding-right:10px;color:#059669;font-size:16px;font-weight:700;">🎉 تم قبول طلب الانضمام بنجاح</td>
+                                    <td style="padding-right:10px;color:#059669;font-size:16px;font-weight:700;">âœ… طھظ… ظ‚ط¨ظˆظ„ ط·ظ„ط¨ ط§ظ„ط§ظ†ط¶ظ…ط§ظ… ط¨ظ†ط¬ط§ط­</td>
                                 </tr>
                             </table>
                         </div>
@@ -330,13 +326,13 @@ HTML;
                 <!-- GREETING -->
                 <tr>
                     <td style="padding:40px 40px 15px;text-align:right;">
-                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">مرحباً {$toName}،</p>
+                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ</p>
                         <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.7;">
-                            يسرنا إبلاغك بأنه تمت مراجعة والموافقة على طلب انضمام <strong>{$typeAr}</strong> إلى منصة طبيبي بنجاح!
-                            يمكنك الآن تسجيل الدخول إلى حسابك والبدء في تقديم خدماتك وإدارة مواعيدك.
+                            ظٹط³ط±ظ†ط§ ط¥ط¨ظ„ط§ط؛ظƒ ط¨ط£ظ†ظ‡ طھظ…طھ ظ…ط±ط§ط¬ط¹ط© ظˆط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظ‰ ط·ظ„ط¨ ط§ظ†ط¶ظ…ط§ظ… <strong>{$typeAr}</strong> ط¥ظ„ظ‰ ظ…ظ†طµط© ط·ط¨ظٹط¨ظٹ ط¨ظ†ط¬ط§ط­!
+                            ظٹظ…ظƒظ†ظƒ ط§ظ„ط¢ظ† طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط¥ظ„ظ‰ ط­ط³ط§ط¨ظƒ ظˆط§ظ„ط¨ط¯ط، ظپظٹ طھظ‚ط¯ظٹظ… ط®ط¯ظ…ط§طھظƒ ظˆط¥ط¯ط§ط±ط© ظ…ظˆط§ط¹ظٹط¯ظƒ.
                         </p>
                         <p dir="ltr" style="margin:8px 0 0;color:#64748b;font-size:13px;text-align:left;line-height:1.5;">
-                            Nous sommes ravis de vous informer que votre demande d'adhésion a été approuvée avec succès. Vous pouvez dès à présent vous connecter à votre compte :
+                            Nous sommes ravis de vous informer que votre demande d'adhأ©sion a أ©tأ© approuvأ©e avec succأ¨s. Vous pouvez dأ¨s أ  prأ©sent vous connecter أ  votre compte :
                         </p>
                     </td>
                 </tr>
@@ -347,7 +343,7 @@ HTML;
                         <div style="background-color:#f8fafc;border:2px solid #e2e8f0;border-radius:20px;padding:24px;">
                             <div style="text-align:center;margin-bottom:18px;">
                                 <span style="display:inline-block;background-color:#e0f2fe;color:#0369a1;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;">
-                                    🔑 بيانات تسجيل الدخول (Identifiants de connexion)
+                                    ًں”‘ ط¨ظٹط§ظ†ط§طھ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ (Identifiants de connexion)
                                 </span>
                             </div>
 
@@ -357,7 +353,7 @@ HTML;
                                     <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
                                             <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
-                                                نوع الحساب <span style="font-size:11px;color:#94a3b8;">(Type)</span>:
+                                                ظ†ظˆط¹ ط§ظ„ط­ط³ط§ط¨ <span style="font-size:11px;color:#94a3b8;">(Type)</span>:
                                             </td>
                                             <td align="left" style="color:#0f172a;font-size:14px;font-weight:800;">
                                                 {$typeTitle}
@@ -371,7 +367,7 @@ HTML;
                                     <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
                                             <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
-                                                البريد الإلكتروني <span style="font-size:11px;color:#94a3b8;">(Email)</span>:
+                                                ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ <span style="font-size:11px;color:#94a3b8;">(Email)</span>:
                                             </td>
                                             <td align="left" style="color:#0369a1;font-size:14px;font-weight:800;font-family:monospace;" dir="ltr">
                                                 {$toEmail}
@@ -385,7 +381,7 @@ HTML;
                                     <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
                                             <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
-                                                اسم المستخدم <span style="font-size:11px;color:#94a3b8;">(Username)</span>:
+                                                ط§ط³ظ… ط§ظ„ظ…ط³طھط®ط¯ظ… <span style="font-size:11px;color:#94a3b8;">(Username)</span>:
                                             </td>
                                             <td align="left" style="color:#0f172a;font-size:15px;font-weight:800;font-family:monospace;" dir="ltr">
                                                 {$username}
@@ -399,7 +395,7 @@ HTML;
                                     <td style="padding:12px 0 0;">
                                         <table width="100%"><tr>
                                             <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
-                                                كلمة المرور <span style="font-size:11px;color:#94a3b8;">(Mot de passe)</span>:
+                                                ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± <span style="font-size:11px;color:#94a3b8;">(Mot de passe)</span>:
                                             </td>
                                             <td align="left">
                                                 <span style="display:inline-block;background-color:#dcfce7;color:#15803d;padding:6px 14px;border-radius:8px;font-size:15px;font-weight:900;font-family:monospace;letter-spacing:1px;" dir="ltr">
@@ -418,7 +414,7 @@ HTML;
                 <tr>
                     <td align="center" style="padding:0 40px 30px;">
                         <a href="{$loginUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#0369a1,#0891b2);color:#ffffff;text-decoration:none;padding:15px 40px;border-radius:14px;font-size:16px;font-weight:800;box-shadow:0 4px 15px rgba(3,105,161,0.3);">
-                            🚀 تسجيل الدخول الآن (Se connecter)
+                            ًںڑ€ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط§ظ„ط¢ظ† (Se connecter)
                         </a>
                     </td>
                 </tr>
@@ -429,9 +425,9 @@ HTML;
                         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:15px;">
                             <tr>
                                 <td style="color:#92400e;font-size:13px;line-height:1.6;">
-                                    <strong>💡 نصيحة أمنية:</strong> يُرجى الحفاظ على سرية بيانات حسابك وعدم مشاركتها مع أي شخص. كما يمكنك تغيير كلمة المرور في أي وقت بعد الدخول من خلال صفحة الملف الشخصي.
+                                    <strong>ًں’، ظ†طµظٹط­ط© ط£ظ…ظ†ظٹط©:</strong> ظٹظڈط±ط¬ظ‰ ط§ظ„ط­ظپط§ط¸ ط¹ظ„ظ‰ ط³ط±ظٹط© ط¨ظٹط§ظ†ط§طھ ط­ط³ط§ط¨ظƒ ظˆط¹ط¯ظ… ظ…ط´ط§ط±ظƒطھظ‡ط§ ظ…ط¹ ط£ظٹ ط´ط®طµ. ظƒظ…ط§ ظٹظ…ظƒظ†ظƒ طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ظپظٹ ط£ظٹ ظˆظ‚طھ ط¨ط¹ط¯ ط§ظ„ط¯ط®ظˆظ„ ظ…ظ† ط®ظ„ط§ظ„ طµظپط­ط© ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ.
                                     <br><br>
-                                    <span style="font-size:12px;" dir="ltr"><strong>Conseil de sécurité :</strong> Veuillez garder vos identifiants confidentiels. Vous pouvez modifier votre mot de passe à tout moment depuis votre profil.</span>
+                                    <span style="font-size:12px;" dir="ltr"><strong>Conseil de sأ©curitأ© :</strong> Veuillez garder vos identifiants confidentiels. Vous pouvez modifier votre mot de passe أ  tout moment depuis votre profil.</span>
                                 </td>
                             </tr>
                         </table>
@@ -441,8 +437,8 @@ HTML;
                 <!-- FOOTER -->
                 <tr>
                     <td style="background-color:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-                        <p style="margin:0;color:#94a3b8;font-size:12px;">© {$year} Tabibi - طبيبي. جميع الحقوق محفوظة.</p>
-                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">هذا البريد إلكتروني تلقائي، يرجى عدم الرد.</p>
+                        <p style="margin:0;color:#94a3b8;font-size:12px;">آ© {$year} Tabibi - ط·ط¨ظٹط¨ظٹ. ط¬ظ…ظٹط¹ ط§ظ„ط­ظ‚ظˆظ‚ ظ…ط­ظپظˆط¸ط©.</p>
+                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">ظ‡ط°ط§ ط§ظ„ط¨ط±ظٹط¯ ط¥ظ„ظƒطھط±ظˆظ†ظٹ طھظ„ظ‚ط§ط¦ظٹطŒ ظٹط±ط¬ظ‰ ط¹ط¯ظ… ط§ظ„ط±ط¯.</p>
                     </td>
                 </tr>
 
@@ -464,8 +460,7 @@ HTML;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
-        body { font-family: 'Tajawal', Arial, sans-serif; }
+        body { font-family: Arial, Tahoma, sans-serif; }
     </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Tajawal',Arial,sans-serif;">
@@ -477,8 +472,8 @@ HTML;
                 <!-- HEADER -->
                 <tr>
                     <td style="background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);padding:45px 40px;text-align:center;">
-                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">طبيبي <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
-                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">صحتكم، أولويتنا</p>
+                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">ط·ط¨ظٹط¨ظٹ <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
+                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">طµط­طھظƒظ…طŒ ط£ظˆظ„ظˆظٹطھظ†ط§</p>
                     </td>
                 </tr>
 
@@ -488,8 +483,7 @@ HTML;
                         <div style="display:inline-block;background-color:#ffffff;padding:12px 30px;border-radius:50px;margin-top:-30px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #e2e8f0;">
                             <table border="0" cellspacing="0" cellpadding="0">
                                 <tr>
-                                    <td><img src="https://cdn-icons-png.flaticon.com/512/6146/6146586.png" width="24" height="24" style="display:block;"></td>
-                                    <td style="padding-right:10px;color:#0ea5e9;font-size:16px;font-weight:700;">إعادة تعيين كلمة المرور</td>
+                                    <td style="padding-right:10px;color:#0ea5e9;font-size:16px;font-weight:700;">ًں”گ ط¥ط¹ط§ط¯ط© طھط¹ظٹظٹظ† ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±</td>
                                 </tr>
                             </table>
                         </div>
@@ -499,9 +493,9 @@ HTML;
                 <!-- GREETING -->
                 <tr>
                     <td style="padding:40px 40px 20px;text-align:right;">
-                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">مرحباً {$toName}،</p>
-                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">لقد تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك في منصة طبيبي. استخدم الرمز السري أدناه لإكمال العملية:</p>
-                        <p dir="ltr" style="margin:5px 0 0;color:#64748b;font-size:13px;text-align:left;">Nous avons reçu une demande de réinitialisation de votre mot de passe. Utilisez le code ci-dessous :</p>
+                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ</p>
+                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">ظ„ظ‚ط¯ طھظ„ظ‚ظٹظ†ط§ ط·ظ„ط¨ط§ظ‹ ظ„ط¥ط¹ط§ط¯ط© طھط¹ظٹظٹظ† ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط®ط§طµط© ط¨ط­ط³ط§ط¨ظƒ ظپظٹ ظ…ظ†طµط© ط·ط¨ظٹط¨ظٹ. ط§ط³طھط®ط¯ظ… ط§ظ„ط±ظ…ط² ط§ظ„ط³ط±ظٹ ط£ط¯ظ†ط§ظ‡ ظ„ط¥ظƒظ…ط§ظ„ ط§ظ„ط¹ظ…ظ„ظٹط©:</p>
+                        <p dir="ltr" style="margin:5px 0 0;color:#64748b;font-size:13px;text-align:left;">Nous avons reأ§u une demande de rأ©initialisation de votre mot de passe. Utilisez le code ci-dessous :</p>
                     </td>
                 </tr>
 
@@ -509,7 +503,7 @@ HTML;
                 <tr>
                     <td style="padding:0 40px 30px;text-align:center;">
                         <div style="background-color:#f8fafc;border:2px dashed #0ea5e9;border-radius:16px;padding:25px;margin:10px 0;">
-                            <p style="margin:0;font-size:14px;color:#64748b;font-weight:700;margin-bottom:10px;">رمز التحقق (Code de vérification)</p>
+                            <p style="margin:0;font-size:14px;color:#64748b;font-weight:700;margin-bottom:10px;">ط±ظ…ط² ط§ظ„طھط­ظ‚ظ‚ (Code de vأ©rification)</p>
                             <h2 style="margin:0;font-size:42px;letter-spacing:10px;color:#0f172a;font-weight:900;font-family:monospace;">{$otpCode}</h2>
                         </div>
                     </td>
@@ -521,7 +515,7 @@ HTML;
                         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:15px;">
                             <tr>
                                 <td style="color:#92400e;font-size:13px;line-height:1.4;">
-                                    <strong>تنبيه:</strong> هذا الرمز صالح لمدة <strong>15 دقيقة</strong> فقط. إذا لم تطلب تغيير كلمة المرور، يرجى تجاهل هذه الرسالة.
+                                    <strong>طھظ†ط¨ظٹظ‡:</strong> ظ‡ط°ط§ ط§ظ„ط±ظ…ط² طµط§ظ„ط­ ظ„ظ…ط¯ط© <strong>15 ط¯ظ‚ظٹظ‚ط©</strong> ظپظ‚ط·. ط¥ط°ط§ ظ„ظ… طھط·ظ„ط¨ طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±طŒ ظٹط±ط¬ظ‰ طھط¬ط§ظ‡ظ„ ظ‡ط°ظ‡ ط§ظ„ط±ط³ط§ظ„ط©.
                                     <br><br>
                                     <span style="font-size:12px;" dir="ltr"><strong>Note:</strong> Ce code expire dans <strong>15 minutes</strong>. Si vous n'avez pas fait cette demande, ignorez ce message.</span>
                                 </td>
@@ -533,8 +527,8 @@ HTML;
                 <!-- FOOTER -->
                 <tr>
                     <td style="background-color:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-                        <p style="margin:0;color:#94a3b8;font-size:12px;">© {$year} Tabibi - طبيبي. جميع الحقوق محفوظة.</p>
-                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">هذا البريد إلكتروني تلقائي، يرجى عدم الرد.</p>
+                        <p style="margin:0;color:#94a3b8;font-size:12px;">آ© {$year} Tabibi - ط·ط¨ظٹط¨ظٹ. ط¬ظ…ظٹط¹ ط§ظ„ط­ظ‚ظˆظ‚ ظ…ط­ظپظˆط¸ط©.</p>
+                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">ظ‡ط°ط§ ط§ظ„ط¨ط±ظٹط¯ ط¥ظ„ظƒطھط±ظˆظ†ظٹ طھظ„ظ‚ط§ط¦ظٹطŒ ظٹط±ط¬ظ‰ ط¹ط¯ظ… ط§ظ„ط±ط¯.</p>
                     </td>
                 </tr>
 
@@ -551,8 +545,7 @@ HTML;
         string $toName,
         string $doctorname,
         string $clinicname,
-        string $appointmentDate,
-        string $reason
+        string $appointmentDate
     ): string {
         $dateFmt = date('d/m/Y', strtotime($appointmentDate));
         $timeFmt = date('H:i',   strtotime($appointmentDate));
@@ -565,21 +558,20 @@ HTML;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
-        body { font-family: 'Tajawal', Arial, sans-serif; }
+        body { font-family: Arial, Tahoma, sans-serif; }
     </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Tajawal',Arial,sans-serif;">
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Tahoma,sans-serif;">
 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f1f5f9;padding:40px 0;">
     <tr>
         <td align="center">
             <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.1);">
-                
+
                 <!-- HEADER -->
                 <tr>
                     <td style="background:linear-gradient(135deg,#0369a1,#0891b2,#06b6d4);padding:45px 40px;text-align:center;">
-                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">طبيبي <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
-                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">صحتكم، أولويتنا</p>
+                        <h1 style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:1px;">&#1591;&#1576;&#1610;&#1576;&#1610; <span style="font-size:20px;font-weight:400;opacity:0.8;">Tabibi</span></h1>
+                        <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">&#1589;&#1581;&#1578;&#1603;&#1605;&#1548; &#1571;&#1608;&#1604;&#1608;&#1610;&#1578;&#1606;&#1575;</p>
                     </td>
                 </tr>
 
@@ -587,12 +579,7 @@ HTML;
                 <tr>
                     <td align="center" style="padding:0 40px;">
                         <div style="display:inline-block;background-color:#ffffff;padding:12px 30px;border-radius:50px;margin-top:-30px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #e2e8f0;">
-                            <table border="0" cellspacing="0" cellpadding="0">
-                                <tr>
-                                    <td><img src="https://cdn-icons-png.flaticon.com/512/190/190411.png" width="24" height="24" style="display:block;"></td>
-                                    <td style="padding-right:10px;color:#059669;font-size:16px;font-weight:700;">تم تأكيد الموعد بنجاح</td>
-                                </tr>
-                            </table>
+                            <span style="color:#059669;font-size:16px;font-weight:700;">&#10003; &#1578;&#1605; &#1578;&#1571;&#1603;&#1610;&#1583; &#1575;&#1604;&#1605;&#1608;&#1593;&#1583; &#1576;&#1606;&#1580;&#1575;&#1581;</span>
                         </div>
                     </td>
                 </tr>
@@ -600,8 +587,8 @@ HTML;
                 <!-- GREETING -->
                 <tr>
                     <td style="padding:40px 40px 20px;text-align:right;">
-                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">مرحباً {$toName}،</p>
-                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">سعداء بإبلاغك أنه تم تأكيد موعدك الطبي. إليك كافة التفاصيل التي تحتاجها:</p>
+                        <p style="margin:0;color:#1e293b;font-size:20px;font-weight:700;">&#1605;&#1585;&#1581;&#1576;&#1575;&#1611; {$toName}&#1548;</p>
+                        <p style="margin:10px 0 0;color:#64748b;font-size:14px;line-height:1.6;">&#1587;&#1593;&#1583;&#1575;&#1569; &#1576;&#1573;&#1576;&#1604;&#1575;&#1594;&#1603; &#1571;&#1606;&#1607; &#1578;&#1605; &#1578;&#1571;&#1603;&#1610;&#1583; &#1605;&#1608;&#1593;&#1583;&#1603; &#1575;&#1604;&#1591;&#1576;&#1610;. &#1573;&#1604;&#1610;&#1603; &#1578;&#1601;&#1575;&#1589;&#1610;&#1604; &#1575;&#1604;&#1605;&#1608;&#1593;&#1583;:</p>
                     </td>
                 </tr>
 
@@ -610,27 +597,25 @@ HTML;
                     <td style="padding:0 40px 30px;">
                         <div style="background-color:#f8fafc;border:2px solid #f1f5f9;border-radius:20px;padding:25px;">
                             <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                                <!-- Médecin -->
+                                <!-- Mأ©decin -->
                                 <tr>
                                     <td style="padding-bottom:15px;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/3774/3774299.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                الطبيب <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Médecin / Doctor)</span>:
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                &#1575;&#1604;&#1591;&#1576;&#1610;&#1576; <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Mأ©decin)</span>:
                                             </td>
                                             <td align="left" style="color:#0f172a;font-size:15px;font-weight:900;">{$doctorname}</td>
                                         </tr></table>
                                     </td>
                                 </tr>
-                                <!-- Spécialité -->
+                                <!-- Clinique -->
                                 <tr>
                                     <td style="padding:15px 0;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/3063/3063203.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                التخصص <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Spécialité / Specialty)</span>:
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                &#1575;&#1604;&#1593;&#1610;&#1575;&#1583;&#1577; <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Clinique)</span>:
                                             </td>
-                                            <td align="left" style="color:#0f172a;font-size:15px;font-weight:900;">Cardiologie</td>
+                                            <td align="left" style="color:#0f172a;font-size:15px;font-weight:900;">{$clinicname}</td>
                                         </tr></table>
                                     </td>
                                 </tr>
@@ -638,23 +623,10 @@ HTML;
                                 <tr>
                                     <td style="padding:15px 0;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/1077/1077063.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                المريض <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Patient)</span>:
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                &#1575;&#1604;&#1605;&#1585;&#1610;&#1590; <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Patient)</span>:
                                             </td>
                                             <td align="left" style="color:#0f172a;font-size:15px;font-weight:900;">{$toName}</td>
-                                        </tr></table>
-                                    </td>
-                                </tr>
-                                <!-- Motif -->
-                                <tr>
-                                    <td style="padding:15px 0;border-bottom:1px solid #e2e8f0;">
-                                        <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/2966/2966327.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                سبب الزيارة <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Motif / Reason)</span>:
-                                            </td>
-                                            <td align="left" style="color:#0f172a;font-size:15px;font-weight:900;">{$reason}</td>
                                         </tr></table>
                                     </td>
                                 </tr>
@@ -662,9 +634,8 @@ HTML;
                                 <tr>
                                     <td style="padding:15px 0;border-bottom:1px solid #e2e8f0;">
                                         <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/3652/3652191.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                التاريخ <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Date)</span>:
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                &#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582; <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Date)</span>:
                                             </td>
                                             <td align="left" style="color:#0369a1;font-size:15px;font-weight:900;">{$dateFmt}</td>
                                         </tr></table>
@@ -672,25 +643,12 @@ HTML;
                                 </tr>
                                 <!-- Heure -->
                                 <tr>
-                                    <td style="padding:15px 0;border-bottom:1px solid #e2e8f0;">
-                                        <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/2972/2972531.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                الوقت <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Heure / Time)</span>:
-                                            </td>
-                                            <td align="left" style="color:#0369a1;font-size:15px;font-weight:900;">{$timeFmt}</td>
-                                        </tr></table>
-                                    </td>
-                                </tr>
-                                <!-- Frais -->
-                                <tr>
                                     <td style="padding:15px 0 0;">
                                         <table width="100%"><tr>
-                                            <td style="width:30px;"><img src="https://cdn-icons-png.flaticon.com/512/2489/2489756.png" width="20"></td>
-                                            <td style="color:#64748b;font-size:13px;font-weight:700;">
-                                                رسوم الاستشارة <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Frais / Fees)</span>:
+                                            <td style="color:#64748b;font-size:13px;font-weight:700;width:40%;">
+                                                &#1575;&#1604;&#1608;&#1602;&#1578; <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-right:5px;">(Heure)</span>:
                                             </td>
-                                            <td align="left" style="color:#059669;font-size:15px;font-weight:900;">1000 DA</td>
+                                            <td align="left" style="color:#0369a1;font-size:15px;font-weight:900;">{$timeFmt}</td>
                                         </tr></table>
                                     </td>
                                 </tr>
@@ -704,7 +662,7 @@ HTML;
                     <td style="padding:0 40px 40px;">
                         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:15px;">
                             <tr>
-                                <td style="color:#92400e;font-size:13px;line-height:1.4;"><strong>تنبيه:</strong> يرجى الحضور قبل الموعد بـ 15 دقيقة لإتمام الإجراءات الإدارية. في حال تعذر الحضور، يرجى الإلغاء عبر التطبيق.</td>
+                                <td style="color:#92400e;font-size:13px;line-height:1.4;"><strong>&#1578;&#1606;&#1576;&#1610;&#1607;:</strong> &#1610;&#1585;&#1580;&#1609; &#1575;&#1604;&#1581;&#1590;&#1608;&#1585; &#1602;&#1576;&#1604; &#1575;&#1604;&#1605;&#1608;&#1593;&#1583; &#1576;&#1600; 15 &#1583;&#1602;&#1610;&#1602;&#1577;. &#1601;&#1610; &#1581;&#1575;&#1604; &#1578;&#1593;&#1584;&#1585; &#1575;&#1604;&#1581;&#1590;&#1608;&#1585;&#1548; &#1610;&#1585;&#1580;&#1609; &#1575;&#1604;&#1573;&#1604;&#1594;&#1575;&#1569; &#1593;&#1576;&#1585; &#1575;&#1604;&#1578;&#1591;&#1576;&#1610;&#1602;.</td>
                             </tr>
                         </table>
                     </td>
@@ -713,8 +671,8 @@ HTML;
                 <!-- FOOTER -->
                 <tr>
                     <td style="background-color:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-                        <p style="margin:0;color:#94a3b8;font-size:12px;">© {$year} Tabibi - طبيبي. جميع الحقوق محفوظة.</p>
-                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">هذا البريد إلكتروني تلقائي، يرجى عدم الرد.</p>
+                        <p style="margin:0;color:#94a3b8;font-size:12px;">آ© {$year} Tabibi - &#1591;&#1576;&#1610;&#1576;&#1610;. &#1580;&#1605;&#1610;&#1593; &#1575;&#1604;&#1581;&#1602;&#1608;&#1602; &#1605;&#1581;&#1601;&#1608;&#1592;&#1577;.</p>
+                        <p style="margin:5px 0 0;color:#cbd5e1;font-size:11px;">&#1607;&#1584;&#1575; &#1575;&#1604;&#1576;&#1585;&#1610;&#1583; &#1573;&#1604;&#1603;&#1578;&#1585;&#1608;&#1606;&#1610; &#1578;&#1604;&#1602;&#1575;&#1574;&#1610;&#1548; &#1610;&#1585;&#1580;&#1609; &#1593;&#1583;&#1605; &#1575;&#1604;&#1585;&#1583;.</p>
                     </td>
                 </tr>
 
@@ -727,8 +685,10 @@ HTML;
 HTML;
     }
 
+
+
     private static function buildCancellationTemplate(string $toName, string $appointmentDate): string {
-        $dateFmt = date('d/m/Y \à H:i', strtotime($appointmentDate));
+        $dateFmt = date('d/m/Y \أ  H:i', strtotime($appointmentDate));
         $year    = date('Y');
         return <<<HTML
 <!DOCTYPE html>
@@ -741,19 +701,19 @@ HTML;
             <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.1);">
                 <tr>
                     <td style="background-color:#dc2626;padding:40px;text-align:center;">
-                        <h1 style="margin:0;color:#ffffff;font-size:28px;">إلغاء موعد - Tabibi</h1>
+                        <h1 style="margin:0;color:#ffffff;font-size:28px;">ط¥ظ„ط؛ط§ط، ظ…ظˆط¹ط¯ - Tabibi</h1>
                     </td>
                 </tr>
                 <tr>
                     <td style="padding:40px;text-align:right;">
-                        <p style="font-size:18px;color:#1e293b;">مرحباً {$toName}،</p>
-                        <p style="color:#64748b;line-height:1.6;">نحيطكم علماً بأنه قد تم إلغاء موعدكم المقرر بتاريخ <strong>{$dateFmt}</strong>.</p>
-                        <p style="margin-top:20px;color:#64748b;">يمكنكم حجز موعد جديد عبر التطبيق في أي وقت.</p>
+                        <p style="font-size:18px;color:#1e293b;">ظ…ط±ط­ط¨ط§ظ‹ {$toName}طŒ</p>
+                        <p style="color:#64748b;line-height:1.6;">ظ†ط­ظٹط·ظƒظ… ط¹ظ„ظ…ط§ظ‹ ط¨ط£ظ†ظ‡ ظ‚ط¯ طھظ… ط¥ظ„ط؛ط§ط، ظ…ظˆط¹ط¯ظƒظ… ط§ظ„ظ…ظ‚ط±ط± ط¨طھط§ط±ظٹط® <strong>{$dateFmt}</strong>.</p>
+                        <p style="margin-top:20px;color:#64748b;">ظٹظ…ظƒظ†ظƒظ… ط­ط¬ط² ظ…ظˆط¹ط¯ ط¬ط¯ظٹط¯ ط¹ط¨ط± ط§ظ„طھط·ط¨ظٹظ‚ ظپظٹ ط£ظٹ ظˆظ‚طھ.</p>
                     </td>
                 </tr>
                 <tr>
                     <td style="background-color:#f8fafc;padding:20px;text-align:center;">
-                        <p style="color:#94a3b8;font-size:12px;">© {$year} Tabibi</p>
+                        <p style="color:#94a3b8;font-size:12px;">آ© {$year} Tabibi</p>
                     </td>
                 </tr>
             </table>

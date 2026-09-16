@@ -367,10 +367,11 @@ class AuthController {
             Response::error("تعذر التحقق من حسابك على Google. يرجى المحاولة مرة أخرى.", 400);
         }
 
-        // Verify with Google
+        // Verify with Google (SSL verification enabled for production security)
         $ch = curl_init("https://oauth2.googleapis.com/tokeninfo?id_token=" . $data['credential']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         $res = curl_exec($ch);
         curl_close($ch);
 
@@ -435,7 +436,14 @@ class AuthController {
             }
         }
 
-        // User does not exist, register them
+        // User does not exist: enforce CGU/Privacy consent before creating account (PHASE 02F - Loi 18-07)
+        if (empty($data['accepted_cgu'])) {
+            Response::error(
+                "يجب قبول شروط الاستخدام وسياسة الخصوصية قبل إنشاء الحساب.",
+                422
+            );
+        }
+
         $baseUsername = strtolower(explode('@', $email)[0]);
         // Remove special chars for username
         $baseUsername = preg_replace('/[^a-z0-9]/', '', $baseUsername);
