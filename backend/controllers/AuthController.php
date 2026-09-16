@@ -270,6 +270,11 @@ class AuthController {
             $stmt->execute([$user['id']]);
             $profile = $stmt->fetch() ?: [];
             
+            // CHECK ACCOUNT DELETION (تحقق من عدم حذف الحساب)
+            if (!empty($profile['deleteacount'])) {
+                Response::error("هذا الحساب تم حذفه بناءً على طلب صاحبه.", 403);
+            }
+
             // CHECK EMAIL VALIDATION (تحقق من تأكيد الإيميل)
             if (isset($profile['emailvalidation']) && (int)$profile['emailvalidation'] === 0) {
                 self::sendEmailVerificationOTP($pdo, $profile['id'] ?? '', $profile['email'] ?? '', $profile['fullname'] ?? '');
@@ -389,6 +394,10 @@ class AuthController {
             $patient = $stmt->fetch();
             
             if ($patient) {
+                if (!empty($patient['deleteacount'])) {
+                    Response::error("هذا الحساب تم حذفه بناءً على طلب صاحبه.", 403);
+                }
+
                 // User exists as Patient, log them in
                 $userId = $patient['user_id'];
                 $stmtUser = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");

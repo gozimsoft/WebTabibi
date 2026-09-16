@@ -21,7 +21,7 @@ class ConsentController {
     // Retourne les consentements actuels de l'utilisateur connecté
     // ----------------------------------------------------------
     public static function getMy(): void {
-        $session = AuthMiddleware::require();
+        $session = AuthMiddleware::authenticate();
         $pdo = Database::getInstance();
 
         $consents = ConsentHelper::getCurrent($pdo, $session['user_id']);
@@ -51,7 +51,7 @@ class ConsentController {
     // Il est enregistré comme signal. La suppression doit être demandée séparément.
     // ----------------------------------------------------------
     public static function withdraw(): void {
-        $session = AuthMiddleware::require();
+        $session = AuthMiddleware::authenticate();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
         $allowedTypes = [
@@ -121,13 +121,8 @@ class ConsentController {
     // peuvent être conservées sous forme anonymisée pour les obligations du praticien.
     // ----------------------------------------------------------
     public static function deleteAccount(): void {
-        $session = AuthMiddleware::require();
+        $session = AuthMiddleware::patientOnly();
         $pdo = Database::getInstance();
-
-        // Seulement pour les patients (usertype = 0)
-        if ((int)($session['user_type'] ?? -1) !== 0) {
-            Response::error('هذه الخدمة متاحة فقط لحسابات المرضى.', 403);
-        }
 
         // Récupérer le patient
         $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
@@ -144,37 +139,79 @@ class ConsentController {
 
         $pdo->beginTransaction();
         try {
-            // 1. Anonymiser les données personnelles du patient
+            // 1. Anonymiser toutes les données personnelles et médicales du profil patient
             $pdo->prepare("
                 UPDATE patients SET
-                    fullname         = '[Compte supprimé]',
-                    email            = NULL,
-                    phone            = NULL,
-                    address          = NULL,
-                    birthdate        = NULL,
-                    birthplace       = NULL,
-                    postcode         = NULL,
-                    nin              = NULL,
-                    emergancyphone   = NULL,
-                    emergancyemail   = NULL,
-                    emergancynote    = NULL,
-                    photoprofile     = NULL,
-                    deleteacount     = 1
+                    fullname              = '[Compte supprimé]',
+                    email                 = NULL,
+                    phone                 = NULL,
+                    address               = NULL,
+                    birthdate             = NULL,
+                    birthplace            = NULL,
+                    birthcountry          = NULL,
+                    postcode              = NULL,
+                    nin                   = NULL,
+                    bloodtype             = NULL,
+                    speakinglanguage      = NULL,
+                    baladiya_id           = NULL,
+                    doctor_id             = NULL,
+                    emergancyphone        = NULL,
+                    emergancyemail        = NULL,
+                    emergancyphonedoctor  = NULL,
+                    emergancynote         = NULL,
+                    photoprofile          = NULL,
+                    deleteacount          = 1
                 WHERE id = ?
             ")->execute([$patientId]);
 
-            // 2. Anonymiser le username dans users (mais garder le compte pour l'intégrité référentielle)
+            // 2. Anonymiser le username dans users et verrouiller le mot de passe
             $pdo->prepare("UPDATE users SET username = ?, password = 'DELETED' WHERE id = ?")
                 ->execute([$anonymId, $session['user_id']]);
 
-            // 3. Supprimer toutes les sessions actives
+            // 3. Supprimer toutes les sessions actives (déconnexion immédiate)
             $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")
                 ->execute([$session['user_id']]);
 
-            // 4. Enregistrer le retrait de consentement et la demande de suppression dans consent_logs
+            // 4. Supprimer les notifications personnelles de l'utilisateur
+            $pdo->prepare("DELETE FROM notifications WHERE user_id = ?")
+                ->execute([$session['user_id']]);
+
+            // 5. Dissocier les relations de proches/famille
+            $pdo->prepare("DELETE FROM patientsproches WHERE patient_id = ? OR proche_id = ?")
+                ->execute([$patientId, $patientId]);
+
+            // 6. Gestion des rendez-vous (apointements) :
+            // a) Annuler les rendez-vous futurs en attente pour libérer le planning du médecin
+            $pdo->prepare("
+                UPDATE apointements
+                SET status = 1, updatedat = NOW()
+                WHERE patient_id = ? AND apointementdate > NOW() AND status = 0
+            ")->execute([$patientId]);
+
+            // b) Anonymiser les données identifiantes directes dans tous les rendez-vous du patient
+            // Les données médicales objectives (date, motif/reason_id, clinique, médecin) sont conservées
+            // pour la continuité des soins et les obligations déontologiques du praticien.
+            $pdo->prepare("
+                UPDATE apointements
+                SET patientname = '[Compte supprimé]', phone = NULL, updatedat = NOW()
+                WHERE patient_id = ?
+            ")->execute([$patientId]);
+
+            // c) Fermer les tickets d'assistance/support ouverts du patient
+            $pdo->prepare("UPDATE tickets SET status = 'CLOSED', updated_at = NOW() WHERE patient_id = ?")
+                ->execute([$patientId]);
+
+            // d) Anonymiser les avis et commentaires laissés par le patient
+            $pdo->prepare("UPDATE doctorsratings SET hidepatient = 1 WHERE patient_id = ?")
+                ->execute([$patientId]);
+
+            // 7. Enregistrer le retrait des consentements et la traçabilité de suppression dans consent_logs
+            // NOTE : consent_logs est expressément CONSERVÉ pour fournir la preuve juridique
+            // de l'antériorité du consentement et de son retrait effectif (Art. 35 Loi 18-07).
             ConsentHelper::logMultiple($pdo, $session['user_id'], $patientId, [
-                ConsentHelper::TYPE_CGU     => 0,
-                ConsentHelper::TYPE_PRIVACY => 0,
+                ConsentHelper::TYPE_CGU         => 0,
+                ConsentHelper::TYPE_PRIVACY     => 0,
+                ConsentHelper::TYPE_HEALTH_DATA => 0,
             ], 'account_deletion');
 
             $pdo->commit();
