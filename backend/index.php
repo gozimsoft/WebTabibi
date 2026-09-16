@@ -33,7 +33,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = rtrim($uri, '/');
 
-$uri = preg_replace('#^(/tabibi/backend|/api)#', '', $uri);  // strip /tabibi/backend or /api prefix
+$uri = preg_replace('#^/tabibi/backend#', '', $uri);
+$uri = preg_replace('#^/api#', '', $uri);
 $parts = array_values(array_filter(explode('/', ltrim($uri, '/'))));
 
 try {

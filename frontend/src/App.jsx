@@ -766,9 +766,16 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       fetchCounts();
     };
 
+    const onTicketReadEvent = () => {
+      setUnreadTicketsCount(prev => Math.max(0, prev - 1));
+      fetchCounts();
+    };
+
     document.addEventListener("visibilitychange", onWake);
     window.addEventListener("focus", onWake);
     window.addEventListener("tabibi:appointment_sync", onSyncEvent);
+    window.addEventListener("tabibi:ticket_sync", onSyncEvent);
+    window.addEventListener("tabibi:ticket_read", onTicketReadEvent);
 
     let bc = null;
     try {
@@ -794,6 +801,8 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       document.removeEventListener("visibilitychange", onWake);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("tabibi:appointment_sync", onSyncEvent);
+      window.removeEventListener("tabibi:ticket_sync", onSyncEvent);
+      window.removeEventListener("tabibi:ticket_read", onTicketReadEvent);
       window.removeEventListener("storage", onStorage);
       if (bc) bc.close();
     };
@@ -805,7 +814,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
-      { label: "إدارة المواعيد", icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
+      { label: t("appt_mgr_title", "إدارة المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
     ] : [])
   ];
 
@@ -1160,11 +1169,11 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                     </div>
                     <div style={{ maxHeight: "calc(85vh - 120px)", overflowY: "auto" }}>
                       {[
-                        user.user_type === 3 && { icon: <Shield size={16} />, label: "لوحة الإدارة", path: "/admin" },
+                        user.user_type === 3 && { icon: <Shield size={16} />, label: t("admin_panel", "لوحة الإدارة"), path: "/admin" },
                         { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                         (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                         (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
-                        { icon: <MessageSquare size={16} />, label: "الرسائل", path: "/tickets", badge: unreadTicketsCount },
+                        { icon: <MessageSquare size={16} />, label: t("messages", "الرسائل"), path: "/tickets", badge: unreadTicketsCount },
                         { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
                         { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                       ].filter(Boolean).map(item => (
@@ -6119,9 +6128,9 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
 
   return (
     <div style={{
-      maxWidth: 1320,
+      maxWidth: 1200,
       margin: "0 auto",
-      padding: isMobile ? "12px 10px" : "20px 24px",
+      padding: isMobile ? "12px 16px" : "20px 24px",
       minHeight: "calc(100vh - 80px)",
       display: "flex",
       flexDirection: "column"
@@ -9076,8 +9085,7 @@ function MainApp() {
             navigate={navigate}
             user={user}
             onTicketRead={() => {
-              setUnreadTicketsCount(prev => Math.max(0, prev - 1));
-              fetchCounts();
+              window.dispatchEvent(new CustomEvent('tabibi:ticket_read'));
             }}
           />
         );
@@ -9099,8 +9107,7 @@ function MainApp() {
               navigate={navigate}
               user={user}
               onTicketRead={() => {
-                setUnreadTicketsCount(prev => Math.max(0, prev - 1));
-                fetchCounts();
+                window.dispatchEvent(new CustomEvent('tabibi:ticket_read'));
               }}
             />
           );
