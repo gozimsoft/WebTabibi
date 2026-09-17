@@ -17,12 +17,9 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: apiTarget.includes('localhost') || apiTarget.includes('tabibi.dz')
-            ? 'http://localhost/tabibi/backend'
-            : apiTarget,
+          target: apiTarget,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
     },
