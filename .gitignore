@@ -36,21 +36,4 @@ yarn-error.log*
 frontend/dist/
 backend/vendor/
 
-# ============================================================
-# SÉCURITÉ & SECRETS (Phase 05B)
-# ============================================================
-.env
-.env.local
-.env.*.local
-backend/.env
-frontend/.env
-frontend/.env.local
-
-# Clés et certificats de signature Android
-*.jks
-*.keystore
-frontend/android/keystore.properties
-frontend/android/app/keystore.properties
-
-# Fichiers mémos temporaires avec mots de passe
-Compile et signe APK .txt
+#  
