@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     base: './',
     plugins: [react()],
     server: {
-      port: 80,
+      port: 81,
       host: 'localhost',
       watch: {
         ignored: ['**/android/**', '**/ios/**'],

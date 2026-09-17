@@ -6,7 +6,7 @@ import {
   XCircle, AlertCircle, RefreshCw, Filter, Search,
   Activity, ClipboardList, Plus, X, FileText,
   LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin,
-  Maximize, Minimize
+  Maximize, Minimize, ArrowUpDown, Check
 } from "lucide-react";
 import { Btn, Spinner, useToast } from "../components/SharedUI";
 
@@ -365,17 +365,139 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                 return (
                   <div key={di} style={{ borderRight: "1px solid var(--border, #f1f5f9)", padding: "3px 4px", minHeight: ROW_H, background: isToday ? "var(--brand-light, #f8fbff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)", position: "relative" }}>
                     {appts.map((appt, ai) => {
-                      const sc = STATUS_COLORS[Number(appt.status)] || STATUS_COLORS[0];
+                      // فحص ما إذا كان الموعد في الماضي أو تم تأكيد إتمامه (مستخدم)
+                      const apptDateStr = String(appt.apointementdate || appt.date || "").trim().replace(" ", "T");
+                      const apptDateObj = new Date(apptDateStr);
+                      const isPastTime = !isNaN(apptDateObj.getTime()) && apptDateObj < new Date();
+                      const isCompleted = Number(appt.status) === 2;
+                      const isCancelled = Number(appt.status) === 1;
+                      const isPending = Number(appt.status) === 0;
+                      // إذا انقضى وقت الموعد دون اتخاذ أي إجراء (المريض لم يحضر: غائب)
+                      const isAbsent = isPending && isPastTime;
+                      const isUsed = isCompleted || isAbsent;
+
+                      // تحديد الألوان: ملغي (أحمر)، مستخدم/مكتمل/غائب (رمادي)، موعد قادم قيد الانتظار (أصفر)
+                      const sc = isCancelled
+                        ? (STATUS_COLORS[1] || STATUS_COLORS[0])
+                        : isUsed
+                        ? (STATUS_COLORS[2] || { bg: "var(--status-completed-bg, #f1f5f9)", color: "var(--status-completed-text, #475569)", border: "var(--status-completed-border, #cbd5e1)" })
+                        : (STATUS_COLORS[0] || STATUS_COLORS[0]);
+
+                      const statusText = isCompleted
+                        ? STATUS_LABELS[2]
+                        : isCancelled
+                        ? STATUS_LABELS[1]
+                        : isAbsent
+                        ? (t("appt_mgr_absent") || "ABSENT")
+                        : STATUS_LABELS[0];
+
+                      // تلميح الماوس (Tooltip) يحتوي على اسم المريض، سبب الموعد، والحالة
+                      const tooltipLines = [
+                        appt.patientname || t("appt_mgr_unknown_patient"),
+                        appt.reason_name ? `${t("appt_mgr_visit_reason") || "السبب"}: ${appt.reason_name}` : null,
+                        statusText,
+                        appt.note ? `${t("appt_mgr_note") || "ملاحظة"}: ${appt.note}` : null
+                      ].filter(Boolean);
+                      const tooltip = tooltipLines.join("\n");
+
                       return (
-                        <div key={ai} title={`${appt.patientname || t("appt_mgr_unknown_patient")}\n${STATUS_LABELS[Number(appt.status)]}`}
-                          style={{ background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 8, padding: "3px 6px", marginBottom: 2, cursor: "default" }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: sc.color, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
-                          {appt.reason_name && <div style={{ fontSize: 9, color: "var(--text-secondary, #64748b)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{appt.reason_name}</div>}
-                          {Number(appt.status) === 0 && (
-                            <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
-                              <button onClick={() => onUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "2px 3px", borderRadius: 5, border: "none", background: "var(--status-completed-bg, #d1fae5)", color: "var(--status-completed-text, #065f46)", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>✓</button>
-                              <button onClick={() => onUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "2px 3px", borderRadius: 5, border: "none", background: "var(--status-cancelled-bg, #fee2e2)", color: "var(--status-cancelled-text, #991b1b)", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>✕</button>
+                        <div key={ai} title={tooltip}
+                          style={{
+                            background: sc.bg,
+                            border: `1px solid ${sc.border}`,
+                            borderRadius: 8,
+                            padding: "3px 6px",
+                            marginBottom: 2,
+                            cursor: "default",
+                            opacity: isUsed ? 0.9 : 1,
+                            transition: "all 0.2s ease"
+                          }}>
+                          <div style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            color: sc.color,
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis"
+                          }}>
+                            {appt.patientname || t("appt_mgr_unknown_patient")}
+                          </div>
+                          {appt.reason_name && (
+                            <div style={{
+                              fontSize: 9,
+                              color: isUsed ? "var(--text-muted, #94a3b8)" : "var(--text-secondary, #64748b)",
+                              overflow: "hidden",
+                              whiteSpace: "nowrap",
+                              textOverflow: "ellipsis"
+                            }}>
+                              {appt.reason_name}
                             </div>
+                          )}
+                          {isPending && (
+                            isPastTime ? (
+                              // إذا انقضى الوقت دون إجراء: استبدال الزرين بزر تحذيري أصفر بنص ABSENT مع بقاء الإطار رمادياً
+                              <div style={{ marginTop: 3 }}>
+                                <button
+                                  type="button"
+                                  title={t("appt_mgr_absent_desc") || "Patient absent — rendez-vous passé sans action"}
+                                  style={{
+                                    width: "100%",
+                                    padding: "2px 4px",
+                                    borderRadius: 5,
+                                    border: "1px solid var(--status-booked-border, #fde68a)",
+                                    background: "var(--status-booked-bg, #fef3c7)",
+                                    color: "var(--status-booked-text, #92400e)",
+                                    fontWeight: 800,
+                                    fontSize: 9,
+                                    cursor: "default",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    letterSpacing: "0.5px"
+                                  }}
+                                >
+                                  {t("appt_mgr_absent") || "ABSENT"}
+                                </button>
+                              </div>
+                            ) : (
+                              // الموعد القادم: زرا الإتمام (أخضر) والإلغاء (أحمر)
+                              <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
+                                <button
+                                  onClick={() => onUpdateStatus(appt.id, 2)}
+                                  title={t("appt_mgr_complete_visit")}
+                                  style={{
+                                    flex: 1,
+                                    padding: "2px 3px",
+                                    borderRadius: 5,
+                                    border: "none",
+                                    background: "#d1fae5",
+                                    color: "#065f46",
+                                    fontWeight: 700,
+                                    fontSize: 9,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={() => onUpdateStatus(appt.id, 1)}
+                                  title={t("appt_mgr_cancel_appt")}
+                                  style={{
+                                    flex: 1,
+                                    padding: "2px 3px",
+                                    borderRadius: 5,
+                                    border: "none",
+                                    background: "#fee2e2",
+                                    color: "#991b1b",
+                                    fontWeight: 700,
+                                    fontSize: 9,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )
                           )}
                         </div>
                       );
@@ -418,27 +540,44 @@ export default function AppointmentManager({ navigate, user }) {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const getLocalDateStr = () => {
-    const d = new Date();
+
+  const getCurrentMonday = (baseDate = new Date()) => {
+    const d = new Date(baseDate);
+    const day = d.getDay(); // 0=Sun
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+  };
+
+  const formatDateYMD = (d) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
+
+  const getWeekRange = (mondayDate) => {
+    const sunday = new Date(mondayDate);
+    sunday.setDate(mondayDate.getDate() + 6);
+    return {
+      from: formatDateYMD(mondayDate),
+      to: formatDateYMD(sunday),
+      start: formatDateYMD(mondayDate)
+    };
+  };
+
+  const defaultWeek = getWeekRange(getCurrentMonday());
+
   const [filter, setFilter] = useState("booked");
   const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState(getLocalDateStr);
-  const [dateTo, setDateTo] = useState(getLocalDateStr);
-  const [quickFilter, setQuickFilter] = useState("today"); // today | week | month | 3months
+  const [dateFrom, setDateFrom] = useState(defaultWeek.from);
+  const [dateTo, setDateTo] = useState(defaultWeek.to);
+  const [quickFilter, setQuickFilter] = useState("this_week"); // this_week by default
   const [showModal, setShowModal] = useState(false);
-  const [viewMode, setViewMode] = useState("list"); // list | calendar
-  const [calWeek, setCalWeek] = useState(() => {
-    const d = new Date();
-    const day = d.getDay(); // 0=Sun
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // start from Monday
-    const monday = new Date(d.setDate(diff));
-    return monday.toISOString().slice(0, 10);
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = localStorage.getItem("tabibi_appt_view_mode");
+    return saved === "list" || saved === "calendar" ? saved : "calendar";
   });
+  const [calWeek, setCalWeek] = useState(defaultWeek.start);
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const [clinics, setClinics] = useState([]);
   const [selectedClinicId, setSelectedClinicId] = useState("all");
@@ -446,6 +585,9 @@ export default function AppointmentManager({ navigate, user }) {
   const [showStats, setShowStats] = useState(() => {
     const saved = localStorage.getItem("appt_show_stats");
     return saved !== null ? saved === "true" : false;
+  });
+  const [sortBy, setSortBy] = useState(() => {
+    return localStorage.getItem("tabibi_appt_sort_by") || "date_asc";
   });
 
   const toggleFullscreen = () => {
@@ -474,21 +616,30 @@ export default function AppointmentManager({ navigate, user }) {
 
   const applyQuickFilter = (key) => {
     const today = new Date();
-    const fmt = (d) => d.toISOString().slice(0, 10);
     setQuickFilter(key);
     if (key === "today") {
-      setDateFrom(fmt(today)); setDateTo(fmt(today));
+      const todayStr = formatDateYMD(today);
+      setDateFrom(todayStr); setDateTo(todayStr);
+      setCalWeek(defaultWeek.start);
+    } else if (key === "this_week") {
+      const w = getWeekRange(getCurrentMonday());
+      setDateFrom(w.from); setDateTo(w.to);
+      setCalWeek(w.start);
     } else if (key === "week") {
-      const end = new Date(today); end.setDate(today.getDate() + 7);
-      setDateFrom(fmt(today)); setDateTo(fmt(end));
+      const nextMon = getCurrentMonday();
+      nextMon.setDate(nextMon.getDate() + 7);
+      const w = getWeekRange(nextMon);
+      setDateFrom(w.from); setDateTo(w.to);
+      setCalWeek(w.start);
     } else if (key === "month") {
       const end = new Date(today); end.setMonth(today.getMonth() + 1);
-      setDateFrom(fmt(today)); setDateTo(fmt(end));
+      setDateFrom(formatDateYMD(today)); setDateTo(formatDateYMD(end));
     } else if (key === "3months") {
       const end = new Date(today); end.setMonth(today.getMonth() + 3);
-      setDateFrom(fmt(today)); setDateTo(fmt(end));
+      setDateFrom(formatDateYMD(today)); setDateTo(formatDateYMD(end));
     } else {
       setDateFrom(""); setDateTo("");
+      setCalWeek(defaultWeek.start);
     }
   };
 
@@ -669,7 +820,7 @@ export default function AppointmentManager({ navigate, user }) {
   const STATUS_COLORS = {
     0: { bg: "var(--status-booked-bg, #fef3c7)", color: "var(--status-booked-text, #92400e)", border: "var(--status-booked-border, #fde68a)" },   // أصفر — بانتظار الزيارة
     1: { bg: "var(--status-cancelled-bg, #fee2e2)", color: "var(--status-cancelled-text, #991b1b)", border: "var(--status-cancelled-border, #fca5a5)" },   // أحمر — ملغي
-    2: { bg: "var(--status-completed-bg, #d1fae5)", color: "var(--status-completed-text, #065f46)", border: "var(--status-completed-border, #6ee7b7)" },   // أخضر — مكتمل
+    2: { bg: "var(--status-completed-bg, #f1f5f9)", color: "var(--status-completed-text, #475569)", border: "var(--status-completed-border, #cbd5e1)" },   // رمادي — مكتمل / مستخدم
   };
 
   const now = new Date();
@@ -686,6 +837,40 @@ export default function AppointmentManager({ navigate, user }) {
     const matchesFrom = !dateFrom || apptDate >= dateFrom;
     const matchesTo = !dateTo || apptDate <= dateTo;
     return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a);
+  });
+
+  // ترتيب قائمة المواعيد المصفاة في وضع العرض كقائمة
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (sortBy === "date_asc") {
+      const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).getTime() || 0;
+      const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).getTime() || 0;
+      return da - db;
+    }
+    if (sortBy === "date_desc") {
+      const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).getTime() || 0;
+      const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).getTime() || 0;
+      return db - da;
+    }
+    if (sortBy === "name_asc") {
+      return (a.patientname || "").localeCompare(b.patientname || "", i18n.language === "ar" ? "ar" : "fr");
+    }
+    if (sortBy === "status") {
+      return Number(a.status) - Number(b.status);
+    }
+    return 0;
+  });
+
+  // قائمة المواعيد المخصصة لجدول التقويم الأسبوعي (الحفاظ على المواعيد المنتهية أو المكتملة بلون رمادي دون إخفائها)
+  const calendarAppointments = appointments.filter(a => {
+    const matchesClinic = clinicFilter(a);
+    const matchesSearch = !search ||
+      (a.patientname || "").toLowerCase().includes(search.toLowerCase()) ||
+      (a.phone || "").includes(search);
+    const matchesFilter = filter === "all" ||
+      (filter === "booked" && (Number(a.status) === 0 || Number(a.status) === 2)) ||
+      (filter === "done" && Number(a.status) === 2) ||
+      (filter === "cancelled" && Number(a.status) === 1);
+    return matchesClinic && matchesSearch && matchesFilter;
   });
 
   const stats = {
@@ -853,6 +1038,7 @@ export default function AppointmentManager({ navigate, user }) {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[
                   { key: "", label: t("appt_mgr_all") },
+                  { key: "this_week", label: t("appt_mgr_this_week") },
                   { key: "today", label: t("appt_mgr_today") },
                   { key: "week", label: t("appt_mgr_next_week") },
                   { key: "month", label: t("appt_mgr_next_month") },
@@ -881,7 +1067,7 @@ export default function AppointmentManager({ navigate, user }) {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
                   {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
-                    <button key={key} onClick={() => setViewMode(key)} style={{
+                    <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
                       display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
                       borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
                       background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
@@ -954,15 +1140,34 @@ export default function AppointmentManager({ navigate, user }) {
                 </select>
               </div>
 
+              {/* Sort Selector */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
+                <ArrowUpDown size={15} color="var(--brand, #0284c7)" />
+                <select
+                  value={sortBy}
+                  onChange={e => { setSortBy(e.target.value); localStorage.setItem("tabibi_appt_sort_by", e.target.value); }}
+                  style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
+                  title={t("appt_mgr_sort_by")}
+                >
+                  <option value="date_asc">{t("appt_mgr_sort_date_asc")}</option>
+                  <option value="date_desc">{t("appt_mgr_sort_date_desc")}</option>
+                  <option value="name_asc">{t("appt_mgr_sort_name_asc")}</option>
+                  <option value="status">{t("appt_mgr_sort_status")}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 3 — Dates on one side and the rest on the other side */}
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               {/* Date range */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flexWrap: "wrap" }}>
-                <Calendar size={16} color="var(--text-muted, #94a3b8)" />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "7px 12px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)", flexShrink: 0 }}>
+                <Calendar size={15} color="var(--brand, #0284c7)" />
                 <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
-                  style={{ border: "none", outline: "none", fontSize: 13, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
+                  style={{ border: "none", outline: "none", fontSize: 12.5, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
                 />
                 <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_to")}</span>
                 <input
@@ -970,7 +1175,7 @@ export default function AppointmentManager({ navigate, user }) {
                   value={dateTo}
                   min={dateFrom || undefined}
                   onChange={e => { setDateTo(e.target.value); setQuickFilter(""); }}
-                  style={{ border: "none", outline: "none", fontSize: 13, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
+                  style={{ border: "none", outline: "none", fontSize: 12.5, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
                 />
                 {(dateFrom || dateTo) && (
                   <button
@@ -982,35 +1187,33 @@ export default function AppointmentManager({ navigate, user }) {
                   </button>
                 )}
               </div>
-            </div>
 
-            {/* Active filters summary */}
-            {(dateFrom || dateTo || search || filter !== "all" || selectedClinicId !== "all") && (
-              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {/* Active filters summary */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "3px 10px", borderRadius: 20 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "4px 10px", borderRadius: 20 }}>
                   {filtered.length} {t("appt_mgr_appointments_count")}
                 </span>
                 {selectedClinicId !== "all" && (
-                  <span style={{ fontSize: 12, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "3px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
                     <MapPin size={11} />
                     {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
                   </span>
                 )}
                 {(dateFrom || dateTo) && (
-                  <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", background: "var(--input-bg, #f1f5f9)", padding: "3px 10px", borderRadius: 20 }}>
+                  <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", background: "var(--input-bg, #f1f5f9)", padding: "4px 10px", borderRadius: 20 }}>
                     {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `${t("from")} ${dateFrom}` : `${t("to")} ${dateTo}`}
                   </span>
                 )}
               </div>
-            )}
+            </div>
           </div>
 
           {loading && !refreshing ? (
             <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
           ) : viewMode === "calendar" ? (
             <WeeklyScheduleView
-              appointments={filtered}
+              appointments={calendarAppointments}
               settings={scheduleSettings}
               weekStart={calWeek}
               setWeekStart={setCalWeek}
@@ -1029,40 +1232,190 @@ export default function AppointmentManager({ navigate, user }) {
               </button>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 20 }}>
-              {filtered.map(appt => {
-                const d = new Date(appt.apointementdate || appt.date);
-                const isPast = Number(appt.status) !== 0; // completed(2) or cancelled(1)
-                const statusStyle = STATUS_COLORS[appt.status] || STATUS_COLORS[0];
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
+              {sortedFiltered.map(appt => {
+                const apptDateStr = String(appt.apointementdate || appt.date || "").trim().replace(" ", "T");
+                const d = new Date(apptDateStr);
+                const isPastTime = !isNaN(d.getTime()) && d < new Date();
+                const isCompleted = Number(appt.status) === 2;
+                const isCancelled = Number(appt.status) === 1;
+                const isPending = Number(appt.status) === 0;
+                const isAbsent = isPending && isPastTime;
+                const isPast = isCompleted || isCancelled || isAbsent;
+
+                const statusStyle = isAbsent
+                  ? { bg: "var(--status-booked-bg, #fef3c7)", color: "var(--status-booked-text, #92400e)", border: "var(--status-booked-border, #fde68a)" }
+                  : (STATUS_COLORS[appt.status] || STATUS_COLORS[0]);
+
+                const statusLabelText = isAbsent
+                  ? (t("appt_mgr_absent") || "ABSENT")
+                  : (STATUS_LABELS[appt.status] ?? "—");
+
+                const formattedDate = d.toLocaleDateString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+                const formattedTime = d.toLocaleTimeString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { hour: "2-digit", minute: "2-digit" });
+
                 return (
-                  <div key={appt.id} className="appt-card" style={{ background: "var(--card-bg, #fff)", borderRadius: 20, padding: 24, boxShadow: "var(--shadow, 0 4px 15px rgba(0,0,0,0.03))", border: "1px solid var(--border, rgba(0,0,0,0.04))", transition: "transform 0.2s,box-shadow 0.2s", position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,#0ea5e9,var(--brand, #0284c7))" }} />
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 42, height: 42, borderRadius: 12, background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #e0f2fe)", color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0284c7)", display: "flex", alignItems: "center", justifyContent: "center" }}><User size={20} /></div>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-main, #0f172a)" }}>{appt.patientname || t("appt_mgr_unknown_patient")}</div>
-                          {appt.phone && <div style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><Phone size={11} /> {appt.phone}</div>}
+                  <div
+                    key={appt.id}
+                    className="appt-card"
+                    style={{
+                      background: "var(--card-bg, #fff)",
+                      borderRadius: 14,
+                      padding: "12px 14px",
+                      boxShadow: "var(--shadow, 0 2px 8px rgba(0,0,0,0.03))",
+                      border: "1px solid var(--border, rgba(0,0,0,0.06))",
+                      transition: "all 0.2s ease",
+                      position: "relative",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between"
+                    }}
+                  >
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,#0ea5e9,var(--brand, #0284c7))" }} />
+
+                    <div>
+                      {/* Top row: Avatar + Patient info + Status Badge */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 9,
+                            background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #e0f2fe)",
+                            color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0284c7)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0
+                          }}>
+                            <User size={16} />
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div
+                              style={{ fontWeight: 800, fontSize: 13.5, color: "var(--text-main, #0f172a)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                              title={appt.patientname || t("appt_mgr_unknown_patient")}
+                            >
+                              {appt.patientname || t("appt_mgr_unknown_patient")}
+                            </div>
+                            {appt.phone && (
+                              <div style={{ fontSize: 11, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                                <Phone size={10} style={{ flexShrink: 0 }} />
+                                <span style={{ direction: "ltr" }}>{appt.phone}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
+
+                        <span style={{
+                          background: statusStyle.bg,
+                          color: statusStyle.color,
+                          border: `1px solid ${statusStyle.border}`,
+                          borderRadius: 12,
+                          padding: "2px 7px",
+                          fontSize: 10,
+                          fontWeight: 800,
+                          whiteSpace: "nowrap",
+                          flexShrink: 0
+                        }}>
+                          {statusLabelText}
+                        </span>
                       </div>
-                      <span style={{ background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{STATUS_LABELS[appt.status] ?? "—"}</span>
+
+                      {/* Compact Details Box */}
+                      <div style={{ background: "var(--input-bg, #f8fafc)", borderRadius: 9, padding: "7px 10px", marginBottom: 8, border: "1px solid var(--border, #f1f5f9)" }}>
+                        {/* Date and Time on a unified row */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--text-main, #334155)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden" }}>
+                            <Calendar size={12} color="var(--brand, #0284c7)" style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {formattedDate}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "1px 6px", borderRadius: 5, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                            <Clock size={10} />
+                            <span>{formattedTime}</span>
+                          </div>
+                        </div>
+
+                        {/* Reason */}
+                        {appt.reason_name && (
+                          <div
+                            style={{ marginTop: 5, paddingTop: 5, borderTop: "1px dashed var(--border, #e2e8f0)", fontSize: 11, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 5 }}
+                            title={appt.reason_name}
+                          >
+                            <FileText size={11} style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{appt.reason_name}</span>
+                          </div>
+                        )}
+
+                        {/* Note */}
+                        {appt.note && (
+                          <div
+                            style={{ marginTop: 4, fontSize: 10.5, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 4 }}
+                            title={appt.note}
+                          >
+                            <AlertCircle size={10} style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{appt.note}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ background: "var(--input-bg, #f8fafc)", borderRadius: 12, padding: 14, marginBottom: 14, border: "1px solid var(--border, #f1f5f9)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-main, #334155)", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-                        <Calendar size={14} color="var(--brand, #0284c7)" />
-                        {d.toLocaleDateString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { weekday: "long", year: "numeric", month: "short", day: "numeric" })}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-main, #334155)", fontSize: 13, fontWeight: 700 }}>
-                        <Clock size={14} color="var(--brand, #0284c7)" />
-                        {d.toLocaleTimeString(i18n.language === "ar" ? "ar-DZ" : i18n.language, { hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                      {appt.reason_name && <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed var(--border, #e2e8f0)", fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "center", gap: 6 }}><FileText size={12} /> {appt.reason_name}</div>}
-                      {appt.note && <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-secondary, #64748b)", display: "flex", alignItems: "flex-start", gap: 6 }}><AlertCircle size={12} style={{ marginTop: 2, flexShrink: 0 }} /><span style={{ lineHeight: 1.4 }}>{appt.note}</span></div>}
-                    </div>
-                    {appt.status === 0 && (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button onClick={() => handleUpdateStatus(appt.id, 2)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "var(--status-completed-bg, #d1fae5)", color: "var(--status-completed-text, #065f46)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓ {t("appt_mgr_complete_visit")}</button>
-                        <button onClick={() => handleUpdateStatus(appt.id, 1)} style={{ flex: 1, padding: "8px", borderRadius: 10, border: "none", background: "var(--status-cancelled-bg, #fee2e2)", color: "var(--status-cancelled-text, #991b1b)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✕ {t("appt_mgr_cancel_appt")}</button>
+
+                    {/* Bottom Actions / Status */}
+                    {isPending ? (
+                      isAbsent ? (
+                        <div style={{
+                          width: "100%",
+                          padding: "5px 8px",
+                          borderRadius: 8,
+                          border: "1px solid var(--status-booked-border, #fde68a)",
+                          background: "var(--status-booked-bg, #fef3c7)",
+                          color: "var(--status-booked-text, #92400e)",
+                          fontWeight: 800,
+                          fontSize: 11,
+                          textAlign: "center",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          letterSpacing: "0.5px"
+                        }}>
+                          {t("appt_mgr_absent") || "ABSENT"}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            onClick={() => handleUpdateStatus(appt.id, 2)}
+                            title={t("appt_mgr_complete_visit")}
+                            style={{ flex: 1, padding: "5px 6px", borderRadius: 7, border: "none", background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, transition: "background 0.15s" }}
+                          >
+                            <Check size={12} /> <span style={{ whiteSpace: "nowrap" }}>{t("appt_mgr_complete_visit")}</span>
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStatus(appt.id, 1)}
+                            title={t("appt_mgr_cancel_appt")}
+                            style={{ flex: 1, padding: "5px 6px", borderRadius: 7, border: "none", background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, transition: "background 0.15s" }}
+                          >
+                            <X size={12} /> <span style={{ whiteSpace: "nowrap" }}>{t("appt_mgr_cancel_appt")}</span>
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <div style={{
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        background: "var(--input-bg, #f8fafc)",
+                        border: "1px solid var(--border, #f1f5f9)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        color: statusStyle.color
+                      }}>
+                        {isCompleted ? <Check size={11} /> : <X size={11} />}
+                        <span>{statusLabelText}</span>
                       </div>
                     )}
                   </div>
@@ -1083,7 +1436,7 @@ export default function AppointmentManager({ navigate, user }) {
       <style>{`
         .spin-anim { animation: spin 1s linear infinite; }
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        .appt-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.07) !important; }
+        .appt-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.06) !important; }
         .cal-day:hover { background: var(--brand-light, #f0f9ff) !important; cursor: pointer; }
         .cal-day.has-appt:hover { background: var(--brand-light, #e0f2fe) !important; }
         .cal-appt-pill { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1115,16 +1468,16 @@ export default function AppointmentManager({ navigate, user }) {
           --status-cancelled-text: #f87171;
           --status-cancelled-border: rgba(239, 68, 68, 0.3);
 
-          --status-completed-bg: rgba(16, 185, 129, 0.15);
-          --status-completed-text: #34d399;
-          --status-completed-border: rgba(16, 185, 129, 0.3);
+          --status-completed-bg: rgba(148, 163, 184, 0.15);
+          --status-completed-text: #94a3b8;
+          --status-completed-border: rgba(148, 163, 184, 0.3);
 
           --stat-total-bg: rgba(2, 132, 199, 0.15);
           --stat-total-text: #38bdf8;
           --stat-booked-bg: rgba(245, 158, 11, 0.15);
           --stat-booked-text: #fbbf24;
-          --stat-done-bg: rgba(16, 185, 129, 0.15);
-          --stat-done-text: #34d399;
+          --stat-done-bg: rgba(148, 163, 184, 0.15);
+          --stat-done-text: #94a3b8;
           --stat-cancelled-bg: rgba(239, 68, 68, 0.15);
           --stat-cancelled-text: #f87171;
 

@@ -810,7 +810,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
-    { label: t("mobile_app", "تطبيق طبيبي"), icon: <Smartphone size={18} />, path: "/app" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
@@ -9154,9 +9153,11 @@ function MainApp() {
           ::-webkit-scrollbar-track { background:#f3f4f6; }
           ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
         `}</style>
-      <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} show={show} />
+      {route !== "/app" && (
+        <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} show={show} />
+      )}
       <BackgroundDecoration />
-      <div style={{ flex: 1, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+      <div style={{ flex: 1, paddingBottom: route === "/app" ? 0 : 80, position: "relative", zIndex: 1 }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={route}
@@ -9170,7 +9171,9 @@ function MainApp() {
           </motion.div>
         </AnimatePresence>
       </div>
-      <Footer navigate={navigate} show={show} />
+      {route !== "/app" && (
+        <Footer navigate={navigate} show={show} />
+      )}
 
       {showExitModal && (
         <ExitModal
