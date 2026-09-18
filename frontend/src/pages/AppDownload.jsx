@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Download, Apple, ShieldCheck, Users, Star,
+  Download, Apple, ShieldCheck, Users,
   Share2, Check, Moon, Sun, ArrowLeft, ArrowRight
 } from "lucide-react";
 import { useToast } from "../components/SharedUI";
@@ -75,7 +75,7 @@ export default function AppDownloadPage({ navigate }) {
   const APP_PREVIEW_IMG = `${baseUrl}app_mobile_preview.jpg`;
 
   const copyShareLink = () => {
-    const url = window.location.href;
+    const url = `${window.location.origin}/app`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(() => {
         setCopied(true);
@@ -304,7 +304,7 @@ export default function AppDownloadPage({ navigate }) {
               color: "rgba(255,255,255,0.92)",
               margin: "0 0 28px"
             }}>
-              {t("app_hero_desc", "Téléchargez l'application Tabibi dès maintenant et profitez d'une expérience médicale complète : trouvez les meilleurs médecins dans 58 wilayas, réservez instantanément sans attente, recevez des rappels intelligents et échangez en toute sécurité.")}
+              {t("app_hero_desc", "Téléchargez l'application Tabibi dès maintenant et profitez d'une expérience médicale complète : trouvez les meilleurs médecins dans 69 wilayas, réservez instantanément sans attente, recevez des rappels intelligents et échangez en toute sécurité.")}
             </p>
 
             {/* Action Buttons Container */}
@@ -353,18 +353,16 @@ export default function AppDownloadPage({ navigate }) {
                   </div>
                 </div>
                 <div style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 11,
                   background: "rgba(255,255,255,0.25)",
-                  borderRadius: 10,
-                  padding: "5px 10px",
-                  fontSize: 11.5,
-                  fontWeight: 800,
                   display: "flex",
                   alignItems: "center",
-                  gap: 5,
+                  justifyContent: "center",
                   flexShrink: 0
                 }}>
-                  <Download size={15} />
-                  <span>v1.2.0 • 14.8 Mo</span>
+                  <Download size={18} />
                 </div>
               </motion.button>
 
@@ -439,12 +437,6 @@ export default function AppDownloadPage({ navigate }) {
               flexWrap: "wrap",
               fontSize: "clamp(11.5px, 3.2vw, 13px)"
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <Star size={16} color="#facc15" fill="#facc15" />
-                <span style={{ fontWeight: 800 }}>4.9 / 5</span>
-                <span style={{ fontSize: 11, opacity: 0.85 }}>({t("app_rating_count", "Plus de 10k avis")})</span>
-              </div>
-              <div style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <ShieldCheck size={16} color="#7ffff4" />
                 <span style={{ fontWeight: 700 }}>{t("app_verified_safe", "100% Sûr et Gratuit")}</span>
@@ -546,28 +538,6 @@ export default function AppDownloadPage({ navigate }) {
                 margin: "7px auto 2px"
               }} />
 
-              {/* Floating Highlight Badge 1 (Top Left / Right) */}
-              <div style={{
-                position: "absolute",
-                top: 60,
-                [isRtl ? "right" : "left"]: -12,
-                background: "rgba(255,255,255,0.96)",
-                backdropFilter: "blur(12px)",
-                color: "#0c4a6e",
-                borderRadius: 14,
-                padding: "7px 12px",
-                fontSize: "clamp(11px, 3vw, 12.5px)",
-                fontWeight: 800,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                zIndex: 12,
-                border: "1px solid rgba(255,255,255,0.8)"
-              }}>
-                <Star size={15} color="#f59e0b" fill="#f59e0b" />
-                <span>4.9 ★ (10k+ avis)</span>
-              </div>
 
               {/* Floating Highlight Badge 2 (Bottom Right / Left) */}
               <div style={{

@@ -29,6 +29,8 @@ import AppDownloadPage from "./pages/AppDownload";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
+import { useRoute } from "./hooks/useRoute";
+
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── API & UTILS
@@ -215,27 +217,8 @@ const api = {
 };
 
 // ── Router ────────────────────────────────────────────────────
-function useRoute() {
-  const parse = () => {
-    const h = window.location.hash.slice(1) || "/";
-    const [path, qs] = h.split("?");
-    return { path: path || "/", qs: qs || "" };
-  };
-  const [loc, setLoc] = useState(parse);
+// useRoute est importé depuis src/hooks/useRoute.js
 
-  useEffect(() => {
-    const h = () => setLoc(parse());
-    window.addEventListener("hashchange", h);
-    return () => window.removeEventListener("hashchange", h);
-  }, []);
-
-  const navigate = useCallback((path) => {
-    window.location.hash = path;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
-  return { route: loc.path, qs: loc.qs, navigate };
-}
 
 // ── Auth ──────────────────────────────────────────────────────
 function useAuth() {
@@ -8974,7 +8957,7 @@ function MainApp() {
   useEffect(() => {
     const backHandler = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       // In hash-based routing, the root is usually "" or "/"
-      if (window.location.hash === "" || window.location.hash === "#/" || window.location.hash === "#") {
+      if (route === "/" && (window.location.hash === "" || window.location.hash === "#/" || window.location.hash === "#")) {
         setShowExitModal(true);
       } else {
         window.history.back();
@@ -8984,7 +8967,7 @@ function MainApp() {
     return () => {
       backHandler.then(h => h.remove());
     };
-  }, []);
+  }, [route]);
 
 
   if (loading) return (
