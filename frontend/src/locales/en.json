@@ -461,9 +461,17 @@
       "Use the search bar to type a specialty or a name.",
       "Filter results by Wilaya (City) or commune.",
       "View detailed profiles: schedules, rates, and patient reviews.",
-      "Visualize the exact location of the clinic on the map."
+      "Visualize the exact location of the clinic on the map.",
+      "Easily recognize medical specialties using the helpful visual color cues on doctor cards."
     ],
     "guide_search_tip": "Advice: Use filters to find doctors available on the same day!",
+    "guide_specialty_colors_title": "Medical Specialties Guide",
+    "guide_specialty_colors_desc": "Discover what each medical specialist treats to find the right doctor for your health needs.",
+    "guide_specialty_sample_doctor": "Dr. Medical Specialist",
+    "guide_specialty_sample_clinic": "Specialized Medical Office",
+    "guide_specialty_open_search": "Find a Doctor",
+    "guide_specialty_click_hint": "Select any specialty to learn what it covers and when to book a visit:",
+    "guide_specialty_badge_label": "Book Visit",
     "guide_booking_title": "Appointment Booking",
     "guide_booking_subtitle": "Book your slot in 3 clicks, 24/7.",
     "guide_booking_content": [
