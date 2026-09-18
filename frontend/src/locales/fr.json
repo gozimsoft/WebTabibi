@@ -385,9 +385,17 @@
       "Utilisez la barre de recherche pour taper une spécialité ou un nom.",
       "Filtrez les résultats par Wilaya (Ville) ou commune.",
       "Consultez les profils détaillés : horaires, tarifs et avis patients.",
-      "Visualisez l'emplacement exact de la clinique sur la carte."
+      "Visualisez l'emplacement exact de la clinique sur la carte.",
+      "Repérez facilement chaque spécialité grâce aux repères visuels colorés sur les fiches des médecins."
     ],
     "guide_search_tip": "Conseil : Utilisez les filtres pour trouver les médecins disponibles le jour même !",
+    "guide_specialty_colors_title": "Guide des Spécialités Médicales",
+    "guide_specialty_colors_desc": "Découvrez le rôle de chaque spécialiste pour trouver le médecin le plus adapté à votre santé.",
+    "guide_specialty_sample_doctor": "Dr. Médecin Spécialiste",
+    "guide_specialty_sample_clinic": "Cabinet Médical & Consultations",
+    "guide_specialty_open_search": "Trouver un spécialiste",
+    "guide_specialty_click_hint": "Sélectionnez une spécialité pour comprendre ce qu'elle traite et quand consulter :",
+    "guide_specialty_badge_label": "Prendre RDV",
     "guide_booking_title": "Prise de rendez-vous",
     "guide_booking_subtitle": "Réservez votre créneau en 3 clics, 24h/24.",
     "guide_booking_content": [
