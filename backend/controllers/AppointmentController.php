@@ -480,6 +480,21 @@ class AppointmentController
         if (!$cd)
             Response::notFound('Médecin/clinique introuvable (CD)');
 
+        // Verify doctor and clinic are not frozen
+        $checkDoc = $pdo->prepare("SELECT is_frozen, freeze_reason FROM doctors WHERE id = ? LIMIT 1");
+        $checkDoc->execute([$cd['doctor_id']]);
+        $dRow = $checkDoc->fetch();
+        if (!empty($dRow['is_frozen'])) {
+            Response::error('لا يمكن حجز موعد مع هذا الطبيب حالياً نظراً لتجميد حسابه مؤقتاً.', 403);
+        }
+        if (!empty($cd['clinic_id'])) {
+            $checkCli = $pdo->prepare("SELECT is_frozen FROM clinics WHERE id = ? LIMIT 1");
+            $checkCli->execute([$cd['clinic_id']]);
+            if ($checkCli->fetchColumn()) {
+                Response::error('لا يمكن حجز موعد في هذه العيادة حالياً نظراً لتجميد حسابها مؤقتاً.', 403);
+            }
+        }
+
         // Support booking for a family member
         $patientId = $patient['id'];
         $patientname = $patient['fullname'];

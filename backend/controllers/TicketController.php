@@ -226,6 +226,24 @@ class TicketController {
                     JOIN clinics c ON c.id = t.clinic_id
                     WHERE c.user_id = ? ORDER BY t.updated_at DESC";
             $params = [$user['user_id']];
+        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) { // Admin & Support - see all tickets
+            $sql = "SELECT t.*, 
+                        p.fullname as patientname,
+                        p.phone as patient_phone,
+                        p.email as patient_email,
+                        d.fullname as doctorname,
+                        d.phone as doctor_phone,
+                        c.clinicname,
+                        (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
+                        (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
+                        (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
+                        (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_type != 'admin') as unread_count
+                    FROM tickets t 
+                    LEFT JOIN patients p ON p.id = t.patient_id 
+                    LEFT JOIN doctors d ON d.id = t.doctor_id 
+                    LEFT JOIN clinics c ON c.id = t.clinic_id 
+                    ORDER BY t.updated_at DESC";
+            $params = [];
         }
 
         try {
@@ -233,7 +251,7 @@ class TicketController {
             $stmt->execute($params);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
             Response::success($results);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // رسالة بشرية: خطأ عند جلب التذاكر
             Response::error('حدث خطأ أثناء جلب قائمة تذاكر الدعم. يرجى المحاولة مرة أخرى.', 500);
         }
@@ -243,7 +261,7 @@ class TicketController {
         $user = AuthMiddleware::authenticate();
         $pdo = Database::getInstance();
 
-        // Security check: user must be part of the ticket
+        // Security check: user must be part of the ticket (or admin)
         $stmt = $pdo->prepare("SELECT t.*, 
                 p.fullname as patientname, p.phone as patient_phone, p.email as patient_email,
                 d.fullname as doctorname, d.phone as doctor_phone, c.clinicname
@@ -268,6 +286,8 @@ class TicketController {
         } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
             if ($ticket['clinic_id'] === $myId) $isAllowed = true;
+        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) {
+            $isAllowed = true; // Admin & Support have full access
         }
 
         if (!$isAllowed) Response::error('ليس لديك صلاحية الاطلاع على هذه التذكرة.', 403);
@@ -286,6 +306,9 @@ class TicketController {
                 ->execute([$id]);
         } else if ($user['usertype'] == 2) {
             $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'clinic'")
+                ->execute([$id]);
+        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) {
+            $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'admin'")
                 ->execute([$id]);
         }
 
@@ -331,6 +354,9 @@ class TicketController {
             $myId = self::getClinicId($user['user_id']);
             if ($ticket['clinic_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'clinic';
+        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) {
+            $myId = $user['user_id'];
+            $type = 'admin';
         }
 
         $pdo->prepare("INSERT INTO ticketmessages (id, ticket_id, sender_type, sender_id, message) VALUES (?, ?, ?, ?, ?)")
@@ -372,12 +398,12 @@ class TicketController {
                     }
                 }
             } else {
-                // الطبيب أو العيادة ردت -> تنبيه المريض
+                // الطبيب أو العيادة أو الإدارة ردت -> تنبيه المريض
                 $patStmt = $pdo->prepare("SELECT user_id FROM patients WHERE id = ? LIMIT 1");
                 $patStmt->execute([$ticket['patient_id']]);
                 $patUserId = $patStmt->fetchColumn();
                 if ($patUserId) {
-                    $senderName = ($type === 'doctor') ? 'الطبيب' : 'العيادة';
+                    $senderName = ($type === 'doctor') ? 'الطبيب' : (($type === 'clinic') ? 'العيادة' : 'إدارة المنصة');
                     NotificationHelper::notify(
                         $patUserId,
                         "رد جديد من $senderName",
@@ -395,7 +421,7 @@ class TicketController {
 
     public static function close(string $id): void {
         $user = AuthMiddleware::authenticate();
-        if ($user['usertype'] == 0) Response::error('إغلاق التذاكر متاح فقط للطبيب أو العيادة.', 403);
+        if ($user['usertype'] == 0) Response::error('إغلاق التذاكر متاح فقط للإدارة أو الطبيب أو العيادة.', 403);
 
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
@@ -411,6 +437,7 @@ class TicketController {
             $myId = self::getClinicId($user['user_id']);
             if ($ticket['clinic_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
         }
+        // Admin & Support ($user['usertype'] == 3 || $user['usertype'] == 4) can close any ticket
 
         $pdo->prepare("UPDATE tickets SET status = 'CLOSED' WHERE id = ?")
             ->execute([$id]);

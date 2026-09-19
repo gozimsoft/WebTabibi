@@ -100,74 +100,203 @@ class AdminController {
     }
 
     // ----------------------------------------------------------
-    // GET /api/admin/clinics?status=PENDING&page=1
+    // GET /api/admin/clinics?status=PENDING&page=1&q=...&limit=20&period=all
     // ----------------------------------------------------------
     public static function listClinics(): void {
         AuthMiddleware::adminOnly();
         $pdo    = Database::getInstance();
         $status = $_GET['status'] ?? 'PENDING';
+        $search = trim($_GET['q'] ?? $_GET['search'] ?? '');
         $page   = max(1, (int)($_GET['page'] ?? 1));
-        $limit  = 20;
+        $limit  = max(5, min(100, (int)($_GET['limit'] ?? 20)));
+        $period = $_GET['period'] ?? 'all';
         $offset = ($page - 1) * $limit;
 
-        $allowed = ['PENDING','APPROVED','REJECTED'];
+        $allowed = ['PENDING','APPROVED','REJECTED','FROZEN','ALL'];
         if (!in_array($status, $allowed)) $status = 'PENDING';
 
-        $total = $pdo->prepare("SELECT COUNT(*) FROM clinicregistrations WHERE status=?");
-        $total->execute([$status]);
-        $total = (int)$total->fetchColumn();
-
-        $stmt = $pdo->prepare("
-            SELECT id, clinicname, email, phone, address, notes, status, rejectedreason, approvedat, createdat
+        // Global status counts for badges
+        $countsStmt = $pdo->query("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN is_frozen = 1 THEN 1 ELSE 0 END) as frozen
             FROM clinicregistrations
-            WHERE status=?
-            ORDER BY createdat DESC
-            LIMIT $limit OFFSET $offset
         ");
-        $stmt->execute([$status]);
-        $items = $stmt->fetchAll();
+        $rawCounts = $countsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $counts = [
+            'PENDING'  => (int)($rawCounts['pending'] ?? 0),
+            'APPROVED' => (int)($rawCounts['approved'] ?? 0),
+            'REJECTED' => (int)($rawCounts['rejected'] ?? 0),
+            'FROZEN'   => (int)($rawCounts['frozen'] ?? 0),
+            'TOTAL'    => (int)($rawCounts['total'] ?? 0),
+        ];
+
+        // Filtering
+        $where = [];
+        $params = [];
+
+        if ($status === 'FROZEN') {
+            $where[] = "is_frozen = 1";
+        } elseif ($status !== 'ALL') {
+            $where[] = "status = ?";
+            $params[] = $status;
+        }
+
+        if ($search !== '') {
+            $where[] = "(clinicname LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?)";
+            $term = "%$search%";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        if ($period === 'today') {
+            $where[] = "DATE(createdat) = CURDATE()";
+        } elseif ($period === 'week') {
+            $where[] = "createdat >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+        } elseif ($period === 'month') {
+            $where[] = "createdat >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        } elseif ($period === 'year') {
+            $where[] = "createdat >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+        }
+
+        $whereClause = !empty($where) ? "WHERE " . implode(' AND ', $where) : "";
+
+        // Total for filtered set
+        $totalStmt = $pdo->prepare("SELECT COUNT(*) FROM clinicregistrations $whereClause");
+        $totalStmt->execute($params);
+        $total = (int)$totalStmt->fetchColumn();
+
+        // Sort order
+        $orderCol = 'createdat';
+        if (($status === 'APPROVED') && isset($_GET['order_by']) && $_GET['order_by'] === 'approvedat') {
+            $orderCol = 'approvedat';
+        }
+        $orderDir = (isset($_GET['order_dir']) && strtoupper($_GET['order_dir']) === 'ASC') ? 'ASC' : 'DESC';
+
+        $query = "
+            SELECT id, clinicname, email, phone, address, notes, status, rejectedreason, approvedat, createdat, clinic_id, user_id, is_frozen, freeze_reason, frozen_at
+            FROM clinicregistrations
+            $whereClause
+            ORDER BY $orderCol $orderDir
+            LIMIT $limit OFFSET $offset
+        ";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         Response::success([
             'items'       => $items,
             'total'       => $total,
             'page'        => $page,
+            'limit'       => $limit,
             'total_pages' => max(1, ceil($total / $limit)),
+            'counts'      => $counts,
         ]);
     }
 
     // ----------------------------------------------------------
-    // GET /api/admin/doctors?status=PENDING&page=1
+    // GET /api/admin/doctors?status=PENDING&page=1&q=...&limit=20&period=all
     // ----------------------------------------------------------
     public static function listDoctors(): void {
         AuthMiddleware::adminOnly();
         $pdo    = Database::getInstance();
         $status = $_GET['status'] ?? 'PENDING';
+        $search = trim($_GET['q'] ?? $_GET['search'] ?? '');
         $page   = max(1, (int)($_GET['page'] ?? 1));
-        $limit  = 20;
+        $limit  = max(5, min(100, (int)($_GET['limit'] ?? 20)));
+        $period = $_GET['period'] ?? 'all';
         $offset = ($page - 1) * $limit;
 
-        $allowed = ['PENDING','APPROVED','REJECTED'];
+        $allowed = ['PENDING','APPROVED','REJECTED','FROZEN','ALL'];
         if (!in_array($status, $allowed)) $status = 'PENDING';
 
-        $total = $pdo->prepare("SELECT COUNT(*) FROM doctorregistrations WHERE status=?");
-        $total->execute([$status]);
-        $total = (int)$total->fetchColumn();
-
-        $stmt = $pdo->prepare("
-            SELECT id, fullname, speciality, email, phone, clinicname, status, rejectedreason, approvedat, createdat
+        // Global status counts for badges
+        $countsStmt = $pdo->query("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN is_frozen = 1 THEN 1 ELSE 0 END) as frozen
             FROM doctorregistrations
-            WHERE status=?
-            ORDER BY createdat DESC
-            LIMIT $limit OFFSET $offset
         ");
-        $stmt->execute([$status]);
-        $items = $stmt->fetchAll();
+        $rawCounts = $countsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $counts = [
+            'PENDING'  => (int)($rawCounts['pending'] ?? 0),
+            'APPROVED' => (int)($rawCounts['approved'] ?? 0),
+            'REJECTED' => (int)($rawCounts['rejected'] ?? 0),
+            'FROZEN'   => (int)($rawCounts['frozen'] ?? 0),
+            'TOTAL'    => (int)($rawCounts['total'] ?? 0),
+        ];
+
+        // Filtering
+        $where = [];
+        $params = [];
+
+        if ($status === 'FROZEN') {
+            $where[] = "is_frozen = 1";
+        } elseif ($status !== 'ALL') {
+            $where[] = "status = ?";
+            $params[] = $status;
+        }
+
+        if ($search !== '') {
+            $where[] = "(fullname LIKE ? OR speciality LIKE ? OR email LIKE ? OR phone LIKE ? OR clinicname LIKE ?)";
+            $term = "%$search%";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        if ($period === 'today') {
+            $where[] = "DATE(createdat) = CURDATE()";
+        } elseif ($period === 'week') {
+            $where[] = "createdat >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+        } elseif ($period === 'month') {
+            $where[] = "createdat >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        } elseif ($period === 'year') {
+            $where[] = "createdat >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+        }
+
+        $whereClause = !empty($where) ? "WHERE " . implode(' AND ', $where) : "";
+
+        // Total for filtered set
+        $totalStmt = $pdo->prepare("SELECT COUNT(*) FROM doctorregistrations $whereClause");
+        $totalStmt->execute($params);
+        $total = (int)$totalStmt->fetchColumn();
+
+        // Sort order
+        $orderCol = 'createdat';
+        if (($status === 'APPROVED') && isset($_GET['order_by']) && $_GET['order_by'] === 'approvedat') {
+            $orderCol = 'approvedat';
+        }
+        $orderDir = (isset($_GET['order_dir']) && strtoupper($_GET['order_dir']) === 'ASC') ? 'ASC' : 'DESC';
+
+        $query = "
+            SELECT id, fullname, speciality, email, phone, clinicname, status, rejectedreason, approvedat, createdat, doctor_id, user_id, is_frozen, freeze_reason, frozen_at
+            FROM doctorregistrations
+            $whereClause
+            ORDER BY $orderCol $orderDir
+            LIMIT $limit OFFSET $offset
+        ";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         Response::success([
             'items'       => $items,
             'total'       => $total,
             'page'        => $page,
+            'limit'       => $limit,
             'total_pages' => max(1, ceil($total / $limit)),
+            'counts'      => $counts,
         ]);
     }
 
@@ -374,5 +503,254 @@ class AdminController {
         ")->execute([$data['reason'] ?? null, $id]);
 
         Response::success(null, 'تم رفض طلب الطبيب.');
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/admin/clinics/{id}/freeze
+    // Body: { reason: string }
+    // ----------------------------------------------------------
+    public static function freezeClinic(string $id): void {
+        AuthMiddleware::adminOnly();
+        $pdo  = Database::getInstance();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $reason = trim($data['reason'] ?? '');
+        if (empty($reason)) {
+            Response::error('يرجى توضيح سبب تجميد الحساب.', 422);
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM clinicregistrations WHERE id=? OR clinic_id=? LIMIT 1");
+        $stmt->execute([$id, $id]);
+        $reg = $stmt->fetch();
+
+        if (!$reg) {
+            $stmtC = $pdo->prepare("SELECT * FROM clinics WHERE id=? LIMIT 1");
+            $stmtC->execute([$id]);
+            $clinic = $stmtC->fetch();
+            if (!$clinic) Response::notFound('العيادة غير موجودة.');
+            $clinicId   = $clinic['id'];
+            $userId     = $clinic['user_id'];
+            $clinicName = $clinic['clinicname'];
+        } else {
+            $clinicId   = $reg['clinic_id'];
+            $userId     = $reg['user_id'];
+            $clinicName = $reg['clinicname'];
+        }
+
+        if (!$userId) {
+            Response::error('لا يمكن تجميد حساب لم يتم اعتماده وتفعيله بعد.', 400);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            if ($clinicId) {
+                $pdo->prepare("UPDATE clinics SET is_frozen = 1, freeze_reason = ?, frozen_at = NOW() WHERE id = ?")
+                    ->execute([$reason, $clinicId]);
+            }
+            $pdo->prepare("UPDATE clinicregistrations SET is_frozen = 1, freeze_reason = ?, frozen_at = NOW() WHERE id = ? OR clinic_id = ?")
+                ->execute([$reason, $id, $id]);
+
+            // Invalidate active sessions immediately
+            $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$userId]);
+
+            $pdo->commit();
+
+            try {
+                require_once __DIR__ . '/../helpers/NotificationHelper.php';
+                NotificationHelper::notify(
+                    $userId,
+                    'تم تجميد حساب العيادة',
+                    "تم تجميد اشتراك وحساب العيادة من قِبَل الإدارة. السبب: {$reason}. يرجى التواصل مع الدعم الفني.",
+                    'warning'
+                );
+            } catch (\Throwable $e) {}
+
+            Response::success([
+                'clinic_id'     => $clinicId,
+                'is_frozen'     => 1,
+                'freeze_reason' => $reason
+            ], 'تم تجميد اشتراك وحساب العيادة بنجاح وإلغاء كافة الجلسات النشطة.');
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('حدث خطأ أثناء تجميد الحساب: ' . $e->getMessage());
+        }
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/admin/clinics/{id}/release
+    // ----------------------------------------------------------
+    public static function releaseClinic(string $id): void {
+        AuthMiddleware::adminOnly();
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT * FROM clinicregistrations WHERE id=? OR clinic_id=? LIMIT 1");
+        $stmt->execute([$id, $id]);
+        $reg = $stmt->fetch();
+
+        if (!$reg) {
+            $stmtC = $pdo->prepare("SELECT * FROM clinics WHERE id=? LIMIT 1");
+            $stmtC->execute([$id]);
+            $clinic = $stmtC->fetch();
+            if (!$clinic) Response::notFound('العيادة غير موجودة.');
+            $clinicId = $clinic['id'];
+            $userId   = $clinic['user_id'];
+        } else {
+            $clinicId = $reg['clinic_id'];
+            $userId   = $reg['user_id'];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            if ($clinicId) {
+                $pdo->prepare("UPDATE clinics SET is_frozen = 0, freeze_reason = NULL, frozen_at = NULL WHERE id = ?")
+                    ->execute([$clinicId]);
+            }
+            $pdo->prepare("UPDATE clinicregistrations SET is_frozen = 0, freeze_reason = NULL, frozen_at = NULL WHERE id = ? OR clinic_id = ?")
+                ->execute([$id, $id]);
+
+            $pdo->commit();
+
+            try {
+                if ($userId) {
+                    require_once __DIR__ . '/../helpers/NotificationHelper.php';
+                    NotificationHelper::notify(
+                        $userId,
+                        'تم تفعيل وإلغاء تجميد الحساب',
+                        'تم إلغاء تجميد حساب العيادة بنجاح. يمكنك الآن تسجيل الدخول ومتابعة العمل بصورة طبيعية.',
+                        'success'
+                    );
+                }
+            } catch (\Throwable $e) {}
+
+            Response::success([
+                'clinic_id' => $clinicId,
+                'is_frozen' => 0
+            ], 'تم إلغاء تجميد حساب العيادة وإعادة تفعيله بنجاح.');
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('حدث خطأ أثناء إلغاء التجميد: ' . $e->getMessage());
+        }
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/admin/doctors/{id}/freeze
+    // Body: { reason: string }
+    // ----------------------------------------------------------
+    public static function freezeDoctor(string $id): void {
+        AuthMiddleware::adminOnly();
+        $pdo  = Database::getInstance();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $reason = trim($data['reason'] ?? '');
+        if (empty($reason)) {
+            Response::error('يرجى توضيح سبب تجميد الحساب.', 422);
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM doctorregistrations WHERE id=? OR doctor_id=? LIMIT 1");
+        $stmt->execute([$id, $id]);
+        $reg = $stmt->fetch();
+
+        if (!$reg) {
+            $stmtD = $pdo->prepare("SELECT * FROM doctors WHERE id=? LIMIT 1");
+            $stmtD->execute([$id]);
+            $doctor = $stmtD->fetch();
+            if (!$doctor) Response::notFound('الطبيب غير موجود.');
+            $doctorId = $doctor['id'];
+            $userId   = $doctor['user_id'];
+        } else {
+            $doctorId = $reg['doctor_id'];
+            $userId   = $reg['user_id'];
+        }
+
+        if (!$userId) {
+            Response::error('لا يمكن تجميد حساب لم يتم اعتماده وتفعيله بعد.', 400);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            if ($doctorId) {
+                $pdo->prepare("UPDATE doctors SET is_frozen = 1, freeze_reason = ?, frozen_at = NOW() WHERE id = ?")
+                    ->execute([$reason, $doctorId]);
+            }
+            $pdo->prepare("UPDATE doctorregistrations SET is_frozen = 1, freeze_reason = ?, frozen_at = NOW() WHERE id = ? OR doctor_id = ?")
+                ->execute([$reason, $id, $id]);
+
+            $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$userId]);
+
+            $pdo->commit();
+
+            try {
+                require_once __DIR__ . '/../helpers/NotificationHelper.php';
+                NotificationHelper::notify(
+                    $userId,
+                    'تم تجميد حساب الطبيب',
+                    "تم تجميد اشتراك وحساب الطبيب من قِبَل الإدارة. السبب: {$reason}. يرجى التواصل مع الدعم الفني.",
+                    'warning'
+                );
+            } catch (\Throwable $e) {}
+
+            Response::success([
+                'doctor_id'     => $doctorId,
+                'is_frozen'     => 1,
+                'freeze_reason' => $reason
+            ], 'تم تجميد اشتراك وحساب الطبيب بنجاح وإلغاء كافة الجلسات النشطة.');
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('حدث خطأ أثناء تجميد الحساب: ' . $e->getMessage());
+        }
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/admin/doctors/{id}/release
+    // ----------------------------------------------------------
+    public static function releaseDoctor(string $id): void {
+        AuthMiddleware::adminOnly();
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT * FROM doctorregistrations WHERE id=? OR doctor_id=? LIMIT 1");
+        $stmt->execute([$id, $id]);
+        $reg = $stmt->fetch();
+
+        if (!$reg) {
+            $stmtD = $pdo->prepare("SELECT * FROM doctors WHERE id=? LIMIT 1");
+            $stmtD->execute([$id]);
+            $doctor = $stmtD->fetch();
+            if (!$doctor) Response::notFound('الطبيب غير موجود.');
+            $doctorId = $doctor['id'];
+            $userId   = $doctor['user_id'];
+        } else {
+            $doctorId = $reg['doctor_id'];
+            $userId   = $reg['user_id'];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            if ($doctorId) {
+                $pdo->prepare("UPDATE doctors SET is_frozen = 0, freeze_reason = NULL, frozen_at = NULL WHERE id = ?")
+                    ->execute([$doctorId]);
+            }
+            $pdo->prepare("UPDATE doctorregistrations SET is_frozen = 0, freeze_reason = NULL, frozen_at = NULL WHERE id = ? OR doctor_id = ?")
+                ->execute([$id, $id]);
+
+            $pdo->commit();
+
+            try {
+                if ($userId) {
+                    require_once __DIR__ . '/../helpers/NotificationHelper.php';
+                    NotificationHelper::notify(
+                        $userId,
+                        'تم تفعيل وإلغاء تجميد الحساب',
+                        'تم إلغاء تجميد حسابك الطبي بنجاح. يمكنك الآن تسجيل الدخول واستقبال المواعيد بصورة طبيعية.',
+                        'success'
+                    );
+                }
+            } catch (\Throwable $e) {}
+
+            Response::success([
+                'doctor_id' => $doctorId,
+                'is_frozen' => 0
+            ], 'تم إلغاء تجميد حساب الطبيب وإعادة تفعيله بنجاح.');
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('حدث خطأ أثناء إلغاء التجميد: ' . $e->getMessage());
+        }
     }
 }

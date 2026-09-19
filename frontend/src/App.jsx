@@ -8,7 +8,8 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale,
+  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,6 +30,7 @@ import AppDownloadPage from "./pages/AppDownload";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
+import { AdminSupportUserTicketsPage, AdminSupportBackoffice } from "./pages/AdminSupportTickets";
 import { useRoute } from "./hooks/useRoute";
 
 
@@ -186,8 +188,12 @@ const api = {
     doctors: p => req("GET", `/admin/doctors?${new URLSearchParams(p)}`),
     approveClinic: id => req("POST", `/admin/clinics/${id}/approve`, {}),
     rejectClinic: (id, reason) => req("POST", `/admin/clinics/${id}/reject`, { reason }),
+    freezeClinic: (id, reason) => req("POST", `/admin/clinics/${id}/freeze`, { reason }),
+    releaseClinic: id => req("POST", `/admin/clinics/${id}/release`, {}),
     approveDoctor: id => req("POST", `/admin/doctors/${id}/approve`, {}),
     rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
+    freezeDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/freeze`, { reason }),
+    releaseDoctor: id => req("POST", `/admin/doctors/${id}/release`, {}),
   },
   publicStats: () => req("GET", "/public/stats", null, false),
   tickets: {
@@ -197,6 +203,17 @@ const api = {
     reply: (id, b) => req("POST", `/tickets/${id}/reply`, b),
     close: id => req("POST", `/tickets/${id}/close`, {}),
     checkOpen: (p = {}) => req("GET", `/tickets/check-open?${new URLSearchParams(p).toString()}`).catch(() => ({ has_open_ticket: false })),
+  },
+  adminSupport: {
+    createTicket: b => req("POST", "/support/tickets", b),
+    listMyTickets: (p = {}) => req("GET", `/support/tickets${p && Object.keys(p).length ? '?' + new URLSearchParams(p).toString() : ''}`),
+    getMyTicket: id => req("GET", `/support/tickets/${id}`),
+    replyMyTicket: (id, b) => req("POST", `/support/tickets/${id}/reply`, b),
+    adminList: (p = {}) => req("GET", `/admin/support-tickets?${new URLSearchParams(p).toString()}`),
+    adminGet: id => req("GET", `/admin/support-tickets/${id}`),
+    adminReply: (id, b) => req("POST", `/admin/support-tickets/${id}/reply`, b),
+    adminUpdateStatus: (id, b) => req("POST", `/admin/support-tickets/${id}/status`, b),
+    adminStats: () => req("GET", "/admin/support-tickets/stats"),
   },
   sync: {
     download: p => req("GET", `/apointements/sync?${new URLSearchParams(p)}`),
@@ -796,6 +813,13 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
     ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
+    ...(user ? [{
+      label: t("admin_support_nav", "Support / Administration"),
+      icon: <HelpCircle size={18} />,
+      path: (user.user_type === 3 || user.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets",
+      private: true,
+      iconOnly: true
+    }] : []),
     ...(user?.user_type === 1 || user?.user_type === 2 ? [
       { label: t("appt_mgr_title", "إدارة المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
     ] : [])
@@ -867,23 +891,32 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
             <div style={{ borderLeft: "1px solid var(--border)", height: 24, margin: "0 12px" }} />
             {navLinks.map(link => {
               if (link.private && !user) return null;
+              const isIconOnly = link.iconOnly;
               return (
                 <button
                   key={link.path}
                   onClick={() => {
                     analytics.track("nav_click_" + link.label.toLowerCase().replace(/\s+/g, '_'), { path: link.path });
                     navigate(link.path);
+                    if (link.path.includes('tab=')) {
+                      const tParam = new URLSearchParams(link.path.split('?')[1]).get('tab');
+                      if (tParam) window.dispatchEvent(new CustomEvent('tabibi:switch_admin_tab', { detail: tParam }));
+                    }
                   }}
+                  title={link.label}
+                  aria-label={link.label}
                   className={link.path === "/search" ? "navbar-search" : ""}
                   style={{
-                    background: "none", border: "none", cursor: "pointer", padding: "10px 16px",
+                    background: "none", border: "none", cursor: "pointer",
+                    padding: isIconOnly ? "10px 12px" : "10px 16px",
                     borderRadius: 12, color: "var(--text-secondary)", fontWeight: 700, fontSize: 14,
-                    transition: "all 0.2s", display: "flex", alignItems: "center", gap: 8
+                    transition: "all 0.2s", display: "flex", alignItems: "center", gap: 8,
+                    position: "relative"
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--brand-light)"; e.currentTarget.style.color = "var(--brand)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
                   <span style={{ opacity: 0.8, display: "flex" }}>{link.icon}</span>
-                  <span>{link.label}</span>
+                  {!isIconOnly && <span>{link.label}</span>}
                   {link.badge > 0 && (
                     <span style={{
                       background: "#ef4444", color: "#fff",
@@ -1030,14 +1063,70 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                             onClick={() => {
                               markAsRead(n.id, n.is_read);
                               setNotifOpen(false);
-                              if (n.type === 'ticket') {
+
+                              const type = n.type || '';
+                              const title = n.title || '';
+                              const msg = n.message || '';
+                              const isAdmin = user?.user_type === 3 || user?.user_type === 4;
+
+                              // 1. Admin Support Tickets / Complaints
+                              if (
+                                type === 'admin_ticket' ||
+                                type === 'support' ||
+                                title.includes('ADM-') ||
+                                msg.includes('ADM-') ||
+                                title.includes('الدعم الإداري') ||
+                                title.includes('إدارة المنصة') ||
+                                msg.includes('الدعم الإداري') ||
+                                msg.includes('إدارة المنصة')
+                              ) {
+                                if (isAdmin) {
+                                  navigate("/admin?tab=support_tickets");
+                                  window.dispatchEvent(new CustomEvent('tabibi:switch_admin_tab', { detail: 'support_tickets' }));
+                                } else {
+                                  navigate("/support-tickets");
+                                }
+                                return;
+                              }
+
+                              // 2. Medical Tickets (Patient ↔ Doctor)
+                              if (
+                                type === 'ticket' ||
+                                type === 'chat' ||
+                                title.includes('تذكرة') ||
+                                msg.includes('تذكرة') ||
+                                title.includes('استفسار') ||
+                                msg.includes('استفسار')
+                              ) {
                                 navigate("/tickets");
-                              } else if (n.type === 'appointment') {
+                                return;
+                              }
+
+                              // 3. Appointments
+                              if (type === 'appointment' || title.includes('موعد') || msg.includes('موعد')) {
                                 if (user?.user_type === 1 || user?.user_type === 2) {
                                   navigate("/appointmanager");
                                 } else {
                                   navigate("/appointments");
                                 }
+                                return;
+                              }
+
+                              // 4. Doctor / Clinic Account Status
+                              if (type.includes('doctor') || type.includes('clinic')) {
+                                if (isAdmin) {
+                                  navigate("/admin");
+                                } else {
+                                  navigate("/profile");
+                                }
+                                return;
+                              }
+
+                              // Default fallback
+                              if (isAdmin) {
+                                navigate("/admin");
+                              } else {
+                                navigate("/tickets");
                               }
                             }}
                             style={{
@@ -1152,12 +1241,13 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                     </div>
                     <div style={{ maxHeight: "calc(85vh - 120px)", overflowY: "auto" }}>
                       {[
-                        user.user_type === 3 && { icon: <Shield size={16} />, label: t("admin_panel", "لوحة الإدارة"), path: "/admin" },
+                        (user.user_type === 3 || user.user_type === 4) && { icon: <Shield size={16} />, label: t("admin_panel", "لوحة الإدارة"), path: "/admin" },
                         { icon: <User size={16} />, label: t("profile"), path: "/profile" },
-                        (user?.user_type !== 1 && user?.user_type !== 2) ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
+                        user?.user_type === 0 ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                         (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
                         { icon: <MessageSquare size={16} />, label: t("messages", "الرسائل"), path: "/tickets", badge: unreadTicketsCount },
-                        { icon: <HelpCircle size={16} />, label: t("guide_header_title"), path: "/guide" },
+                        { icon: <HelpCircle size={16} />, label: t("admin_support_nav", "Support / Administration"), path: (user.user_type === 3 || user.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets" },
+                        { icon: <FileText size={16} />, label: t("guide_header_title"), path: "/guide" },
                         { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                       ].filter(Boolean).map(item => (
                         <button key={item.path} onClick={() => {
@@ -5584,19 +5674,80 @@ function RegisterDoctorPage({ navigate, qs }) {
 }
 
 // ── PAGE: ADMIN DASHBOARD ─────────────────────────────────────
-function AdminDashboardPage({ navigate, user }) {
+function AdminDashboardPage({ navigate, user, qs }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const { show, Toast } = useToast();
-  const [tab, setTab] = useState('overview'); // overview | clinics | doctors
-  const [subTab, setSubTab] = useState('PENDING');
+
+  const initialTab = (qs && new URLSearchParams(qs).get("tab")) || 'overview';
+  const [tab, setTab] = useState(initialTab); // overview | clinics | doctors
+  const [subTab, setSubTab] = useState('PENDING'); // PENDING | APPROVED | REJECTED | ALL
   const [stats, setStats] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [rejectModal, setRejectModal] = useState(null); // { id, type }
   const [rejectReason, setRejectReason] = useState('');
+  const [detailModal, setDetailModal] = useState(null); // Full item details
+  const [freezeModal, setFreezeModal] = useState(null); // { id, type, name }
+  const [freezeReason, setFreezeReason] = useState('');
+  const [releaseConfirm, setReleaseConfirm] = useState(null); // { id, type, name }
 
+  // Search & Pagination & Filter state for high volume scalability
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [period, setPeriod] = useState('all'); // all | today | week | month | year
+  const [viewMode, setViewMode] = useState('table'); // table | cards
+  const [statusCounts, setStatusCounts] = useState({ PENDING: 0, APPROVED: 0, REJECTED: 0, FROZEN: 0, TOTAL: 0 });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [supportUnreadCount, setSupportUnreadCount] = useState(0);
+
+  useEffect(() => {
+    api.adminSupport.adminStats().then(s => {
+      if (s?.unread_messages !== undefined) setSupportUnreadCount(s.unread_messages);
+    }).catch(() => {});
+  }, [tab]);
+
+  useEffect(() => {
+    if (qs) {
+      const qTab = new URLSearchParams(qs).get("tab");
+      if (qTab && qTab !== tab) {
+        setTab(qTab);
+        setPage(1);
+        setSearchQuery('');
+        setDebouncedSearch('');
+      }
+    }
+  }, [qs]);
+
+  useEffect(() => {
+    const onSwitchTab = (e) => {
+      if (e.detail && e.detail !== tab) {
+        setTab(e.detail);
+        setPage(1);
+        setSearchQuery('');
+        setDebouncedSearch('');
+      }
+    };
+    window.addEventListener('tabibi:switch_admin_tab', onSwitchTab);
+    return () => window.removeEventListener('tabibi:switch_admin_tab', onSwitchTab);
+  }, [tab]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Handle Overview Stats loading
   useEffect(() => {
     if (tab === 'overview') {
       setLoading(true);
@@ -5604,63 +5755,229 @@ function AdminDashboardPage({ navigate, user }) {
     }
   }, [tab]);
 
-  useEffect(() => {
-    if (tab === 'clinics' || tab === 'doctors') {
-      setLoading(true);
-      setItems([]);
-      const fn = tab === 'clinics' ? api.admin.clinics : api.admin.doctors;
-      fn({ status: subTab }).then(d => setItems(d.items || [])).catch(e => show(e.message, 'error')).finally(() => setLoading(false));
-    }
-  }, [tab, subTab]);
+  // Load Clinics or Doctors data with filters and pagination
+  const loadData = useCallback(() => {
+    if (tab !== 'clinics' && tab !== 'doctors') return;
+    setLoading(true);
+    const fn = tab === 'clinics' ? api.admin.clinics : api.admin.doctors;
+    fn({
+      status: subTab,
+      q: debouncedSearch,
+      page,
+      limit,
+      period
+    })
+      .then(d => {
+        setItems(d.items || []);
+        setTotalItems(d.total || 0);
+        setTotalPages(d.total_pages || 1);
+        if (d.counts) setStatusCounts(d.counts);
+      })
+      .catch(e => show(e.message, 'error'))
+      .finally(() => setLoading(false));
+  }, [tab, subTab, debouncedSearch, page, limit, period]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Reset pagination and selection on tab/filter change
+  const handleTabChange = (newTab) => {
+    setTab(newTab);
+    setPage(1);
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setSelectedIds([]);
+  };
+
+  const handleSubTabChange = (newSubTab) => {
+    setSubTab(newSubTab);
+    setPage(1);
+    setSelectedIds([]);
+  };
+
+  const handlePeriodChange = (newPeriod) => {
+    setPeriod(newPeriod);
+    setPage(1);
+    setSelectedIds([]);
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setLimit(Number(newLimit));
+    setPage(1);
+  };
+
+  const isAr = i18n.language === 'ar';
+  const dateLocale = isAr ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US');
+
+  // Copy helper
+  const copyText = (text, label) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    show(t('admin_copy_success', { label, defaultValue: `تم نسخ ${label} إلى الحافظة` }), 'success');
+  };
+
+  // Approve single request
   const doApprove = async (id) => {
     setActionLoading(id);
     try {
       const fn = tab === 'clinics' ? api.admin.approveClinic : api.admin.approveDoctor;
       await fn(id);
-      show(i18n.language === 'ar' ? 'تمت الموافقة بنجاح' : 'Approuvé avec succès', 'success');
-      setItems(prev => prev.filter(i => i.id !== id));
+      show(t('admin_approve_success', 'تمت الموافقة وتفعيل الحساب بنجاح'), 'success');
+      loadData();
+      if (detailModal && detailModal.id === id) setDetailModal(null);
     } catch (e) { show(e.message, 'error'); }
     finally { setActionLoading(''); }
   };
 
+  // Reject request
   const doReject = async () => {
     if (!rejectModal) return;
     setActionLoading(rejectModal.id);
     try {
       const fn = tab === 'clinics' ? api.admin.rejectClinic : api.admin.rejectDoctor;
       await fn(rejectModal.id, rejectReason);
-      show('تم الرفض');
-      setItems(prev => prev.filter(i => i.id !== rejectModal.id));
-      setRejectModal(null); setRejectReason('');
+      show(t('admin_reject_success', 'تم رفض الطلب بنجاح'), 'success');
+      loadData();
+      setRejectModal(null);
+      setRejectReason('');
+      if (detailModal && detailModal.id === rejectModal.id) setDetailModal(null);
     } catch (e) { show(e.message, 'error'); }
     finally { setActionLoading(''); }
   };
 
+  // Freeze single subscription
+  const doFreeze = async () => {
+    if (!freezeModal) return;
+    setActionLoading(freezeModal.id);
+    try {
+      const fn = tab === 'clinics' ? api.admin.freezeClinic : api.admin.freezeDoctor;
+      await fn(freezeModal.id, freezeReason);
+      show(t('freeze_success', 'تم تجميد الحساب بنجاح وإلغاء جلسات الدخول'), 'success');
+      loadData();
+      setFreezeModal(null);
+      setFreezeReason('');
+      if (detailModal && detailModal.id === freezeModal.id) setDetailModal(null);
+    } catch (e) { show(e.message, 'error'); }
+    finally { setActionLoading(''); }
+  };
+
+  // Release single subscription
+  const doRelease = async () => {
+    if (!releaseConfirm) return;
+    setActionLoading(releaseConfirm.id);
+    try {
+      const fn = tab === 'clinics' ? api.admin.releaseClinic : api.admin.releaseDoctor;
+      await fn(releaseConfirm.id);
+      show(t('release_success', 'تم إلغاء تجميد الحساب وتفعيله بنجاح'), 'success');
+      loadData();
+      setReleaseConfirm(null);
+      if (detailModal && detailModal.id === releaseConfirm.id) setDetailModal(null);
+    } catch (e) { show(e.message, 'error'); }
+    finally { setActionLoading(''); }
+  };
+
+  // Bulk Approve
+  const doBulkApprove = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(t('admin_bulk_approve_confirm', { count: selectedIds.length, defaultValue: `هل أنت متأكد من قبول وتفعيل ${selectedIds.length} طلب دفعة واحدة؟` }))) return;
+    setBulkApproving(true);
+    try {
+      const fn = tab === 'clinics' ? api.admin.approveClinic : api.admin.approveDoctor;
+      for (const id of selectedIds) {
+        await fn(id).catch(err => console.error("Error approving", id, err));
+      }
+      show(t('admin_bulk_approve_success', { count: selectedIds.length, defaultValue: `تمت معالجة وقبول ${selectedIds.length} طلب بنجاح` }), 'success');
+      setSelectedIds([]);
+      loadData();
+    } catch (e) { show(e.message, 'error'); }
+    finally { setBulkApproving(false); }
+  };
+
+  // Toggle selection
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === items.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(items.map(i => i.id));
+    }
+  };
+
+  // Export filtered list to CSV (UTF-8 with BOM for Excel compatibility)
+  const exportCSV = () => {
+    if (!items || items.length === 0) {
+      show(t('admin_no_export_data', 'لا توجد بيانات لتصديرها'), 'error');
+      return;
+    }
+    const isDoc = tab === 'doctors';
+    const headers = isDoc
+      ? ['ID', t('admin_th_doctor_name', 'الاسم'), t('admin_th_specialty', 'التخصص'), t('email', 'البريد الإلكتروني'), t('phone', 'الهاتف'), t('admin_th_clinic', 'العيادة المرتبطة'), t('admin_th_status', 'الحالة'), t('admin_th_createdat', 'تاريخ التسجيل'), t('admin_th_approvedat', 'تاريخ الاعتماد')]
+      : ['ID', t('admin_th_clinic_name', 'اسم العيادة'), t('email', 'البريد الإلكتروني'), t('phone', 'الهاتف'), t('admin_th_address', 'العنوان'), t('admin_th_status', 'الحالة'), t('admin_th_createdat', 'تاريخ التسجيل'), t('admin_th_approvedat', 'تاريخ الاعتماد')];
+
+    const rows = items.map(i => isDoc
+      ? [i.id, i.fullname, i.speciality, i.email, i.phone, i.clinicname || '', i.status, i.createdat, i.approvedat || '']
+      : [i.id, i.clinicname, i.email, i.phone, i.address || '', i.status, i.createdat, i.approvedat || '']
+    );
+
+    const csvContent = "\uFEFF" + [
+      headers.map(h => `"${h}"`).join(','),
+      ...rows.map(r => r.map(c => `"${(c || '').toString().replace(/"/g, '""')}"`).join(','))
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tabibi_${tab}_${subTab.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    show(t('admin_export_csv_success', 'تم تصدير ملف CSV بنجاح'), 'success');
+  };
+
   // ── Stat Card
-  const StatCard = ({ label, value, icon, color, bg }) => (
-    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '20px 24px', border: '1px solid #0891b2', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
+  const StatCard = ({ label, value, icon, color, bg, subtitle }) => (
+    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '20px 24px', border: '1px solid var(--border, #e2e8f0)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
       <div style={{ width: 52, height: 52, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
         {icon}
       </div>
       <div>
         <div style={{ fontSize: 26, fontWeight: 900, color: '#0c4a6e', lineHeight: 1 }}>{value ?? '…'}</div>
-        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 13, color: '#475569', marginTop: 4, fontWeight: 700 }}>{label}</div>
+        {subtitle && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{subtitle}</div>}
       </div>
     </div>
   );
 
   // ── Tab Bar
   const tabs = [
-    { key: 'overview', label: 'لوحة الإحصائيات', icon: <LayoutDashboard size={16} /> },
-    { key: 'clinics', label: 'طلبات العيادات', icon: <Building2 size={16} /> },
-    { key: 'doctors', label: 'طلبات الأطباء', icon: <Stethoscope size={16} /> },
+    { key: 'overview', label: t('admin_tab_overview', 'لوحة الإحصائيات'), icon: <LayoutDashboard size={16} /> },
+    { key: 'doctors', label: t('admin_tab_doctors', 'طلبات الأطباء'), icon: <Stethoscope size={16} /> },
+    { key: 'clinics', label: t('admin_tab_clinics', 'طلبات العيادات'), icon: <Building2 size={16} /> },
+    { key: 'support_tickets', label: t('admin_support_tab_title', 'Support & Réclamations'), icon: <HelpCircle size={16} />, badge: supportUnreadCount },
   ];
 
-  const statusTabs = ['PENDING', 'APPROVED', 'REJECTED'];
-  const statusLabel = { PENDING: 'قيد المراجعة', APPROVED: 'مقبولة', REJECTED: 'مرفوضة' };
-  const statusColor = { PENDING: '#d97706', APPROVED: '#059669', REJECTED: '#dc2626' };
-  const statusBg = { PENDING: '#fef3c7', APPROVED: '#d1fae5', REJECTED: '#fee2e2' };
+  const statusTabs = [
+    { key: 'PENDING', label: t('admin_subtab_pending', 'قيد المراجعة'), icon: <Clock size={14} />, color: '#d97706', bg: '#fef3c7', count: statusCounts.PENDING ?? 0 },
+    { key: 'APPROVED', label: t('admin_subtab_approved', 'الأرشيف المعتمد'), icon: <Archive size={14} />, color: '#059669', bg: '#d1fae5', count: statusCounts.APPROVED ?? 0 },
+    { key: 'FROZEN', label: t('tab_frozen', 'المجمدة'), icon: <Snowflake size={14} />, color: '#ea580c', bg: '#ffedd5', count: statusCounts.FROZEN ?? 0 },
+    { key: 'REJECTED', label: t('admin_subtab_rejected', 'سجل المرفوضات'), icon: <AlertCircle size={14} />, color: '#dc2626', bg: '#fee2e2', count: statusCounts.REJECTED ?? 0 },
+    { key: 'ALL', label: t('admin_subtab_all', 'كافة السجلات'), icon: <List size={14} />, color: '#475569', bg: '#f1f5f9', count: statusCounts.TOTAL ?? 0 }
+  ];
+
+  const statusLabel = {
+    PENDING: t('admin_status_pending', 'قيد المراجعة'),
+    APPROVED: t('admin_status_approved', 'مقبول ومعتمد'),
+    REJECTED: t('admin_status_rejected', 'مرفوض'),
+    FROZEN: t('subscription_frozen_badge', 'مجمّد'),
+    ALL: t('admin_subtab_all', 'الكل')
+  };
+  const statusColor = { PENDING: '#d97706', APPROVED: '#059669', REJECTED: '#dc2626', FROZEN: '#ea580c' };
+  const statusBg = { PENDING: '#fef3c7', APPROVED: '#d1fae5', REJECTED: '#fee2e2', FROZEN: '#ffedd5' };
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '12px' : '24px 24px' }}>
@@ -5668,45 +5985,294 @@ function AdminDashboardPage({ navigate, user }) {
 
       {/* Reject Modal */}
       {rejectModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: 'var(--card-bg)', borderRadius: 20, padding: 32, maxWidth: 440, width: '100%' }}>
-            <h3 style={{ margin: '0 0 16px', color: '#0c4a6e', fontWeight: 900 }}>سبب الرفض (اختياري)</h3>
-            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
-              placeholder="أدخل سبب الرفض للإشعار..." style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--card-bg, #ffffff)', borderRadius: 20, padding: 28, maxWidth: 460, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 8px', color: '#991b1b', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AlertCircle size={20} /> {t('admin_reject_modal_title', 'تأكيد رفض الطلب')}
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
+              {t('admin_reject_modal_desc', 'يرجى توضيح سبب الرفض ليتم حفظه في أرشيف المرفوضات وإشعار صاحب الطلب:')}
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              rows={4}
+              placeholder={t('admin_reject_modal_placeholder', 'مثال: نقص في الوثائق الثبوتية أو رقم التسجيل غير مطابق...')}
+              style={{ width: '100%', padding: '12px 14px', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: 12, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }}
+            />
             <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-              <Btn variant="secondary" onClick={() => { setRejectModal(null); setRejectReason(''); }} style={{ flex: 1, justifyContent: 'center' }}>إلغاء</Btn>
-              <Btn variant="danger" onClick={doReject} loading={!!actionLoading} style={{ flex: 1, justifyContent: 'center' }}>تأكيد الرفض</Btn>
+              <Btn variant="secondary" onClick={() => { setRejectModal(null); setRejectReason(''); }} style={{ flex: 1, justifyContent: 'center' }}>{t('cancel', 'إلغاء')}</Btn>
+              <Btn variant="danger" onClick={doReject} loading={!!actionLoading} style={{ flex: 1, justifyContent: 'center' }}>{t('admin_reject_confirm_btn', 'تأكيد الرفض')}</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Freeze Modal */}
+      {freezeModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--card-bg, #ffffff)', borderRadius: 20, padding: 28, maxWidth: 480, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 8px', color: '#c2410c', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Snowflake size={22} color="#ea580c" /> {t('freeze_modal_title', 'تجميد اشتراك وحساب')} {freezeModal.name ? `— ${freezeModal.name}` : ''}
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
+              {t('freeze_reason_label', 'سبب التجميد (سيظهر لصاحب الحساب):')}
+            </p>
+            <textarea
+              value={freezeReason}
+              onChange={e => setFreezeReason(e.target.value)}
+              rows={4}
+              placeholder={t('freeze_reason_placeholder', 'يرجى كتابة سبب تجميد الحساب أو انتهاء الاشتراك بالتفصيل...')}
+              style={{ width: '100%', padding: '12px 14px', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: 12, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              <Btn variant="secondary" onClick={() => { setFreezeModal(null); setFreezeReason(''); }} style={{ flex: 1, justifyContent: 'center' }}>
+                {t('cancel', 'إلغاء')}
+              </Btn>
+              <Btn
+                onClick={doFreeze}
+                loading={!!actionLoading}
+                disabled={!freezeReason.trim()}
+                style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg,#ea580c,#c2410c)', color: '#fff', border: 'none' }}
+              >
+                <Snowflake size={15} /> {t('confirm_freeze', 'تأكيد التجميد')}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Release Confirm Modal */}
+      {releaseConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--card-bg, #ffffff)', borderRadius: 20, padding: 28, maxWidth: 460, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 8px', color: '#059669', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PlayCircle size={22} color="#059669" /> {t('confirm_release_title', 'إلغاء التجميد وتفعيل الحساب')}
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+              {t('confirm_release_msg', 'هل أنت متأكد من رغبتك في إلغاء تجميد هذا الحساب وإعادة تفعيله لاستقبال المرضى وتسجيل الدخول؟')}
+            </p>
+            {releaseConfirm.name && (
+              <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10, marginBottom: 16, fontSize: 13, fontWeight: 700, color: '#0c4a6e' }}>
+                {releaseConfirm.name}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Btn variant="secondary" onClick={() => setReleaseConfirm(null)} style={{ flex: 1, justifyContent: 'center' }}>
+                {t('cancel', 'إلغاء')}
+              </Btn>
+              <Btn
+                onClick={doRelease}
+                loading={!!actionLoading}
+                style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none' }}
+              >
+                <PlayCircle size={15} /> {t('confirm_release', 'تأكيد التفعيل')}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item Details Inspection Modal */}
+      {detailModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--card-bg, #ffffff)', borderRadius: 20, padding: 28, maxWidth: 560, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, borderBottom: '1px solid var(--border, #e2e8f0)', paddingBottom: 16 }}>
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 8, background: statusBg[detailModal.status], color: statusColor[detailModal.status] }}>
+                  {statusLabel[detailModal.status]}
+                </span>
+                <h2 style={{ margin: '8px 0 2px', fontSize: 19, fontWeight: 900, color: '#0c4a6e' }}>
+                  {tab === 'clinics' ? detailModal.clinicname : detailModal.fullname}
+                </h2>
+                <div style={{ fontSize: 12, color: '#64748b' }}>{t('admin_detail_modal_id', 'المعرف:')} {detailModal.id}</div>
+              </div>
+              <button onClick={() => setDetailModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#94a3b8' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
+              <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_email', 'البريد الإلكتروني')}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2, wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {detailModal.email}
+                  <button onClick={() => copyText(detailModal.email, t('email', 'البريد'))} title={t('admin_copy_email', 'نسخ')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)' }}><Copy size={13} /></button>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_phone', 'رقم الهاتف')}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span dir="ltr">{detailModal.phone}</span>
+                  <button onClick={() => copyText(detailModal.phone, t('phone', 'الهاتف'))} title={t('admin_copy_phone', 'نسخ')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)' }}><Copy size={13} /></button>
+                </div>
+              </div>
+
+              {detailModal.speciality && (
+                <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_specialty', 'التخصص الطبي')}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2 }}>{detailModal.speciality}</div>
+                </div>
+              )}
+
+              {detailModal.clinicname && tab === 'doctors' && (
+                <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_clinic', 'العيادة المرتبطة')}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2 }}>{detailModal.clinicname}</div>
+                </div>
+              )}
+
+              {detailModal.address && (
+                <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12, gridColumn: '1/-1' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_address', 'العنوان')}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2 }}>{detailModal.address}</div>
+                </div>
+              )}
+
+              {detailModal.nin && (
+                <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_nin', 'الرقم الوطني (NIN)')}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2 }}>{detailModal.nin}</div>
+                </div>
+              )}
+
+              <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_submission_date', 'تاريخ تقديم الطلب')}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginTop: 2 }}>
+                  {detailModal.createdat ? new Date(detailModal.createdat).toLocaleString(dateLocale) : '—'}
+                </div>
+              </div>
+
+              {detailModal.approvedat && (
+                <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#059669' }}>{t('admin_detail_approval_date', 'تاريخ الاعتماد / المعالجة')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginTop: 2 }}>
+                    {new Date(detailModal.approvedat).toLocaleString(dateLocale)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {detailModal.notes && (
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: 14, marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0369a1', marginBottom: 4 }}>{t('admin_notes_label', 'ملاحظات الطلب:')}</div>
+                <div style={{ fontSize: 13, color: '#0c4a6e', lineHeight: 1.5 }}>{detailModal.notes}</div>
+              </div>
+            )}
+
+            {detailModal.rejectedreason && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: 14, marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#991b1b', marginBottom: 4 }}>{t('admin_rejection_reason_label', 'سبب الرفض:')}</div>
+                <div style={{ fontSize: 13, color: '#7f1d1d', lineHeight: 1.5 }}>{detailModal.rejectedreason}</div>
+              </div>
+            )}
+
+            {Number(detailModal.is_frozen) === 1 && (
+              <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: 12, padding: 14, marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#c2410c', marginBottom: 6 }}>
+                  <Snowflake size={16} /> {t('subscription_frozen_badge', 'مجمّد')} — {t('frozen_at_label', 'تاريخ التجميد')}: {detailModal.frozen_at ? new Date(detailModal.frozen_at).toLocaleString(dateLocale) : '—'}
+                </div>
+                {detailModal.freeze_reason && (
+                  <div style={{ fontSize: 13, color: '#9a3412', lineHeight: 1.5 }}>
+                    <strong>{t('freeze_reason_display', 'سبب التجميد')}:</strong> {detailModal.freeze_reason}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', borderTop: '1px solid var(--border, #e2e8f0)', paddingTop: 16, flexWrap: 'wrap' }}>
+              <Btn variant="secondary" onClick={() => setDetailModal(null)} style={{ padding: '8px 18px' }}>{t('close', 'إغلاق')}</Btn>
+              {detailModal.status === 'PENDING' && (
+                <>
+                  <Btn variant="danger" onClick={() => setRejectModal({ id: detailModal.id, type: tab })} style={{ padding: '8px 18px' }}>
+                    <X size={15} /> {t('admin_btn_reject', 'رفض')}
+                  </Btn>
+                  <Btn variant="primary" onClick={() => doApprove(detailModal.id)} loading={actionLoading === detailModal.id} style={{ padding: '8px 20px', background: 'linear-gradient(135deg,#059669,#047857)' }}>
+                    <Check size={15} /> {t('admin_detail_approve_btn', 'قبول وتفعيل')}
+                  </Btn>
+                </>
+              )}
+              {detailModal.status === 'APPROVED' && (
+                Number(detailModal.is_frozen) === 1 ? (
+                  <Btn
+                    onClick={() => setReleaseConfirm({ id: detailModal.id, type: tab, name: tab === 'clinics' ? detailModal.clinicname : detailModal.fullname })}
+                    style={{ padding: '8px 18px', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none' }}
+                  >
+                    <PlayCircle size={15} /> {t('release_subscription', 'إلغاء التجميد والتفعيل')}
+                  </Btn>
+                ) : (
+                  <Btn
+                    onClick={() => setFreezeModal({ id: detailModal.id, type: tab, name: tab === 'clinics' ? detailModal.clinicname : detailModal.fullname })}
+                    style={{ padding: '8px 18px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}
+                  >
+                    <Snowflake size={15} /> {t('freeze_subscription', 'تجميد الحساب / الاشتراك')}
+                  </Btn>
+                )
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg,#0c4a6e,var(--brand))', borderRadius: 20, padding: isMobile ? '20px 18px' : '28px 32px', marginBottom: 24, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: 'linear-gradient(135deg,#0c4a6e,var(--brand))', borderRadius: 20, padding: isMobile ? '20px 18px' : '26px 32px', marginBottom: 24, color: '#fff', position: 'relative', overflow: 'hidden', boxShadow: '0 10px 25px rgba(8,145,178,0.2)' }}>
         <div style={{ position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Shield size={22} color="#fff" />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 48, height: 48, background: 'rgba(255,255,255,0.15)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Shield size={24} color="#fff" />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>لوحة تحكم الإدارة</h1>
-              <div style={{ fontSize: 13, opacity: 0.8 }}>مرحباً، {user?.username || 'Admin'}</div>
+              <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 22, fontWeight: 900 }}>{t('admin_dashboard_title', 'لوحة تحكم الإدارة وإدارة الطلبات')}</h1>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>{t('admin_welcome_subtitle', { username: user?.username || 'Admin', defaultValue: `مرحباً، ${user?.username || 'Admin'} — نظام معالجة وأرشفة الطلبات واسع النطاق` })}</div>
             </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn variant="ghost" onClick={() => navigate('/profile')} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', fontSize: 13 }}>
+              {t('profile', 'الملف الشخصي')}
+            </Btn>
+            <Btn variant="ghost" onClick={() => handleTabChange('support_tickets')} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', fontSize: 13, position: 'relative' }}>
+              {t('admin_support_tab_title', 'Support & Réclamations')}
+              {supportUnreadCount > 0 && (
+                <span style={{ background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 999, marginInlineStart: 6 }}>
+                  {supportUnreadCount}
+                </span>
+              )}
+            </Btn>
           </div>
         </div>
       </div>
 
-      {/* Tab Nav */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '10px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-            background: tab === t.key ? 'var(--brand)' : '#fff',
-            color: tab === t.key ? '#fff' : '#4b5563',
-            boxShadow: tab === t.key ? '0 4px 12px rgba(8,145,178,0.3)' : '0 1px 4px rgba(0,0,0,0.06)',
-            transition: 'all 0.2s',
-          }}>{t.icon}{t.label}</button>
+      {/* Main Tab Nav */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {tabs.map(tTab => (
+          <button
+            key={tTab.key}
+            onClick={() => handleTabChange(tTab.key)}
+            style={{
+              padding: '11px 22px', borderRadius: 14, fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+              background: tab === tTab.key ? 'linear-gradient(135deg,var(--brand),#0c4a6e)' : 'var(--card-bg, #ffffff)',
+              color: tab === tTab.key ? '#ffffff' : '#64748b',
+              boxShadow: tab === tTab.key ? '0 4px 14px rgba(8,145,178,0.25)' : '0 1px 4px rgba(0,0,0,0.04)',
+              border: tab === tTab.key ? 'none' : '1px solid var(--border, #e2e8f0)',
+              transition: 'all 0.2s',
+            }}
+          >
+            {tTab.icon}
+            {tTab.label}
+            {tTab.badge > 0 && (
+              <span style={{
+                background: tab === tTab.key ? '#ef4444' : '#fee2e2',
+                color: tab === tTab.key ? '#ffffff' : '#b91c1c',
+                fontSize: 11, fontWeight: 800, padding: '2px 7px', borderRadius: 999,
+                marginInlineStart: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {tTab.badge}
+              </span>
+            )}
+          </button>
         ))}
       </div>
 
@@ -5716,73 +6282,81 @@ function AdminDashboardPage({ navigate, user }) {
           {loading ? <Spinner size={36} /> : stats && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
-                <StatCard label="إجمالي العيادات" value={stats.total_clinics} icon={<Building size={22} />} color="#7c3aed" bg="#f5f3ff" />
-                <StatCard label="إجمالي الأطباء" value={stats.total_doctors} icon={<Stethoscope size={22} />} color="var(--brand)" bg="#ecfeff" />
-                <StatCard label="إجمالي المرضى" value={stats.total_patients} icon={<Users size={22} />} color="#059669" bg="#f0fdf4" />
-                <StatCard label="إجمالي المواعيد" value={stats.total_appointments} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 14, marginBottom: 24 }}>
-                <StatCard label="مواعيد اليوم" value={stats.today_appointments} icon={<Clock size={22} />} color="var(--brand)" bg="#ecfeff" />
-                <StatCard label="مواعيد هذا الشهر" value={stats.month_appointments} icon={<Activity size={22} />} color="#7c3aed" bg="#f5f3ff" />
-                <div style={{ display: 'grid', gap: 14 }}>
-                  <div onClick={() => { setTab('clinics'); setSubTab('PENDING'); }}
-                    style={{ background: '#fef3c7', borderRadius: 14, padding: '14px 18px', border: '2px solid #fde68a', cursor: 'pointer', transition: 'transform 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#92400e' }}>{stats.pending_clinics}</div>
-                    <div style={{ fontSize: 13, color: '#78350f', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <AlertCircle size={14} /> عيادات قيد المراجعة
-                    </div>
+                <StatCard label={t('admin_total_clinics', 'إجمالي العيادات')} value={stats.total_clinics} icon={<Building size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label={t('admin_total_doctors', 'إجمالي الأطباء')} value={stats.total_doctors} icon={<Stethoscope size={22} />} color="var(--brand)" bg="#ecfeff" />
+
+                {/* Clickable pending clinics card */}
+                <div
+                  onClick={() => { setTab('clinics'); setSubTab('PENDING'); }}
+                  style={{ background: '#fef3c7', borderRadius: 18, padding: '20px 24px', border: '2px solid #fcd34d', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 16 }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(217,119,6,0.15)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+                    <AlertCircle size={24} />
                   </div>
-                  <div onClick={() => { setTab('doctors'); setSubTab('PENDING'); }}
-                    style={{ background: '#fee2e2', borderRadius: 14, padding: '14px 18px', border: '2px solid #fca5a5', cursor: 'pointer', transition: 'transform 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#991b1b' }}>{stats.pending_doctors}</div>
-                    <div style={{ fontSize: 13, color: '#7f1d1d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <AlertCircle size={14} /> أطباء قيد المراجعة
-                    </div>
+                  <div>
+                    <div style={{ fontSize: 26, fontWeight: 900, color: '#92400e', lineHeight: 1 }}>{stats.pending_clinics}</div>
+                    <div style={{ fontSize: 13, color: '#78350f', fontWeight: 700, marginTop: 4 }}>{t('admin_pending_clinics', 'عيادات قيد المراجعة')}</div>
+                    <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>{t('admin_click_to_process', 'انقر لمعالجة الطلبات ←')}</div>
+                  </div>
+                </div>
+
+                {/* Clickable pending doctors card */}
+                <div
+                  onClick={() => { setTab('doctors'); setSubTab('PENDING'); }}
+                  style={{ background: '#fee2e2', borderRadius: 18, padding: '20px 24px', border: '2px solid #fca5a5', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 16 }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(220,38,38,0.15)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>
+                    <AlertCircle size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 26, fontWeight: 900, color: '#991b1b', lineHeight: 1 }}>{stats.pending_doctors}</div>
+                    <div style={{ fontSize: 13, color: '#7f1d1d', fontWeight: 700, marginTop: 4 }}>{t('admin_pending_doctors', 'أطباء قيد المراجعة')}</div>
+                    <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>{t('admin_click_to_process', 'انقر لمعالجة الطلبات ←')}</div>
                   </div>
                 </div>
               </div>
 
               {/* ── Visits Stats ── */}
               <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0c4a6e', marginBottom: 16, marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Globe size={20} color="var(--brand)" /> إحصائيات زيارات الموقع
+                <Globe size={20} color="var(--brand)" /> {t('admin_site_visits_stats', 'إحصائيات زيارات الموقع')}
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
-                <StatCard label="زيارات اليوم" value={stats.visits_today} icon={<Activity size={22} />} color="#059669" bg="#f0fdf4" />
-                <StatCard label="زيارات الأسبوع" value={stats.visits_weekly} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
-                <StatCard label="زيارات الشهر" value={stats.visits_monthly} icon={<LayoutDashboard size={22} />} color="#7c3aed" bg="#f5f3ff" />
-                <StatCard label="إجمالي الزيارات" value={stats.visits_total} icon={<Globe size={22} />} color="var(--brand)" bg="#ecfeff" />
+                <StatCard label={t('admin_visits_today', 'زيارات اليوم')} value={stats.visits_today} icon={<Activity size={22} />} color="#059669" bg="#f0fdf4" />
+                <StatCard label={t('admin_visits_weekly', 'زيارات الأسبوع')} value={stats.visits_weekly} icon={<Calendar size={22} />} color="#d97706" bg="#fffbeb" />
+                <StatCard label={t('admin_visits_monthly', 'زيارات الشهر')} value={stats.visits_monthly} icon={<LayoutDashboard size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label={t('admin_visits_total', 'إجمالي الزيارات')} value={stats.visits_total} icon={<Globe size={22} />} color="var(--brand)" bg="#ecfeff" />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 24 }}>
                 {/* By Country */}
                 <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14 }}>الزيارات حسب الدولة</h3>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14 }}>{t('admin_visits_by_country', 'الزيارات حسب الدولة')}</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {(stats.visits_by_country || []).map((c, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
-                        <span style={{ fontWeight: 600 }}>{c.country || 'غير معروف'}</span>
+                        <span style={{ fontWeight: 600 }}>{c.country || t('unknown', 'غير معروف')}</span>
                         <span style={{ fontWeight: 800, color: 'var(--brand)' }}>{c.count}</span>
                       </div>
                     ))}
-                    {(!stats.visits_by_country || stats.visits_by_country.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>لا توجد بيانات</div>}
+                    {(!stats.visits_by_country || stats.visits_by_country.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>{t('no_data', 'لا توجد بيانات')}</div>}
                   </div>
                 </div>
 
                 {/* By Wilaya */}
                 <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14 }}>الزيارات حسب الولاية / المنطقة</h3>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14 }}>{t('admin_visits_by_wilaya', 'الزيارات حسب الولاية / المنطقة')}</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {(stats.visits_by_wilaya || []).map((w, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
-                        <span style={{ fontWeight: 600 }}>{w.wilaya || 'غير معروف'}</span>
+                        <span style={{ fontWeight: 600 }}>{w.wilaya || t('unknown', 'غير معروف')}</span>
                         <span style={{ fontWeight: 800, color: 'var(--brand)' }}>{w.count}</span>
                       </div>
                     ))}
-                    {(!stats.visits_by_wilaya || stats.visits_by_wilaya.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>لا توجد بيانات</div>}
+                    {(!stats.visits_by_wilaya || stats.visits_by_wilaya.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>{t('no_data', 'لا توجد بيانات')}</div>}
                   </div>
                 </div>
               </div>
@@ -5791,75 +6365,697 @@ function AdminDashboardPage({ navigate, user }) {
         </div>
       )}
 
-      {/* ─── clinics / doctors TAB ───── */}
+      {/* ─── CLINICS / DOCTORS MANAGEMENT TAB ───── */}
       {(tab === 'clinics' || tab === 'doctors') && (
         <div>
-          {/* Sub-tabs */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {statusTabs.map(s => (
-              <button key={s} onClick={() => setSubTab(s)} style={{
-                padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
-                background: subTab === s ? statusBg[s] : '#fff',
-                color: subTab === s ? statusColor[s] : '#9ca3af',
-                boxShadow: subTab === s ? `0 0 0 2px ${statusColor[s]}40` : '0 1px 3px rgba(0,0,0,0.06)',
-                transition: 'all 0.18s',
-              }}>{statusLabel[s]}</button>
-            ))}
+          {/* Sub-tabs with Live Badges */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+            {statusTabs.map(s => {
+              const isActive = subTab === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => handleSubTabChange(s.key)}
+                  style={{
+                    padding: '9px 18px', borderRadius: 12, fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: isActive ? s.bg : 'var(--card-bg, #ffffff)',
+                    color: isActive ? s.color : '#64748b',
+                    boxShadow: isActive ? `0 0 0 2px ${s.color}` : '0 1px 3px rgba(0,0,0,0.05)',
+                    border: isActive ? `1.5px solid ${s.color}` : '1px solid var(--border, #e2e8f0)',
+                    transition: 'all 0.18s',
+                  }}
+                >
+                  {s.icon}
+                  {s.label}
+                  <span style={{
+                    background: isActive ? s.color : '#e2e8f0',
+                    color: isActive ? '#ffffff' : '#475569',
+                    fontSize: 11, fontWeight: 900, padding: '1px 7px', borderRadius: 10,
+                    minWidth: 18, textAlign: 'center'
+                  }}>
+                    {s.count ?? 0}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {loading ? <Spinner size={32} /> : (
-            items.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af' }}>
-                <CheckCircle size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
-                <p style={{ fontWeight: 700, fontSize: 16 }}>لا توجد طلبات في هذه الفئة</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {items.map(item => (
-                  <div key={item.id} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', border: '1px solid #0891b2', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 800, fontSize: 16, color: '#0c4a6e' }}>
-                            {tab === 'clinics' ? item.clinicname : item.fullname}
-                          </span>
-                          <span style={{ background: statusBg[item.status], color: statusColor[item.status], borderRadius: 20, padding: '2px 12px', fontSize: 12, fontWeight: 700 }}>
-                            {statusLabel[item.status]}
-                          </span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '4px 24px' }}>
-                          {tab === 'doctors' && <div style={{ fontSize: 13, color: '#6b7280' }}><strong>التخصص:</strong> {item.speciality}</div>}
-                          <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><Mail size={13} /> {item.email}</div>
-                          <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><Phone size={13} /> {item.phone}</div>
-                          {item.address && <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {item.address}</div>}
-                          <div style={{ fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} /> {new Date(item.createdat).toLocaleDateString('ar-DZ')}</div>
-                        </div>
-                        {item.rejectedreason && (
-                          <div style={{ marginTop: 8, background: '#fee2e2', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#991b1b' }}>
-                            <strong>سبب الرفض:</strong> {item.rejectedreason}
-                          </div>
-                        )}
-                      </div>
+          {/* Scalable Controls Toolbar */}
+          <div style={{
+            background: 'var(--card-bg, #ffffff)', borderRadius: 16, padding: '14px 18px',
+            border: '1px solid var(--border, #e2e8f0)', boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+            marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: 12
+          }}>
+            {/* Search input */}
+            <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 400 }}>
+              <Search size={16} style={{ position: 'absolute', [isAr ? 'right' : 'left']: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={tab === 'doctors' ? t('admin_search_doctor_placeholder', 'بحث بالاسم، التخصص، الهاتف، الإيميل...') : t('admin_search_clinic_placeholder', 'بحث باسم العيادة، العنوان، الهاتف...')}
+                style={{
+                  width: '100%', padding: isAr ? '9px 38px 9px 14px' : '9px 14px 9px 38px', borderRadius: 10,
+                  border: '1.5px solid var(--border, #e2e8f0)', fontSize: 13,
+                  outline: 'none', background: 'var(--bg, #f8fafc)', boxSizing: 'border-box'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{ position: 'absolute', [isAr ? 'left' : 'right']: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 2 }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
+            {/* Filters & Tools */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* Period dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg, #f8fafc)', padding: '4px 10px', borderRadius: 10, border: '1px solid var(--border, #e2e8f0)' }}>
+                <Calendar size={14} color="#64748b" />
+                <select
+                  value={period}
+                  onChange={e => handlePeriodChange(e.target.value)}
+                  style={{ background: 'none', border: 'none', fontSize: 12, fontWeight: 700, color: '#334155', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="all">{t('admin_period_all', 'كل الفترات')}</option>
+                  <option value="today">{t('admin_period_today', 'طلبات اليوم')}</option>
+                  <option value="week">{t('admin_period_week', 'آخر 7 أيام')}</option>
+                  <option value="month">{t('admin_period_month', 'آخر 30 يوماً')}</option>
+                  <option value="year">{t('admin_period_year', 'هذا العام')}</option>
+                </select>
+              </div>
+
+              {/* Rows per page */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg, #f8fafc)', padding: '4px 10px', borderRadius: 10, border: '1px solid var(--border, #e2e8f0)' }}>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{t('admin_show_rows', 'عرض:')}</span>
+                <select
+                  value={limit}
+                  onChange={e => handleLimitChange(e.target.value)}
+                  style={{ background: 'none', border: 'none', fontSize: 12, fontWeight: 800, color: '#0c4a6e', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* View Toggle */}
+              <div style={{ display: 'flex', background: 'var(--bg, #f8fafc)', borderRadius: 10, border: '1px solid var(--border, #e2e8f0)', padding: 2 }}>
+                <button
+                  onClick={() => setViewMode('table')}
+                  title={t('admin_view_table', 'عرض جدول بيانات')}
+                  style={{
+                    border: 'none', padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                    background: viewMode === 'table' ? 'var(--brand)' : 'transparent',
+                    color: viewMode === 'table' ? '#ffffff' : '#64748b'
+                  }}
+                >
+                  <List size={15} />
+                </button>
+                <button
+                  onClick={() => setViewMode('cards')}
+                  title={t('admin_view_cards', 'عرض بطاقات')}
+                  style={{
+                    border: 'none', padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                    background: viewMode === 'cards' ? 'var(--brand)' : 'transparent',
+                    color: viewMode === 'cards' ? '#ffffff' : '#64748b'
+                  }}
+                >
+                  <Grid size={15} />
+                </button>
+              </div>
+
+              {/* Export CSV */}
+              <button
+                onClick={exportCSV}
+                title={t('admin_export_csv_tooltip', 'تصدير النتائج إلى Excel / CSV')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+                  background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10,
+                  fontSize: 12, fontWeight: 800, color: '#166534', cursor: 'pointer'
+                }}
+              >
+                <Download size={14} />
+                <span>{t('admin_export_csv', 'تصدير CSV')}</span>
+              </button>
+
+              {/* Refresh */}
+              <button
+                onClick={loadData}
+                disabled={loading}
+                title={t('admin_refresh_data', 'تحديث البيانات')}
+                style={{
+                  border: '1px solid var(--border, #e2e8f0)', background: 'var(--bg, #f8fafc)',
+                  padding: '7px 10px', borderRadius: 10, cursor: 'pointer', color: '#475569',
+                  display: 'flex', alignItems: 'center'
+                }}
+              >
+                <RotateCw size={14} className={loading ? 'spin' : ''} />
+              </button>
+            </div>
+          </div>
+
+          {/* Bulk Action Bar (when in PENDING and items selected) */}
+          {subTab === 'PENDING' && selectedIds.length > 0 && (
+            <div style={{
+              background: '#ecfdf5', border: '1.5px solid #6ee7b7', borderRadius: 14,
+              padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', flexWrap: 'wrap', gap: 12
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <CheckCircle size={18} color="#059669" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#065f46' }}>
+                  {t('admin_bulk_selected', { count: selectedIds.length, total: items.length, defaultValue: `تم تحديد ${selectedIds.length} من أصل ${items.length} طلب في الصفحة` })}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Btn
+                  variant="secondary"
+                  onClick={() => setSelectedIds([])}
+                  style={{ padding: '6px 14px', fontSize: 12 }}
+                >
+                  {t('admin_deselect', 'إلغاء التحديد')}
+                </Btn>
+                <Btn
+                  variant="primary"
+                  onClick={doBulkApprove}
+                  loading={bulkApproving}
+                  style={{ padding: '6px 18px', fontSize: 12, background: 'linear-gradient(135deg,#059669,#047857)' }}
+                >
+                  <Check size={14} /> {t('admin_bulk_approve_btn', 'قبول وتفعيل المحدد دفعة واحدة')}
+                </Btn>
+              </div>
+            </div>
+          )}
+
+          {/* Loading Indicator */}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <Spinner size={34} />
+              <div style={{ marginTop: 12, color: '#64748b', fontSize: 13, fontWeight: 700 }}>{t('admin_loading_data', 'جاري تحميل ومعالجة البيانات...')}</div>
+            </div>
+          ) : items.length === 0 ? (
+            /* Empty State */
+            <div style={{
+              background: 'var(--card-bg, #ffffff)', borderRadius: 18, padding: '60px 20px',
+              textAlign: 'center', border: '1px solid var(--border, #e2e8f0)', marginTop: 8
+            }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#94a3b8' }}>
+                <CheckCircle size={32} />
+              </div>
+              <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: '#0c4a6e' }}>
+                {t('admin_no_matching_requests', 'لا توجد طلبات تطابق معايير البحث')}
+              </h3>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
+                {debouncedSearch ? t('admin_no_search_results', { query: debouncedSearch, defaultValue: `لم يتم العثور على نتائج للبحث عن "${debouncedSearch}"` }) : t('admin_no_items_category', 'لا توجد عناصر في هذه الفئة حالياً')}
+              </p>
+              {debouncedSearch && (
+                <Btn variant="secondary" onClick={() => setSearchQuery('')} style={{ padding: '8px 18px', fontSize: 12 }}>
+                  {t('admin_reset_search', 'إعادة ضبط البحث')}
+                </Btn>
+              )}
+            </div>
+          ) : viewMode === 'table' ? (
+            /* ── VIEW 1: HIGH DENSITY DATA TABLE ── */
+            <div style={{
+              background: 'var(--card-bg, #ffffff)', borderRadius: 16,
+              border: '1px solid var(--border, #e2e8f0)', boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+              overflow: 'hidden'
+            }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: isAr ? 'right' : 'left', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border, #e2e8f0)', color: '#475569', fontWeight: 800, fontSize: 12 }}>
                       {subTab === 'PENDING' && (
-                        <div style={{ display: 'flex', gap: 10, flexShrink: 0, alignItems: 'center' }}>
-                          <button onClick={() => doApprove(item.id)} disabled={actionLoading === item.id}
-                            style={{ padding: '8px 18px', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: actionLoading === item.id ? 0.6 : 1 }}>
-                            <Check size={15} /> قبول
-                          </button>
-                          <button onClick={() => setRejectModal({ id: item.id, type: tab })} disabled={!!actionLoading}
-                            style={{ padding: '8px 18px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <X size={15} /> رفض
-                          </button>
+                        <th style={{ padding: '12px 14px', width: 36, textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={items.length > 0 && selectedIds.length === items.length}
+                            onChange={toggleSelectAll}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </th>
+                      )}
+                      <th style={{ padding: '12px 14px', width: 60 }}>{t('admin_th_id', '#ID')}</th>
+                      <th style={{ padding: '12px 14px' }}>{tab === 'doctors' ? t('admin_th_doctor_name', 'اسم الطبيب') : t('admin_th_clinic_name', 'اسم العيادة')}</th>
+                      <th style={{ padding: '12px 14px' }}>{tab === 'doctors' ? t('admin_th_specialty', 'التخصص الطبي') : t('admin_th_address', 'العنوان')}</th>
+                      <th style={{ padding: '12px 14px' }}>{t('admin_th_contact', 'معلومات الاتصال')}</th>
+                      {tab === 'doctors' && <th style={{ padding: '12px 14px' }}>{t('admin_th_clinic', 'العيادة')}</th>}
+                      <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>{t('admin_th_createdat', 'تاريخ التسجيل')}</th>
+                      {subTab === 'APPROVED' && <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>{t('admin_th_approvedat', 'تاريخ الاعتماد')}</th>}
+                      <th style={{ padding: '12px 14px' }}>{t('admin_th_status', 'الحالة')}</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'center', minWidth: 140 }}>{t('admin_th_actions', 'الإجراءات')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, idx) => {
+                      const isSelected = selectedIds.includes(item.id);
+                      return (
+                        <tr
+                          key={item.id}
+                          style={{
+                            borderBottom: '1px solid var(--border, #f1f5f9)',
+                            background: isSelected ? '#f0fdf4' : (idx % 2 === 0 ? 'transparent' : 'rgba(248,250,252,0.6)'),
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(248,250,252,0.6)'; }}
+                        >
+                          {subTab === 'PENDING' && (
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelect(item.id)}
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </td>
+                          )}
+                          <td style={{ padding: '12px 14px', fontWeight: 800, color: '#64748b', fontSize: 12 }}>
+                            #{item.id}
+                          </td>
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: 800, color: '#0c4a6e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {tab === 'doctors' ? item.fullname : item.clinicname}
+                              {item.nin && (
+                                <span style={{ fontSize: 10, background: '#e0f2fe', color: '#0284c7', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
+                                  NIN
+                                </span>
+                              )}
+                            </div>
+                            {item.notes && (
+                              <div style={{ fontSize: 11, color: '#94a3b8', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.notes}>
+                                {item.notes}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: '#334155' }}>
+                            {tab === 'doctors' ? (
+                              <span style={{ fontWeight: 700, color: 'var(--brand)' }}>{item.speciality}</span>
+                            ) : (
+                              <span style={{ fontSize: 12, color: '#64748b' }}>{item.address || '—'}</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#475569' }}>
+                                <Mail size={12} color="#94a3b8" />
+                                <span>{item.email}</span>
+                                <button onClick={() => copyText(item.email, t('email', 'البريد'))} title={t('admin_copy_email', 'نسخ البريد')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--brand)' }}>
+                                  <Copy size={11} />
+                                </button>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#475569' }}>
+                                <Phone size={12} color="#94a3b8" />
+                                <span dir="ltr">{item.phone}</span>
+                                <button onClick={() => copyText(item.phone, t('phone', 'الهاتف'))} title={t('admin_copy_phone', 'نسخ الهاتف')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--brand)' }}>
+                                  <Copy size={11} />
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          {tab === 'doctors' && (
+                            <td style={{ padding: '12px 14px', fontSize: 12, color: '#475569' }}>
+                              {item.clinicname || <span style={{ color: '#94a3b8' }}>{t('admin_independent_doctor', 'مستقل')}</span>}
+                            </td>
+                          )}
+                          <td style={{ padding: '12px 14px', fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
+                            {item.createdat ? new Date(item.createdat).toLocaleDateString(dateLocale) : '—'}
+                          </td>
+                          {subTab === 'APPROVED' && (
+                            <td style={{ padding: '12px 14px', fontSize: 12, color: '#059669', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              {item.approvedat ? new Date(item.approvedat).toLocaleDateString(dateLocale) : t('admin_status_approved', 'معتمد')}
+                            </td>
+                          )}
+                          <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                            {item.status === 'APPROVED' ? (
+                              Number(item.is_frozen) === 1 ? (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  background: '#ffedd5', color: '#ea580c',
+                                  borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 800
+                                }}>
+                                  <Snowflake size={11} /> {t('subscription_frozen_badge', 'مجمّد')}
+                                </span>
+                              ) : (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  background: '#d1fae5', color: '#059669',
+                                  borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 800
+                                }}>
+                                  <CheckCircle size={11} /> {t('subscription_active_badge', 'نشط')}
+                                </span>
+                              )
+                            ) : (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                background: statusBg[item.status], color: statusColor[item.status],
+                                borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 800
+                              }}>
+                                {item.status === 'PENDING' && <Clock size={11} />}
+                                {item.status === 'REJECTED' && <AlertCircle size={11} />}
+                                {statusLabel[item.status]}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => setDetailModal(item)}
+                                title={t('admin_btn_details', 'عرض كافة التفاصيل')}
+                                style={{
+                                  padding: '5px 10px', background: 'var(--bg, #f1f5f9)', border: '1px solid var(--border, #cbd5e1)',
+                                  borderRadius: 8, fontSize: 11, fontWeight: 800, color: '#334155', cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 4
+                                }}
+                              >
+                                <Eye size={12} /> {t('admin_btn_details', 'التفاصيل')}
+                              </button>
+
+                              {item.status === 'PENDING' && (
+                                <>
+                                  <button
+                                    onClick={() => doApprove(item.id)}
+                                    disabled={actionLoading === item.id}
+                                    title={t('admin_btn_approve', 'قبول وتفعيل الحساب')}
+                                    style={{
+                                      padding: '5px 10px', background: 'linear-gradient(135deg,#059669,#047857)',
+                                      border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 800, color: '#ffffff',
+                                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                      opacity: actionLoading === item.id ? 0.6 : 1
+                                    }}
+                                  >
+                                    <Check size={12} /> {t('admin_btn_approve', 'قبول')}
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectModal({ id: item.id, type: tab })}
+                                    disabled={!!actionLoading}
+                                    title={t('admin_btn_reject', 'رفض الطلب')}
+                                    style={{
+                                      padding: '5px 8px', background: '#fee2e2', border: '1px solid #fca5a5',
+                                      borderRadius: 8, fontSize: 11, fontWeight: 800, color: '#dc2626', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', gap: 4
+                                    }}
+                                  >
+                                    <X size={12} /> {t('admin_btn_reject', 'رفض')}
+                                  </button>
+                                </>
+                              )}
+
+                              {item.status === 'APPROVED' && (
+                                Number(item.is_frozen) === 1 ? (
+                                  <button
+                                    onClick={() => setReleaseConfirm({ id: item.id, type: tab, name: tab === 'clinics' ? item.clinicname : item.fullname })}
+                                    disabled={!!actionLoading}
+                                    title={t('release_subscription', 'إلغاء التجميد والتفعيل')}
+                                    style={{
+                                      padding: '5px 10px', background: 'linear-gradient(135deg,#059669,#047857)',
+                                      border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 800, color: '#ffffff',
+                                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                                    }}
+                                  >
+                                    <PlayCircle size={12} /> {t('release_subscription', 'تفعيل')}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setFreezeModal({ id: item.id, type: tab, name: tab === 'clinics' ? item.clinicname : item.fullname })}
+                                    disabled={!!actionLoading}
+                                    title={t('freeze_subscription', 'تجميد الحساب / الاشتراك')}
+                                    style={{
+                                      padding: '5px 10px', background: '#fff7ed', border: '1px solid #fed7aa',
+                                      borderRadius: 8, fontSize: 11, fontWeight: 800, color: '#c2410c',
+                                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                                    }}
+                                  >
+                                    <Snowflake size={12} /> {t('freeze_subscription', 'تجميد')}
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* ── VIEW 2: CARDS GRID VIEW ── */
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+              {items.map(item => (
+                <div
+                  key={item.id}
+                  style={{
+                    background: 'var(--card-bg, #ffffff)', borderRadius: 16, padding: '18px 20px',
+                    border: '1px solid var(--border, #e2e8f0)', boxShadow: '0 3px 12px rgba(0,0,0,0.03)',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+                      <div>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8' }}>#{item.id}</span>
+                        <h4 style={{ margin: '2px 0 0', fontSize: 16, fontWeight: 800, color: '#0c4a6e' }}>
+                          {tab === 'clinics' ? item.clinicname : item.fullname}
+                        </h4>
+                      </div>
+                      {item.status === 'APPROVED' ? (
+                        Number(item.is_frozen) === 1 ? (
+                          <span style={{
+                            background: '#ffedd5', color: '#ea580c',
+                            borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 800, flexShrink: 0,
+                            display: 'inline-flex', alignItems: 'center', gap: 4
+                          }}>
+                            <Snowflake size={11} /> {t('subscription_frozen_badge', 'مجمّد')}
+                          </span>
+                        ) : (
+                          <span style={{
+                            background: '#d1fae5', color: '#059669',
+                            borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 800, flexShrink: 0,
+                            display: 'inline-flex', alignItems: 'center', gap: 4
+                          }}>
+                            <CheckCircle size={11} /> {t('subscription_active_badge', 'نشط')}
+                          </span>
+                        )
+                      ) : (
+                        <span style={{
+                          background: statusBg[item.status], color: statusColor[item.status],
+                          borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 800, flexShrink: 0
+                        }}>
+                          {statusLabel[item.status]}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#475569' }}>
+                      {tab === 'doctors' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Stethoscope size={13} color="var(--brand)" />
+                          <strong style={{ color: '#0c4a6e' }}>{item.speciality}</strong>
+                        </div>
+                      )}
+                      {tab === 'doctors' && item.clinicname && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Building2 size={13} color="#64748b" />
+                          <span>{item.clinicname}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Mail size={13} color="#64748b" />
+                        <span>{item.email}</span>
+                        <button onClick={() => copyText(item.email, t('email', 'البريد'))} title={t('admin_copy_email', 'نسخ')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)' }}><Copy size={11} /></button>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Phone size={13} color="#64748b" />
+                        <span dir="ltr">{item.phone}</span>
+                        <button onClick={() => copyText(item.phone, t('phone', 'الهاتف'))} title={t('admin_copy_phone', 'نسخ')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)' }}><Copy size={11} /></button>
+                      </div>
+                      {item.address && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <MapPin size={13} color="#64748b" />
+                          <span>{item.address}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
+                        <Clock size={12} />
+                        <span>{t('admin_th_createdat', 'تاريخ التسجيل')}: {item.createdat ? new Date(item.createdat).toLocaleDateString(dateLocale) : '—'}</span>
+                      </div>
+                      {item.approvedat && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#059669', fontSize: 11 }}>
+                          <Archive size={12} />
+                          <span>{t('admin_th_approvedat', 'تاريخ الاعتماد')}: {new Date(item.approvedat).toLocaleDateString(dateLocale)}</span>
                         </div>
                       )}
                     </div>
+
+                    {item.rejectedreason && (
+                      <div style={{ marginTop: 10, background: '#fee2e2', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#991b1b' }}>
+                        <strong>{t('admin_rejection_reason_label', 'سبب الرفض:')}</strong> {item.rejectedreason}
+                      </div>
+                    )}
+
+                    {Number(item.is_frozen) === 1 && (
+                      <div style={{ marginTop: 10, background: '#fff7ed', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#9a3412', border: '1px solid #ffedd5' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 800, marginBottom: 2 }}>
+                          <Snowflake size={12} color="#ea580c" /> {t('subscription_frozen_badge', 'مجمّد')}
+                          {item.frozen_at && <span style={{ fontSize: 11, fontWeight: 400, color: '#c2410c' }}>({new Date(item.frozen_at).toLocaleDateString(dateLocale)})</span>}
+                        </div>
+                        {item.freeze_reason && <div><strong>{t('freeze_reason_display', 'سبب التجميد')}:</strong> {item.freeze_reason}</div>}
+                      </div>
+                    )}
                   </div>
-                ))}
+
+                  <div style={{ display: 'flex', gap: 8, borderTop: '1px solid var(--border, #f1f5f9)', paddingTop: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <Btn variant="secondary" onClick={() => setDetailModal(item)} style={{ padding: '6px 12px', fontSize: 11 }}>
+                      <Eye size={13} /> {t('admin_btn_details', 'التفاصيل')}
+                    </Btn>
+                    {item.status === 'PENDING' && (
+                      <>
+                        <button
+                          onClick={() => setRejectModal({ id: item.id, type: tab })}
+                          disabled={!!actionLoading}
+                          style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          {t('admin_btn_reject', 'رفض')}
+                        </button>
+                        <button
+                          onClick={() => doApprove(item.id)}
+                          disabled={actionLoading === item.id}
+                          style={{ padding: '6px 14px', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          {t('admin_btn_approve', 'قبول')}
+                        </button>
+                      </>
+                    )}
+                    {item.status === 'APPROVED' && (
+                      Number(item.is_frozen) === 1 ? (
+                        <button
+                          onClick={() => setReleaseConfirm({ id: item.id, type: tab, name: tab === 'clinics' ? item.clinicname : item.fullname })}
+                          disabled={!!actionLoading}
+                          style={{ padding: '6px 14px', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <PlayCircle size={13} /> {t('release_subscription', 'تفعيل')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setFreezeModal({ id: item.id, type: tab, name: tab === 'clinics' ? item.clinicname : item.fullname })}
+                          disabled={!!actionLoading}
+                          style={{ padding: '6px 12px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <Snowflake size={13} /> {t('freeze_subscription', 'تجميد')}
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Scalable Pagination Bar ── */}
+          {totalPages > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: 12, marginTop: 20, padding: '12px 18px',
+              background: 'var(--card-bg, #ffffff)', borderRadius: 14,
+              border: '1px solid var(--border, #e2e8f0)'
+            }}>
+              <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
+                {t('admin_pagination_range', {
+                  from: ((page - 1) * limit) + 1,
+                  to: Math.min(page * limit, totalItems),
+                  total: totalItems,
+                  defaultValue: `عرض من ${((page - 1) * limit) + 1} إلى ${Math.min(page * limit, totalItems)} من إجمالي ${totalItems} سجل`
+                })}
               </div>
-            )
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={page <= 1}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border, #e2e8f0)',
+                    background: 'var(--bg, #f8fafc)', fontSize: 11, fontWeight: 800, cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: page <= 1 ? 0.4 : 1, color: '#475569'
+                  }}
+                >
+                  {t('admin_pagination_first', 'الأولى')}
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border, #e2e8f0)',
+                    background: 'var(--bg, #f8fafc)', fontSize: 12, fontWeight: 800, cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: page <= 1 ? 0.4 : 1, color: '#475569', display: 'flex', alignItems: 'center', gap: 4
+                  }}
+                >
+                  {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />} {t('admin_pagination_prev', 'السابق')}
+                </button>
+
+                {/* Page Number Buttons Window */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || (p >= page - 2 && p <= page + 2))
+                  .map((p, idx, arr) => {
+                    const prevP = arr[idx - 1];
+                    const showEllipsis = prevP && p - prevP > 1;
+                    return (
+                      <React.Fragment key={p}>
+                        {showEllipsis && <span style={{ padding: '0 4px', color: '#94a3b8', fontSize: 12 }}>…</span>}
+                        <button
+                          onClick={() => setPage(p)}
+                          style={{
+                            minWidth: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
+                            background: page === p ? 'var(--brand)' : 'var(--bg, #f8fafc)',
+                            color: page === p ? '#ffffff' : '#334155',
+                            fontWeight: 800, fontSize: 12,
+                            boxShadow: page === p ? '0 2px 8px rgba(8,145,178,0.3)' : 'none'
+                          }}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border, #e2e8f0)',
+                    background: 'var(--bg, #f8fafc)', fontSize: 12, fontWeight: 800, cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                    opacity: page >= totalPages ? 0.4 : 1, color: '#475569', display: 'flex', alignItems: 'center', gap: 4
+                  }}
+                >
+                  {t('admin_pagination_next', 'التالي')} {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                </button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page >= totalPages}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border, #e2e8f0)',
+                    background: 'var(--bg, #f8fafc)', fontSize: 11, fontWeight: 800, cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                    opacity: page >= totalPages ? 0.4 : 1, color: '#475569'
+                  }}
+                >
+                  {t('admin_pagination_last', 'الأخيرة')}
+                </button>
+              </div>
+            </div>
           )}
         </div>
+      )}
+
+      {/* ─── SUPPORT TICKETS TAB ───── */}
+      {tab === 'support_tickets' && (
+        <AdminSupportBackoffice user={user} api={api} />
       )}
     </div>
   );
@@ -6687,8 +7883,14 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
                       gap: 12,
                       alignItems: "flex-start",
                       transition: "all 0.18s ease",
-                      background: isSelected ? "rgba(8, 145, 178, 0.08)" : (hasUnread ? "#f0f9ff" : "transparent"),
-                      border: isSelected ? "1.5px solid var(--brand, #0891b2)" : (hasUnread ? "1.5px solid #bae6fd" : "1.5px solid transparent"),
+                      background: isSelected
+                        ? (isClosed ? "#e2e8f0" : "rgba(8, 145, 178, 0.08)")
+                        : (isClosed ? "#f8fafc" : (hasUnread ? "#f0f9ff" : "transparent")),
+                      border: isSelected
+                        ? (isClosed ? "1.5px solid #94a3b8" : "1.5px solid var(--brand, #0891b2)")
+                        : (isClosed ? "1px dashed #cbd5e1" : (hasUnread ? "1.5px solid #bae6fd" : "1.5px solid transparent")),
+                      opacity: isClosed && !isSelected ? 0.74 : 1,
+                      filter: isClosed && !isSelected ? "grayscale(40%)" : "none",
                       position: "relative"
                     }}
                   >
@@ -6722,7 +7924,7 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 3 }}>
                         <span style={{
                           fontSize: 14.5, fontWeight: hasUnread ? 900 : 700,
-                          color: isSelected ? "#0c4a6e" : (isClosed ? "#64748b" : "#1e293b"),
+                          color: isSelected ? (isClosed ? "#475569" : "#0c4a6e") : (isClosed ? "#64748b" : "#1e293b"),
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
                         }}>
                           {contactName}
@@ -6745,14 +7947,14 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
                       {/* Snippet + Badges */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                         <span style={{
-                          fontSize: 12, color: hasUnread ? "#0f172a" : "#64748b",
+                          fontSize: 12, color: hasUnread ? "#0f172a" : (isClosed ? "#94a3b8" : "#64748b"),
                           fontWeight: hasUnread ? 600 : 400,
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           flex: 1
                         }}>
                           {tk.last_message ? (
                             <>
-                              <span style={{ fontWeight: 600, color: "#64748b" }}>
+                              <span style={{ fontWeight: 600, color: isClosed ? "#94a3b8" : "#64748b" }}>
                                 {tk.last_sender_type === 'doctor' ? (isDoctorOrClinic ? `${t("you")}: ` : `${t("sender_doctor")}: `) :
                                   (tk.last_sender_type === 'clinic' ? (isDoctorOrClinic ? `${t("you")}: ` : `${t("sender_clinic")}: `) :
                                     (!isDoctorOrClinic ? `${t("you")}: ` : `${t("patient")}: `))}
@@ -6775,8 +7977,9 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
                           )}
                           <span style={{
                             fontSize: 10.5, fontWeight: 700, padding: "2px 6px", borderRadius: 6,
-                            background: tk.status === 'CLOSED' ? "#f1f5f9" : (tk.status === 'OPEN' ? "#e0f2fe" : "#fef3c7"),
-                            color: tk.status === 'CLOSED' ? "#64748b" : (tk.status === 'OPEN' ? "#0284c7" : "#b45309")
+                            background: isClosed ? "#e2e8f0" : (tk.status === 'OPEN' ? "#e0f2fe" : "#fef3c7"),
+                            color: isClosed ? "#475569" : (tk.status === 'OPEN' ? "#0284c7" : "#b45309"),
+                            border: isClosed ? "1px solid #cbd5e1" : "none"
                           }}>
                             {tk.status === 'OPEN' ? t("status_open") : (tk.status === 'PENDING' ? t("status_pending") : t("status_closed"))}
                           </span>
@@ -7484,6 +8687,10 @@ function ProfilePage({ user, navigate, qs }) {
   const initialTab = (qs && new URLSearchParams(qs).get("tab") === "security") ? "security" : "profile";
   const [patientActiveTab, setPatientActiveTab] = useState(initialTab); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
   const [clinicActiveTab, setClinicActiveTab] = useState(initialTab); // 'profile' | 'security'
+  const [adminActiveTab, setAdminActiveTab] = useState((qs && new URLSearchParams(qs).get("tab") === "security") ? "security" : "overview"); // 'overview' | 'security'
+  const [adminStats, setAdminStats] = useState(null);
+  const [adminTickets, setAdminTickets] = useState([]);
+  const [loadingAdminStats, setLoadingAdminStats] = useState(false);
 
   useEffect(() => {
     if (qs) {
@@ -7491,6 +8698,7 @@ function ProfilePage({ user, navigate, qs }) {
       if (tab === "security") {
         setPatientActiveTab("security");
         setClinicActiveTab("security");
+        setAdminActiveTab("security");
       }
     }
   }, [qs]);
@@ -7503,7 +8711,27 @@ function ProfilePage({ user, navigate, qs }) {
       let p;
       if (user?.user_type === 1) p = await api.doctor.profile();
       else if (user?.user_type === 2) p = await api.clinics.profile();
-      else p = await api.patient.profile();
+      else if (user?.user_type === 3 || user?.user_type === 4) {
+        p = {
+          fullname: user?.username || (user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام")),
+          email: user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : "admin@tabibi.dz"),
+          username: user?.username || (user?.user_type === 4 ? "support" : "admin"),
+          user_type_label: user?.user_type === 4 ? "support" : "admin",
+        };
+        setLoadingAdminStats(true);
+        try {
+          const [st, tix] = await Promise.all([
+            api.admin.stats().catch(() => null),
+            api.tickets.list().catch(() => []),
+          ]);
+          setAdminStats(st);
+          setAdminTickets(tix || []);
+        } catch (err) {
+          console.error("Admin stats/tickets load error:", err);
+        } finally {
+          setLoadingAdminStats(false);
+        }
+      } else p = await api.patient.profile();
 
       let vs = null;
       if (user?.user_type === 0) vs = await api.verify.status().catch(() => null);
@@ -7722,34 +8950,60 @@ function ProfilePage({ user, navigate, qs }) {
       <input type="file" ref={fileInput} onChange={handlePhotoUpload} accept="image/*" style={{ display: "none" }} />
       {/* Header */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", marginBottom: 28 }}>
-        <div
-          onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
-          style={{ width: 72, height: 72, borderRadius: 16, background: "linear-gradient(135deg,var(--brand),#0e7490)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, color: "#fff", fontWeight: 900, cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default", position: "relative", overflow: "hidden" }}>
-          {uploadingPhoto ? <Spinner size={24} /> : (
-            (form.photoprofile || form.logo) ? (
-              <img src={`data:image/jpeg;base64,${form.photoprofile || form.logo}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              (form.fullname || form.clinicname || "U")[0].toUpperCase()
-            )
-          )}
-        </div>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>{form.fullname || form.clinicname}</h1>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>{form.email}</div>
-          {verStatus && (
-            <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <Badge color={verStatus.email_verified ? "#059669" : "#ea580c"}>
-                {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
-                {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
-              </Badge>
-              {form.phone && (
+        <div style={{ display: "flex", gap: 18, alignItems: "center", minWidth: 0 }}>
+          <div
+            onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
+            style={{
+              width: 72, height: 72, borderRadius: 16,
+              background: (user?.user_type === 3 || user?.user_type === 4) ? "linear-gradient(135deg, #7c3aed, #4f46e5)" : "linear-gradient(135deg,var(--brand),#0e7490)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 30, color: "#fff", fontWeight: 900,
+              cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default",
+              position: "relative", overflow: "hidden", flexShrink: 0,
+              boxShadow: (user?.user_type === 3 || user?.user_type === 4) ? "0 8px 20px rgba(124, 58, 237, 0.25)" : "none"
+            }}>
+            {uploadingPhoto ? <Spinner size={24} /> : (
+              (form.photoprofile || form.logo) ? (
+                <img src={`data:image/jpeg;base64,${form.photoprofile || form.logo}`} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (user?.user_type === 3 || user?.user_type === 4) ? (
+                <Shield size={36} color="#fff" />
+              ) : (
+                (form.fullname || form.clinicname || "U")[0].toUpperCase()
+              )
+            )}
+          </div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>
+              {form.fullname || form.clinicname || ((user?.user_type === 3 || user?.user_type === 4) ? (user?.username || (user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام"))) : "")}
+            </h1>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>{form.email || user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : user?.user_type === 3 ? "admin@tabibi.dz" : "")}</div>
+            {verStatus && (
+              <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <Badge color={verStatus.email_verified ? "#059669" : "#ea580c"}>
+                  {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
+                  {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
+                </Badge>
+                {form.phone && (
+                  <Badge color="#059669">
+                    <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
+                    {t("phone_verified")}
+                  </Badge>
+                )}
+              </div>
+            )}
+            {(user?.user_type === 3 || user?.user_type === 4) && (
+              <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <Badge color={user?.user_type === 4 ? "#0284c7" : "#7c3aed"}>
+                  <Shield size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
+                  {user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام")}
+                </Badge>
                 <Badge color="#059669">
                   <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
-                  {t("phone_verified")}
+                  {t("full_access", "صلاحيات كاملة")}
                 </Badge>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
         {(user?.user_type === 1 || user?.user_type === 2) && (
           <Btn
@@ -7761,7 +9015,92 @@ function ProfilePage({ user, navigate, qs }) {
             <Check size={18} /> {t("join_requests", "طلبات الانضمام")}
           </Btn>
         )}
+        {(user?.user_type === 3 || user?.user_type === 4) && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Btn
+              type="button"
+              variant="primary"
+              onClick={() => navigate("/admin")}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", fontWeight: 700, borderRadius: 12 }}
+            >
+              <LayoutDashboard size={18} /> {t("admin_dashboard", "لوحة تحكم الإدارة")}
+            </Btn>
+            <Btn
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/tickets")}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", fontWeight: 700, borderRadius: 12 }}
+            >
+              <MessageSquare size={18} /> {t("support_tickets", "تذاكر الدعم والرسائل")}
+            </Btn>
+          </div>
+        )}
       </div>
+
+      {/* Admin Tabs Bar (when user_type === 3 || user_type === 4) */}
+      {(user?.user_type === 3 || user?.user_type === 4) && (
+        <div style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 22,
+          background: "var(--card-bg, #ffffff)",
+          padding: 6,
+          borderRadius: 16,
+          border: "1.5px solid var(--border, #e2e8f0)",
+          overflowX: "auto",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+        }}>
+          <button
+            type="button"
+            onClick={() => setAdminActiveTab("overview")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: adminActiveTab === "overview" ? "linear-gradient(135deg, #7c3aed, #4f46e5)" : "transparent",
+              color: adminActiveTab === "overview" ? "#ffffff" : "#64748b",
+              fontWeight: adminActiveTab === "overview" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Activity size={17} />
+            {t("admin_overview_tab", "نظرة عامة والمنصة")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminActiveTab("security")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: adminActiveTab === "security" ? "linear-gradient(135deg, #7c3aed, #4f46e5)" : "transparent",
+              color: adminActiveTab === "security" ? "#ffffff" : "#64748b",
+              fontWeight: adminActiveTab === "security" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Lock size={17} />
+            {t("security_tab", "الأمان وبيانات الدخول")}
+          </button>
+        </div>
+      )}
 
       {/* Doctor Tabs Bar (when user_type === 1) */}
       {user?.user_type === 1 && (
@@ -8589,6 +9928,353 @@ function ProfilePage({ user, navigate, qs }) {
         </div>
       )}
 
+      {/* ─── ADMIN TABS CONTENT ─── */}
+      {/* 1. Admin Overview & Platform Stats Tab */}
+      {(user?.user_type === 3 || user?.user_type === 4) && adminActiveTab === "overview" && (
+        <div>
+          {/* Quick Metrics Grid */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: 14,
+            marginBottom: 20
+          }}>
+            {/* Stat Card 1: Doctors */}
+            <Card style={{ padding: 18, border: "1.5px solid #e0f2fe", background: "linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%)", borderRadius: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "#e0f2fe", color: "var(--brand, #0891b2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Stethoscope size={22} />
+                </div>
+                {(adminStats?.pending_doctors > 0) && (
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: "#fef3c7", color: "#b45309" }}>
+                    +{adminStats.pending_doctors} {t("pending_count_label", "معلق")}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#0c4a6e", lineHeight: 1 }}>
+                {loadingAdminStats ? <Spinner size={16} /> : (adminStats?.total_doctors ?? 0)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 6 }}>
+                {t("registered_doctors", "الأطباء المعتمدون")}
+              </div>
+            </Card>
+
+            {/* Stat Card 2: Clinics */}
+            <Card style={{ padding: 18, border: "1.5px solid #e0e7ff", background: "linear-gradient(180deg, #eef2ff 0%, #ffffff 100%)", borderRadius: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "#e0e7ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Building size={22} />
+                </div>
+                {(adminStats?.pending_clinics > 0) && (
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: "#fef3c7", color: "#b45309" }}>
+                    +{adminStats.pending_clinics} {t("pending_count_label", "معلق")}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#1e1b4b", lineHeight: 1 }}>
+                {loadingAdminStats ? <Spinner size={16} /> : (adminStats?.total_clinics ?? 0)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 6 }}>
+                {t("partner_clinics", "العيادات الشريكة")}
+              </div>
+            </Card>
+
+            {/* Stat Card 3: Patients */}
+            <Card style={{ padding: 18, border: "1.5px solid #dcfce7", background: "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)", borderRadius: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "#dcfce7", color: "#059669", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Users size={22} />
+                </div>
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#064e3b", lineHeight: 1 }}>
+                {loadingAdminStats ? <Spinner size={16} /> : (adminStats?.total_patients ?? 0)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 6 }}>
+                {t("registered_patients", "المرضى المسجلون")}
+              </div>
+            </Card>
+
+            {/* Stat Card 4: Appointments */}
+            <Card style={{ padding: 18, border: "1.5px solid #f3e8ff", background: "linear-gradient(180deg, #faf5ff 0%, #ffffff 100%)", borderRadius: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "#f3e8ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Calendar size={22} />
+                </div>
+                {adminStats?.today_appointments > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: "#ede9fe", color: "#6d28d9" }}>
+                    {adminStats.today_appointments} {t("today_count_label", "اليوم")}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#3b0764", lineHeight: 1 }}>
+                {loadingAdminStats ? <Spinner size={16} /> : (adminStats?.total_appointments ?? 0)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 6 }}>
+                {t("total_appointments", "إجمالي المواعيد")}
+              </div>
+            </Card>
+
+            {/* Stat Card 5: Tickets */}
+            <Card style={{ padding: 18, border: "1.5px solid #fef3c7", background: "linear-gradient(180deg, #fffbeb 0%, #ffffff 100%)", borderRadius: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <MessageSquare size={22} />
+                </div>
+                {adminTickets.filter(tk => tk.status === 'OPEN').length > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c" }}>
+                    {adminTickets.filter(tk => tk.status === 'OPEN').length} {t("open_count_label", "مفتوحة")}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#78350f", lineHeight: 1 }}>
+                {loadingAdminStats ? <Spinner size={16} /> : adminTickets.length}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 6 }}>
+                {t("support_tickets_count", "رسائل وتذاكر الدعم")}
+              </div>
+            </Card>
+          </div>
+
+          {/* Pending Registrations Notice (if any) */}
+          {((adminStats?.pending_doctors || 0) + (adminStats?.pending_clinics || 0)) > 0 && (
+            <Card style={{ marginBottom: 20, background: "linear-gradient(135deg, #fffbeb, #fef3c7)", border: "1.5px solid #fcd34d" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 10, background: "#d97706", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <AlertCircle size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: "#92400e" }}>
+                      {t("pending_registrations_title", { count: ((adminStats?.pending_doctors || 0) + (adminStats?.pending_clinics || 0)), defaultValue: `طلبات انضمام جديدة بانتظار الاعتماد (${((adminStats?.pending_doctors || 0) + (adminStats?.pending_clinics || 0))})` })}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#b45309", marginTop: 2 }}>
+                      {t("pending_registrations_desc", { doctors: adminStats?.pending_doctors || 0, clinics: adminStats?.pending_clinics || 0, defaultValue: `يوجد ${adminStats?.pending_doctors || 0} طلب طبيب و ${adminStats?.pending_clinics || 0} طلب عيادة قيد المراجعة.` })}
+                    </div>
+                  </div>
+                </div>
+                <Btn
+                  type="button"
+                  variant="primary"
+                  onClick={() => navigate("/admin")}
+                  style={{ padding: "8px 18px", fontSize: 13, background: "#d97706", borderColor: "#b45309" }}
+                >
+                  {t("review_requests_btn", "مراجعة الطلبات في لوحة الإدارة")}
+                </Btn>
+              </div>
+            </Card>
+          )}
+
+          {/* Management Shortcuts Cards Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
+            <Card style={{ padding: 18, border: "1.5px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(8,145,178,0.12)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                  <LayoutDashboard size={22} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", margin: "0 0 6px" }}>{t("admin_panel", "لوحة إدارة المنصة")}</h3>
+                <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
+                  {t("admin_panel_desc", "إدارة وتفعيل حسابات الأطباء، العيادات، ومعاينة تقارير الأداء والمزامنة.")}
+                </p>
+              </div>
+              <Btn variant="primary" onClick={() => navigate("/admin")} style={{ width: "100%", justifyContent: "center", gap: 8, fontSize: 13 }}>
+                <LayoutDashboard size={16} /> {t("open_admin_panel", "فتح لوحة الإدارة")}
+              </Btn>
+            </Card>
+
+            <Card style={{ padding: 18, border: "1.5px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(217,119,6,0.12)", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                  <MessageSquare size={22} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", margin: "0 0 6px" }}>{t("support_center", "مركز الدعم والتذاكر")}</h3>
+                <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
+                  {t("support_center_desc", "متابعة استفسارات المرضى والأطباء، إرسال الردود، وإغلاق التذاكر المعالجة.")}
+                </p>
+              </div>
+              <Btn variant="outline" onClick={() => navigate("/tickets")} style={{ width: "100%", justifyContent: "center", gap: 8, fontSize: 13 }}>
+                <MessageSquare size={16} /> {t("view_all_tickets", "تصفح كل التذاكر")}
+              </Btn>
+            </Card>
+
+            <Card style={{ padding: 18, border: "1.5px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(124,58,237,0.12)", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                  <Lock size={22} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", margin: "0 0 6px" }}>{t("security_settings", "إعدادات الأمان وبيانات الدخول")}</h3>
+                <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
+                  {t("security_settings_desc", "تحديث كلمة المرور لحساب المشرف وتغيير اسم المستخدم الخاص بك.")}
+                </p>
+              </div>
+              <Btn variant="secondary" onClick={() => setAdminActiveTab("security")} style={{ width: "100%", justifyContent: "center", gap: 8, fontSize: 13 }}>
+                <Lock size={16} /> {t("edit_credentials", "تعديل بيانات الدخول")}
+              </Btn>
+            </Card>
+          </div>
+
+          {/* Recent Tickets Preview Card */}
+          <Card style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+              <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <MessageSquare size={18} color="#d97706" /> {t("recent_tickets", "أحدث تذاكر الدعم الفني")}
+                {adminTickets.length > 0 && (
+                  <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: 10, background: "#f1f5f9", color: "#475569" }}>
+                    {adminTickets.length}
+                  </span>
+                )}
+              </h3>
+              <Btn variant="ghost" onClick={() => navigate("/tickets")} style={{ fontSize: 13, padding: "6px 12px", color: "var(--brand)" }}>
+                {t("view_all", "عرض الكل")} {i18n.language === 'ar' ? '←' : '→'}
+              </Btn>
+            </div>
+
+            {adminTickets.length === 0 ? (
+              <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--bg)", borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b" }}>
+                <CheckCircle size={32} style={{ color: "#10b981", marginBottom: 8 }} />
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_tickets_open", "لا توجد تذاكر دعم مفتوحة حالياً")}</div>
+                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{t("all_inquiries_answered", "كل استفسارات المستخدمين تم الرد عليها وإغلاقها بنجاح")}</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {adminTickets.slice(0, 5).map(tk => (
+                  <div
+                    key={tk.id}
+                    onClick={() => navigate(`/tickets/${tk.id}`)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
+                      border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.transform = "translateX(-2px)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1, paddingInlineEnd: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: "#0c4a6e" }}>{tk.subject}</span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 6,
+                          background: tk.status === 'OPEN' ? '#fee2e2' : (tk.status === 'PENDING' ? '#fef3c7' : '#e2e8f0'),
+                          color: tk.status === 'OPEN' ? '#dc2626' : (tk.status === 'PENDING' ? '#d97706' : '#64748b')
+                        }}>
+                          {tk.status === 'OPEN' ? t("ticket_status_open", "مفتوحة") : (tk.status === 'PENDING' ? t("ticket_status_pending", "قيد الرد") : t("ticket_status_closed", "مغلقة"))}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <span>{t("ticket_party_label", "الطرف:")} <strong style={{ color: "#334155" }}>{tk.patientname || tk.doctorname || tk.clinicname || t("user", "مستخدم")}</strong></span>
+                        {tk.last_message && (
+                          <span style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {t("ticket_last_reply_label", "آخر رد:")} {tk.last_message}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>
+                      {tk.updated_at ? new Date(tk.updated_at).toLocaleDateString() : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* 2. Admin Security & Credentials Tab */}
+      {(user?.user_type === 3 || user?.user_type === 4) && adminActiveTab === "security" && (
+        <div>
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Lock size={16} color="#fff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("admin_credentials_title", "تحديث بيانات دخول المشرف")}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("admin_credentials_subtitle", "تغيير اسم المستخدم أو كلمة مرور حساب المدير العام")}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                  {t("username", "اسم المستخدم")}
+                </label>
+                <input
+                  type="text"
+                  value={creds.new_username}
+                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                  placeholder={user?.username || "admin"}
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
+                  {t("username_hint", "3-30 حرف إنجليزي أو رقم")}
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                  {t("new_password", "كلمة المرور الجديدة")}
+                </label>
+                <input
+                  type="password"
+                  value={creds.new_password}
+                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
+                  {t("password_min_hint", "6 أحرف على الأقل")}
+                </span>
+              </div>
+
+              <div style={{ gridColumn: isMobile ? "auto" : "2" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                  {t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                </label>
+                <input
+                  type="password"
+                  value={creds.confirm_new_password}
+                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                onClick={saveCredentials}
+                loading={savingCreds}
+                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+              >
+                {t("save_changes")}
+              </Btn>
+            </div>
+          </Card>
+
+          <Card style={{ border: "1px solid #e2e8f0", background: "#f8fafc" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <Shield size={20} color="#64748b" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
+                <strong style={{ color: "#334155" }}>{t("admin_security_notice", "ملاحظة أمنية لحساب المشرف:")}</strong> {t("admin_security_notice_desc", "بصفتك مديراً للنظام، يرجى استخدام كلمة مرور قوية تحتوي على أحرف كبيرة وصغيرة وأرقام ورموز خاصة للحفاظ على أمان بيانات المنصة والمرضى.")}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
 
       {/* Modal: إضافة أسباب استشارة متعددة من قاعدة البيانات */}
       {showAddReasonModal && (
@@ -9375,6 +11061,30 @@ function Footer({ navigate, show }) {
             >
               {t("footer_learn_more", "حول طبيبي")}
             </button>
+
+            {/* 5. Support & Réclamations */}
+            <button
+              onClick={() => {
+                const targetPath = (user?.user_type === 3 || user?.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets";
+                navigate(targetPath);
+                if (targetPath.includes('tab=')) {
+                  window.dispatchEvent(new CustomEvent('tabibi:switch_admin_tab', { detail: 'support_tickets' }));
+                }
+              }}
+              title={t("admin_support_nav", "Support / Administration")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
+                transition: "all 0.2s", padding: "4px 8px",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                borderRadius: 8
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = "var(--brand)"; e.currentTarget.style.background = "var(--brand-light)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-secondary)"; e.currentTarget.style.background = "none"; }}
+            >
+              <HelpCircle size={15} style={{ color: "var(--brand)" }} />
+              <span>{t("footer_support", "Support")}</span>
+            </button>
           </div>
         </div>
       </footer>
@@ -9701,8 +11411,8 @@ function MainApp() {
       case "/register-doctor":
         return <RegisterDoctorPage navigate={navigate} qs={qs} />;
       case "/admin":
-        if (!user || user.user_type !== 3) { setTimeout(() => navigate("/"), 0); return null; }
-        return <AdminDashboardPage navigate={navigate} user={user} />;
+        if (!user || (user.user_type !== 3 && user.user_type !== 4)) { setTimeout(() => navigate("/"), 0); return null; }
+        return <AdminDashboardPage key={`admin_${qs || 'default'}`} navigate={navigate} user={user} qs={qs} />;
       case "/learn-more":
         return <LearnMorePage navigate={navigate} />;
       case "/privacy":
@@ -9745,6 +11455,16 @@ function MainApp() {
       case "/tickets/new":
         if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
         return <NewTicketPage key="new_ticket" navigate={navigate} user={user} qs={qs} />;
+      case "/support-tickets":
+        if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+        if (user.user_type === 3 || user.user_type === 4) {
+          setTimeout(() => {
+            navigate("/admin?tab=support_tickets");
+            window.dispatchEvent(new CustomEvent('tabibi:switch_admin_tab', { detail: 'support_tickets' }));
+          }, 0);
+          return null;
+        }
+        return <AdminSupportUserTicketsPage key="admin_support_tickets" navigate={navigate} user={user} qs={qs} api={api} />;
       case "/appointmanager":
       case "appointmanager":
         if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }

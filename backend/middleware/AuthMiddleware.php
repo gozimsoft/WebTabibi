@@ -70,6 +70,29 @@ class AuthMiddleware {
             }
         }
 
+        // Check if doctor or clinic account was frozen
+        if ((int)$session['usertype'] === 1) {
+            $stmtFrz = $pdo->prepare("SELECT is_frozen, freeze_reason FROM doctors WHERE user_id = ? LIMIT 1");
+            $stmtFrz->execute([$session['user_id']]);
+            $dRow = $stmtFrz->fetch();
+            if (!empty($dRow['is_frozen'])) {
+                $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$session['user_id']]);
+                if (!$required) return null;
+                $reasonMsg = !empty($dRow['freeze_reason']) ? (" سبب التجميد: " . $dRow['freeze_reason']) : "";
+                Response::error("تم تجميد اشتراك هذا الحساب الطبي من قِبَل الإدارة.{$reasonMsg}", 403);
+            }
+        } elseif ((int)$session['usertype'] === 2) {
+            $stmtFrz = $pdo->prepare("SELECT is_frozen, freeze_reason FROM clinics WHERE user_id = ? LIMIT 1");
+            $stmtFrz->execute([$session['user_id']]);
+            $cRow = $stmtFrz->fetch();
+            if (!empty($cRow['is_frozen'])) {
+                $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$session['user_id']]);
+                if (!$required) return null;
+                $reasonMsg = !empty($cRow['freeze_reason']) ? (" سبب التجميد: " . $cRow['freeze_reason']) : "";
+                Response::error("تم تجميد اشتراك هذه العيادة من قِبَل الإدارة.{$reasonMsg}", 403);
+            }
+        }
+
         return $session;
     }
 
@@ -110,13 +133,14 @@ class AuthMiddleware {
     }
 
     /**
-     * Only admins (usertype = 3) allowed.
+     * Only admins (usertype = 3) and support staff (usertype = 4) allowed.
      */
     public static function adminOnly(): array {
         $session = self::authenticate();
-        if ((int)$session['usertype'] !== 3) {
-            // رسالة بشرية: الوصول مقيد للمشرفين فقط
-            Response::error('هذه الصفحة مخصصة للمشرفين فقط. ليس لديك صلاحية الوصول إليها.', 403);
+        $usertype = (int)$session['usertype'];
+        if (!in_array($usertype, [3, 4], true)) {
+            // رسالة بشرية: الوصول مقيد للإدارة وفريق الدعم فقط
+            Response::error('هذه الصفحة مخصصة للإدارة وفريق الدعم فقط. ليس لديك صلاحية الوصول إليها.', 403);
         }
         return $session;
     }

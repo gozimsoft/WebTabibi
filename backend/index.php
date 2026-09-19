@@ -446,21 +446,29 @@ try {
         require_once __DIR__ . '/controllers/AdminController.php';
         AdminController::listDoctors();
     }
-    // /admin/clinics/:id/approve  |  /admin/clinics/:id/reject
+    // /admin/clinics/:id/approve  |  /admin/clinics/:id/reject  |  /admin/clinics/:id/freeze  |  /admin/clinics/:id/release
     if (isset($parts[0]) && $parts[0] === 'admin' && ($parts[1] ?? '') === 'clinics' && isset($parts[2]) && isset($parts[3]) && $method === 'POST') {
         require_once __DIR__ . '/controllers/AdminController.php';
         if ($parts[3] === 'approve')
             AdminController::approveClinic($parts[2]);
         if ($parts[3] === 'reject')
             AdminController::rejectClinic($parts[2]);
+        if ($parts[3] === 'freeze')
+            AdminController::freezeClinic($parts[2]);
+        if ($parts[3] === 'release')
+            AdminController::releaseClinic($parts[2]);
     }
-    // /admin/doctors/:id/approve  |  /admin/doctors/:id/reject
+    // /admin/doctors/:id/approve  |  /admin/doctors/:id/reject  |  /admin/doctors/:id/freeze  |  /admin/doctors/:id/release
     if (isset($parts[0]) && $parts[0] === 'admin' && ($parts[1] ?? '') === 'doctors' && isset($parts[2]) && isset($parts[3]) && $method === 'POST') {
         require_once __DIR__ . '/controllers/AdminController.php';
         if ($parts[3] === 'approve')
             AdminController::approveDoctor($parts[2]);
         if ($parts[3] === 'reject')
             AdminController::rejectDoctor($parts[2]);
+        if ($parts[3] === 'freeze')
+            AdminController::freezeDoctor($parts[2]);
+        if ($parts[3] === 'release')
+            AdminController::releaseDoctor($parts[2]);
     }
 
     // ── Relations (Clinic-Doctor requests) ──────────────────────
@@ -509,6 +517,47 @@ try {
         TicketController::close($parts[1]);
     }
 
+    // ── Support Administratif & Réclamations (Admin Support Tickets) ───
+    // User endpoints:
+    if ($uri === '/support/tickets' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::createUserTicket();
+    }
+    if ($uri === '/support/tickets' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::listUserTickets();
+    }
+    if (isset($parts[0]) && $parts[0] === 'support' && ($parts[1] ?? '') === 'tickets' && isset($parts[2]) && !isset($parts[3]) && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::getUserTicket($parts[2]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'support' && ($parts[1] ?? '') === 'tickets' && isset($parts[2]) && ($parts[3] ?? '') === 'reply' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::userReply($parts[2]);
+    }
+
+    // Admin / Support staff endpoints:
+    if ($uri === '/admin/support-tickets' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::listAdminTickets();
+    }
+    if ($uri === '/admin/support-tickets/stats' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::getAdminStats();
+    }
+    if (isset($parts[0]) && $parts[0] === 'admin' && ($parts[1] ?? '') === 'support-tickets' && isset($parts[2]) && !isset($parts[3]) && $parts[2] !== 'stats' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::getAdminTicket($parts[2]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'admin' && ($parts[1] ?? '') === 'support-tickets' && isset($parts[2]) && ($parts[3] ?? '') === 'reply' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::adminReply($parts[2]);
+    }
+    if (isset($parts[0]) && $parts[0] === 'admin' && ($parts[1] ?? '') === 'support-tickets' && isset($parts[2]) && ($parts[3] ?? '') === 'status' && ($method === 'PUT' || $method === 'POST')) {
+        require_once __DIR__ . '/controllers/AdminSupportTicketController.php';
+        AdminSupportTicketController::updateStatus($parts[2]);
+    }
+
     // ── Notifications ─────────────────────────────────────────
     if ($uri === '/notifications' && $method === 'GET') {
         require_once __DIR__ . '/controllers/NotificationController.php';
@@ -518,13 +567,14 @@ try {
         require_once __DIR__ . '/controllers/NotificationController.php';
         NotificationController::markAllAsRead();
     }
-    if (isset($parts[0]) && $parts[0] === 'notifications' && isset($parts[1]) && !isset($parts[2])) {
+    if (isset($parts[0]) && $parts[0] === 'notifications' && isset($parts[1])) {
         require_once __DIR__ . '/controllers/NotificationController.php';
         if ($parts[1] !== 'read-all') {
-            if ($method === 'PUT') {
+            // Support both PUT /notifications/:id and PUT /notifications/:id/read
+            if ($method === 'PUT' && (!isset($parts[2]) || $parts[2] === 'read')) {
                 NotificationController::markAsRead($parts[1]);
             }
-            if ($method === 'DELETE') {
+            if ($method === 'DELETE' && !isset($parts[2])) {
                 NotificationController::delete($parts[1]);
             }
         }

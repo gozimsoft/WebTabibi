@@ -304,6 +304,16 @@ class AuthController {
                 // رسالة بشرية: حساب الطبيب لم يتم اعتماده بعد
                 Response::error('حسابك قيد المراجعة من قِبَل الإدارة. ستتلقى إشعاراً بالبريد الإلكتروني عند الموافقة على طلبك.', 403);
             }
+
+            // CHECK FROZEN STATUS (تحقق من تجميد الاشتراك)
+            if (!empty($profile['is_frozen'])) {
+                $reasonMsg = !empty($profile['freeze_reason']) ? (" سبب التجميد: " . $profile['freeze_reason']) : "";
+                Response::error("تم تجميد اشتراك وحسابك الطبي من قِبَل الإدارة.{$reasonMsg} يرجى التواصل مع الدعم الفني.", 403, [
+                    'is_frozen' => true,
+                    'freeze_reason' => $profile['freeze_reason'] ?? null
+                ]);
+            }
+
             unset($profile['photoprofile']);
 
             // Fetch clinics the doctor works at
@@ -335,6 +345,15 @@ class AuthController {
                         'email' => $clinic['email'] ?? ''
                     ]);
                 }
+
+                // CHECK FROZEN STATUS (تحقق من تجميد الاشتراك)
+                if (!empty($clinic['is_frozen'])) {
+                    $reasonMsg = !empty($clinic['freeze_reason']) ? (" سبب التجميد: " . $clinic['freeze_reason']) : "";
+                    Response::error("تم تجميد اشتراك وحساب العيادة من قِبَل الإدارة.{$reasonMsg} يرجى التواصل مع الدعم الفني.", 403, [
+                        'is_frozen' => true,
+                        'freeze_reason' => $clinic['freeze_reason'] ?? null
+                    ]);
+                }
                 
                 unset($clinic['logo']);
                 unset($clinic['password']);
@@ -343,6 +362,9 @@ class AuthController {
         } elseif ($usertype === 3) {
             // Admin
             $profile = ['user_type_label' => 'admin', 'username' => $user['username']];
+        } elseif ($usertype === 4) {
+            // Support
+            $profile = ['user_type_label' => 'support', 'username' => $user['username']];
         }
 
         $token = self::createSession($user['id']);
@@ -694,10 +716,13 @@ class AuthController {
             $profile = $stmt->fetch() ?: [];
             unset($profile['logo']);
             unset($profile['password']);
-        } elseif ($usertype === 3) {
+        } elseif ($usertype === 3 || $usertype === 4) {
             $stmt = $pdo->prepare("SELECT id, username FROM users WHERE id = ? LIMIT 1");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
+            if ($usertype === 4) {
+                $profile['user_type_label'] = 'support';
+            }
         }
 
         Response::success([

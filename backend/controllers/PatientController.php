@@ -94,7 +94,7 @@ class PatientController {
     // Body: { new_username?, new_password? }
     // ---------------------------------------------------------------
     public static function updateCredentials(): void {
-        $session = AuthMiddleware::patientOnly();
+        $session = AuthMiddleware::authenticate();
         $data    = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo     = Database::getInstance();
 
@@ -240,7 +240,7 @@ class PatientController {
                 s.id as specialty_id, s.namefr as specialtyfr, s.namear as specialtyar
             FROM doctors d
             LEFT JOIN specialties s ON s.id = d.specialtie_id
-            WHERE d.id = ? AND d.status = 'APPROVED'
+            WHERE d.id = ? AND d.status = 'APPROVED' AND (d.is_frozen = 0 OR d.is_frozen IS NULL)
             LIMIT 1
         ");
         $docStmt->execute([$patient['doctor_id']]);
@@ -302,7 +302,7 @@ class PatientController {
         $pdo = Database::getInstance();
 
         // Verify doctor exists and is approved
-        $docStmt = $pdo->prepare("SELECT id FROM doctors WHERE id = ? AND status = 'APPROVED' LIMIT 1");
+        $docStmt = $pdo->prepare("SELECT id FROM doctors WHERE id = ? AND status = 'APPROVED' AND (is_frozen = 0 OR is_frozen IS NULL) LIMIT 1");
         $docStmt->execute([$doctorId]);
         if (!$docStmt->fetchColumn()) {
             Response::notFound('الطبيب غير موجود أو غير معتمد.');
@@ -379,7 +379,7 @@ class PatientController {
                 ) as primary_clinic
             FROM doctors d
             LEFT JOIN specialties s ON s.id = d.specialtie_id
-            WHERE d.status = 'APPROVED'
+            WHERE d.status = 'APPROVED' AND (d.is_frozen = 0 OR d.is_frozen IS NULL)
         ";
         $params = [];
 
