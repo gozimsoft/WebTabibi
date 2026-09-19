@@ -196,6 +196,7 @@ const api = {
     get: id => req("GET", `/tickets/${id}`),
     reply: (id, b) => req("POST", `/tickets/${id}/reply`, b),
     close: id => req("POST", `/tickets/${id}/close`, {}),
+    checkOpen: (p = {}) => req("GET", `/tickets/check-open?${new URLSearchParams(p).toString()}`).catch(() => ({ has_open_ticket: false })),
   },
   sync: {
     download: p => req("GET", `/apointements/sync?${new URLSearchParams(p)}`),
@@ -1678,7 +1679,7 @@ function HomePage({ user, navigate }) {
               color: "#0092a2",
             },
             {
-              num: "18K+", label: t("stats_doctors"),
+              num: "20K+", label: t("stats_doctors"),
               icon: <Stethoscope size={20} />,
               img: `${import.meta.env.BASE_URL}stats_doctors_custom.png`,
               color: "#0092a2",
@@ -2100,6 +2101,39 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const [emailToVerify, setEmailToVerify] = useState("");
   const [otpCode, setOtpCode] = useState("");
 
+  // Terms agreement state for Google login/signup
+  const [googleConsentAccepted, setGoogleConsentAccepted] = useState(false);
+  const consentAcceptedRef = React.useRef(googleConsentAccepted);
+  consentAcceptedRef.current = googleConsentAccepted;
+
+  // Consent modal state for new Google users who clicked without checking
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingGoogleCred, setPendingGoogleCred] = useState(null);
+  const [modalConsentChecked, setModalConsentChecked] = useState(true);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState("");
+
+  const handleConfirmGoogleConsent = async () => {
+    if (!modalConsentChecked) {
+      setModalError((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
+        ? "يجب الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة"
+        : "Vous devez accepter les CGU et la politique de confidentialité pour continuer");
+      return;
+    }
+    setModalLoading(true);
+    setModalError("");
+    try {
+      await onGoogleLogin(pendingGoogleCred, { accepted_cgu: true });
+      setShowConsentModal(false);
+      setPendingGoogleCred(null);
+      navigate("/");
+    } catch (e) {
+      setModalError(e.message);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
   React.useEffect(() => {
     let timer;
@@ -2112,9 +2146,20 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
           callback: async (res) => {
             try {
               setError(""); setL(true);
-              await onGoogleLogin(res.credential);
+              await onGoogleLogin(res.credential, { accepted_cgu: consentAcceptedRef.current });
               navigate("/");
-            } catch (e) { setError(e.message); setL(false); }
+            } catch (e) {
+              if (e.requires_consent || e.message?.includes("شروط الاستخدام") || e.message?.includes("CGU")) {
+                setPendingGoogleCred(res.credential);
+                setModalConsentChecked(true);
+                setModalError("");
+                setShowConsentModal(true);
+              } else {
+                setError(e.message);
+              }
+            } finally {
+              setL(false);
+            }
           },
           ux_mode: "popup",
           context: "signin",
@@ -2208,6 +2253,91 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
 
+      {/* مودال الموافقة على الشروط عند الدخول بـ Google */}
+      {showConsentModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20
+        }}>
+          <Card style={{ width: "100%", maxWidth: 440, position: "relative", padding: 24, borderRadius: 16 }}>
+            <button onClick={() => { setShowConsentModal(false); setPendingGoogleCred(null); }} style={{
+              position: "absolute", top: 15, right: 15, background: "none", border: "none",
+              fontSize: 24, cursor: "pointer", color: "var(--text-muted)", lineHeight: 1
+            }}>×</button>
+
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ width: 50, height: 50, borderRadius: "50%", background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                <ShieldCheck size={28} color="var(--brand)" />
+              </div>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e", margin: "0 0 6px" }}>
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
+                  ? "الموافقة على شروط الاستخدام والخصوصية"
+                  : "Conditions d'utilisation et confidentialité"}
+              </h2>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
+                  ? "لإتمام الدخول أو إنشاء حسابك عبر Google وفق أحكام القانون الجزائري 18-07، يرجى تأكيد موافقتك على ما يلي:"
+                  : "Pour continuer via Google conformément à la loi 18-07, veuillez accepter les conditions de la plateforme :"}
+              </p>
+            </div>
+
+            {modalError && (
+              <div style={{ background: "#fee2e2", padding: "10px 12px", borderRadius: 8, color: "#dc2626", fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={16} /> {modalError}
+              </div>
+            )}
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px", marginBottom: 18 }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={modalConsentChecked}
+                  onChange={e => setModalConsentChecked(e.target.checked)}
+                  style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--brand)", flexShrink: 0, cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? (
+                    <>
+                      أقر بأنني قرأت وأوافق على{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>شروط الاستخدام (CGU)</button>
+                      {" "}و{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>سياسة الخصوصية وحماية البيانات</button>
+                      {" "}الخاصة بمنصة طبيبي.
+                    </>
+                  ) : (
+                    <>
+                      Je confirme avoir lu et accepté les{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>CGU</button>
+                      {" "}et la{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>politique de confidentialité</button>
+                      {" "}de Tabibi.
+                    </>
+                  )}
+                </span>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => { setShowConsentModal(false); setPendingGoogleCred(null); }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "إلغاء" : "Annuler"}
+              </button>
+              <Btn
+                onClick={handleConfirmGoogleConsent}
+                loading={modalLoading}
+                disabled={!modalConsentChecked}
+                style={{ flex: 2, justifyContent: "center", padding: "10px 16px", opacity: modalConsentChecked ? 1 : 0.6 }}
+              >
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "الموافقة والمتابعة ✓" : "Accepter et continuer ✓"}
+              </Btn>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {resetStep > 0 && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)",
@@ -2289,7 +2419,35 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
           {!showOtp ? (
             <>
               {/* زر تسجيل الدخول بـ Google الرسمي */}
-              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 8, minHeight: 40 }} />
+
+              {/* موافقة على شروط الاستخدام لتسجيل الدخول / إنشاء الحساب بـ Google */}
+              <label style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 8, cursor: "pointer", fontSize: 12, color: "#4b5563", marginBottom: 16, padding: "0 8px", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  id="login_google_consent"
+                  checked={googleConsentAccepted}
+                  onChange={e => setGoogleConsentAccepted(e.target.checked)}
+                  style={{ marginTop: 2, width: 15, height: 15, accentColor: "var(--brand)", cursor: "pointer", flexShrink: 0 }}
+                />
+                <span style={{ lineHeight: 1.4 }}>
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? (
+                    <>
+                      أوافق على{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>شروط الاستخدام</button>
+                      {" "}و{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>سياسة الخصوصية</button>
+                    </>
+                  ) : (
+                    <>
+                      J'accepte les{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>CGU</button>
+                      {" "}et la{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>politique de confidentialité</button>
+                    </>
+                  )}
+                </span>
+              </label>
 
               {/* فاصل */}
               <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
@@ -2385,6 +2543,37 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
   const [consentCgu, setConsentCgu] = useState(false);
   const [consentPrivacy, setConsentPrivacy] = useState(false);
   const consentValid = consentCgu && consentPrivacy;
+  const consentValidRef = React.useRef(consentValid);
+  consentValidRef.current = consentValid;
+
+  // Consent modal state for Google signup
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingGoogleCred, setPendingGoogleCred] = useState(null);
+  const [modalConsentChecked, setModalConsentChecked] = useState(true);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState("");
+
+  const handleConfirmGoogleConsent = async () => {
+    if (!modalConsentChecked) {
+      setModalError((localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
+        ? "يجب الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة"
+        : "Vous devez accepter les CGU et la politique de confidentialité pour continuer");
+      return;
+    }
+    setModalLoading(true);
+    setModalError("");
+    try {
+      await onGoogleLogin(pendingGoogleCred, { accepted_cgu: true });
+      setShowConsentModal(false);
+      setPendingGoogleCred(null);
+      navigate("/");
+    } catch (e) {
+      setModalError(e.message);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   // حالة عرض شاشة OTP بعد إرسال طلب التسجيل
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -2404,15 +2593,28 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
           callback: async (res) => {
             try {
               setError(""); setL(true);
-              // PHASE 02F : consentement CGU obligatoire avant création de compte (Loi 18-07)
-              if (!consentValid) {
-                setError(t('register.error_consent_required') || "Vous devez accepter les CGU et la politique de confidentialité avant de créer un compte.");
-                setL(false);
+              if (consentValidRef.current) {
+                await onGoogleLogin(res.credential, { accepted_cgu: true });
+                navigate("/");
                 return;
               }
-              await onGoogleLogin(res.credential, { accepted_cgu: true });
-              navigate("/");
-            } catch (e) { setError(e.message); setL(false); }
+              // If not checked, open the Consent Modal so they can approve in one click without getting blocked!
+              setPendingGoogleCred(res.credential);
+              setModalConsentChecked(true);
+              setModalError("");
+              setShowConsentModal(true);
+            } catch (e) {
+              if (e.requires_consent || e.message?.includes("شروط الاستخدام") || e.message?.includes("CGU")) {
+                setPendingGoogleCred(res.credential);
+                setModalConsentChecked(true);
+                setModalError("");
+                setShowConsentModal(true);
+              } else {
+                setError(e.message);
+              }
+            } finally {
+              setL(false);
+            }
           },
           ux_mode: "popup",
           context: "signup",
@@ -2471,6 +2673,92 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
 
   return (
     <div style={{ minHeight: "90vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+
+      {/* مودال الموافقة على الشروط عند التسجيل بـ Google */}
+      {showConsentModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20
+        }}>
+          <Card style={{ width: "100%", maxWidth: 440, position: "relative", padding: 24, borderRadius: 16 }}>
+            <button onClick={() => { setShowConsentModal(false); setPendingGoogleCred(null); }} style={{
+              position: "absolute", top: 15, right: 15, background: "none", border: "none",
+              fontSize: 24, cursor: "pointer", color: "var(--text-muted)", lineHeight: 1
+            }}>×</button>
+
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ width: 50, height: 50, borderRadius: "50%", background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                <ShieldCheck size={28} color="var(--brand)" />
+              </div>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e", margin: "0 0 6px" }}>
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
+                  ? "الموافقة على شروط الاستخدام والخصوصية"
+                  : "Conditions d'utilisation et confidentialité"}
+              </h2>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar"
+                  ? "لإتمام إنشاء حسابك عبر Google وفق أحكام القانون الجزائري 18-07، يرجى تأكيد موافقتك على ما يلي:"
+                  : "Pour créer votre compte via Google conformément à la loi 18-07, veuillez accepter les conditions :"}
+              </p>
+            </div>
+
+            {modalError && (
+              <div style={{ background: "#fee2e2", padding: "10px 12px", borderRadius: 8, color: "#dc2626", fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={16} /> {modalError}
+              </div>
+            )}
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px", marginBottom: 18 }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={modalConsentChecked}
+                  onChange={e => setModalConsentChecked(e.target.checked)}
+                  style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--brand)", flexShrink: 0, cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5 }}>
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? (
+                    <>
+                      أقر بأنني قرأت وأوافق على{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>شروط الاستخدام (CGU)</button>
+                      {" "}و{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>سياسة الخصوصية وحماية البيانات</button>
+                      {" "}الخاصة بمنصة طبيبي.
+                    </>
+                  ) : (
+                    <>
+                      Je confirme avoir lu et accepté les{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>CGU</button>
+                      {" "}et la{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, textDecoration: "underline" }}>politique de confidentialité</button>
+                      {" "}de Tabibi.
+                    </>
+                  )}
+                </span>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => { setShowConsentModal(false); setPendingGoogleCred(null); }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "إلغاء" : "Annuler"}
+              </button>
+              <Btn
+                onClick={handleConfirmGoogleConsent}
+                loading={modalLoading}
+                disabled={!modalConsentChecked}
+                style={{ flex: 2, justifyContent: "center", padding: "10px 16px", opacity: modalConsentChecked ? 1 : 0.6 }}
+              >
+                {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "الموافقة والمتابعة ✓" : "Accepter et continuer ✓"}
+              </Btn>
+            </div>
+          </Card>
+        </div>
+      )}
+
       <div style={{ width: "100%", maxWidth: 460 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
@@ -2520,7 +2808,38 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
           ) : (
             <>
               {/* زر إنشاء الحساب بـ Google الرسمي */}
-              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 40 }} />
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 8, minHeight: 40 }} />
+
+              {/* موافقة على شروط الاستخدام لإنشاء الحساب بـ Google */}
+              <label style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 8, cursor: "pointer", fontSize: 12, color: "#4b5563", marginBottom: 16, padding: "0 8px", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  id="register_google_consent"
+                  checked={consentValid}
+                  onChange={e => {
+                    setConsentCgu(e.target.checked);
+                    setConsentPrivacy(e.target.checked);
+                  }}
+                  style={{ marginTop: 2, width: 15, height: 15, accentColor: "var(--brand)", cursor: "pointer", flexShrink: 0 }}
+                />
+                <span style={{ lineHeight: 1.4 }}>
+                  {(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? (
+                    <>
+                      أوافق على{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>شروط الاستخدام</button>
+                      {" "}و{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>سياسة الخصوصية</button>
+                    </>
+                  ) : (
+                    <>
+                      J'accepte les{" "}
+                      <button type="button" onClick={() => navigate("/terms")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>CGU</button>
+                      {" "}et la{" "}
+                      <button type="button" onClick={() => navigate("/privacy")} style={{ color: "var(--brand)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, textDecoration: "underline" }}>politique de confidentialité</button>
+                    </>
+                  )}
+                </span>
+              </label>
 
               {/* فاصل */}
               <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "var(--text-muted)" }}>
@@ -6796,9 +7115,13 @@ function TicketConversationPage({ ticketId, navigate, user, onTicketRead = null 
 }
 
 function NewTicketPage({ navigate, user, qs }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const { show, Toast } = useToast();
   const [loading, setL] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [openTicket, setOpenTicket] = useState(null);
+  const [recipientName, setRecipientName] = useState("");
   const [subject, setSub] = useState("");
   const [message, setMsg] = useState("");
 
@@ -6806,37 +7129,321 @@ function NewTicketPage({ navigate, user, qs }) {
   const doctor_id = params.get("doctor_id");
   const clinicid = params.get("clinic_id");
 
+  const [selectedDoctorId, setSelectedDoctorId] = useState(doctor_id || "");
+  const [selectedClinicId, setSelectedClinicId] = useState(clinicid || "");
+  const [myDoctors, setMyDoctors] = useState([]);
+
+  // Load patient's previous doctors if no doctor/clinic is specified in URL
+  useEffect(() => {
+    if (!doctor_id && !clinicid && user?.user_type === 0) {
+      api.patient.appointments()
+        .then(appts => {
+          if (Array.isArray(appts)) {
+            const docsMap = new Map();
+            appts.forEach(a => {
+              if (a.doctor_id && a.doctorname && !docsMap.has(a.doctor_id)) {
+                docsMap.set(a.doctor_id, {
+                  id: a.doctor_id,
+                  name: a.doctorname,
+                  specialty: a.specialty_name || ""
+                });
+              }
+            });
+            setMyDoctors(Array.from(docsMap.values()));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [doctor_id, clinicid, user?.user_type]);
+
+  // Check if open ticket exists for the selected recipient using existing tickets list
+  useEffect(() => {
+    let active = true;
+    setChecking(true);
+
+    const checkExisting = async () => {
+      try {
+        // Fetch patient tickets (available across all environments including production)
+        const list = await api.tickets.list();
+        if (!active) return;
+        const tickets = Array.isArray(list) ? list : [];
+
+        // Look for an existing ticket that is not closed
+        const existing = tickets.find(tk => {
+          const isClosed = String(tk.status || '').toUpperCase() === 'CLOSED';
+          if (isClosed) return false;
+          if (selectedDoctorId) {
+            return String(tk.doctor_id) === String(selectedDoctorId);
+          }
+          if (selectedClinicId) {
+            return String(tk.clinic_id) === String(selectedClinicId);
+          }
+          return !tk.doctor_id && !tk.clinic_id;
+        });
+
+        if (existing) {
+          setOpenTicket(existing);
+          setRecipientName(existing.doctorname || existing.clinicname || "");
+        } else {
+          setOpenTicket(null);
+          // If no open ticket but we have a doctor_id, fetch doctor's name
+          if (selectedDoctorId && !recipientName) {
+            api.doctors.get(selectedDoctorId)
+              .then(doc => {
+                if (active && doc?.fullname) setRecipientName(doc.fullname);
+              })
+              .catch(() => {});
+          } else if (selectedClinicId && !recipientName) {
+            api.clinics.get(selectedClinicId)
+              .then(cli => {
+                if (active && cli?.clinicname) setRecipientName(cli.clinicname);
+              })
+              .catch(() => {});
+          }
+        }
+      } catch (err) {
+        if (!active) return;
+        console.warn("Could not load tickets list:", err?.message || err);
+        setOpenTicket(null);
+      } finally {
+        if (active) setChecking(false);
+      }
+    };
+
+    checkExisting();
+    return () => { active = false; };
+  }, [selectedDoctorId, selectedClinicId]);
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!subject.trim() || !message.trim()) return;
     setL(true);
     try {
-      await api.tickets.create({ subject, message, doctor_id: doctor_id, clinic_id: clinicid });
+      await api.tickets.create({
+        subject: subject.trim(),
+        message: message.trim(),
+        doctor_id: selectedDoctorId || null,
+        clinic_id: selectedClinicId || null
+      });
       show(t("ticket_created_success"), "success");
       setTimeout(() => navigate("/tickets"), 1500);
-    } catch (e) { show(e.message, "error"); }
-    finally { setL(false); }
+    } catch (err) {
+      show(err.message, "error");
+      // If server rejected with existing open ticket, re-run list check to display the existing ticket card
+      if (err.status === 409 || err.message?.includes("مفتوحة") || err.message?.includes("ouverte") || err.data?.existing_ticket_id) {
+        api.tickets.list().then(list => {
+          const tickets = Array.isArray(list) ? list : [];
+          const existing = tickets.find(tk => {
+            const isClosed = String(tk.status || '').toUpperCase() === 'CLOSED';
+            if (isClosed) return false;
+            if (selectedDoctorId) return String(tk.doctor_id) === String(selectedDoctorId);
+            if (selectedClinicId) return String(tk.clinic_id) === String(selectedClinicId);
+            return !tk.doctor_id && !tk.clinic_id;
+          });
+          if (existing) setOpenTicket(existing);
+        }).catch(() => {});
+      }
+    } finally {
+      setL(false);
+    }
   };
 
+  const recipientLabel = selectedDoctorId
+    ? (recipientName ? `Dr. ${recipientName}` : t("ticket_recipient_doctor", "Médecin"))
+    : (selectedClinicId
+      ? (recipientName || t("ticket_recipient_clinic", "Clinique"))
+      : t("ticket_recipient_support", "Support technique Tabibi"));
+
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "40px 24px" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 24 }}>{t("new_message_title")}</h1>
-      <Card>
-        <form onSubmit={onSubmit}>
-          <Input label={t("message_subject")} value={subject} onChange={e => setSub(e.target.value)} placeholder={t("subject_placeholder")} required />
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("message_content")}</label>
-            <textarea
-              value={message}
-              onChange={e => setMsg(e.target.value)}
-              placeholder={t("message_content_placeholder")}
-              required
-              style={{ width: "100%", height: 150, padding: 14, borderRadius: 12, border: "1.5px solid var(--border)", outline: "none", resize: "none", boxSizing: "border-box" }}
-            />
+    <div style={{ maxWidth: 620, margin: "0 auto", padding: "40px 20px" }}>
+      {/* Page Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <button
+            onClick={() => navigate("/tickets")}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "none", border: "none", color: "#64748b",
+              fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "4px 0",
+              marginBottom: 8
+            }}
+          >
+            {isRtl ? <ArrowRight size={15} /> : <ArrowLeft size={15} />}
+            {t("back_to_messages", "Retour aux messages")}
+          </button>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>
+            {t("new_message_title")}
+          </h1>
+        </div>
+
+        {/* Recipient pill badge */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "6px 14px", borderRadius: 12,
+          background: selectedDoctorId ? "#eff6ff" : (selectedClinicId ? "#f0fdf4" : "#f1f5f9"),
+          color: selectedDoctorId ? "#1d4ed8" : (selectedClinicId ? "#15803d" : "#475569"),
+          fontSize: 12.5, fontWeight: 800, border: "1px solid rgba(0,0,0,0.06)"
+        }}>
+          {selectedDoctorId ? <Stethoscope size={15} /> : (selectedClinicId ? <Building2 size={15} /> : <HelpCircle size={15} />)}
+          <span>{recipientLabel}</span>
+        </div>
+      </div>
+
+      {checking ? (
+        <Card style={{ padding: 40, textAlign: "center", borderRadius: 18 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <Spinner size={28} color="#0891b2" />
+            <span style={{ fontSize: 13.5, color: "#64748b", fontWeight: 600 }}>
+              {t("ticket_check_loading", "Vérification des conversations...")}
+            </span>
           </div>
-          <Btn type="submit" loading={loading} style={{ width: "100%", justifyContent: "center" }}>{t("send_now")}</Btn>
-        </form>
-      </Card>
+        </Card>
+      ) : openTicket ? (
+        /* ── CASE 1: Open Ticket Already Exists (DUPLICATE BLOCKED) ── */
+        <Card style={{
+          borderRadius: 20,
+          border: "1.5px solid #f59e0b",
+          background: "linear-gradient(180deg, #fffbeb 0%, #ffffff 100%)",
+          boxShadow: "0 10px 30px rgba(245, 158, 11, 0.08)",
+          padding: "28px 24px"
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 14,
+              background: "#fef3c7", color: "#d97706",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, boxShadow: "0 4px 12px rgba(217, 119, 6, 0.15)"
+            }}>
+              <AlertCircle size={26} />
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 800, textTransform: "uppercase",
+                  padding: "3px 8px", borderRadius: 8, background: "#fde68a", color: "#92400e"
+                }}>
+                  {openTicket.status === 'PENDING' ? t("status_pending", "En attente") : t("status_open", "Ouverte")}
+                </span>
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                  {new Date(openTicket.updated_at || openTicket.created_at).toLocaleDateString(isRtl ? 'ar-DZ' : i18n.language)}
+                </span>
+              </div>
+
+              <h2 style={{ fontSize: 18, fontWeight: 900, color: "#92400e", margin: "0 0 8px" }}>
+                {t("ticket_existing_open_title", "Conversation déjà en cours")}
+              </h2>
+
+              <p style={{ fontSize: 13.5, color: "#78350f", lineHeight: 1.6, margin: "0 0 16px" }}>
+                {t("ticket_existing_open_desc", "Vous avez déjà un ticket ouvert avec ce praticien. Afin de garantir un bon suivi et d'éviter les doublons, vous ne pouvez pas créer de nouveau ticket tant que la conversation actuelle n'est pas clôturée.")}
+              </p>
+
+              {/* Summary box of existing ticket */}
+              <div style={{
+                background: "#ffffff",
+                borderRadius: 14,
+                border: "1.5px solid #fde68a",
+                padding: "14px 16px",
+                marginBottom: 22,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", marginBottom: 4 }}>
+                  {t("ticket_subject_open_summary", "Objet de la conversation en cours")}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#0c4a6e" }}>
+                  {openTicket.subject}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Btn
+                  onClick={() => navigate(`/tickets/${openTicket.id}`)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "12px 22px", borderRadius: 14, fontSize: 13.5,
+                    boxShadow: "0 4px 14px rgba(8, 145, 178, 0.25)"
+                  }}
+                >
+                  <MessageSquare size={16} /> {t("ticket_existing_open_btn", "Accéder à la conversation")}
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  onClick={() => navigate("/tickets")}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "12px 18px", borderRadius: 14, fontSize: 13.5
+                  }}
+                >
+                  {t("back_to_messages", "Retour aux messages")}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        /* ── CASE 2: No Open Ticket (Allowed to create) ── */
+        <Card style={{ borderRadius: 20, padding: 24, boxShadow: "0 10px 30px rgba(0,0,0,0.04)" }}>
+          {/* Optional Doctor Picker if coming from /tickets/new without params */}
+          {!doctor_id && !clinicid && myDoctors.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", marginBottom: 8, fontSize: 13.5, fontWeight: 700, color: "#374151" }}>
+                {t("ticket_recipient_label", "Destinataire")}
+              </label>
+              <select
+                value={selectedDoctorId}
+                onChange={e => setSelectedDoctorId(e.target.value)}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 12,
+                  border: "1.5px solid var(--border)", outline: "none",
+                  background: "#fff", fontSize: 13.5, fontWeight: 600, color: "#1e293b"
+                }}
+              >
+                <option value="">{t("ticket_recipient_support", "Support technique Tabibi")}</option>
+                {myDoctors.map(d => (
+                  <option key={d.id} value={d.id}>
+                    Dr. {d.name} {d.specialty ? `(${d.specialty})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit}>
+            <Input
+              label={t("message_subject")}
+              value={subject}
+              onChange={e => setSub(e.target.value)}
+              placeholder={t("subject_placeholder")}
+              required
+            />
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                {t("message_content")}
+              </label>
+              <textarea
+                value={message}
+                onChange={e => setMsg(e.target.value)}
+                placeholder={t("message_content_placeholder")}
+                required
+                style={{
+                  width: "100%", height: 150, padding: 14, borderRadius: 12,
+                  border: "1.5px solid var(--border)", outline: "none", resize: "none",
+                  boxSizing: "border-box", fontFamily: "inherit", fontSize: 14
+                }}
+              />
+            </div>
+            <Btn
+              type="submit"
+              loading={loading}
+              style={{ width: "100%", justifyContent: "center", padding: "12px 20px", borderRadius: 12, fontSize: 14 }}
+            >
+              <Send size={16} style={{ marginInlineEnd: 6 }} />
+              {t("send_now")}
+            </Btn>
+          </form>
+        </Card>
+      )}
       <Toast />
     </div>
   );
