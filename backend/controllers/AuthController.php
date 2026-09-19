@@ -389,8 +389,7 @@ class AuthController {
 
         // Check if email exists ANYWHERE
         if (UserValidationHelper::isEmailDuplicate($email)) {
-            // Email exists. We need to check if it belongs to a patient or other user type
-            // Google Login only supports Patient login currently in this flow
+            // 1. Check if it belongs to a patient
             $stmt = $pdo->prepare("SELECT * FROM patients WHERE email = ? LIMIT 1");
             $stmt->execute([$email]);
             $patient = $stmt->fetch();
@@ -430,17 +429,137 @@ class AuthController {
                     'profile'   => $profile,
                 ], 'Connexion réussie via Google');
                 return;
-            } else {
-                // Exists in doctors or clinics or somewhere else
-                Response::error("البريد الإلكتروني مستخدم مسبقًا في حساب آخر.", 409);
             }
+
+            // 2. Check if it belongs to a doctor
+            $stmt = $pdo->prepare("SELECT * FROM doctors WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $doctor = $stmt->fetch();
+
+            if ($doctor) {
+                if (!empty($doctor['deleteacount'])) {
+                    Response::error("هذا الحساب تم حذفه بناءً على طلب صاحبه.", 403);
+                }
+
+                if (!empty($doctor['status']) && $doctor['status'] !== 'APPROVED') {
+                    // رسالة بشرية: حساب الطبيب لم يتم اعتماده بعد
+                    Response::error('حسابك قيد المراجعة من قِبَل الإدارة. ستتلقى إشعاراً بالبريد الإلكتروني عند الموافقة على طلبك.', 403);
+                }
+
+                $userId = $doctor['user_id'];
+                $stmtUser = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $stmtUser->execute([$userId]);
+                $user = $stmtUser->fetch();
+
+                if (!$user) {
+                    Response::error("حدث خطأ في بيانات حسابك. يرجى التواصل مع الدعم الفني للمساعدة.", 500);
+                }
+
+                // Set emailvalidation = 1 if it isn't already, since they verified via Google
+                if (isset($doctor['emailvalidation']) && (int)$doctor['emailvalidation'] === 0) {
+                    $pdo->prepare("UPDATE doctors SET emailvalidation = 1 WHERE id = ?")->execute([$doctor['id']]);
+                    $doctor['emailvalidation'] = 1;
+                }
+
+                $token = self::createSession($userId);
+
+                $profile = $doctor;
+                unset($profile['photoprofile']);
+
+                // Fetch clinics the doctor works at
+                if (!empty($profile['id'])) {
+                    $stmtClinics = $pdo->prepare("
+                        SELECT c.id, c.clinicname, c.address, c.phone, cd.specialtie_id,
+                               s.namefr as specialtyfr, s.namear as specialtyar
+                        FROM clinicsdoctors cd
+                        JOIN clinics c ON c.id = cd.clinic_id
+                        LEFT JOIN specialties s ON s.id = cd.specialtie_id
+                        WHERE cd.doctor_id = ? AND cd.status IN ('APPROVED', 'ACCEPTED')
+                        ORDER BY c.clinicname
+                    ");
+                    $stmtClinics->execute([$profile['id']]);
+                    $profile['clinics'] = $stmtClinics->fetchAll();
+                }
+
+                Response::success([
+                    'token'     => $token,
+                    'user_type' => (int)$user['usertype'],
+                    'user_id'   => $userId,
+                    'username'  => $user['username'],
+                    'profile'   => $profile,
+                ], 'Connexion réussie via Google');
+                return;
+            }
+
+            // 3. Check if it belongs to a clinic
+            $stmt = $pdo->prepare("SELECT * FROM clinics WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $clinic = $stmt->fetch();
+
+            if ($clinic) {
+                $userId = $clinic['user_id'];
+                $stmtUser = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $stmtUser->execute([$userId]);
+                $user = $stmtUser->fetch();
+
+                if (!$user) {
+                    Response::error("حدث خطأ في بيانات حسابك. يرجى التواصل مع الدعم الفني للمساعدة.", 500);
+                }
+
+                if (isset($clinic['emailvalidation']) && (int)$clinic['emailvalidation'] === 0) {
+                    $pdo->prepare("UPDATE clinics SET emailvalidation = 1 WHERE id = ?")->execute([$clinic['id']]);
+                    $clinic['emailvalidation'] = 1;
+                }
+
+                $token = self::createSession($userId);
+
+                unset($clinic['logo']);
+                unset($clinic['password']);
+                $profile = $clinic;
+
+                Response::success([
+                    'token'     => $token,
+                    'user_type' => (int)$user['usertype'],
+                    'user_id'   => $userId,
+                    'username'  => $user['username'],
+                    'profile'   => $profile,
+                ], 'Connexion réussie via Google');
+                return;
+            }
+
+            // 4. Check if pending in doctorregistrations
+            $stmt = $pdo->prepare("SELECT * FROM doctorregistrations WHERE email = ? ORDER BY createdat DESC LIMIT 1");
+            $stmt->execute([$email]);
+            $docReg = $stmt->fetch();
+            if ($docReg) {
+                if ($docReg['status'] === 'PENDING') {
+                    Response::error("طلب تسجيلك كطبيب قيد المراجعة حالياً من قِبَل الإدارة. ستتلقى إشعاراً عند الموافقة.", 403);
+                } elseif ($docReg['status'] === 'REJECTED') {
+                    Response::error("تم رفض طلب تسجيلك كطبيب سابقاً: " . ($docReg['rejectedreason'] ?? ''), 403);
+                }
+            }
+
+            // 5. Check if pending in clinicregistrations
+            $stmt = $pdo->prepare("SELECT * FROM clinicregistrations WHERE email = ? ORDER BY createdat DESC LIMIT 1");
+            $stmt->execute([$email]);
+            $clinicReg = $stmt->fetch();
+            if ($clinicReg) {
+                if ($clinicReg['status'] === 'PENDING') {
+                    Response::error("طلب تسجيل العيادة قيد المراجعة حالياً من قِبَل الإدارة.", 403);
+                } elseif ($clinicReg['status'] === 'REJECTED') {
+                    Response::error("تم رفض طلب تسجيل العيادة سابقاً.", 403);
+                }
+            }
+
+            Response::error("البريد الإلكتروني مستخدم مسبقًا في حساب آخر.", 409);
         }
 
         // User does not exist: enforce CGU/Privacy consent before creating account (PHASE 02F - Loi 18-07)
         if (empty($data['accepted_cgu'])) {
             Response::error(
                 "يجب قبول شروط الاستخدام وسياسة الخصوصية قبل إنشاء الحساب.",
-                422
+                422,
+                ['requires_consent' => true]
             );
         }
 
@@ -463,6 +582,8 @@ class AuthController {
         $passwordHashed = PasswordHelper::hash(bin2hex(random_bytes(10)));
         $userId    = UUIDHelper::generate();
         $patientId = UUIDHelper::generate();
+        $consentVersion = ConsentHelper::DOC_VERSION;
+        $consentAt = date('Y-m-d H:i:s');
 
         $pdo->beginTransaction();
         try {
@@ -470,15 +591,17 @@ class AuthController {
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,0)")
                 ->execute([$userId, $username, $passwordHashed]);
 
-            // Insert Patient with emailvalidation = 1 and phonevalidation = 1
+            // Insert Patient with emailvalidation = 1 and phonevalidation = 1, plus consent proof
             $pdo->prepare("
-                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, emailvalidation, phonevalidation)
-                VALUES (?, '', ?, '', ?, NULL, 0, ?, 'Algérie', 0, 1, 1)
+                INSERT INTO patients (id, Reference, fullname, phone, email, birthdate, gender, user_id, country, DeleteAcount, emailvalidation, phonevalidation, consent_cgu, consent_privacy, consent_version, consent_at)
+                VALUES (?, '', ?, '', ?, NULL, 0, ?, 'Algérie', 0, 1, 1, 1, 1, ?, ?)
             ")->execute([
                 $patientId,
                 $fullname,
                 $email,
                 $userId,
+                $consentVersion,
+                $consentAt,
             ]);
 
             $pdo->commit();
@@ -487,6 +610,12 @@ class AuthController {
             // رسالة بشرية: خطأ عند إنشاء حساب Google
             Response::serverError('حدث خطأ أثناء إنشاء حسابك عبر Google. يرجى المحاولة مرة أخرى أو استخدام طريقة تسجيل أخرى.');
         }
+
+        // PHASE 02C : Enregistrement des consentements dans consent_logs
+        ConsentHelper::logMultiple($pdo, $userId, $patientId, [
+            ConsentHelper::TYPE_CGU     => 1,
+            ConsentHelper::TYPE_PRIVACY => 1,
+        ], 'google_registration');
 
         $token = self::createSession($userId);
 

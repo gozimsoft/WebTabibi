@@ -29,6 +29,43 @@ class TicketController {
 
         $pdo = Database::getInstance();
         $patientId = self::getPatientId($user['user_id']);
+
+        // التحقق من عدم وجود تذكرة مفتوحة مسبقاً لمنع إرسال تذاكر غير محدودة لنفس الطبيب أو العيادة
+        if ($doctor_id) {
+            $checkStmt = $pdo->prepare("SELECT id, subject, status FROM tickets WHERE patient_id = ? AND doctor_id = ? AND UPPER(status) != 'CLOSED' ORDER BY updated_at DESC LIMIT 1");
+            $checkStmt->execute([$patientId, $doctor_id]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                Response::error(
+                    'لديك بالفعل تذكرة مفتوحة قيد المعالجة مع هذا الطبيب ("' . htmlspecialchars($existing['subject']) . '"). يرجى متابعة المحادثة عبر التذكرة الحالية أو انتظار إغلاقها.',
+                    409,
+                    ['existing_ticket_id' => $existing['id'], 'subject' => $existing['subject']]
+                );
+            }
+        } else if ($clinicid) {
+            $checkStmt = $pdo->prepare("SELECT id, subject, status FROM tickets WHERE patient_id = ? AND clinic_id = ? AND UPPER(status) != 'CLOSED' ORDER BY updated_at DESC LIMIT 1");
+            $checkStmt->execute([$patientId, $clinicid]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                Response::error(
+                    'لديك بالفعل تذكرة مفتوحة قيد المعالجة مع هذه العيادة ("' . htmlspecialchars($existing['subject']) . '"). يرجى متابعة المحادثة عبر التذكرة الحالية أو انتظار إغلاقها.',
+                    409,
+                    ['existing_ticket_id' => $existing['id'], 'subject' => $existing['subject']]
+                );
+            }
+        } else {
+            $checkStmt = $pdo->prepare("SELECT id, subject, status FROM tickets WHERE patient_id = ? AND doctor_id IS NULL AND clinic_id IS NULL AND UPPER(status) != 'CLOSED' ORDER BY updated_at DESC LIMIT 1");
+            $checkStmt->execute([$patientId]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                Response::error(
+                    'لديك بالفعل تذكرة دعم فني عامة مفتوحة حالياً ("' . htmlspecialchars($existing['subject']) . '"). يرجى متابعة التواصل من خلالها.',
+                    409,
+                    ['existing_ticket_id' => $existing['id'], 'subject' => $existing['subject']]
+                );
+            }
+        }
+
         $ticketId = self::uuid();
 
         $pdo->prepare("INSERT INTO tickets (id, patient_id, doctor_id, clinic_id, subject, status) VALUES (?, ?, ?, ?, ?, 'OPEN')")
@@ -74,6 +111,68 @@ class TicketController {
         }
 
         Response::success(['id' => $ticketId], 'تم إنشاء تذكرة الدعم بنجاح.');
+    }
+
+    public static function checkOpen(): void {
+        $user = AuthMiddleware::authenticate();
+        if ($user['usertype'] != 0) {
+            Response::error('متاح للمرضى فقط', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $patientId = self::getPatientId($user['user_id']);
+        $doctor_id = $_GET['doctor_id'] ?? null;
+        $clinicid = $_GET['clinic_id'] ?? null;
+
+        $ticket = null;
+        $recipientName = null;
+
+        if ($doctor_id) {
+            $stmt = $pdo->prepare("SELECT t.id, t.subject, t.status, t.created_at, t.updated_at, d.fullname as doctorname 
+                                    FROM tickets t 
+                                    LEFT JOIN doctors d ON d.id = t.doctor_id 
+                                    WHERE t.patient_id = ? AND t.doctor_id = ? AND UPPER(t.status) != 'CLOSED' 
+                                    ORDER BY t.updated_at DESC LIMIT 1");
+            $stmt->execute([$patientId, $doctor_id]);
+            $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$ticket) {
+                $dStmt = $pdo->prepare("SELECT fullname FROM doctors WHERE id = ? LIMIT 1");
+                $dStmt->execute([$doctor_id]);
+                $recipientName = $dStmt->fetchColumn() ?: null;
+            } else {
+                $recipientName = $ticket['doctorname'] ?? null;
+            }
+        } else if ($clinicid) {
+            $stmt = $pdo->prepare("SELECT t.id, t.subject, t.status, t.created_at, t.updated_at, c.clinicname 
+                                    FROM tickets t 
+                                    LEFT JOIN clinics c ON c.id = t.clinic_id 
+                                    WHERE t.patient_id = ? AND t.clinic_id = ? AND UPPER(t.status) != 'CLOSED' 
+                                    ORDER BY t.updated_at DESC LIMIT 1");
+            $stmt->execute([$patientId, $clinicid]);
+            $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$ticket) {
+                $cStmt = $pdo->prepare("SELECT clinicname FROM clinics WHERE id = ? LIMIT 1");
+                $cStmt->execute([$clinicid]);
+                $recipientName = $cStmt->fetchColumn() ?: null;
+            } else {
+                $recipientName = $ticket['clinicname'] ?? null;
+            }
+        } else {
+            $stmt = $pdo->prepare("SELECT t.id, t.subject, t.status, t.created_at, t.updated_at 
+                                    FROM tickets t 
+                                    WHERE t.patient_id = ? AND t.doctor_id IS NULL AND t.clinic_id IS NULL AND UPPER(t.status) != 'CLOSED' 
+                                    ORDER BY t.updated_at DESC LIMIT 1");
+            $stmt->execute([$patientId]);
+            $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        Response::success([
+            'has_open_ticket' => (bool)$ticket,
+            'ticket' => $ticket ?: null,
+            'recipient_name' => $recipientName
+        ]);
     }
 
     public static function list(): void {

@@ -490,7 +490,12 @@ try {
         require_once __DIR__ . '/controllers/TicketController.php';
         TicketController::list();
     }
-    if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[1]) && !isset($parts[2])) {
+    // GET /api/tickets/check-open — التحقق من وجود تذكرة مفتوحة لمريض مع طبيب أو عيادة
+    if ($uri === '/tickets/check-open' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/TicketController.php';
+        TicketController::checkOpen();
+    }
+    if (isset($parts[0]) && $parts[0] === 'tickets' && isset($parts[1]) && !isset($parts[2]) && $parts[1] !== 'check-open') {
         require_once __DIR__ . '/controllers/TicketController.php';
         if ($method === 'GET')
             TicketController::get($parts[1]);

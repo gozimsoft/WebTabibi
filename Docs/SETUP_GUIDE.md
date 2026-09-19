@@ -115,3 +115,21 @@
 4. مسارات الملفات الناتجة:
    - **ملف الـ APK**: `frontend/android/app/build/outputs/apk/release/app-release.apk`
    - **ملف الـ AAB**: `frontend/android/app/build/outputs/bundle/release/app-release.aab`
+
+---
+
+## 🔑 حسابات الاختبار المعتمدة للاختبار الدائم (Permanent Test Accounts)
+
+تم إنشاء وتجهيز حسابين دائمين ونشطين في قاعدة البيانات لاستخدامهما دائماً في جميع عمليات الاختبار والتصفح والتطوير:
+
+| الدور (Role) | اسم المستخدم (Username) | كلمة المرور (Password) | نوع المستخدم (UserType) | الاسم الكامل (Fullname) |
+|---|---|---|---|---|
+| **مريض (Patient)** | `test_patient` | `password123` | 0 | Patient Test |
+| **طبيب (Doctor)** | `test_doctor` | `password123` | 1 | Dr. Test Doctor |
+
+> [!TIP]
+> لإعادة ضبط أو تحديث هذه الحسابات في أي وقت، يمكن تشغيل السكربت التالي من سطر الأوامر:
+> ```bash
+> php backend/create_test_accounts.php
+> ```
+
