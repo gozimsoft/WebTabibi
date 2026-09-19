@@ -209,13 +209,15 @@ const UserGuide = ({ navigate }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const baseUrl = (import.meta.env.BASE_URL || "./").replace(/\/+$/, "") + "/";
+
   const steps = [
     {
       id: "intro",
       title: t("guide_intro_title"),
       subtitle: t("guide_intro_subtitle"),
       icon: <Smartphone size={32} />,
-      image: "/guide/intro.png",
+      image: `${baseUrl}guide/intro.png`,
       content: t("guide_intro_content", { returnObjects: true }) || [],
       tip: t("guide_intro_tip")
     },
@@ -224,7 +226,7 @@ const UserGuide = ({ navigate }) => {
       title: t("guide_search_title"),
       subtitle: t("guide_search_subtitle"),
       icon: <Search size={32} />,
-      image: "/guide/search.png",
+      image: `${baseUrl}guide/search.png`,
       content: t("guide_search_content", { returnObjects: true }) || [],
       tip: t("guide_search_tip")
     },
@@ -233,7 +235,7 @@ const UserGuide = ({ navigate }) => {
       title: t("guide_booking_title"),
       subtitle: t("guide_booking_subtitle"),
       icon: <Calendar size={32} />,
-      image: "/guide/booking.png",
+      image: `${baseUrl}guide/booking.png`,
       content: t("guide_booking_content", { returnObjects: true }) || [],
       tip: t("guide_booking_tip")
     },
@@ -242,7 +244,7 @@ const UserGuide = ({ navigate }) => {
       title: t("guide_mgmt_title"),
       subtitle: t("guide_mgmt_subtitle"),
       icon: <Clock size={32} />,
-      image: "/guide/booking.png", 
+      image: `${baseUrl}guide/booking.png`, 
       content: t("guide_mgmt_content", { returnObjects: true }) || [],
       tip: t("guide_mgmt_tip")
     },
@@ -251,7 +253,7 @@ const UserGuide = ({ navigate }) => {
       title: t("guide_chat_title"),
       subtitle: t("guide_chat_subtitle"),
       icon: <MessageSquare size={32} />,
-      image: "/guide/chat.png",
+      image: `${baseUrl}guide/chat.png`,
       content: t("guide_chat_content", { returnObjects: true }) || [],
       tip: t("guide_chat_tip")
     }
@@ -515,6 +517,16 @@ const UserGuide = ({ navigate }) => {
             <img 
               src={steps[activeStep].image} 
               alt={steps[activeStep].title}
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.dataset.triedFallback) {
+                  target.dataset.triedFallback = "1";
+                  target.src = `./guide/${steps[activeStep].image.split("/").pop()}`;
+                } else if (target.dataset.triedFallback === "1") {
+                  target.dataset.triedFallback = "2";
+                  target.src = `/guide/${steps[activeStep].image.split("/").pop()}`;
+                }
+              }}
               style={{ 
                 width: "100%", 
                 maxWidth: isMobile ? 180 : 220, 
