@@ -1,7 +1,8 @@
 <?php
 // ======================================================================
 // TABIBI — SCRIPT D'AUDIT LOCAL DU MODULE SUPPORT ADMINISTRATIF
-// Version conforme : Intégrité stricte, Checksum étendu, Nettoyage ciblé
+// Version finale conforme : Checksums applicatifs déterministes SHA-256,
+// Nettoyage ciblé par ID, Intégrité stricte des 9 tables et notifications
 // ======================================================================
 
 require_once __DIR__ . '/../backend/core/Database.php';
@@ -18,7 +19,7 @@ $errors = [];
 $results = [];
 
 // ----------------------------------------------------------------------
-// 0. ÉTAT INITIAL ET CONTRÔLE D'INTÉGRITÉ (Checksums étendus)
+// 0. ÉTAT INITIAL ET CONTRÔLE D'INTÉGRITÉ (Checksums Applicatifs Déterministes)
 // Tables existantes + Tables du nouveau module
 // ----------------------------------------------------------------------
 $monitoredTables = [
@@ -27,25 +28,58 @@ $monitoredTables = [
     'admin_support_tickets', 'admin_support_messages'
 ];
 
+/**
+ * Calcul d'un checksum applicatif déterministe SHA-256 sur un ensemble de lignes.
+ * - Tri des colonnes (ksort)
+ * - Normalisation stricte des valeurs (null -> '__NULL__', scalaires en chaînes)
+ * - Concaténation ordonnée et hachage en flux SHA-256
+ */
+function computeRowsChecksum(array $rows): array {
+    $count = count($rows);
+    $hashCtx = hash_init('sha256');
+    foreach ($rows as $row) {
+        ksort($row);
+        $normalized = [];
+        foreach ($row as $col => $val) {
+            $normalized[$col] = ($val === null) ? '__NULL__' : (string)$val;
+        }
+        hash_update($hashCtx, json_encode($normalized, JSON_UNESCAPED_UNICODE) . "\n");
+    }
+    return [
+        'count'    => $count,
+        'checksum' => hash_final($hashCtx)
+    ];
+}
+
+/**
+ * Capture de l'état déterministe d'une liste de tables :
+ * Récupération de toutes les lignes ordonnées par clé primaire (id ASC).
+ */
 function captureTableState(PDO $pdo, array $tables): array {
     $state = [];
     foreach ($tables as $table) {
-        $count = (int)$pdo->query("SELECT COUNT(*) FROM `$table`")->fetchColumn();
-        $res = $pdo->query("CHECKSUM TABLE `$table` EXTENDED")->fetch(PDO::FETCH_ASSOC);
-        $state[$table] = [
-            'count'    => $count,
-            'checksum' => (string)($res['Checksum'] ?? '0')
-        ];
+        $stmt = $pdo->query("SELECT * FROM `$table` ORDER BY `id` ASC");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $state[$table] = computeRowsChecksum($rows);
     }
     return $state;
 }
 
-echo "Capture de l'état initial des tables (comptages et checksums étendus)...\n";
+echo "Capture de l'état initial des tables (comptages et checksums applicatifs SHA-256)...\n";
 $preAuditState = captureTableState($pdo, $monitoredTables);
 foreach ($preAuditState as $tbl => $info) {
     echo sprintf(" - %-24s : Count=%-6d Checksum=%s\n", $tbl, $info['count'], $info['checksum']);
 }
 echo "\n";
+
+// Capture initiale stricte des notifications existantes (type='admin_ticket')
+echo "Capture de l'état initial des notifications 'admin_ticket'...\n";
+$stmtPreNotifs = $pdo->query("SELECT id, user_id, title, message, is_read, created_at FROM notifications WHERE type = 'admin_ticket' ORDER BY id ASC");
+$preAuditNotifRows = $stmtPreNotifs->fetchAll(PDO::FETCH_ASSOC);
+$preAuditAdminNotifIds = array_column($preAuditNotifRows, 'id');
+$preAuditAdminNotifIdMap = array_flip($preAuditAdminNotifIds);
+$preAuditNotifState = computeRowsChecksum($preAuditNotifRows);
+echo sprintf(" - %-24s : Count=%-6d Checksum=%s\n\n", 'notifications (admin_ticket)', $preAuditNotifState['count'], $preAuditNotifState['checksum']);
 
 // ----------------------------------------------------------------------
 // HELPER: APPELS API AVEC TRAÇABILITÉ DES ERREURS (Checkpoint 11)
@@ -270,7 +304,7 @@ echo "Résultat : " . ($p4_pass ? "PASS ✅" : "FAIL ❌") . "\n\n";
 // ======================================================================
 echo "--- CHECKPOINT 5 : Isolation stricte des utilisateurs (Anti-IDOR) ---\n";
 $p5_patList = apiCall('GET', '/support/tickets', null, $patientToken);
-$p5_patItems = $p5_patList['body']['data'] ?? [];
+$p5_patItems = $p5_patList['body']['data']['items'] ?? $p5_patList['body']['data'] ?? [];
 $p5_patOnlyOwn = true;
 foreach ($p5_patItems as $item) {
     if ($item['user_id'] !== $patientId) {
@@ -355,7 +389,8 @@ $hasStatsCounters = isset($p8_stats['body']['data']['unread_messages']) && isset
 $p8_openTicket = apiCall('GET', "/support/tickets/{$p1_id}", null, $patientToken);
 $p8_listAfterOpen = apiCall('GET', '/support/tickets', null, $patientToken);
 $p1_afterOpen = null;
-foreach ($p8_listAfterOpen['body']['data'] ?? [] as $t) {
+$p8_items = $p8_listAfterOpen['body']['data']['items'] ?? $p8_listAfterOpen['body']['data'] ?? [];
+foreach ($p8_items as $t) {
     if ($t['id'] === $p1_id) { $p1_afterOpen = $t; break; }
 }
 $unreadCountZero = ($p1_afterOpen !== null && (int)$p1_afterOpen['unread_count'] === 0);
@@ -500,39 +535,55 @@ echo "Résultat : " . ($p14_pass ? "PASS ✅" : "FAIL ❌") . "\n\n";
 
 // ======================================================================
 // NETTOYAGE STRICT ET CIBLÉ DES DONNÉES D'AUDIT
-// 1. Identification précise des notifications créées pour ces tickets
-// 2. Suppression uniquement des notifications ciblées
+// 1. Identification précise des notifications apparues pendant cet audit
+// 2. Suppression UNIQUEMENT des notifications créées par cet audit
+//    (ne jamais supprimer une notification qui existait avant l'audit)
 // 3. Suppression des messages et tickets créés par ce test
 // ======================================================================
 echo "--- NETTOYAGE CIBLÉ DES DONNÉES DE TEST ---\n";
 
-// Recherche exclusive des IDs de notifications correspondant aux numéros des tickets de test
-$auditNotifIds = [];
-if (!empty($auditCreatedTicketNumbers)) {
-    $clauses = [];
-    $params = [];
-    foreach ($auditCreatedTicketNumbers as $tn) {
-        $clauses[] = "(title LIKE ? OR message LIKE ?)";
-        $params[] = "%$tn%";
-        $params[] = "%$tn%";
+// Recherche exclusive des nouvelles notifications créées pendant cet audit
+$stmtCurrentNotifs = $pdo->query("SELECT id, user_id, title, message, created_at FROM notifications WHERE type = 'admin_ticket'");
+$currentNotifs = $stmtCurrentNotifs->fetchAll(PDO::FETCH_ASSOC);
+$auditCreatedNotifIds = [];
+
+foreach ($currentNotifs as $notif) {
+    $nId = $notif['id'];
+    // RÈGLE ABSOLUE : Ne JAMAIS supprimer une notification qui existait avant l'audit
+    if (isset($preAuditAdminNotifIdMap[$nId])) {
+        continue;
     }
-    $notifSql = "SELECT id FROM notifications WHERE type = 'admin_ticket' AND (" . implode(' OR ', $clauses) . ")";
-    $stmtFindNotifs = $pdo->prepare($notifSql);
-    $stmtFindNotifs->execute($params);
-    $auditNotifIds = $stmtFindNotifs->fetchAll(PDO::FETCH_COLUMN);
+    // Corrélation avec les numéros de tickets créés par cet audit
+    $isAuditTestNotif = false;
+    foreach ($auditCreatedTicketNumbers as $tn) {
+        if (strpos($notif['title'], $tn) !== false || strpos($notif['message'], $tn) !== false) {
+            $isAuditTestNotif = true;
+            break;
+        }
+    }
+    if ($isAuditTestNotif) {
+        $auditCreatedNotifIds[] = $nId;
+    }
 }
 
-// 1. Suppression ciblée des notifications identifiées (AUCUNE autre notification touchée)
+// 1. Suppression ciblée UNIQUEMENT des notifications apparues pendant cet audit
 $cleanedNotifsCount = 0;
-if (!empty($auditNotifIds)) {
-    $notifPlaceholders = implode(',', array_fill(0, count($auditNotifIds), '?'));
-    $stmtDelNotifs = $pdo->prepare("DELETE FROM notifications WHERE id IN ($notifPlaceholders)");
-    $stmtDelNotifs->execute($auditNotifIds);
-    $cleanedNotifsCount = $stmtDelNotifs->rowCount();
+if (!empty($auditCreatedNotifIds)) {
+    // Double sécurité : filtre d'exclusion formelle des IDs préexistants
+    $safeToDeleteNotifs = array_values(array_filter($auditCreatedNotifIds, function($id) use ($preAuditAdminNotifIdMap) {
+        return !isset($preAuditAdminNotifIdMap[$id]);
+    }));
+    if (!empty($safeToDeleteNotifs)) {
+        $notifPlaceholders = implode(',', array_fill(0, count($safeToDeleteNotifs), '?'));
+        $stmtDelNotifs = $pdo->prepare("DELETE FROM notifications WHERE id IN ($notifPlaceholders)");
+        $stmtDelNotifs->execute($safeToDeleteNotifs);
+        $cleanedNotifsCount = $stmtDelNotifs->rowCount();
+    }
 }
 
 // 2. Suppression des messages associés aux tickets de test
 $cleanedMsgsCount = 0;
+$cleanedTkCount = 0;
 if (!empty($auditCreatedTicketIds)) {
     $tkPlaceholders = implode(',', array_fill(0, count($auditCreatedTicketIds), '?'));
     $stmtDelMsgs = $pdo->prepare("DELETE FROM admin_support_messages WHERE ticket_id IN ($tkPlaceholders)");
@@ -545,20 +596,29 @@ if (!empty($auditCreatedTicketIds)) {
     $cleanedTkCount = $stmtDelTk->rowCount();
 }
 
+// 4. Nettoyage des sessions de test générées par /auth/login
+$testTokens = array_filter([$adminToken, $patientToken, $doctorToken, $clinicToken]);
+if (!empty($testTokens)) {
+    $sessPlaceholders = implode(',', array_fill(0, count($testTokens), '?'));
+    $stmtDelSess = $pdo->prepare("DELETE FROM sessions WHERE token IN ($sessPlaceholders)");
+    $stmtDelSess->execute(array_values($testTokens));
+}
+
 echo "Tickets créés   : " . count($auditCreatedTicketIds) . " (Nettoyés : $cleanedTkCount)\n";
 echo "Messages créés  : Nettoyés : $cleanedMsgsCount\n";
-echo "Notifications   : Ciblées et nettoyées par ID : $cleanedNotifsCount (IDs: " . (empty($auditNotifIds) ? 'aucun' : implode(', ', $auditNotifIds)) . ")\n\n";
+echo "Notifications   : Nouvelles apparues et nettoyées par ID : $cleanedNotifsCount (IDs: " . (empty($auditCreatedNotifIds) ? 'aucun' : implode(', ', $auditCreatedNotifIds)) . ")\n\n";
 
 // ======================================================================
 // CHECKPOINT 12 : CONTRÔLE D'INTÉGRITÉ FINAL (Post-nettoyage)
-// Vérifie que 100% des tables (existantes + admin_support_*) ont retrouvé
-// EXACTEMENT leur comptage et leur checksum étendu d'origine.
+// 1. Recalcul des checksums applicatifs SHA-256 pour les 9 tables surveillées
+// 2. Vérification que les notifications préexistantes sont strictement inchangées
 // ======================================================================
-echo "--- CHECKPOINT 12 : Vérification d'intégrité stricte (Checksums étendus post-nettoyage) ---\n";
+echo "--- CHECKPOINT 12 : Vérification d'intégrité stricte (Checksums applicatifs post-nettoyage) ---\n";
 $postAuditState = captureTableState($pdo, $monitoredTables);
 $dataIntegrityPass = true;
 $integrityDiscrepancies = [];
 
+echo "Vérification des 9 tables surveillées :\n";
 foreach ($monitoredTables as $table) {
     $preCount  = $preAuditState[$table]['count'];
     $postCount = $postAuditState[$table]['count'];
@@ -566,7 +626,7 @@ foreach ($monitoredTables as $table) {
     $postCs    = $postAuditState[$table]['checksum'];
     
     $match = ($preCount === $postCount && $preCs === $postCs);
-    echo sprintf(" - %-24s : Pre=[%d, %s] Post=[%d, %s] -> %s\n",
+    echo sprintf(" - %-24s : Pre=[%d, %.12s...] Post=[%d, %.12s...] -> %s\n",
         $table, $preCount, $preCs, $postCount, $postCs, ($match ? 'INTACT ✅' : 'ALTÉRÉ ❌')
     );
     
@@ -576,8 +636,26 @@ foreach ($monitoredTables as $table) {
     }
 }
 
+// Vérification stricte des notifications préexistantes
+echo "\nVérification de l'intégrité des notifications préexistantes :\n";
+$stmtPostNotifs = $pdo->query("SELECT id, user_id, title, message, is_read, created_at FROM notifications WHERE type = 'admin_ticket' ORDER BY id ASC");
+$postAuditNotifRows = $stmtPostNotifs->fetchAll(PDO::FETCH_ASSOC);
+$postAuditNotifState = computeRowsChecksum($postAuditNotifRows);
+
+$notifsMatch = ($preAuditNotifState['count'] === $postAuditNotifState['count'] &&
+                $preAuditNotifState['checksum'] === $postAuditNotifState['checksum']);
+echo sprintf(" - %-24s : Pre=[%d, %.12s...] Post=[%d, %.12s...] -> %s\n",
+    'notifications (admin_ticket)', $preAuditNotifState['count'], $preAuditNotifState['checksum'],
+    $postAuditNotifState['count'], $postAuditNotifState['checksum'], ($notifsMatch ? 'INTACTES ✅' : 'ALTÉRÉES ❌')
+);
+
+if (!$notifsMatch) {
+    $dataIntegrityPass = false;
+    $integrityDiscrepancies[] = "Notifications altérées : Initial [Count={$preAuditNotifState['count']}, Checksum={$preAuditNotifState['checksum']}], Actuel [Count={$postAuditNotifState['count']}, Checksum={$postAuditNotifState['checksum']}]";
+}
+
 $results['12_Data_Integrity'] = $dataIntegrityPass ? 'PASS' : 'FAIL';
-if (!$dataIntegrityPass) $errors[] = "Checkpoint 12: Altération ou modification détectée sur les tables surveillées : " . implode('; ', $integrityDiscrepancies);
+if (!$dataIntegrityPass) $errors[] = "Checkpoint 12: Altération ou modification détectée sur les tables ou notifications surveillées : " . implode('; ', $integrityDiscrepancies);
 echo "Résultat Checkpoint 12 : " . ($dataIntegrityPass ? "PASS ✅" : "FAIL ❌") . "\n\n";
 
 // ======================================================================
