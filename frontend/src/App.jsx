@@ -3056,6 +3056,7 @@ function getSpecialtyColor(specialtyName, isDoctor) {
 function SearchPage({ navigate, qs, user }) {
 
   const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const isMobile = useIsMobile();
   const params = new URLSearchParams(qs);
   const [q, setQ] = useState(params.get("q") || "");
@@ -3188,7 +3189,8 @@ function SearchPage({ navigate, qs, user }) {
                     background: "var(--card-bg)",
                     borderRadius: 16,
                     border: "1px solid var(--border)",
-                    borderLeft: isDoctor ? `3.5px solid ${specialtyColor}` : "4px solid #6366f1",
+                    borderLeft: isRtl ? "none" : (isDoctor ? `3.5px solid ${specialtyColor}` : "4px solid #6366f1"),
+                    borderRight: isRtl ? (isDoctor ? `3.5px solid ${specialtyColor}` : "4px solid #6366f1") : "none",
                     cursor: "pointer",
                     transition: "0.2s ease",
                     display: "flex",
@@ -3210,14 +3212,26 @@ function SearchPage({ navigate, qs, user }) {
                 >
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 12px 46px 12px", flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", position: "relative", minHeight: 24, marginBottom: 2 }}>
-                      <div dir="auto" style={{ fontWeight: 800, fontSize: 14, color: "var(--heading-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 5, maxWidth: (filteredResults.indexOf(r) === 0 && isDoctor) ? "calc(100% - 26px)" : "100%" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", minHeight: 24, marginBottom: 2 }}>
+                      <div dir="auto" style={{
+                        fontWeight: 800,
+                        fontSize: 14,
+                        color: "var(--heading-color)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        maxWidth: (filteredResults.indexOf(r) === 0 && isDoctor) ? "calc(100% - 26px)" : "100%",
+                        textAlign: isRtl ? "right" : "left"
+                      }}>
                         {name}
                         {!isDoctor && <VerifiedBadge size={13} />}
                       </div>
 
                       {filteredResults.indexOf(r) === 0 && isDoctor && (
-                        <div style={{ position: "absolute", left: 0, display: "flex", alignItems: "center" }} title={i18n.language === 'ar' ? "موصى به" : "Recommandé"}>
+                        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }} title={isRtl ? "موصى به" : "Recommandé"}>
                           <Award size={18} color="#f59e0b" style={{ filter: "drop-shadow(0 2px 4px rgba(245,158,11,0.3))" }} />
                         </div>
                       )}
