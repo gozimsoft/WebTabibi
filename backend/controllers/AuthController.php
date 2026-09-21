@@ -207,6 +207,29 @@ class AuthController {
         $pdo  = Database::getInstance();
         $identifier = strtolower(trim($data['username'])); // Can be username, email, or phone
 
+        // Rate Limiting — Protection brute-force et credential stuffing
+        require_once __DIR__ . '/../helpers/RateLimiter.php';
+        $ip = RateLimiter::getClientIp();
+        $accountKey = 'user:' . hash('sha256', $identifier);
+
+        $ipBlock = RateLimiter::check($ip, 'login_ip');
+        if ($ipBlock) {
+            $minutes = (int)ceil($ipBlock['retry_after'] / 60);
+            header('Retry-After: ' . $ipBlock['retry_after']);
+            Response::error("Trop de tentatives de connexion depuis cette adresse. Veuillez réessayer dans {$minutes} minute(s).", 429, [
+                'retry_after' => $ipBlock['retry_after']
+            ]);
+        }
+
+        $accountBlock = RateLimiter::check($accountKey, 'login_account');
+        if ($accountBlock) {
+            $minutes = (int)ceil($accountBlock['retry_after'] / 60);
+            header('Retry-After: ' . $accountBlock['retry_after']);
+            Response::error("Ce compte est temporairement verrouillé suite à plusieurs échecs de connexion. Veuillez réessayer dans {$minutes} minute(s).", 429, [
+                'retry_after' => $accountBlock['retry_after']
+            ]);
+        }
+
         // 1. Try to find by username
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
         $stmt->execute([$identifier]);
@@ -244,12 +267,16 @@ class AuthController {
         }
 
         if (!$user) {
+            RateLimiter::hit($ip, 'login_ip', 5, 300, 900);
+            RateLimiter::hit($accountKey, 'login_account', 5, 900, 900);
             // رسالة بشرية: اسم مستخدم أو كلمة مرور خاطئة
             Response::error("اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من المعلومات والمحاولة مجدداً.", 401);
         }
 
         // PHASE 02B : Vérification duale (legacy Base64 + Bcrypt) avec migration silencieuse
         if (!PasswordHelper::verify($data['password'], $user['password'])) {
+            RateLimiter::hit($ip, 'login_ip', 5, 300, 900);
+            RateLimiter::hit($accountKey, 'login_account', 5, 900, 900);
             // رسالة بشرية: كلمة المرور غير متطابقة
             Response::error("اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من المعلومات والمحاولة مجدداً.", 401);
         }
@@ -273,6 +300,15 @@ class AuthController {
             // CHECK ACCOUNT DELETION (تحقق من عدم حذف الحساب)
             if (!empty($profile['deleteacount'])) {
                 Response::error("هذا الحساب تم حذفه بناءً على طلب صاحبه.", 403);
+            }
+
+            // CHECK FROZEN STATUS (تحقق من تجميد الحساب)
+            if (!empty($profile['is_frozen'])) {
+                $reasonMsg = !empty($profile['freeze_reason']) ? (" سبب التجميد: " . $profile['freeze_reason']) : "";
+                Response::error("تم تجميد هذا الحساب من قِبَل الإدارة.{$reasonMsg} يرجى التواصل مع الدعم الفني.", 403, [
+                    'is_frozen' => true,
+                    'freeze_reason' => $profile['freeze_reason'] ?? null
+                ]);
             }
 
             // CHECK EMAIL VALIDATION (تحقق من تأكيد الإيميل)
@@ -368,6 +404,10 @@ class AuthController {
         }
 
         $token = self::createSession($user['id']);
+
+        // Réinitialisation des compteurs de tentatives après succès
+        RateLimiter::reset($ip, 'login_ip');
+        RateLimiter::reset($accountKey, 'login_account');
 
         Response::success([
             'token'     => $token,
@@ -808,7 +848,34 @@ class AuthController {
             Response::error('يرجى إدخال بريد إلكتروني صحيح (مثال: exemple@gmail.com).', 422);
         }
 
-        $email = trim($data['email']);
+        $email = strtolower(trim($data['email']));
+
+        // Rate Limiting — Protection anti-spam SMTP et abus (max 3 requêtes par 10 min)
+        require_once __DIR__ . '/../helpers/RateLimiter.php';
+        $ip = RateLimiter::getClientIp();
+        $emailKey = 'forgot:' . hash('sha256', $email);
+
+        $ipBlock = RateLimiter::check($ip, 'forgot_pw_ip');
+        if ($ipBlock) {
+            $minutes = (int)ceil($ipBlock['retry_after'] / 60);
+            header('Retry-After: ' . $ipBlock['retry_after']);
+            Response::error("Trop de demandes de réinitialisation depuis votre adresse IP. Veuillez patienter {$minutes} minute(s).", 429, [
+                'retry_after' => $ipBlock['retry_after']
+            ]);
+        }
+
+        $emailBlock = RateLimiter::check($emailKey, 'forgot_pw_email');
+        if ($emailBlock) {
+            $minutes = (int)ceil($emailBlock['retry_after'] / 60);
+            header('Retry-After: ' . $emailBlock['retry_after']);
+            Response::error("Trop de demandes de réinitialisation pour cette adresse email. Veuillez patienter {$minutes} minute(s).", 429, [
+                'retry_after' => $emailBlock['retry_after']
+            ]);
+        }
+
+        RateLimiter::hit($ip, 'forgot_pw_ip', 3, 600, 600);
+        RateLimiter::hit($emailKey, 'forgot_pw_email', 3, 600, 600);
+
         $user = self::findUserByEmail($email);
 
         if (!$user) {
@@ -821,8 +888,8 @@ class AuthController {
         // Delete any existing unused OTPs for this email to prevent spam
         $pdo->prepare("DELETE FROM password_resets WHERE email = ? AND used = 0")->execute([$email]);
 
-        // Generate 6-digit OTP
-        $otpCode = sprintf("%06d", mt_rand(1, 999999));
+        // Generate 6-digit OTP avec random_int cryptographiquement sécurisé
+        $otpCode = sprintf("%06d", random_int(100000, 999999));
         $resetId = UUIDHelper::generate();
         $expiresAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
 
@@ -920,17 +987,54 @@ class AuthController {
             Response::error('يرجى إدخال البريد الإلكتروني ورمز التحقق المكوّن من 6 أرقام.', 422);
         }
 
-        $email = trim($data['email']);
+        $email = strtolower(trim($data['email']));
         $otp = trim($data['otp']);
+
+        // Rate Limiting — Protection anti-brute-force OTP (max 5 tentatives par 15 min)
+        require_once __DIR__ . '/../helpers/RateLimiter.php';
+        $ip = RateLimiter::getClientIp();
+        $emailKey = 'otp:' . hash('sha256', $email);
+
+        $ipBlock = RateLimiter::check($ip, 'otp_verify_ip');
+        if ($ipBlock) {
+            $minutes = (int)ceil($ipBlock['retry_after'] / 60);
+            header('Retry-After: ' . $ipBlock['retry_after']);
+            Response::error("Trop de tentatives erronées depuis votre adresse IP. Veuillez réessayer dans {$minutes} minute(s).", 429, [
+                'retry_after' => $ipBlock['retry_after']
+            ]);
+        }
+
+        $emailBlock = RateLimiter::check($emailKey, 'otp_verify_email');
+        if ($emailBlock) {
+            $minutes = (int)ceil($emailBlock['retry_after'] / 60);
+            header('Retry-After: ' . $emailBlock['retry_after']);
+            Response::error("Ce code OTP a été invalidé après trop de tentatives erronées. Veuillez demander un nouveau code.", 429, [
+                'retry_after' => $emailBlock['retry_after']
+            ]);
+        }
 
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT id FROM password_resets WHERE email = ? AND otp_code = ? AND used = 0 AND expires_at > NOW() LIMIT 1");
         $stmt->execute([$email, $otp]);
+        $validOtp = $stmt->fetch();
         
-        if (!$stmt->fetch()) {
+        if (!$validOtp) {
+            RateLimiter::hit($ip, 'otp_verify_ip', 5, 900, 900);
+            $hit = RateLimiter::hit($emailKey, 'otp_verify_email', 5, 900, 900);
+
+            // Invalidation définitive de l'OTP en DB si quota d'échecs atteint
+            if ($hit['blocked']) {
+                $pdo->prepare("UPDATE password_resets SET used = 1 WHERE email = ? AND used = 0")->execute([$email]);
+                Response::error("Trop de tentatives erronées. Ce code de réinitialisation a été invalidé pour des raisons de sécurité. Veuillez demander un nouveau code.", 429);
+            }
+
             // رسالة بشرية: رمز OTP منتهي أو غير صحيح عند التحقق
             Response::error('رمز التحقق غير صحيح أو انتهت صلاحيته. يرجى طلب رمز جديد من صفحة استعادة كلمة المرور.', 400);
         }
+
+        // Succès : réinitialisation des échecs OTP
+        RateLimiter::reset($ip, 'otp_verify_ip');
+        RateLimiter::reset($emailKey, 'otp_verify_email');
 
         Response::success(null, 'Code OTP valide');
     }
@@ -977,6 +1081,12 @@ class AuthController {
 
         // Invalidate all existing sessions to force re-login
         $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$user['user_id']]);
+
+        // Nettoyage des rate limits après réinitialisation réussie
+        require_once __DIR__ . '/../helpers/RateLimiter.php';
+        RateLimiter::reset(RateLimiter::getClientIp(), 'otp_verify_ip');
+        RateLimiter::reset('otp:' . hash('sha256', $email), 'otp_verify_email');
+        RateLimiter::reset('user:' . hash('sha256', $email), 'login_account');
 
         Response::success(null, 'Mot de passe réinitialisé avec succès');
     }

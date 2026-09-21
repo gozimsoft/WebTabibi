@@ -616,7 +616,7 @@ class AdminSupportTicketController {
 
     private static function generateTicketNumber(PDO $pdo): string {
         $prefix = 'ADM-' . date('ym') . '-';
-        $rand = mt_rand(1000, 9999);
+        $rand = random_int(1000, 9999);
         $candidate = $prefix . $rand;
 
         // Ensure uniqueness
@@ -626,18 +626,13 @@ class AdminSupportTicketController {
             if (!$stmt->fetch()) {
                 return $candidate;
             }
-            $candidate = $prefix . mt_rand(1000, 9999);
+            $candidate = $prefix . random_int(1000, 9999);
         }
         return $prefix . substr(self::uuid(), 0, 4);
     }
 
     private static function uuid(): string {
-        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0x0fff) | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-        );
+        require_once __DIR__ . '/../helpers/UUIDHelper.php';
+        return UUIDHelper::generate();
     }
 }

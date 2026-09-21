@@ -97,36 +97,35 @@ class RelationController {
         $joinCol = '';
         $nameCol = '';
 
-        if ($user['usertype'] == 1) { // DOCTOR
-            $myId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
-            $filterCol = 'doctor_id';
-            $joinTable = 'clinics';
-            $joinCol = 'clinic_id';
-            $nameCol = 'clinicname as targetname';
-        } else if ($user['usertype'] == 2) { // CLINIC
-            $myId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
-            $filterCol = 'clinic_id';
-            $joinTable = 'doctors';
-            $joinCol = 'doctor_id';
-            $nameCol = 'fullname as targetname';
-        } else {
-            Response::error('غير مسموح لك بالوصول.', 403);
+        if ($user['usertype'] == 1) { // DOCTOR looking at clinics
+            $stmt = $pdo->prepare("
+                SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType,
+                       c.clinicname as targetname, c.phone, c.address, c.photo,
+                       COALESCE(s.namear, s.namefr, '') as specialty_name,
+                       '2025-01-01 00:00:00' as createdat
+                FROM clinicsdoctors r
+                JOIN clinics c ON c.id = r.clinic_id
+                LEFT JOIN specialties s ON s.id = r.specialtie_id
+                WHERE r.doctor_id = ? AND r.status IN ('pending', 'accepted', 'rejected', 'APPROVED')
+                ORDER BY CASE WHEN UPPER(r.status) = 'PENDING' THEN 1 ELSE 2 END, r.id DESC
+            ");
+            $stmt->execute([$myId]);
+        } else { // CLINIC looking at doctors
+            $stmt = $pdo->prepare("
+                SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType,
+                       d.fullname as targetname, d.phone, d.address, d.photo,
+                       COALESCE(s.namear, s.namefr, '') as specialty_name,
+                       '2025-01-01 00:00:00' as createdat
+                FROM clinicsdoctors r
+                JOIN doctors d ON d.id = r.doctor_id
+                LEFT JOIN specialties s ON s.id = COALESCE(r.specialtie_id, d.specialtie_id)
+                WHERE r.clinic_id = ? AND r.status IN ('pending', 'accepted', 'rejected', 'APPROVED')
+                ORDER BY CASE WHEN UPPER(r.status) = 'PENDING' THEN 1 ELSE 2 END, r.id DESC
+            ");
+            $stmt->execute([$myId]);
         }
-
-        // We want to fetch all clinicsdoctors records for this user where it's a request state
-        // (status = pending, accepted, rejected) and it acts as a "Request".
-        // Actually, let's fetch pending, and maybe recently accepted/rejected. 
-        // For simplicity, we can fetch all or just pending ones, but UI expects history.
         
-        $stmt = $pdo->prepare("
-            SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType, t.$nameCol, '2025-01-01 00:00:00' as createdat
-            FROM clinicsdoctors r
-            JOIN $joinTable t ON t.id = r.$joinCol
-            WHERE r.$filterCol = ? AND r.status IN ('pending', 'accepted', 'rejected', 'APPROVED')
-        ");
-        $stmt->execute([$myId]);
-        
-        $results = $stmt->fetchAll();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($results as &$r) {
             // Normalize status to upper for frontend
             if (strtolower($r['status']) === 'accepted' || strtoupper($r['status']) === 'APPROVED') {

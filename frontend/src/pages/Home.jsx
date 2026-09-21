@@ -15,7 +15,10 @@ export default function HomePage({ user, navigate }) {
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
 
+  const [publicStats, setPublicStats] = useState(null);
+
   useEffect(() => { api.specialties().then(setSP).catch(() => { }); }, []);
+  useEffect(() => { api.publicStats().then(setPublicStats).catch(() => { }); }, []);
 
   // Debounced suggestion fetch
   useEffect(() => {
@@ -135,7 +138,7 @@ export default function HomePage({ user, navigate }) {
               </div>
             </div>
             <div style={{ padding: "8px 16px 12px", textAlign: "center", flex: "1 1 0%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>2</div>
+              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>{publicStats ? publicStats.patients?.toLocaleString() : "..."}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.7 }}>{t("stats_patients", "patients")}</div>
             </div>
           </div>
@@ -152,7 +155,7 @@ export default function HomePage({ user, navigate }) {
               </div>
             </div>
             <div style={{ padding: "8px 16px 12px", textAlign: "center", flex: "1 1 0%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>0</div>
+              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>{publicStats ? publicStats.clinics?.toLocaleString() : "..."}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.7 }}>{t("stats_clinics", "Cliniques")}</div>
             </div>
           </div>
@@ -169,7 +172,7 @@ export default function HomePage({ user, navigate }) {
               </div>
             </div>
             <div style={{ padding: "8px 16px 12px", textAlign: "center", flex: "1 1 0%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>18 574</div>
+              <div style={{ fontSize: 30, fontWeight: 950, color: "rgb(0, 146, 162)", lineHeight: 1, marginBottom: 5, letterSpacing: "-0.5px" }}>{publicStats ? publicStats.doctors?.toLocaleString() : "..."}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.7 }}>{t("stats_doctors", "Médecins")}</div>
             </div>
           </div>

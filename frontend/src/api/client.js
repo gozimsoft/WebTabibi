@@ -152,4 +152,32 @@ export const api = {
     markAllAsRead: () => request('PUT', '/notifications/read-all'),
     delete: (id) => request('DELETE', `/notifications/${id}`),
   },
+  superadmin: {
+    listAccounts: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/superadmin/accounts${qs ? '?' + qs : ''}`);
+    },
+    getAccount: (id) => request('GET', `/superadmin/accounts/${id}`),
+    updateAccount: (id, body) => request('PUT', `/superadmin/accounts/${id}`, body),
+    toggleStatus: (id, body) => request('PUT', `/superadmin/accounts/${id}/status`, body),
+    invalidateSessions: (id) => request('POST', `/superadmin/accounts/${id}/invalidate-sessions`, {}),
+    resetPassword: (id) => request('POST', `/superadmin/accounts/${id}/reset-password`, {}),
+    anonymize: (id) => request('DELETE', `/superadmin/accounts/${id}`),
+    getStats: () => request('GET', '/superadmin/accounts/stats'),
+  },
+  clinicAppointments: {
+    getDoctors: () => request('GET', '/clinic/doctors'),
+    getAppointments: (params = {}) => {
+      const q = new URLSearchParams();
+      if (params.doctor_id) q.set('doctor_id', params.doctor_id);
+      if (params.from) q.set('from', params.from);
+      if (params.to) q.set('to', params.to);
+      if (params.status !== undefined && params.status !== '') q.set('status', params.status);
+      if (params.q) q.set('q', params.q);
+      const qs = q.toString();
+      return request('GET', `/clinic/appointments${qs ? `?${qs}` : ''}`);
+    },
+    book: (body) => request('POST', '/clinic/appointments/book', body),
+    updateStatus: (id, body) => request('PUT', `/clinic/appointments/${id}/status`, body),
+  },
 };

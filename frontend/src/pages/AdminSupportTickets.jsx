@@ -7,12 +7,12 @@ import {
   ChevronDown, RefreshCw, Phone, Mail, FileText, Check,
   ChevronLeft, ChevronRight
 } from "lucide-react";
-import { Card, Btn, Input, Badge, Spinner, useToast } from "../components/SharedUI.jsx";
+import { Card, Btn, Input, Badge, Spinner, useToast, SmartPaginationBar } from "../components/SharedUI.jsx";
 
 // ── Categories Configuration ──
 export const SUPPORT_CATEGORIES = [
   { key: "reclamation", labelKey: "admin_support_cat_reclamation", defaultLabel: "Réclamation", color: "#dc2626", bg: "#fee2e2" },
-  { key: "info", labelKey: "admin_support_cat_info", defaultLabel: "Demande d'information", color: "#0284c7", bg: "#e0f2fe" },
+  { key: "info", labelKey: "admin_support_cat_info", defaultLabel: "Demande d'information", color: "#0891b2", bg: "#ecfeff" },
   { key: "technical", labelKey: "admin_support_cat_technical", defaultLabel: "Problème technique", color: "#d97706", bg: "#fef3c7" },
   { key: "account", labelKey: "admin_support_cat_account", defaultLabel: "Compte / Profil", color: "#4f46e5", bg: "#e0e7ff" },
   { key: "appointment", labelKey: "admin_support_cat_appointment", defaultLabel: "Rendez-vous / Service TABIBI", color: "#0891b2", bg: "#cffafe" },
@@ -25,7 +25,7 @@ export const SUPPORT_CATEGORIES = [
 
 // ── Status Configuration ──
 export const STATUS_CONFIG = {
-  OPEN: { labelKey: "admin_support_status_open", defaultLabel: "Ouvert", bg: "#dbeafe", color: "#1e40af", icon: Clock },
+  OPEN: { labelKey: "admin_support_status_open", defaultLabel: "Ouvert", bg: "#cffafe", color: "#0e7490", icon: Clock },
   IN_PROGRESS: { labelKey: "admin_support_status_in_progress", defaultLabel: "En cours", bg: "#fef3c7", color: "#92400e", icon: Activity },
   PENDING: { labelKey: "admin_support_status_pending", defaultLabel: "En attente", bg: "#f3e8ff", color: "#6b21a8", icon: HelpCircle },
   RESOLVED: { labelKey: "admin_support_status_resolved", defaultLabel: "Résolu", bg: "#d1fae5", color: "#065f46", icon: CheckCircle },
@@ -35,7 +35,7 @@ export const STATUS_CONFIG = {
 // ── Priority Configuration ──
 export const PRIORITY_CONFIG = {
   LOW: { labelKey: "priority_low", defaultLabel: "Basse", bg: "#f1f5f9", color: "#475569" },
-  MEDIUM: { labelKey: "priority_medium", defaultLabel: "Moyenne", bg: "#e0f2fe", color: "#0369a1" },
+  MEDIUM: { labelKey: "priority_medium", defaultLabel: "Moyenne", bg: "#cffafe", color: "#0891b2" },
   HIGH: { labelKey: "priority_high", defaultLabel: "Haute", bg: "#ffedd5", color: "#c2410c" },
   URGENT: { labelKey: "priority_urgent", defaultLabel: "Urgente", bg: "#fee2e2", color: "#b91c1c" },
 };
@@ -43,153 +43,7 @@ export const PRIORITY_CONFIG = {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── REUSABLE: SupportPaginationBar
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-export function SupportPaginationBar({
-  page,
-  setPage,
-  limit,
-  setLimit,
-  totalItems,
-  totalPages,
-  limitOptions = [10, 20, 50, 100],
-  isRtl,
-  t
-}) {
-  if (totalItems <= 0) return null;
-  const from = Math.min(((page - 1) * limit) + 1, totalItems);
-  const to = Math.min(page * limit, totalItems);
-
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      flexWrap: "wrap", gap: 12, marginTop: 20, padding: "12px 18px",
-      background: "var(--card-bg, #ffffff)", borderRadius: 14,
-      border: "1px solid var(--border, #e2e8f0)",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
-    }}>
-      {/* Range and Limit info */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-          {t("admin_pagination_range", {
-            from,
-            to,
-            total: totalItems,
-            defaultValue: `Affichage de ${from} à ${to} sur un total de ${totalItems} enregistrements`
-          })}
-        </div>
-
-        {setLimit && limitOptions && limitOptions.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-            <span>{t("admin_pagination_per_page", "Par page")}:</span>
-            <select
-              value={limit}
-              onChange={e => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-              style={{
-                padding: "4px 8px", borderRadius: 8, border: "1px solid var(--border, #cbd5e1)",
-                background: "var(--bg, #f8fafc)", fontSize: 12, fontWeight: 700, color: "#334155", outline: "none",
-                cursor: "pointer"
-              }}
-            >
-              {limitOptions.map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Buttons */}
-      {totalPages > 1 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => setPage(1)}
-            disabled={page <= 1}
-            style={{
-              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
-              background: "var(--bg, #f8fafc)", fontSize: 11, fontWeight: 800,
-              cursor: page <= 1 ? "not-allowed" : "pointer",
-              opacity: page <= 1 ? 0.4 : 1, color: "#475569"
-            }}
-          >
-            {t("admin_pagination_first", "Première")}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            style={{
-              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
-              background: "var(--bg, #f8fafc)", fontSize: 12, fontWeight: 800,
-              cursor: page <= 1 ? "not-allowed" : "pointer",
-              opacity: page <= 1 ? 0.4 : 1, color: "#475569", display: "flex", alignItems: "center", gap: 4
-            }}
-          >
-            {isRtl ? <ChevronRight size={14} /> : <ChevronLeft size={14} />} {t("admin_pagination_prev", "Précédent")}
-          </button>
-
-          {/* Page Number Buttons Window */}
-          {Array.from({ length: totalPages }, (_, i) => i + 1)
-            .filter(p => p === 1 || p === totalPages || (p >= page - 2 && p <= page + 2))
-            .map((p, idx, arr) => {
-              const prevP = arr[idx - 1];
-              const showEllipsis = prevP && p - prevP > 1;
-              const isActive = page === p;
-              return (
-                <React.Fragment key={p}>
-                  {showEllipsis && <span style={{ padding: "0 4px", color: "#94a3b8", fontSize: 12 }}>…</span>}
-                  <button
-                    type="button"
-                    onClick={() => setPage(p)}
-                    style={{
-                      minWidth: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
-                      background: isActive ? "var(--brand, #0284c7)" : "var(--bg, #f8fafc)",
-                      color: isActive ? "#ffffff" : "#334155",
-                      fontWeight: 800, fontSize: 12,
-                      boxShadow: isActive ? "0 2px 8px rgba(2,132,199,0.3)" : "none"
-                    }}
-                  >
-                    {p}
-                  </button>
-                </React.Fragment>
-              );
-            })}
-
-          <button
-            type="button"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            style={{
-              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
-              background: "var(--bg, #f8fafc)", fontSize: 12, fontWeight: 800,
-              cursor: page >= totalPages ? "not-allowed" : "pointer",
-              opacity: page >= totalPages ? 0.4 : 1, color: "#475569", display: "flex", alignItems: "center", gap: 4
-            }}
-          >
-            {t("admin_pagination_next", "Suivant")} {isRtl ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPage(totalPages)}
-            disabled={page >= totalPages}
-            style={{
-              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
-              background: "var(--bg, #f8fafc)", fontSize: 11, fontWeight: 800,
-              cursor: page >= totalPages ? "not-allowed" : "pointer",
-              opacity: page >= totalPages ? 0.4 : 1, color: "#475569"
-            }}
-          >
-            {t("admin_pagination_last", "Dernière")}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+export const SupportPaginationBar = SmartPaginationBar;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── USER-FACING: AdminSupportUserTicketsPage
@@ -336,35 +190,107 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
     <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 20px" }}>
       <Toast />
 
-      {/* Header Banner */}
-      <div style={{
-        background: "linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%)",
-        borderRadius: 20, padding: "28px 32px", color: "#fff", marginBottom: 24,
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        flexWrap: "wrap", gap: 16, boxShadow: "0 10px 25px rgba(2, 132, 199, 0.15)"
+      {/* ── HEADER BANNER ── */}
+      <div className="no-print" style={{
+        background: "linear-gradient(135deg, rgb(14, 116, 144) 0%, rgb(8, 145, 178) 100%)",
+        borderRadius: 24,
+        padding: "28px 32px",
+        color: "rgb(255, 255, 255)",
+        marginBottom: 24,
+        boxShadow: "rgba(8, 145, 178, 0.25) 0px 10px 30px -5px",
+        position: "relative",
+        overflow: "hidden"
       }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <Shield size={24} color="#38bdf8" />
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>
-              {t("admin_support_title", "Support & Réclamations Administratives")}
-            </h1>
-          </div>
-          <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9 }}>
-            {t("admin_support_subtitle", "Échanges directs et sécurisés avec l'administration TABIBI")}
-          </p>
-        </div>
+        <div style={{
+          position: "absolute",
+          top: -40,
+          [isRtl ? "left" : "right"]: -40,
+          width: 220,
+          height: 220,
+          borderRadius: "50%",
+          background: "rgba(255, 255, 255, 0.08)",
+          pointerEvents: "none"
+        }} />
 
-        <Btn
-          onClick={() => setShowNewModal(true)}
-          style={{
-            background: "#fff", color: "#0c4a6e", fontWeight: 800,
-            padding: "10px 20px", borderRadius: 12, display: "flex",
-            alignItems: "center", gap: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-          }}
-        >
-          <Plus size={16} /> {t("admin_support_new_btn", "Nouvelle demande")}
-        </Btn>
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 20,
+          position: "relative",
+          zIndex: 2
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{
+              width: 58,
+              height: 58,
+              borderRadius: 18,
+              background: "rgba(255, 255, 255, 0.18)",
+              backdropFilter: "blur(8px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "rgb(255, 255, 255)"
+            }}>
+              <Shield size={32} />
+            </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 900 }}>
+                {t("admin_support_title", "الدعم الإداري والشكاوى")}
+              </h1>
+              <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 700 }}>TABIBI Support</span>
+                <span>•</span>
+                <span>{t("admin_support_subtitle", "تواصل مباشر وآمن مع إدارة منصة طبيبي")}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setShowNewModal(true)}
+              style={{
+                padding: "10px 18px",
+                borderRadius: 10,
+                fontWeight: 800,
+                fontSize: 14,
+                border: "none",
+                cursor: "pointer",
+                transition: "0.2s",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgb(255, 255, 255)",
+                color: "rgb(8, 145, 178)",
+                boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 14px"
+              }}
+            >
+              <Plus size={18} />
+              {t("admin_support_new_btn", "Nouvelle demande")}
+            </button>
+
+            <button
+              onClick={() => loadTickets(true)}
+              disabled={loading}
+              title={t("refresh", "Actualiser")}
+              style={{
+                background: "rgba(255, 255, 255, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                color: "rgb(255, 255, 255)",
+                borderRadius: 12,
+                padding: "10px 14px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "0.15s"
+              }}
+            >
+              <RefreshCw size={16} className={loading ? "spin-animation" : ""} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Main Body */}
@@ -386,7 +312,7 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
               </button>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: "#0369a1", background: "#e0f2fe", padding: "2px 8px", borderRadius: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: "#0e7490", background: "#cffafe", padding: "2px 8px", borderRadius: 8 }}>
                   #{activeTicketData.ticket.ticket_number}
                 </span>
                 <span style={{
@@ -407,7 +333,7 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                 </span>
               </div>
 
-              <h2 style={{ fontSize: 18, fontWeight: 900, color: "#0c4a6e", marginTop: 8, marginBottom: 4 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 900, color: "var(--brand-dark, #0e7490)", marginTop: 8, marginBottom: 4 }}>
                 {activeTicketData.ticket.subject}
               </h2>
               <div style={{ fontSize: 11.5, color: "#94a3b8" }}>
@@ -433,8 +359,8 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 11.5, color: "#64748b" }}>
                     {isAdmin ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0369a1", fontWeight: 800 }}>
-                        <Shield size={12} color="#0284c7" /> {t("admin_support_admin_badge", "Administration TABIBI")}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0891b2", fontWeight: 800 }}>
+                        <Shield size={12} color="#0891b2" /> {t("admin_support_admin_badge", "Administration TABIBI")}
                       </span>
                     ) : (
                       <span style={{ fontWeight: 700 }}>
@@ -450,9 +376,9 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                     borderRadius: 16,
                     fontSize: 13.5,
                     lineHeight: 1.6,
-                    background: isAdmin ? "#f0f9ff" : "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
-                    color: isAdmin ? "#0c4a6e" : "#ffffff",
-                    border: isAdmin ? "1px solid #bae6fd" : "none",
+                    background: isAdmin ? "#f0fdfa" : "linear-gradient(135deg, #0891b2 0%, #0e7490 100%)",
+                    color: isAdmin ? "#0e7490" : "#ffffff",
+                    border: isAdmin ? "1px solid #ccfbf1" : "none",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word"
@@ -533,8 +459,8 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                         background: isClosed ? "#f8fafc" : "var(--card-bg, #ffffff)",
                         borderRadius: 16,
                         padding: "18px 22px",
-                        border: isClosed ? "1px solid #cbd5e1" : (hasUnread ? "1.5px solid #0284c7" : "1px solid var(--border, #e2e8f0)"),
-                        boxShadow: isClosed ? "none" : (hasUnread ? "0 4px 16px rgba(2, 132, 199, 0.08)" : "0 2px 8px rgba(0,0,0,0.02)"),
+                        border: isClosed ? "1px solid #cbd5e1" : (hasUnread ? "1.5px solid var(--brand, #0891b2)" : "1px solid var(--border, #e2e8f0)"),
+                        boxShadow: isClosed ? "none" : (hasUnread ? "0 4px 16px rgba(8, 145, 178, 0.15)" : "0 2px 8px rgba(0,0,0,0.02)"),
                         cursor: "pointer",
                         transition: "all 0.15s ease",
                         display: "flex",
@@ -556,8 +482,8 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{
                             fontSize: 13, fontWeight: 800,
-                            color: isClosed ? "#64748b" : "#0284c7",
-                            background: isClosed ? "#e2e8f0" : "#e0f2fe",
+                            color: isClosed ? "#64748b" : "#0e7490",
+                            background: isClosed ? "#e2e8f0" : "#cffafe",
                             padding: "2px 7px", borderRadius: 6
                           }}>
                             #{tk.ticket_number}
@@ -593,14 +519,14 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                         </div>
                       </div>
 
-                      <div style={{ fontSize: 15, fontWeight: 800, color: isClosed ? "#64748b" : "#0c4a6e" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: isClosed ? "#64748b" : "var(--brand-dark, #0e7490)" }}>
                         {tk.subject}
                       </div>
 
                       {tk.last_message && (
                         <div style={{ fontSize: 12.5, color: isClosed ? "#94a3b8" : "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {tk.last_sender_type === "admin" || tk.last_sender_type === "support" ? (
-                            <strong style={{ color: isClosed ? "#64748b" : "#0284c7" }}>{t("admin_support_admin_badge", "Administration")}: </strong>
+                            <strong style={{ color: isClosed ? "#64748b" : "#0891b2" }}>{t("admin_support_admin_badge", "Administration")}: </strong>
                           ) : null}
                           {tk.last_message}
                         </div>
@@ -645,8 +571,8 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Shield size={20} color="#0284c7" />
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0c4a6e" }}>
+                <Shield size={20} color="#0891b2" />
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "var(--brand-dark, #0e7490)" }}>
                   {t("admin_support_new_btn", "Nouvelle demande à l'administration")}
                 </h3>
               </div>
@@ -882,7 +808,7 @@ export function AdminSupportBackoffice({ user, api }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
         {[
           { key: "ALL", label: t("admin_support_filter_all", "Tous"), count: counts.TOTAL, bg: "#f1f5f9", color: "#334155" },
-          { key: "OPEN", label: t("admin_support_status_open", "Ouvert"), count: counts.OPEN, bg: "#dbeafe", color: "#1e40af" },
+          { key: "OPEN", label: t("admin_support_status_open", "Ouvert"), count: counts.OPEN, bg: "#cffafe", color: "#0e7490" },
           { key: "IN_PROGRESS", label: t("admin_support_status_in_progress", "En cours"), count: counts.IN_PROGRESS, bg: "#fef3c7", color: "#92400e" },
           { key: "PENDING", label: t("admin_support_status_pending", "En attente"), count: counts.PENDING, bg: "#f3e8ff", color: "#6b21a8" },
           { key: "RESOLVED", label: t("admin_support_status_resolved", "Résolu"), count: counts.RESOLVED, bg: "#d1fae5", color: "#065f46" },
@@ -979,7 +905,7 @@ export function AdminSupportBackoffice({ user, api }) {
                   background: isClosed ? "#f8fafc" : "var(--card-bg, #ffffff)",
                   borderRadius: 14,
                   padding: "16px 20px",
-                  border: isClosed ? "1px solid #cbd5e1" : (hasUnread ? "1.5px solid #0284c7" : "1px solid var(--border, #e2e8f0)"),
+                  border: isClosed ? "1px solid #cbd5e1" : (hasUnread ? "1.5px solid var(--brand, #0891b2)" : "1px solid var(--border, #e2e8f0)"),
                   boxShadow: isClosed ? "none" : "0 2px 8px rgba(0,0,0,0.02)",
                   cursor: "pointer",
                   display: "flex",
@@ -996,8 +922,8 @@ export function AdminSupportBackoffice({ user, api }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{
                       fontSize: 12.5, fontWeight: 800,
-                      color: isClosed ? "#64748b" : "#0284c7",
-                      background: isClosed ? "#e2e8f0" : "#e0f2fe",
+                      color: isClosed ? "#64748b" : "#0e7490",
+                      background: isClosed ? "#e2e8f0" : "#cffafe",
                       padding: "2px 8px", borderRadius: 6
                     }}>
                       #{item.ticket_number}
@@ -1054,7 +980,7 @@ export function AdminSupportBackoffice({ user, api }) {
                   </div>
                 </div>
 
-                <div style={{ fontSize: 15, fontWeight: 800, color: isClosed ? "#64748b" : "#0c4a6e" }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: isClosed ? "#64748b" : "var(--brand-dark, #0e7490)" }}>
                   {item.subject}
                 </div>
 
@@ -1063,7 +989,7 @@ export function AdminSupportBackoffice({ user, api }) {
                     {item.last_sender_type === "user" ? (
                       <strong style={{ color: isClosed ? "#64748b" : "#d97706" }}>{item.requester_name || item.requester_username}: </strong>
                     ) : (
-                      <strong style={{ color: isClosed ? "#64748b" : "#0284c7" }}>Support: </strong>
+                      <strong style={{ color: isClosed ? "#64748b" : "#0891b2" }}>Support: </strong>
                     )}
                     {item.last_message}
                   </div>
@@ -1107,7 +1033,7 @@ export function AdminSupportBackoffice({ user, api }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--border)", paddingBottom: 14, marginBottom: 16 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#0284c7", background: "#e0f2fe", padding: "2px 8px", borderRadius: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#0e7490", background: "#cffafe", padding: "2px 8px", borderRadius: 6 }}>
                     #{inspectData.ticket.ticket_number}
                   </span>
                   <span style={{
@@ -1125,7 +1051,7 @@ export function AdminSupportBackoffice({ user, api }) {
                     {t(getStatusConfig(inspectData.ticket.status).labelKey, getStatusConfig(inspectData.ticket.status).defaultLabel)}
                   </span>
                 </div>
-                <h3 style={{ margin: "4px 0 2px", fontSize: 17, fontWeight: 900, color: "#0c4a6e" }}>
+                <h3 style={{ margin: "4px 0 2px", fontSize: 17, fontWeight: 900, color: "var(--brand-dark, #0e7490)" }}>
                   {inspectData.ticket.subject}
                 </h3>
               </div>
@@ -1215,7 +1141,7 @@ export function AdminSupportBackoffice({ user, api }) {
                   >
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>
                       {isAdmin ? (
-                        <strong style={{ color: "#0284c7" }}>{t("admin_support_admin_badge", "Administration")} ({msg.sender_type})</strong>
+                        <strong style={{ color: "#0891b2" }}>{t("admin_support_admin_badge", "Administration")} ({msg.sender_type})</strong>
                       ) : (
                         <strong style={{ color: "#d97706" }}>{inspectData.ticket.requester_name || inspectData.ticket.requester_username}</strong>
                       )}
@@ -1225,7 +1151,7 @@ export function AdminSupportBackoffice({ user, api }) {
 
                     <div style={{
                       padding: "10px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5,
-                      background: isAdmin ? "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)" : "#f1f5f9",
+                      background: isAdmin ? "linear-gradient(135deg, #0891b2 0%, #0e7490 100%)" : "#f1f5f9",
                       color: isAdmin ? "#fff" : "#1e293b",
                       whiteSpace: "pre-wrap", wordBreak: "break-word"
                     }}>

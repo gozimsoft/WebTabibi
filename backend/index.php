@@ -4,10 +4,50 @@
 // ============================================================
 declare(strict_types=1);
 
-header('Access-Control-Allow-Origin: *');
+// Retrait de la divulgation de version PHP
+header_remove('X-Powered-By');
+
+// ── CORS — Whitelist restrictif ─────────────────────────────
+// Origines autorisées : production + développement local + Capacitor (mobile)
+$allowedOrigins = [
+    'https://tabibi.dz',           // Production web
+    'http://tabibi.dz',            // Production HTTP (redirect)
+    'http://localhost',            // Dev local (port 80)
+    'http://localhost:80',
+    'http://localhost:81',
+    'http://localhost:82',
+    'http://localhost:5173',       // Vite dev server par défaut
+    'http://localhost:8080',
+    'http://localhost:8000',
+    'http://127.0.0.1',
+    'http://127.0.0.1:5173',
+    'capacitor://localhost',       // Capacitor iOS/Android
+    'ionic://localhost',           // Ionic
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins, true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+} else {
+    // Origine non whitelistée : on envoie Vary sans Allow-Origin (bloque CORS)
+    header('Vary: Origin');
+}
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Credentials: false');
 header('Content-Type: application/json; charset=UTF-8');
+
+// ── En-têtes de sécurité HTTP ──────────────────────────────
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
+// HSTS uniquement si HTTPS et pas sur localhost
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' && !in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'], true)) {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -314,6 +354,24 @@ try {
         ClinicController::getDoctorAtClinic($parts[1], $parts[3]);
     }
 
+    // ── Clinic Appointments (Agenda & Desk booking for clinics) ──────
+    if ($uri === '/clinic/doctors' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/ClinicAppointmentController.php';
+        ClinicAppointmentController::getDoctors();
+    }
+    if ($uri === '/clinic/appointments' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/ClinicAppointmentController.php';
+        ClinicAppointmentController::getAppointments();
+    }
+    if ($uri === '/clinic/appointments/book' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/ClinicAppointmentController.php';
+        ClinicAppointmentController::bookAppointment();
+    }
+    if (isset($parts[0]) && $parts[0] === 'clinic' && ($parts[1] ?? '') === 'appointments' && isset($parts[2]) && ($parts[3] ?? '') === 'status' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/ClinicAppointmentController.php';
+        ClinicAppointmentController::updateStatus($parts[2]);
+    }
+
     // ── Appointments ─────────────────────────────────────────
     if ($uri === '/appointments/available-slots' && $method === 'GET') {
         require_once __DIR__ . '/controllers/AppointmentController.php';
@@ -469,6 +527,37 @@ try {
             AdminController::freezeDoctor($parts[2]);
         if ($parts[3] === 'release')
             AdminController::releaseDoctor($parts[2]);
+    }
+
+    // ── SuperAdmin Account Management (usertype = 3) ────────────
+    if ($uri === '/superadmin/accounts' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/SuperAdminController.php';
+        SuperAdminController::listAccounts();
+    }
+    if ($uri === '/superadmin/accounts/stats' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/SuperAdminController.php';
+        SuperAdminController::getStats();
+    }
+    if (isset($parts[0]) && $parts[0] === 'superadmin' && ($parts[1] ?? '') === 'accounts' && isset($parts[2]) && $parts[2] !== 'stats') {
+        require_once __DIR__ . '/controllers/SuperAdminController.php';
+        $targetId = $parts[2];
+        $action   = $parts[3] ?? null;
+
+        if (!$action && $method === 'GET') {
+            SuperAdminController::getAccount($targetId);
+        } elseif (!$action && $method === 'PUT') {
+            SuperAdminController::updateAccount($targetId);
+        } elseif (!$action && $method === 'DELETE') {
+            SuperAdminController::anonymizeAccount($targetId);
+        } elseif (($action === 'toggle-status' || $action === 'status') && in_array($method, ['POST', 'PUT'])) {
+            SuperAdminController::toggleStatus($targetId);
+        } elseif ($action === 'invalidate-sessions' && $method === 'POST') {
+            SuperAdminController::invalidateSessions($targetId);
+        } elseif ($action === 'reset-password' && $method === 'POST') {
+            SuperAdminController::resetPassword($targetId);
+        } elseif ($action === 'anonymize' && in_array($method, ['POST', 'DELETE'])) {
+            SuperAdminController::anonymizeAccount($targetId);
+        }
     }
 
     // ── Relations (Clinic-Doctor requests) ──────────────────────

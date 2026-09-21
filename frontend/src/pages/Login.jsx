@@ -8,6 +8,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
   const { show, Toast } = useToast();
   const [form, setForm] = useState({ username: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
   const googleBtnRef = React.useRef(null);
@@ -229,9 +230,27 @@ export default function LoginPage({ onLogin, onGoogleLogin, navigate }) {
                   placeholder={(localStorage.getItem("i18nextLng")?.startsWith("ar") ? "ar" : "fr") === "ar" ? "اسم المستخدم، الإيميل، أو 05..." : "Utilisateur, Email, ou Téléphone..."} 
                   required 
                 />
-                <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
+                <Input
+                  label={t("password")}
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  placeholder="••••••••"
+                  required
+                />
                 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: "-8px", marginBottom: "16px" }}>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--text-secondary)", userSelect: "none" }}>
+                    <input
+                      type="checkbox"
+                      id="login_page_show_password_check"
+                      checked={showPassword}
+                      onChange={e => setShowPassword(e.target.checked)}
+                      style={{ width: 15, height: 15, accentColor: "var(--brand)", cursor: "pointer" }}
+                    />
+                    <span>{showPassword ? t("hide_password", "Masquer le mot de passe") : t("show_password", "Afficher le mot de passe")}</span>
+                  </label>
+
                   <button 
                     type="button" 
                     onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }} 

@@ -11,7 +11,7 @@ import { Card, Btn, Spinner, DoctorImage, VerifiedBadge } from "./SharedUI";
 import QuickAppointmentModal from "./QuickAppointmentModal";
 
 const STATUS_CONFIG = {
-  0: { labelFr: "Confirmé", labelAr: "مؤكد", labelEn: "Confirmed", bg: "#e0f2fe", color: "#0369a1" },
+  0: { labelFr: "Confirmé", labelAr: "مؤكد", labelEn: "Confirmed", bg: "#cffafe", color: "#0891b2" },
   1: { labelFr: "Annulé", labelAr: "ملغي", labelEn: "Cancelled", bg: "#fee2e2", color: "#991b1b" },
   2: { labelFr: "Terminé", labelAr: "مكتمل", labelEn: "Completed", bg: "#d1fae5", color: "#065f46" },
 };
@@ -146,11 +146,11 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
       {/* ── State 1: No Attending Doctor Assigned ── */}
       {!doctor ? (
         <Card style={{
-          border: "1.5px dashed #0284c7",
-          background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
+          border: "1.5px dashed #0891b2",
+          background: "linear-gradient(135deg, #f0fdfa, #ecfeff)",
           padding: 24,
           borderRadius: 20,
-          boxShadow: "0 4px 16px rgba(2, 132, 199, 0.06)"
+          boxShadow: "0 4px 16px rgba(8, 145, 178, 0.08)"
         }}>
           <div style={{
             display: "flex",
@@ -164,19 +164,19 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                 width: 54,
                 height: 54,
                 borderRadius: 16,
-                background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                background: "linear-gradient(135deg, #0891b2, #0e7490)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#ffffff",
-                boxShadow: "0 6px 16px rgba(2, 132, 199, 0.25)"
+                boxShadow: "0 6px 16px rgba(8, 145, 178, 0.25)"
               }}>
                 <Stethoscope size={28} />
               </div>
 
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "#0c4a6e" }}>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "var(--brand-dark, #0e7490)" }}>
                     {t("attending_doctor_title", "طبيبي المعالج")}
                   </h3>
                   <span style={{
@@ -184,13 +184,13 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                     fontWeight: 700,
                     padding: "2px 8px",
                     borderRadius: 12,
-                    background: "#e0f2fe",
-                    color: "#0369a1"
+                    background: "#cffafe",
+                    color: "#0891b2"
                   }}>
                     {t("no_attending_doctor", "غير محدد")}
                   </span>
                 </div>
-                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#0369a1", maxWidth: 500, lineHeight: 1.4 }}>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#475569", maxWidth: 500, lineHeight: 1.4 }}>
                   {t(
                     "no_attending_doctor_desc",
                     "عيّن طبيباً معالجاً لتسهيل حجز المواعيد السريعة ومتابعة ملفك الصحي بكل سهولة."
@@ -209,8 +209,8 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                background: "linear-gradient(135deg, #0284c7, #0369a1)",
-                boxShadow: "0 4px 14px rgba(2, 132, 199, 0.3)"
+                background: "linear-gradient(135deg, #0891b2, #0e7490)",
+                boxShadow: "0 4px 14px rgba(8, 145, 178, 0.3)"
               }}
             >
               <Plus size={16} />
@@ -243,7 +243,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                background: "#0284c7",
+                background: "#0891b2",
                 color: "#fff",
                 display: "flex",
                 alignItems: "center",
@@ -251,14 +251,14 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
               }}>
                 <UserCheck size={16} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 900, color: "#0c4a6e" }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: "var(--brand-dark, #0e7490)" }}>
                 {t("attending_doctor_title", "طبيبي المعالج")}
               </span>
               <span style={{
                 fontSize: 11,
                 fontWeight: 700,
-                background: "rgba(2, 132, 199, 0.12)",
-                color: "#0284c7",
+                background: "rgba(8, 145, 178, 0.12)",
+                color: "#0891b2",
                 padding: "2px 8px",
                 borderRadius: 10
               }}>
@@ -273,7 +273,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "#0284c7",
+                  color: "#0891b2",
                   fontSize: 12,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -333,7 +333,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
 
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0c4a6e" }}>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "var(--brand-dark, #0e7490)" }}>
                       {doctor.fullname}
                     </h3>
                     <VerifiedBadge verified={true} />
@@ -344,7 +344,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                       display: "inline-block",
                       fontSize: 12,
                       fontWeight: 700,
-                      color: "#0284c7",
+                      color: "#0891b2",
                       marginTop: 2
                     }}>
                       {specialtyName}
@@ -390,8 +390,8 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 8,
-                    background: "linear-gradient(135deg, #0284c7, #0369a1)",
-                    boxShadow: "0 4px 14px rgba(2, 132, 199, 0.3)"
+                    background: "linear-gradient(135deg, #0891b2, #0e7490)",
+                    boxShadow: "0 4px 14px rgba(8, 145, 178, 0.3)"
                   }}
                 >
                   <Zap size={16} fill="#fef08a" color="#fef08a" />
@@ -417,11 +417,11 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                     transition: "all 0.15s"
                   }}
                 >
-                  <History size={16} color="#0284c7" />
+                  <History size={16} color="#0891b2" />
                   {t("attending_doctor_history_title", "سجل الزيارات")}
                   {history.length > 0 && (
                     <span style={{
-                      background: "#0284c7",
+                      background: "#0891b2",
                       color: "#ffffff",
                       fontSize: 11,
                       fontWeight: 800,
@@ -451,7 +451,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                   marginBottom: 12
                 }}>
                   <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#334155", display: "flex", alignItems: "center", gap: 6 }}>
-                    <Calendar size={15} color="#0284c7" />
+                    <Calendar size={15} color="#0891b2" />
                     {t("attending_doctor_history_title", "سجل الاستشارات والمواعيد مع الطبيب")}
                   </h4>
                   <button
@@ -527,7 +527,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                           <div>
                             <div style={{ fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: 6 }}>
                               <span>{dateStr}</span>
-                              {timeStr && <span style={{ color: "#0284c7" }}>• {timeStr}</span>}
+                              {timeStr && <span style={{ color: "#0891b2" }}>• {timeStr}</span>}
                             </div>
                             <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                               {item.reason_name && <span style={{ fontWeight: 600 }}>{item.reason_name}</span>}
@@ -600,7 +600,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
             {/* Modal Header */}
             <div style={{
               padding: "18px 22px",
-              background: "linear-gradient(135deg, #0284c7, #0c4a6e)",
+              background: "linear-gradient(135deg, #0891b2, #0e7490)",
               color: "#ffffff",
               display: "flex",
               alignItems: "center",
@@ -691,8 +691,8 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                           justifyContent: "space-between",
                           padding: 12,
                           borderRadius: 14,
-                          border: isSelected ? "2px solid #0284c7" : "1px solid #e2e8f0",
-                          background: isSelected ? "#f0f9ff" : "#ffffff",
+                          border: isSelected ? "2px solid #0891b2" : "1px solid #e2e8f0",
+                          background: isSelected ? "#ecfeff" : "#ffffff",
                           transition: "all 0.15s"
                         }}
                       >
@@ -701,10 +701,10 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                             <DoctorImage doctor={d} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           </div>
                           <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: "#0c4a6e" }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--brand-dark, #0e7490)" }}>
                               {d.fullname}
                             </div>
-                            {spec && <div style={{ fontSize: 12, color: "#0284c7", fontWeight: 600 }}>{spec}</div>}
+                            {spec && <div style={{ fontSize: 12, color: "#0891b2", fontWeight: 600 }}>{spec}</div>}
                             {d.primary_clinic && (
                               <div style={{ fontSize: 11, color: "#64748b" }}>
                                 {d.primary_clinic}
@@ -718,8 +718,8 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                             <span style={{
                               fontSize: 11,
                               fontWeight: 800,
-                              color: "#0284c7",
-                              background: "#e0f2fe",
+                              color: "#0891b2",
+                              background: "#cffafe",
                               padding: "4px 8px",
                               borderRadius: 8
                             }}>
@@ -736,7 +736,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                                 fontWeight: 800,
                                 borderRadius: 10,
                                 border: "none",
-                                background: "#0284c7",
+                                background: "#0891b2",
                                 color: "#ffffff",
                                 cursor: "pointer",
                                 display: "flex",

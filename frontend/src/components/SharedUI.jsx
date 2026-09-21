@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Spinner = ({ size = 24 }) => (
   <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
@@ -258,3 +258,152 @@ export const Btn = ({ children, variant = "primary", style = {}, loading: ld, di
     </button>
   );
 };
+
+export function SmartPaginationBar({
+  page,
+  setPage,
+  limit,
+  setLimit,
+  totalItems,
+  totalPages,
+  limitOptions = [10, 20, 50, 100],
+  isRtl = false,
+  t = (k, def) => def
+}) {
+  if (totalItems <= 0) return null;
+  const from = Math.min(((page - 1) * limit) + 1, totalItems);
+  const to = Math.min(page * limit, totalItems);
+
+  return (
+    <div className="no-print" style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      flexWrap: "wrap", gap: 12, marginTop: 16, padding: "12px 18px",
+      background: "var(--card-bg, #ffffff)", borderRadius: 16,
+      border: "1px solid var(--border, #e2e8f0)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
+    }}>
+      {/* Range and Limit info */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+          {t("admin_pagination_range", {
+            from,
+            to,
+            total: totalItems,
+            defaultValue: `Affichage de ${from} à ${to} sur un total de ${totalItems} enregistrements`
+          })}
+        </div>
+
+        {setLimit && limitOptions && limitOptions.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+            <span>{t("admin_pagination_per_page", "Par page")}:</span>
+            <select
+              value={limit}
+              onChange={e => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              style={{
+                padding: "4px 8px", borderRadius: 8, border: "1px solid var(--border, #cbd5e1)",
+                background: "var(--bg, #f8fafc)", fontSize: 12, fontWeight: 700, color: "#334155", outline: "none",
+                cursor: "pointer"
+              }}
+            >
+              {limitOptions.map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Buttons */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setPage(1)}
+            disabled={page <= 1}
+            style={{
+              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
+              background: "var(--bg, #f8fafc)", fontSize: 11, fontWeight: 800,
+              cursor: page <= 1 ? "not-allowed" : "pointer",
+              opacity: page <= 1 ? 0.4 : 1, color: "#475569"
+            }}
+          >
+            {t("admin_pagination_first", "Première")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            style={{
+              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
+              background: "var(--bg, #f8fafc)", fontSize: 12, fontWeight: 800,
+              cursor: page <= 1 ? "not-allowed" : "pointer",
+              opacity: page <= 1 ? 0.4 : 1, color: "#475569", display: "flex", alignItems: "center", gap: 4
+            }}
+          >
+            {isRtl ? <ChevronRight size={14} /> : <ChevronLeft size={14} />} {t("admin_pagination_prev", "Précédent")}
+          </button>
+
+          {/* Page Number Buttons Window */}
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || (p >= page - 2 && p <= page + 2))
+            .map((p, idx, arr) => {
+              const prevP = arr[idx - 1];
+              const showEllipsis = prevP && p - prevP > 1;
+              const isActive = page === p;
+              return (
+                <React.Fragment key={p}>
+                  {showEllipsis && <span style={{ padding: "0 4px", color: "#94a3b8", fontSize: 12 }}>…</span>}
+                  <button
+                    type="button"
+                    onClick={() => setPage(p)}
+                    style={{
+                      minWidth: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
+                      background: isActive ? "var(--brand, #0891b2)" : "var(--bg, #f8fafc)",
+                      color: isActive ? "#ffffff" : "#334155",
+                      fontWeight: 800, fontSize: 12,
+                      boxShadow: isActive ? "0 2px 8px rgba(8,145,178,0.3)" : "none"
+                    }}
+                  >
+                    {p}
+                  </button>
+                </React.Fragment>
+              );
+            })}
+
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            style={{
+              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
+              background: "var(--bg, #f8fafc)", fontSize: 12, fontWeight: 800,
+              cursor: page >= totalPages ? "not-allowed" : "pointer",
+              opacity: page >= totalPages ? 0.4 : 1, color: "#475569", display: "flex", alignItems: "center", gap: 4
+            }}
+          >
+            {t("admin_pagination_next", "Suivant")} {isRtl ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPage(totalPages)}
+            disabled={page >= totalPages}
+            style={{
+              padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)",
+              background: "var(--bg, #f8fafc)", fontSize: 11, fontWeight: 800,
+              cursor: page >= totalPages ? "not-allowed" : "pointer",
+              opacity: page >= totalPages ? 0.4 : 1, color: "#475569"
+            }}
+          >
+            {t("admin_pagination_last", "Dernière")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -179,7 +179,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
         {/* Header with Doctor Summary */}
         <div style={{
           padding: "20px 24px",
-          background: "linear-gradient(135deg, #0284c7, #0c4a6e)",
+          background: "linear-gradient(135deg, #0891b2, #0e7490)",
           color: "#ffffff",
           display: "flex",
           alignItems: "center",
@@ -252,7 +252,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
             {clinics.length > 1 && (
               <div style={{ marginBottom: 18 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                  <Building2 size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0284c7" }} />
+                  <Building2 size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0891b2" }} />
                   {t("select_clinic_label", "العيادة")}
                 </label>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
@@ -266,14 +266,14 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
                         style={{
                           padding: "10px 12px",
                           borderRadius: 12,
-                          border: isSelected ? "2px solid #0284c7" : "1.5px solid #e2e8f0",
-                          background: isSelected ? "#f0f9ff" : "#ffffff",
+                          border: isSelected ? "2px solid #0891b2" : "1.5px solid #e2e8f0",
+                          background: isSelected ? "#ecfeff" : "#ffffff",
                           textAlign: isRtl ? "right" : "left",
                           cursor: "pointer",
                           transition: "all 0.15s"
                         }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 800, color: isSelected ? "#0284c7" : "#334155" }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: isSelected ? "#0891b2" : "#334155" }}>
                           {c.clinicname}
                         </div>
                         {c.address && (
@@ -292,7 +292,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
             {reasons.length > 0 && (
               <div style={{ marginBottom: 18 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                  <Stethoscope size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0284c7" }} />
+                  <Stethoscope size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0891b2" }} />
                   {t("select_reason_label", "سبب الاستشارة")}
                 </label>
                 <select
@@ -322,7 +322,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
             {/* 3. Date Selection Strip */}
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
-                <Calendar size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0284c7" }} />
+                <Calendar size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0891b2" }} />
                 {t("select_date_label", "تاريخ الموعد")}
               </label>
 
@@ -344,15 +344,15 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
                         minWidth: 70,
                         padding: "10px 8px",
                         borderRadius: 14,
-                        border: isSelected ? "2px solid #0284c7" : "1.5px solid #e2e8f0",
-                        background: isSelected ? "linear-gradient(135deg, #0284c7, #0369a1)" : "#f8fafc",
+                        border: isSelected ? "2px solid #0891b2" : "1.5px solid #e2e8f0",
+                        background: isSelected ? "linear-gradient(135deg, #0891b2, #0e7490)" : "#f8fafc",
                         color: isSelected ? "#ffffff" : "#334155",
                         cursor: "pointer",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
                         transition: "all 0.15s ease",
-                        boxShadow: isSelected ? "0 4px 12px rgba(2, 132, 199, 0.25)" : "none"
+                        boxShadow: isSelected ? "0 4px 12px rgba(8, 145, 178, 0.25)" : "none"
                       }}
                     >
                       <span style={{ fontSize: 11, fontWeight: 700, opacity: isSelected ? 0.9 : 0.7 }}>
@@ -373,7 +373,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
             {/* 4. Time Slots Grid */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
-                <Clock size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0284c7" }} />
+                <Clock size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0891b2" }} />
                 {t("select_slot_label", "الوقت المتاح")}
               </label>
 
@@ -413,14 +413,14 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
                         style={{
                           padding: "8px 6px",
                           borderRadius: 10,
-                          border: isSelected ? "2px solid #0284c7" : "1.5px solid #e2e8f0",
-                          background: isSelected ? "#0284c7" : "#ffffff",
+                          border: isSelected ? "2px solid #0891b2" : "1.5px solid #e2e8f0",
+                          background: isSelected ? "#0891b2" : "#ffffff",
                           color: isSelected ? "#ffffff" : "#1e293b",
                           fontWeight: isSelected ? 900 : 700,
                           fontSize: 13,
                           cursor: "pointer",
                           transition: "all 0.15s ease",
-                          boxShadow: isSelected ? "0 2px 8px rgba(2, 132, 199, 0.2)" : "none"
+                          boxShadow: isSelected ? "0 2px 8px rgba(8, 145, 178, 0.2)" : "none"
                         }}
                       >
                         {s}
@@ -434,7 +434,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
             {/* 5. Optional Note */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                <FileText size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0284c7" }} />
+                <FileText size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6, color: "#0891b2" }} />
                 {t("note_optional", "ملاحظة أو أعراض (اختياري)")}
               </label>
               <input
@@ -476,7 +476,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
                   style={{
                     width: 18,
                     height: 18,
-                    accentColor: "#0284c7",
+                    accentColor: "#0891b2",
                     cursor: "pointer",
                     marginTop: 2,
                     flexShrink: 0
@@ -505,8 +505,8 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  background: (!consentHealth || !selectedSlot) ? "#94a3b8" : "linear-gradient(135deg, #0284c7, #0369a1)",
-                  boxShadow: (!consentHealth || !selectedSlot) ? "none" : "0 4px 14px rgba(2, 132, 199, 0.3)"
+                  background: (!consentHealth || !selectedSlot) ? "#94a3b8" : "linear-gradient(135deg, #0891b2, #0e7490)",
+                  boxShadow: (!consentHealth || !selectedSlot) ? "none" : "0 4px 14px rgba(8, 145, 178, 0.3)"
                 }}
               >
                 {booking ? <Spinner size={16} /> : <Zap size={16} fill="#fff" />}

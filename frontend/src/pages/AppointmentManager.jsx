@@ -90,7 +90,7 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#0ea5e9,#0284c7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Plus size={22} color="#fff" />
             </div>
             <div>
@@ -211,7 +211,7 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
               disabled={saving || loadingClinics || clinics.length === 0}
               style={{
                 flex: 2, padding: "12px", borderRadius: 14, border: "none",
-                background: saving ? "var(--text-muted, #94a3b8)" : "linear-gradient(135deg,#0ea5e9,#0284c7)",
+                background: saving ? "var(--text-muted, #94a3b8)" : "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))",
                 color: "#fff", fontWeight: 800, fontSize: 14, cursor: saving ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 transition: "opacity 0.2s",
@@ -305,7 +305,7 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
   return (
     <div style={{ background: "var(--card-bg, #fff)", borderRadius: 24, overflow: "hidden", boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.06))", border: "1px solid var(--border, transparent)" }}>
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg,#0ea5e9,#0284c7)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <button onClick={prevWeek} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
           {isRtl ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
@@ -338,10 +338,10 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
               const dayIndex = (jsDay + 6) % 7; // 0=Mon..6=Sun matching Delphi workingdays
               const isWorking = workingStr[dayIndex] === "1";
               return (
-                <div key={i} style={{ padding: "10px 6px", textAlign: "center", borderRight: "1px solid var(--border, #f1f5f9)", background: isToday ? "var(--brand-light, #f0f9ff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? "var(--brand, #0284c7)" : "var(--text-secondary, #64748b)" }}>{t(DAYS_KEYS[jsDay])}</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: isToday ? "var(--brand, #0284c7)" : "var(--text-main, #334155)", marginTop: 2 }}>{d.getDate()}</div>
-                  {isToday && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand, #0284c7)", margin: "4px auto 0" }} />}
+                <div key={i} style={{ padding: "10px 6px", textAlign: "center", borderRight: "1px solid var(--border, #f1f5f9)", background: isToday ? "var(--brand-light, #ecfeff)" : !isWorking ? "var(--input-bg, #fafafa)" : "var(--card-bg, #fff)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)" }}>{t(DAYS_KEYS[jsDay])}</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: isToday ? "var(--brand, #0891b2)" : "var(--text-main, #334155)", marginTop: 2 }}>{d.getDate()}</div>
+                  {isToday && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand, #0891b2)", margin: "4px auto 0" }} />}
                 </div>
               );
             })}
@@ -523,7 +523,7 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
             );
           })}
         </div>
-        <button onClick={onAddNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+        <button onClick={onAddNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
           <Plus size={13} /> {t("appt_mgr_new_appointment")}
         </button>
       </div>
@@ -535,6 +535,7 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function AppointmentManager({ navigate, user }) {
   const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === "ar";
   const { show, Toast } = useToast();
 
   const [appointments, setAppointments] = useState([]);
@@ -667,24 +668,20 @@ export default function AppointmentManager({ navigate, user }) {
   };
 
   const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false) => {
+    if (user?.user_type !== 1) return;
     if (!silent) {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
     }
     try {
-      let data = [];
-      if (user?.user_type === 1) {
-        const params = clinicId !== "all" ? { clinic_id: clinicId } : {};
-        const res = await api.doctor.getForManager(params);
-        data = res.appointments || [];
-        if (res.settings) {
-          setScheduleSettings(prev => {
-            if (JSON.stringify(prev) === JSON.stringify(res.settings)) return prev;
-            return res.settings;
-          });
-        }
-      } else {
-        if (!silent) show(t("appt_mgr_clinic_dev"), "error");
+      const params = clinicId !== "all" ? { clinic_id: clinicId } : {};
+      const res = await api.doctor.getForManager(params);
+      const data = res.appointments || [];
+      if (res.settings) {
+        setScheduleSettings(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(res.settings)) return prev;
+          return res.settings;
+        });
       }
       const incoming = Array.isArray(data) ? data : [];
       setAppointments(prev => {
@@ -704,6 +701,7 @@ export default function AppointmentManager({ navigate, user }) {
   };
 
   useEffect(() => {
+    if (user?.user_type !== 1) return;
     api.doctor.getProfile()
       .then(res => {
         const docClinics = res.clinics || [];
@@ -717,7 +715,7 @@ export default function AppointmentManager({ navigate, user }) {
       .catch(() => {
         fetchAppointments(false, "all");
       });
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (selectedClinicId) {
@@ -889,12 +887,143 @@ export default function AppointmentManager({ navigate, user }) {
     borderRadius: 24,
   };
 
+  if (user?.user_type === 2) {
+    return (
+      <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px", direction: i18n.language === "ar" ? "rtl" : "ltr" }}>
+        <div style={{ ...glassPanel, maxWidth: 520, width: "100%", padding: "40px 32px", textAlign: "center" }}>
+          <div style={{ width: 68, height: 68, borderRadius: 22, background: "rgba(8,145,178,0.1)", color: "var(--brand, #0891b2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+            <Calendar size={34} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main)", marginBottom: 12 }}>
+            {t("appt_mgr_clinic_dev", "L'interface de la clinique est en cours de développement")}
+          </h2>
+          <p style={{ fontSize: 14, color: "var(--text-secondary, #64748b)", lineHeight: 1.7, marginBottom: 28 }}>
+            {i18n.language === "ar"
+              ? "لوحة إدارة المواعيد الحالية مخصصة للأطباء. بصفتك عيادة، يمكنك حالياً إدارة الأطباء المرتبطين بعيادتك ومتابعة طلبات الانضمام عبر صفحة طلبات الانضمام."
+              : "Le gestionnaire de rendez-vous actuel est dédié aux médecins. En tant que clinique, vous pouvez gérer les médecins rattachés et les demandes d'adhésion via la page dédiée."}
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Btn variant="primary" onClick={() => navigate("/requests")}>
+              {t("join_requests", "طلبات الانضمام")}
+            </Btn>
+            <Btn variant="secondary" onClick={() => navigate("/")}>
+              {t("home", "الرئيسية")}
+            </Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ minHeight: "100vh", background: "var(--appt-manager-bg, linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%))", padding: "32px 24px", paddingBottom: 100 }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg, #f8fafc)", padding: "32px 24px", paddingBottom: 100 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
         {/* Fullscreen Wrapper */}
         <div id="appt-manager-fullscreen-container" style={{ display: "flex", flexDirection: "column" }}>
+
+          {/* ── HEADER BANNER ── */}
+          <div className="no-print" style={{
+            background: "linear-gradient(135deg, rgb(14, 116, 144) 0%, rgb(8, 145, 178) 100%)",
+            borderRadius: 24,
+            padding: "28px 32px",
+            color: "rgb(255, 255, 255)",
+            marginBottom: 24,
+            boxShadow: "rgba(8, 145, 178, 0.25) 0px 10px 30px -5px",
+            position: "relative",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              position: "absolute",
+              top: -40,
+              [isRtl ? "left" : "right"]: -40,
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              background: "rgba(255, 255, 255, 0.08)",
+              pointerEvents: "none"
+            }} />
+
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 20,
+              position: "relative",
+              zIndex: 2
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{
+                  width: 58,
+                  height: 58,
+                  borderRadius: 18,
+                  background: "rgba(255, 255, 255, 0.18)",
+                  backdropFilter: "blur(8px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "rgb(255, 255, 255)"
+                }}>
+                  <Calendar size={32} />
+                </div>
+                <div>
+                  <h1 style={{ margin: 0, fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 900 }}>
+                    {t("appt_mgr_title", "Gestionnaire de Rendez-vous")}
+                  </h1>
+                  <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 700 }}>{user?.fullname || user?.username}</span>
+                    <span>•</span>
+                    <span>{t("appt_mgr_subtitle", "Planning des consultations et suivi des patients")}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setShowModal(true)}
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: 10,
+                    fontWeight: 800,
+                    fontSize: 14,
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: "rgb(255, 255, 255)",
+                    color: "rgb(8, 145, 178)",
+                    boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 14px"
+                  }}
+                >
+                  <Plus size={18} />
+                  {t("appt_mgr_new_appointment", "Nouveau RDV")}
+                </button>
+
+                <button
+                  onClick={() => fetchAppointments(true)}
+                  disabled={refreshing || loading}
+                  title={t("refresh", "Actualiser")}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.15)",
+                    border: "1px solid rgba(255, 255, 255, 0.25)",
+                    color: "rgb(255, 255, 255)",
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "0.15s"
+                  }}
+                >
+                  <RefreshCw size={16} className={refreshing ? "spin-anim" : ""} />
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Merged Header & Filters Card */}
           <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24, direction: i18n.language === "ar" ? "rtl" : "ltr" }}>
@@ -915,11 +1044,11 @@ export default function AppointmentManager({ navigate, user }) {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: "var(--brand-light, #e0f2fe)",
+                  background: "var(--brand-light, #ecfeff)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "var(--brand, #0284c7)"
+                  color: "var(--brand, #0891b2)"
                 }}>
                   <Calendar size={20} />
                 </div>
@@ -945,9 +1074,9 @@ export default function AppointmentManager({ navigate, user }) {
                     gap: 8,
                     padding: "8px 16px",
                     borderRadius: 12,
-                    border: showStats ? "1px solid var(--brand, #0284c7)" : "1px solid var(--border, #bae6fd)",
-                    background: showStats ? "linear-gradient(135deg, #f0f9ff, #e0f2fe)" : "var(--card-bg, #fff)",
-                    color: "var(--brand, #0284c7)",
+                    border: showStats ? "1px solid var(--brand, #0891b2)" : "1px solid var(--border, #cffafe)",
+                    background: showStats ? "linear-gradient(135deg, #f0fdfa, #ecfeff)" : "var(--card-bg, #fff)",
+                    color: "var(--brand, #0891b2)",
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -972,11 +1101,11 @@ export default function AppointmentManager({ navigate, user }) {
                     borderRadius: 12,
                     border: "none",
                     cursor: "pointer",
-                    background: "linear-gradient(135deg, rgb(14, 165, 233), rgb(2, 132, 199))",
+                    background: "linear-gradient(135deg, var(--brand, #0891b2), var(--brand-dark, #0e7490))",
                     color: "rgb(255, 255, 255)",
                     fontWeight: 800,
                     fontSize: 13,
-                    boxShadow: "rgba(2, 132, 199, 0.2) 0px 4px 12px",
+                    boxShadow: "rgba(8, 145, 178, 0.25) 0px 4px 12px",
                     transition: "transform 0.15s"
                   }}
                   onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
@@ -998,11 +1127,11 @@ export default function AppointmentManager({ navigate, user }) {
                     borderRadius: 12,
                     fontWeight: 700,
                     fontSize: 13,
-                    border: "1px solid var(--border, #bae6fd)",
+                    border: "1px solid var(--border, #cffafe)",
                     cursor: "pointer",
                     transition: "all 0.2s",
                     background: "var(--card-bg, #fff)",
-                    color: "var(--brand, #0284c7)",
+                    color: "var(--brand, #0891b2)",
                     boxShadow: "rgba(8, 145, 178, 0.1) 0px 2px 8px"
                   }}
                 >
@@ -1016,7 +1145,7 @@ export default function AppointmentManager({ navigate, user }) {
             {showStats && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))" }}>
                 {[
-                  { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={20} />, color: "var(--stat-total-text, #0284c7)", bg: "var(--stat-total-bg, linear-gradient(135deg,#e0f2fe,#bae6fd))" },
+                  { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={20} />, color: "var(--stat-total-text, #0891b2)", bg: "var(--stat-total-bg, linear-gradient(135deg,#cffafe,#a5f3fc))" },
                   { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={20} />, color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
                   { title: t("appt_mgr_completed"), count: stats.done, icon: <CheckCircle size={20} />, color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
                   { title: t("appt_mgr_cancelled"), count: stats.cancelled, icon: <XCircle size={20} />, color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
@@ -1052,10 +1181,10 @@ export default function AppointmentManager({ navigate, user }) {
                       style={{
                         padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700,
                         border: active ? "none" : "1.5px solid var(--border, #e2e8f0)",
-                        background: active ? "linear-gradient(135deg,#0ea5e9,#0284c7)" : "var(--card-bg, #fff)",
+                        background: active ? "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))" : "var(--card-bg, #fff)",
                         color: active ? "#fff" : "var(--text-secondary, #475569)",
                         cursor: "pointer",
-                        boxShadow: active ? "var(--shadow-brand, 0 4px 12px rgba(2,132,199,0.25))" : "none",
+                        boxShadow: active ? "var(--shadow-brand, 0 4px 12px rgba(8,145,178,0.25))" : "none",
                         transition: "all 0.18s",
                       }}
                     >{label}</button>
@@ -1071,7 +1200,7 @@ export default function AppointmentManager({ navigate, user }) {
                       display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
                       borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
                       background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
-                      color: viewMode === key ? "var(--brand, #0284c7)" : "var(--text-secondary, #64748b)",
+                      color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
                       boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
                       transition: "all 0.18s",
                     }}><Icon size={16} />{label}</button>
@@ -1097,8 +1226,8 @@ export default function AppointmentManager({ navigate, user }) {
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               {/* Clinic Filter */}
               {clinics.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "var(--brand-light, #f0f9ff)" : "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid var(--brand, #bae6fd)" : "1px solid var(--border, #e2e8f0)" }}>
-                  <MapPin size={16} color={selectedClinicId !== "all" ? "var(--brand, #0284c7)" : "var(--text-muted, #94a3b8)"} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "var(--brand-light, #ecfeff)" : "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid var(--brand, #cffafe)" : "1px solid var(--border, #e2e8f0)" }}>
+                  <MapPin size={16} color={selectedClinicId !== "all" ? "var(--brand, #0891b2)" : "var(--text-muted, #94a3b8)"} />
                   <select
                     value={selectedClinicId}
                     onChange={e => setSelectedClinicId(e.target.value)}
@@ -1142,7 +1271,7 @@ export default function AppointmentManager({ navigate, user }) {
 
               {/* Sort Selector */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
-                <ArrowUpDown size={15} color="var(--brand, #0284c7)" />
+                <ArrowUpDown size={15} color="var(--brand, #0891b2)" />
                 <select
                   value={sortBy}
                   onChange={e => { setSortBy(e.target.value); localStorage.setItem("tabibi_appt_sort_by", e.target.value); }}
@@ -1161,7 +1290,7 @@ export default function AppointmentManager({ navigate, user }) {
             <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               {/* Date range */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "7px 12px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)", flexShrink: 0 }}>
-                <Calendar size={15} color="var(--brand, #0284c7)" />
+                <Calendar size={15} color="var(--brand, #0891b2)" />
                 <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
                 <input
                   type="date"
@@ -1191,11 +1320,11 @@ export default function AppointmentManager({ navigate, user }) {
               {/* Active filters summary */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "4px 10px", borderRadius: 20 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20 }}>
                   {filtered.length} {t("appt_mgr_appointments_count")}
                 </span>
                 {selectedClinicId !== "all" && (
-                  <span style={{ fontSize: 12, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
                     <MapPin size={11} />
                     {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
                   </span>
@@ -1227,7 +1356,7 @@ export default function AppointmentManager({ navigate, user }) {
               <Calendar size={64} color="var(--text-muted, #cbd5e1)" style={{ marginBottom: 16 }} />
               <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>{t("appt_mgr_no_appointments")}</h3>
               <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>{t("appt_mgr_no_appointments_desc")}</p>
-              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <Plus size={16} /> {t("appt_mgr_register_first_appt")}
               </button>
             </div>
@@ -1272,7 +1401,7 @@ export default function AppointmentManager({ navigate, user }) {
                       justifyContent: "space-between"
                     }}
                   >
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,#0ea5e9,var(--brand, #0284c7))" }} />
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))" }} />
 
                     <div>
                       {/* Top row: Avatar + Patient info + Status Badge */}
@@ -1282,8 +1411,8 @@ export default function AppointmentManager({ navigate, user }) {
                             width: 32,
                             height: 32,
                             borderRadius: 9,
-                            background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #e0f2fe)",
-                            color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0284c7)",
+                            background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #ecfeff)",
+                            color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0891b2)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1327,12 +1456,12 @@ export default function AppointmentManager({ navigate, user }) {
                         {/* Date and Time on a unified row */}
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--text-main, #334155)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden" }}>
-                            <Calendar size={12} color="var(--brand, #0284c7)" style={{ flexShrink: 0 }} />
+                            <Calendar size={12} color="var(--brand, #0891b2)" style={{ flexShrink: 0 }} />
                             <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {formattedDate}
                             </span>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--brand, #0284c7)", background: "var(--brand-light, #e0f2fe)", padding: "1px 6px", borderRadius: 5, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "1px 6px", borderRadius: 5, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
                             <Clock size={10} />
                             <span>{formattedTime}</span>
                           </div>

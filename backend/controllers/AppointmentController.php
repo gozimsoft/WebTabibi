@@ -439,12 +439,7 @@ class AppointmentController
         Response::success([
             'date' => $date,
             'slots' => $available,
-            'timescale' => $timescale,
-            'debug' => [
-                'total_slots' => count($slots),
-                'booked_found' => count($booked),
-                'available_count' => count($available)
-            ]
+            'timescale' => $timescale
         ]);
     }
 

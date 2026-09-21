@@ -156,9 +156,45 @@ class DoctorController {
             Response::error('حدث خطأ أثناء تحميل الصورة.', 400);
         }
 
-        $fileContent = file_get_contents($_FILES['photo']['tmp_name']);
-        if (!$fileContent) {
+        $file = $_FILES['photo'];
+        $maxSize = 5 * 1024 * 1024; // 5 MB
+
+        // 1. Fichier vide ou non uploadé via HTTP POST
+        if (empty($file['tmp_name']) || (int)$file['size'] === 0 || !is_uploaded_file($file['tmp_name'])) {
             Response::error('الملف فارغ أو غير صالح.', 400);
+        }
+
+        // 2. Taille maximale (5 MB)
+        if ($file['size'] > $maxSize) {
+            Response::error('الملف يتجاوز الحد الأقصى المسموح به للحجم وهو 5 ميجابايت.', 400);
+        }
+
+        // 3. Extension de fichier autorisée
+        $extension = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (!in_array($extension, $allowedExtensions, true)) {
+            Response::error('امتداد الملف غير مدعوم. الصيغ المقبولة: JPG, PNG, GIF, WebP.', 400);
+        }
+
+        // 4. Validation MIME réelle basée sur les octets magiques (contenu réel)
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mimeType, $allowedMimes, true)) {
+            Response::error('نوع الملف غير مدعوم. التنسيقات المقبولة هي: JPEG، PNG، GIF، WebP.', 400);
+        }
+
+        // 5. Validation de cohérence d'image (intégrité du contenu)
+        $imageInfo = @getimagesize($file['tmp_name']);
+        if ($imageInfo === false) {
+            Response::error('محتوى الملف تالف أو لا يمثل صورة صالحة.', 400);
+        }
+
+        $fileContent = file_get_contents($file['tmp_name']);
+        if ($fileContent === false || strlen($fileContent) === 0) {
+            Response::error('تعذر قراءة ملف الصورة.', 400);
         }
 
         $pdo = Database::getInstance();

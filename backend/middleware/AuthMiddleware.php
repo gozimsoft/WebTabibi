@@ -58,15 +58,21 @@ class AuthMiddleware {
             Response::unauthorized('انتهت صلاحية جلستك (30 يوماً). يرجى تسجيل الدخول مرة أخرى للاستمرار.');
         }
 
-        // Check if patient account was deleted
+        // Check if patient account was deleted or frozen
         if ((int)$session['usertype'] === 0) {
-            $stmtDel = $pdo->prepare("SELECT deleteacount FROM patients WHERE user_id = ? LIMIT 1");
+            $stmtDel = $pdo->prepare("SELECT deleteacount, is_frozen, freeze_reason FROM patients WHERE user_id = ? LIMIT 1");
             $stmtDel->execute([$session['user_id']]);
-            $delVal = $stmtDel->fetchColumn();
-            if (!empty($delVal)) {
+            $pRow = $stmtDel->fetch();
+            if (!empty($pRow['deleteacount'])) {
                 $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$session['user_id']]);
                 if (!$required) return null;
                 Response::error('هذا الحساب تم حذفه بناءً على طلب صاحبه.', 403);
+            }
+            if (!empty($pRow['is_frozen'])) {
+                $pdo->prepare("DELETE FROM sessions WHERE user_id = ?")->execute([$session['user_id']]);
+                if (!$required) return null;
+                $reasonMsg = !empty($pRow['freeze_reason']) ? (" سبب التعطيل: " . $pRow['freeze_reason']) : "";
+                Response::error("تم تعطيل هذا الحساب من قِبَل الإدارة.{$reasonMsg}", 403);
             }
         }
 
@@ -144,4 +150,17 @@ class AuthMiddleware {
         }
         return $session;
     }
+
+    /**
+     * Only SuperAdmin (usertype = 3) allowed.
+     */
+    public static function superAdminOnly(): array {
+        $session = self::authenticate();
+        if ((int)$session['usertype'] !== 3) {
+            // رسالة بشرية: الوصول مقيد للمشرف العام فقط
+            Response::error('هذه الصفحة مخصصة للمشرف العام (SuperAdmin) فقط. ليس لديك صلاحية الوصول إليها.', 403);
+        }
+        return $session;
+    }
 }
+

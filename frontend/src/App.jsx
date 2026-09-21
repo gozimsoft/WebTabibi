@@ -31,6 +31,9 @@ import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
 import { AdminSupportUserTicketsPage, AdminSupportBackoffice } from "./pages/AdminSupportTickets";
+import SuperAdminAccountManagement from "./pages/SuperAdminAccountManagement";
+import ClinicAppointmentManager from "./pages/ClinicAppointmentManager";
+import RequestsPage from "./pages/RequestsPage";
 import { useRoute } from "./hooks/useRoute";
 
 
@@ -150,6 +153,12 @@ const api = {
     book: b => req("POST", "/appointments", b),
     cancel: id => req("DELETE", `/appointments/${id}`),
   },
+  clinicAppointments: {
+    getDoctors: () => req("GET", "/clinic/doctors"),
+    getAppointments: (p = {}) => req("GET", `/clinic/appointments?${new URLSearchParams(p).toString()}`),
+    book: b => req("POST", "/clinic/appointments/book", b),
+    updateStatus: (id, b) => req("PUT", `/clinic/appointments/${id}/status`, b),
+  },
   verify: {
     send: b => req("POST", "/verify/send", b),
     confirm: b => req("POST", "/verify/confirm", b),
@@ -194,6 +203,16 @@ const api = {
     rejectDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/reject`, { reason }),
     freezeDoctor: (id, reason) => req("POST", `/admin/doctors/${id}/freeze`, { reason }),
     releaseDoctor: id => req("POST", `/admin/doctors/${id}/release`, {}),
+  },
+  superadmin: {
+    listAccounts: (p = {}) => req("GET", `/superadmin/accounts?${new URLSearchParams(p).toString()}`),
+    getAccount: id => req("GET", `/superadmin/accounts/${id}`),
+    updateAccount: (id, b) => req("PUT", `/superadmin/accounts/${id}`, b),
+    toggleStatus: (id, b) => req("PUT", `/superadmin/accounts/${id}/status`, b),
+    invalidateSessions: id => req("POST", `/superadmin/accounts/${id}/invalidate-sessions`, {}),
+    resetPassword: id => req("POST", `/superadmin/accounts/${id}/reset-password`, {}),
+    anonymize: id => req("DELETE", `/superadmin/accounts/${id}`, {}),
+    getStats: () => req("GET", "/superadmin/accounts/stats"),
   },
   publicStats: () => req("GET", "/public/stats", null, false),
   tickets: {
@@ -811,8 +830,14 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
-    ...(user?.user_type !== 1 && user?.user_type !== 2 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
+    ...(user?.user_type === 0 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
+    ...(Number(user?.user_type) === 3 ? [{
+      label: t("account_management_nav", "Gestion des comptes"),
+      icon: <ShieldCheck size={18} />,
+      path: "/admin/accounts",
+      private: true
+    }] : []),
     ...(user ? [{
       label: t("admin_support_nav", "Support / Administration"),
       icon: <HelpCircle size={18} />,
@@ -820,8 +845,11 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       private: true,
       iconOnly: true
     }] : []),
-    ...(user?.user_type === 1 || user?.user_type === 2 ? [
+    ...(user?.user_type === 1 ? [
       { label: t("appt_mgr_title", "إدارة المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
+    ] : []),
+    ...(user?.user_type === 2 ? [
+      { label: t("clinic_agenda_nav", "Agenda de la clinique"), icon: <Calendar size={18} />, path: "/clinic/appointments", private: true }
     ] : [])
   ];
 
@@ -1104,8 +1132,10 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
                               // 3. Appointments
                               if (type === 'appointment' || title.includes('موعد') || msg.includes('موعد')) {
-                                if (user?.user_type === 1 || user?.user_type === 2) {
+                                if (user?.user_type === 1) {
                                   navigate("/appointmanager");
+                                } else if (user?.user_type === 2) {
+                                  navigate("/clinic/appointments");
                                 } else {
                                   navigate("/appointments");
                                 }
@@ -1242,8 +1272,11 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                     <div style={{ maxHeight: "calc(85vh - 120px)", overflowY: "auto" }}>
                       {[
                         (user.user_type === 3 || user.user_type === 4) && { icon: <Shield size={16} />, label: t("admin_panel", "لوحة الإدارة"), path: "/admin" },
+                        Number(user?.user_type) === 3 && { icon: <ShieldCheck size={16} />, label: t("account_management_nav", "Gestion des comptes"), path: "/admin/accounts" },
                         { icon: <User size={16} />, label: t("profile"), path: "/profile" },
                         user?.user_type === 0 ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
+                        user?.user_type === 1 ? { icon: <Calendar size={16} />, label: t("appt_mgr_title", "إدارة المواعيد"), path: "/appointmanager" } : null,
+                        user?.user_type === 2 ? { icon: <Calendar size={16} />, label: t("clinic_agenda_nav", "Agenda de la clinique"), path: "/clinic/appointments" } : null,
                         (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
                         { icon: <MessageSquare size={16} />, label: t("messages", "الرسائل"), path: "/tickets", badge: unreadTicketsCount },
                         { icon: <HelpCircle size={16} />, label: t("admin_support_nav", "Support / Administration"), path: (user.user_type === 3 || user.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets" },
@@ -2173,6 +2206,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
   const { show } = useToast();
   const [form, setForm] = useState({ username: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setL] = useState(false);
   // مرجع حاوية زر Google الرسمي
@@ -2548,9 +2582,27 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
 
               <form onSubmit={submit}>
                 <Input label={t("username")} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={t("username_placeholder")} required />
-                <Input label={t("password")} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
+                <Input
+                  label={t("password")}
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  placeholder="••••••••"
+                  required
+                />
 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: "-8px", marginBottom: "16px" }}>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "#4b5563", userSelect: "none" }}>
+                    <input
+                      type="checkbox"
+                      id="login_show_password_check"
+                      checked={showPassword}
+                      onChange={e => setShowPassword(e.target.checked)}
+                      style={{ width: 15, height: 15, accentColor: "var(--brand)", cursor: "pointer" }}
+                    />
+                    <span>{showPassword ? t("hide_password", "Masquer le mot de passe") : t("show_password", "Afficher le mot de passe")}</span>
+                  </label>
+
                   <button
                     type="button"
                     onClick={() => { setResetStep(1); setResetEmail(""); setResetOtp(""); setNewPassword(""); setResetError(""); }}
@@ -5955,14 +6007,14 @@ function AdminDashboardPage({ navigate, user, qs }) {
 
   // ── Stat Card
   const StatCard = ({ label, value, icon, color, bg, subtitle }) => (
-    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '20px 24px', border: '1px solid var(--border, #e2e8f0)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ width: 52, height: 52, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
+    <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '16px 18px', border: '1px solid var(--border, #e2e8f0)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ width: 46, height: 46, borderRadius: 14, background: bg || '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color || 'var(--brand)', flexShrink: 0 }}>
         {icon}
       </div>
-      <div>
-        <div style={{ fontSize: 26, fontWeight: 900, color: '#0c4a6e', lineHeight: 1 }}>{value ?? '…'}</div>
-        <div style={{ fontSize: 13, color: '#475569', marginTop: 4, fontWeight: 700 }}>{label}</div>
-        {subtitle && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{subtitle}</div>}
+      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', lineHeight: 1 }}>{value ?? '…'}</div>
+        <div style={{ fontSize: 13, color: '#475569', marginTop: 4, fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{label}</div>
+        {subtitle && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{subtitle}</div>}
       </div>
     </div>
   );
@@ -6243,7 +6295,25 @@ function AdminDashboardPage({ navigate, user, qs }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Number(user?.user_type) === 3 && (
+              <Btn
+                variant="ghost"
+                onClick={() => navigate('/admin/accounts')}
+                style={{
+                  color: '#fff',
+                  borderColor: 'rgba(255,255,255,0.4)',
+                  background: 'rgba(255,255,255,0.18)',
+                  fontSize: 13,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <ShieldCheck size={16} />
+                {t('account_management_nav', 'Gestion des comptes')}
+              </Btn>
+            )}
             <Btn variant="ghost" onClick={() => navigate('/profile')} style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', fontSize: 13 }}>
               {t('profile', 'الملف الشخصي')}
             </Btn>
@@ -6295,44 +6365,92 @@ function AdminDashboardPage({ navigate, user, qs }) {
         <div>
           {loading ? <Spinner size={36} /> : stats && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
-                <StatCard label={t('admin_total_clinics', 'إجمالي العيادات')} value={stats.total_clinics} icon={<Building size={22} />} color="#7c3aed" bg="#f5f3ff" />
-                <StatCard label={t('admin_total_doctors', 'إجمالي الأطباء')} value={stats.total_doctors} icon={<Stethoscope size={22} />} color="var(--brand)" bg="#ecfeff" />
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, minmax(0, 1fr))', gap: 14, marginBottom: 24 }}>
+                <StatCard label={t('admin_total_clinics', 'إجمالي العيادات')} value={stats.total_clinics} icon={<Building size={20} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label={t('admin_total_doctors', 'إجمالي الأطباء')} value={stats.total_doctors} icon={<Stethoscope size={20} />} color="var(--brand)" bg="#ecfeff" />
+                <StatCard label={t('admin_total_patients', 'إجمالي المرضى')} value={stats.total_patients} icon={<Users size={20} />} color="#0284c7" bg="#f0f9ff" />
 
                 {/* Clickable pending clinics card */}
                 <div
                   onClick={() => { setTab('clinics'); setSubTab('PENDING'); }}
-                  style={{ background: '#fef3c7', borderRadius: 18, padding: '20px 24px', border: '2px solid #fcd34d', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 16 }}
+                  style={{ background: '#fef3c7', borderRadius: 18, padding: '16px 16px', border: '2px solid #fcd34d', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, overflow: 'hidden' }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(217,119,6,0.15)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
-                    <AlertCircle size={24} />
+                  <div style={{ width: 46, height: 46, borderRadius: 14, background: '#fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+                    <AlertCircle size={22} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 26, fontWeight: 900, color: '#92400e', lineHeight: 1 }}>{stats.pending_clinics}</div>
-                    <div style={{ fontSize: 13, color: '#78350f', fontWeight: 700, marginTop: 4 }}>{t('admin_pending_clinics', 'عيادات قيد المراجعة')}</div>
-                    <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>{t('admin_click_to_process', 'انقر لمعالجة الطلبات ←')}</div>
+                  <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#92400e', lineHeight: 1 }}>{stats.pending_clinics}</div>
+                    <div style={{ fontSize: 12, color: '#78350f', fontWeight: 700, marginTop: 4, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{t('admin_pending_clinics', 'عيادات قيد المراجعة')}</div>
+                    <div style={{ fontSize: 10, color: '#b45309', marginTop: 2, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{t('admin_click_to_process', 'انقر للمعالجة ←')}</div>
                   </div>
                 </div>
 
                 {/* Clickable pending doctors card */}
                 <div
                   onClick={() => { setTab('doctors'); setSubTab('PENDING'); }}
-                  style={{ background: '#fee2e2', borderRadius: 18, padding: '20px 24px', border: '2px solid #fca5a5', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 16 }}
+                  style={{ background: '#fee2e2', borderRadius: 18, padding: '16px 16px', border: '2px solid #fca5a5', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, overflow: 'hidden' }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(220,38,38,0.15)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>
-                    <AlertCircle size={24} />
+                  <div style={{ width: 46, height: 46, borderRadius: 14, background: '#fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>
+                    <AlertCircle size={22} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 26, fontWeight: 900, color: '#991b1b', lineHeight: 1 }}>{stats.pending_doctors}</div>
-                    <div style={{ fontSize: 13, color: '#7f1d1d', fontWeight: 700, marginTop: 4 }}>{t('admin_pending_doctors', 'أطباء قيد المراجعة')}</div>
-                    <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>{t('admin_click_to_process', 'انقر لمعالجة الطلبات ←')}</div>
+                  <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#991b1b', lineHeight: 1 }}>{stats.pending_doctors}</div>
+                    <div style={{ fontSize: 12, color: '#7f1d1d', fontWeight: 700, marginTop: 4, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{t('admin_pending_doctors', 'أطباء قيد المراجعة')}</div>
+                    <div style={{ fontSize: 10, color: '#b91c1c', marginTop: 2, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{t('admin_click_to_process', 'انقر للمعالجة ←')}</div>
                   </div>
                 </div>
               </div>
+
+              {/* ── Appointments Stats ── */}
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0c4a6e', marginBottom: 16, marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Calendar size={20} color="var(--brand)" /> {t('admin_appointments_overview', 'Statistiques des rendez-vous')}
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
+                <StatCard label={t('admin_total_appointments', 'إجمالي المواعيد')} value={stats.total_appointments} icon={<Calendar size={22} />} color="#059669" bg="#ecfdf5" />
+                <StatCard label={t('admin_month_appointments', 'مواعيد هذا الشهر')} value={stats.month_appointments} icon={<Activity size={22} />} color="#7c3aed" bg="#f5f3ff" />
+                <StatCard label={t('admin_today_appointments', 'مواعيد اليوم')} value={stats.today_appointments} icon={<Clock size={22} />} color="#d97706" bg="#fffbeb" />
+              </div>
+
+              {/* ── Trends Stats ── */}
+              {((stats.appointment_trend && stats.appointment_trend.length > 0) || (stats.clinic_growth && stats.clinic_growth.length > 0)) && (
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 24 }}>
+                  {/* Appointment Trend */}
+                  <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Calendar size={18} color="#059669" /> {t('admin_appointment_trend', 'Évolution des rendez-vous')}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(stats.appointment_trend || []).map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
+                          <span style={{ fontWeight: 600, color: '#475569' }}>{item.month}</span>
+                          <span style={{ fontWeight: 800, color: '#059669' }}>{item.count}</span>
+                        </div>
+                      ))}
+                      {(!stats.appointment_trend || stats.appointment_trend.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>{t('no_data', 'لا توجد بيانات')}</div>}
+                    </div>
+                  </div>
+
+                  {/* Clinic Growth */}
+                  <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0c4a6e', marginTop: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Building size={18} color="#7c3aed" /> {t('admin_clinic_growth', 'Inscriptions de cliniques')}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(stats.clinic_growth || []).map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
+                          <span style={{ fontWeight: 600, color: '#475569' }}>{item.month}</span>
+                          <span style={{ fontWeight: 800, color: '#7c3aed' }}>{item.count}</span>
+                        </div>
+                      ))}
+                      {(!stats.clinic_growth || stats.clinic_growth.length === 0) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 10 }}>{t('no_data', 'لا توجد بيانات')}</div>}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ── Visits Stats ── */}
               <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0c4a6e', marginBottom: 16, marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -7411,90 +7529,8 @@ function TermsOfUsePage({ navigate }) {
   );
 }
 
-// ── PAGE: REQUESTS ──────────────────────────────────────────────
-function RequestsPage({ navigate, user }) {
-  const { t, i18n } = useTranslation();
-  const isMobile = useIsMobile();
-  const [requests, setRequests] = useState([]);
-  const [loading, setL] = useState(true);
-  const { show, Toast } = useToast();
+// ── PAGE: REQUESTS (Imported from ./pages/RequestsPage) ─────────────
 
-  const load = async () => {
-    try {
-      setL(true);
-      const reqs = await api.relations.getRequests();
-      setRequests(reqs);
-    } catch (e) {
-      show(e.message, "error");
-    } finally {
-      setL(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const respond = async (id, action) => {
-    try {
-      await api.relations.respond(id, { action });
-      show(action === 'ACCEPT' ? "تمت الموافقة على الطلب" : "تم رفض الطلب", "success");
-      load();
-    } catch (e) {
-      show(e.message, "error");
-    }
-  };
-
-  if (loading) return <div style={{ padding: 60 }}><Spinner /></div>;
-
-  return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 24px" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0c4a6e", marginBottom: 20 }}>{t("join_requests")}</h1>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {requests.map(r => (
-          <Card key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px", flexWrap: "wrap", gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                {(r.SenderType?.toUpperCase() === (user.user_type === 1 ? 'DOCTOR' : 'CLINIC')) ? "طلب انضمام إلى:" : "دعوة من:"}
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#0c4a6e" }}>{r.targetname}</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                تاريخ الطلب: {new Date(r.createdat).toLocaleDateString(i18n.language)}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10 }}>
-              {r.status === 'PENDING' ? (
-                r.SenderType?.toUpperCase() !== (user.user_type === 1 ? 'DOCTOR' : 'CLINIC') ? (
-                  <>
-                    <Btn onClick={() => respond(r.id, 'ACCEPT')} style={{ background: "#059669", borderColor: "#059669" }}>
-                      <Check size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> موافقة
-                    </Btn>
-                    <Btn onClick={() => respond(r.id, 'REJECT')} style={{ background: "#ef4444", borderColor: "#ef4444" }}>
-                      <X size={16} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> رفض
-                    </Btn>
-                  </>
-                ) : (
-                  <Badge color="#ea580c">قيد الانتظار</Badge>
-                )
-              ) : (
-                <Badge color={r.status === 'ACCEPTED' ? "#059669" : "#ef4444"}>
-                  {r.status === 'ACCEPTED' ? "مقبول" : "مرفوض"}
-                </Badge>
-              )}
-            </div>
-          </Card>
-        ))}
-
-        {requests.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
-            لا توجد طلبات انضمام حالياً
-          </div>
-        )}
-      </div>
-      <Toast />
-    </div>
-  );
-}
 
 // ── PAGE: tickets ──────────────────────────────────────────────
 // ── PAGE: tickets (Master-Detail Inbox) ────────────────────────
@@ -9560,15 +9596,15 @@ function ProfilePage({ user, navigate, qs }) {
           </Card>
 
           {/* Join Requests */}
-          <Card style={{ marginBottom: 20, border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+          <Card style={{ marginBottom: 20, border: "1px solid #ccfbf1", background: "#f0fdfa" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0891b2", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
                   <Check size={22} />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
-                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0e7490" }}>{t("join_requests", "طلبات الانضمام")}</div>
+                  <div style={{ fontSize: 12, color: "#0891b2", marginTop: 2, fontWeight: 600 }}>
                     إدارة ومتابعة طلبات الانضمام للعيادات
                   </div>
                 </div>
@@ -9577,7 +9613,7 @@ function ProfilePage({ user, navigate, qs }) {
                 type="button"
                 onClick={() => navigate("/requests")}
                 style={{
-                  padding: "10px 18px", borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  padding: "10px 18px", borderRadius: 12, background: "#0891b2", color: "#fff",
                   border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
                   fontWeight: 700, fontSize: 14, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
                 }}
@@ -9911,15 +9947,15 @@ function ProfilePage({ user, navigate, qs }) {
           </form>
 
           {/* Join Requests Shortcut Card */}
-          <Card style={{ border: "1px solid #e0f2fe", background: "#f0f9ff" }}>
+          <Card style={{ border: "1px solid #ccfbf1", background: "#f0fdfa" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--card-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0891b2", boxShadow: "0 4px 12px rgba(8,145,178,0.08)" }}>
                   <Check size={22} />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0c4a6e" }}>{t("join_requests", "طلبات الانضمام")}</div>
-                  <div style={{ fontSize: 12, color: "#0369a1", marginTop: 2 }}>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: "#0e7490" }}>{t("join_requests", "طلبات الانضمام")}</div>
+                  <div style={{ fontSize: 12, color: "#0891b2", marginTop: 2, fontWeight: 600 }}>
                     إدارة ومتابعة طلبات انضمام الأطباء للعيادة
                   </div>
                 </div>
@@ -9928,7 +9964,7 @@ function ProfilePage({ user, navigate, qs }) {
                 type="button"
                 onClick={() => navigate("/requests")}
                 style={{
-                  padding: "10px 18px", borderRadius: 12, background: "var(--brand)", color: "#fff",
+                  padding: "10px 18px", borderRadius: 12, background: "#0891b2", color: "#fff",
                   border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
                   fontWeight: 700, fontSize: 14, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
                 }}
@@ -10687,7 +10723,7 @@ function ChatPage({ user }) {
 
 // ── BACKGROUND DECORATION ────────────────────────────────────
 const BackgroundDecoration = () => (
-  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden", opacity: 0.04 }}>
+  <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden", opacity: 0.04 }}>
     <div style={{ position: "absolute", top: "10%", left: "5%", transform: "rotate(-15deg)", color: "var(--brand)" }}>
       <Stethoscope size={300} />
     </div>
@@ -10957,7 +10993,7 @@ function CookiesPrivacyModal({ isOpen, onClose, show, navigate }) {
   );
 }
 
-function Footer({ navigate, show }) {
+function Footer({ navigate, show, user }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const [proMenuOpen, setProMenuOpen] = useState(false);
@@ -11079,7 +11115,12 @@ function Footer({ navigate, show }) {
             {/* 5. Support & Réclamations */}
             <button
               onClick={() => {
-                const targetPath = (user?.user_type === 3 || user?.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets";
+                if (!user) {
+                  show(t("login_required_support", "Veuillez vous connecter pour accéder au support et soumettre vos demandes"), "info");
+                  navigate("/login");
+                  return;
+                }
+                const targetPath = (user.user_type === 3 || user.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets";
                 navigate(targetPath);
                 if (targetPath.includes('tab=')) {
                   window.dispatchEvent(new CustomEvent('tabibi:switch_admin_tab', { detail: 'support_tickets' }));
@@ -11394,9 +11435,15 @@ function MainApp() {
     const dm = route.match(/^\/clinic\/([^?#/]+)\/doctor\/([^?#/]+)/);
     if (dm) return <DoctorDetailPage key={route} clinicid={dm[1]} doctor_id={dm[2]} navigate={navigate} user={user} />;
 
+    // /clinic/appointments — Centralized Clinic Agenda
+    if (route === "/clinic/appointments") {
+      if (!user || user.user_type !== 2) { setTimeout(() => navigate("/login"), 0); return null; }
+      return <ClinicAppointmentManager key="clinic_appointments" navigate={navigate} user={user} />;
+    }
+
     // /clinic/:id
     const cm = route.match(/^\/clinic\/([^?#/]+)$/);
-    if (cm) return <ClinicDetailsPage key={route} clinicid={cm[1]} navigate={navigate} user={user} />;
+    if (cm && cm[1] !== 'appointments') return <ClinicDetailsPage key={route} clinicid={cm[1]} navigate={navigate} user={user} />;
 
     // /book/:cId/:dId
     const bm = route.match(/^\/book\/([^?#/]+)\/([^?#/]+)/);
@@ -11427,6 +11474,10 @@ function MainApp() {
       case "/admin":
         if (!user || (user.user_type !== 3 && user.user_type !== 4)) { setTimeout(() => navigate("/"), 0); return null; }
         return <AdminDashboardPage key={`admin_${qs || 'default'}`} navigate={navigate} user={user} qs={qs} />;
+      case "/admin/accounts":
+      case "/superadmin/accounts":
+        if (!user || Number(user.user_type) !== 3) { setTimeout(() => navigate("/"), 0); return null; }
+        return <SuperAdminAccountManagement key="superadmin_accounts" navigate={navigate} user={user} qs={qs} api={api} />;
       case "/learn-more":
         return <LearnMorePage navigate={navigate} />;
       case "/privacy":
@@ -11443,7 +11494,8 @@ function MainApp() {
         return <AppDownloadPage key="app_download" navigate={navigate} user={user} />;
       case "/appointments":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
-        if (user.user_type === 1 || user.user_type === 2) { setTimeout(() => navigate("/appointmanager"), 0); return null; }
+        if (user.user_type === 1) { setTimeout(() => navigate("/appointmanager"), 0); return null; }
+        if (user.user_type === 2) { setTimeout(() => navigate("/clinic/appointments"), 0); return null; }
         return <AppointmentsPage key="appts" navigate={navigate} user={user} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
@@ -11479,9 +11531,13 @@ function MainApp() {
           return null;
         }
         return <AdminSupportUserTicketsPage key="admin_support_tickets" navigate={navigate} user={user} qs={qs} api={api} />;
+      case "/clinic/appointments":
+        if (!user || user.user_type !== 2) { setTimeout(() => navigate("/login"), 0); return null; }
+        return <ClinicAppointmentManager key="clinic_appointments" navigate={navigate} user={user} />;
       case "/appointmanager":
       case "appointmanager":
         if (!user || (user.user_type !== 1 && user.user_type !== 2)) { setTimeout(() => navigate("/"), 0); return null; }
+        if (user.user_type === 2) { setTimeout(() => navigate("/clinic/appointments"), 0); return null; }
         return <AppointmentManager navigate={navigate} user={user} />;
       default:
         if (route.startsWith("/tickets/")) {
@@ -11560,7 +11616,7 @@ function MainApp() {
         </AnimatePresence>
       </div>
       {route !== "/app" && (
-        <Footer navigate={navigate} show={show} />
+        <Footer navigate={navigate} show={show} user={user} />
       )}
 
       {showExitModal && (
