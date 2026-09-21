@@ -669,7 +669,7 @@ export default function AppointmentManager({ navigate, user }) {
   };
 
   const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false) => {
-    if (user?.user_type !== 1) return;
+    if (Number(user?.user_type) !== 1) return;
     if (!silent) {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
@@ -702,7 +702,7 @@ export default function AppointmentManager({ navigate, user }) {
   };
 
   useEffect(() => {
-    if (user?.user_type !== 1) return;
+    if (Number(user?.user_type) !== 1) return;
     if (user?.profile?.fullname || user?.fullname) {
       setDoctorFullName(user?.profile?.fullname || user?.fullname);
     }
@@ -730,12 +730,17 @@ export default function AppointmentManager({ navigate, user }) {
 
   // ── مزامنة ذكية شبه فورية في الخلفية (Real-Time Auto-Sync)
   useEffect(() => {
-    if (user?.user_type !== 1) return;
+    if (Number(user?.user_type) !== 1) return;
+
+    let timer = null;
+    let stopped = false;
 
     // فحص سريع عبر توقيع الـ API (حجم البيانات أقل من 150 بايت واستجابة فورية)
     const checkAndSync = async () => {
+      if (stopped) return;
       try {
         const res = await api.doctor.syncCheck({ clinic_id: selectedClinicId });
+        if (stopped) return;
         if (res && res.signature) {
           if (lastSignatureRef.current && lastSignatureRef.current !== res.signature) {
             // هناك حجز جديد، إلغاء، أو تغيير في المواعيد أو الإشعارات
@@ -745,29 +750,34 @@ export default function AppointmentManager({ navigate, user }) {
         } else {
           fetchAppointments(false, selectedClinicId, true);
         }
-      } catch {
-        fetchAppointments(false, selectedClinicId, true);
+      } catch (err) {
+        // إذا كانت الجلسة منتهية أو الحساب غير مصرح له كطبيب (401 أو 403): نوقف التكرار فوراً
+        if (err?.status === 401 || err?.status === 403 || err?.message?.includes("متاحة للأطباء") || err?.message?.includes("غير مسموح")) {
+          stopped = true;
+          if (timer) clearTimeout(timer);
+          return;
+        }
       }
     };
 
-    let timer = null;
     const scheduleNext = () => {
+      if (stopped) return;
       // 4 ثوانٍ عند بقاء الصفحة نشطة و15 ثانية عند مغادرة النافذة لتوفير موارد الخادم
       const delay = document.hidden ? 15000 : 4000;
       timer = setTimeout(async () => {
         await checkAndSync();
-        scheduleNext();
+        if (!stopped) scheduleNext();
       }, delay);
     };
     scheduleNext();
 
     // استجابة فورية (0 مللي ثانية) للأحداث المحلية داخل المتصفح أو بين التبويبات
     const onImmediateSync = () => {
-      fetchAppointments(false, selectedClinicId, true);
+      if (!stopped) fetchAppointments(false, selectedClinicId, true);
     };
 
     const onWake = () => {
-      if (!document.hidden) {
+      if (!document.hidden && !stopped) {
         checkAndSync();
       }
     };

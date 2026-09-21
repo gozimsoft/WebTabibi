@@ -19,6 +19,7 @@ async function request(method, path, body = null, auth = true) {
     const data = await res.json();
     if (!data.success) {
       const err = new Error(data.message || 'حدث خطأ في الخادم.');
+      err.status = res.status;
       if (data.data) {
         Object.assign(err, data.data);
       }

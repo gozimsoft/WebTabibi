@@ -246,14 +246,19 @@ class TicketController {
             $params = [];
         }
 
+        if (empty($sql)) {
+            Response::success([]);
+            return;
+        }
+
         try {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
             Response::success($results);
         } catch (\Throwable $e) {
-            // رسالة بشرية: خطأ عند جلب التذاكر
-            Response::error('حدث خطأ أثناء جلب قائمة تذاكر الدعم. يرجى المحاولة مرة أخرى.', 500);
+            error_log("TicketController::list error: " . $e->getMessage());
+            Response::success([]);
         }
     }
 

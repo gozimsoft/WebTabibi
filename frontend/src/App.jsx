@@ -55,6 +55,7 @@ async function req(method, path, body, auth = true) {
     const d = await r.json();
     if (!d.success) {
       const err = new Error(d.message || "حدث خطأ في الخادم.");
+      err.status = r.status;
       if (d.data) {
         Object.assign(err, d.data);
       }
@@ -746,7 +747,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       }
     } catch { }
 
-    if (user.user_type === 1) {
+    if (Number(user.user_type) === 1) {
       try {
         const res = await api.doctor.getAppointments({ from: new Date().toISOString().slice(0, 10) });
         const appts = res?.appointments || (Array.isArray(res) ? res : []);
