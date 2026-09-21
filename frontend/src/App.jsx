@@ -7568,6 +7568,7 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
   };
 
   useEffect(() => {
+    if (user?.user_type === 3 || user?.user_type === 4) return;
     loadTickets();
     const interval = setInterval(() => loadTickets(true), 15000);
     return () => clearInterval(interval);
@@ -7734,6 +7735,28 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
     }
     return <Badge color="#64748b">{t("status_closed")}</Badge>;
   };
+
+  // حظر الوصول المباشر للمشرفين إلى المحادثات الطبية الخاصة
+  if (user?.user_type === 3 || user?.user_type === 4) {
+    return (
+      <div style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
+        <Card style={{ padding: 32, textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <Lock size={28} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0c4a6e", marginBottom: 8 }}>
+            {t("clinical_conversations_private_title", "المحادثات الطبية خاصة وسرية")}
+          </h2>
+          <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.6, maxWidth: 500, margin: "0 auto 20px" }}>
+            {t("clinical_conversations_private_desc", "محادثات المرضى والأطباء محمية بموجب السر الطبي وحماية البيانات الشخصية ولا يمكن للإدارة استعراض محتواها. لإدارة تذاكر الدعم والاستفسارات الإدارية، يرجى التوجه إلى مركز الدعم الإداري.")}
+          </p>
+          <Btn variant="primary" onClick={() => navigate("/admin?tab=support_tickets")}>
+            {t("go_to_admin_support", "الانتقال إلى مركز الدعم الإداري")}
+          </Btn>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) return <div style={{ padding: 80, display: "flex", justifyContent: "center" }}><Spinner size={36} /></div>;
 
@@ -10141,7 +10164,7 @@ function ProfilePage({ user, navigate, qs }) {
                   {t("support_center_desc", "متابعة استفسارات المرضى والأطباء، إرسال الردود، وإغلاق التذاكر المعالجة.")}
                 </p>
               </div>
-              <Btn variant="outline" onClick={() => navigate("/tickets")} style={{ width: "100%", justifyContent: "center", gap: 8, fontSize: 13 }}>
+              <Btn variant="outline" onClick={() => navigate("/admin?tab=support_tickets")} style={{ width: "100%", justifyContent: "center", gap: 8, fontSize: 13 }}>
                 <MessageSquare size={16} /> {t("view_all_tickets", "تصفح كل التذاكر")}
               </Btn>
             </Card>
@@ -10173,7 +10196,7 @@ function ProfilePage({ user, navigate, qs }) {
                   </span>
                 )}
               </h3>
-              <Btn variant="ghost" onClick={() => navigate("/tickets")} style={{ fontSize: 13, padding: "6px 12px", color: "var(--brand)" }}>
+              <Btn variant="ghost" onClick={() => navigate("/admin?tab=support_tickets")} style={{ fontSize: 13, padding: "6px 12px", color: "var(--brand)" }}>
                 {t("view_all", "عرض الكل")} {i18n.language === 'ar' ? '←' : '→'}
               </Btn>
             </div>
@@ -10189,7 +10212,7 @@ function ProfilePage({ user, navigate, qs }) {
                 {adminTickets.slice(0, 5).map(tk => (
                   <div
                     key={tk.id}
-                    onClick={() => navigate(`/tickets/${tk.id}`)}
+                    onClick={() => navigate("/admin?tab=support_tickets")}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
@@ -11508,6 +11531,13 @@ function MainApp() {
         return <RequestsPage key="requests" navigate={navigate} user={user} />;
       case "/tickets":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+        if (user.user_type === 3 || user.user_type === 4) {
+          setTimeout(() => {
+            navigate("/admin?tab=support_tickets");
+            window.dispatchEvent(new CustomEvent('tabibi:switch_admin_tab', { detail: 'support_tickets' }));
+          }, 0);
+          return null;
+        }
         return (
           <TicketsPage
             key="tickets"

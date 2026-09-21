@@ -226,15 +226,15 @@ class TicketController {
                     JOIN clinics c ON c.id = t.clinic_id
                     WHERE c.user_id = ? ORDER BY t.updated_at DESC";
             $params = [$user['user_id']];
-        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) { // Admin & Support - see all tickets
-            $sql = "SELECT t.*, 
-                        p.fullname as patientname,
-                        p.phone as patient_phone,
-                        p.email as patient_email,
-                        d.fullname as doctorname,
-                        d.phone as doctor_phone,
-                        c.clinicname,
-                        (SELECT tm.message FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message,
+        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) { // Admin & Support - métadonnées techniques uniquement (aucun contenu médical)
+            $sql = "SELECT t.id, t.patient_id, t.doctor_id, t.clinic_id, t.subject, t.status, t.created_at, t.updated_at,
+                        p.fullname as patientname, 
+                        p.phone as patient_phone, 
+                        p.email as patient_email, 
+                        d.fullname as doctorname, 
+                        d.phone as doctor_phone, 
+                        c.clinicname, 
+                        NULL as last_message,
                         (SELECT tm.created_at FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_message_at,
                         (SELECT tm.sender_type FROM ticketmessages tm WHERE tm.ticket_id = t.id ORDER BY tm.created_at DESC LIMIT 1) as last_sender_type,
                         (SELECT COUNT(*) FROM ticketmessages tm WHERE tm.ticket_id = t.id AND tm.is_read = 0 AND tm.sender_type != 'admin') as unread_count
@@ -261,7 +261,12 @@ class TicketController {
         $user = AuthMiddleware::authenticate();
         $pdo = Database::getInstance();
 
-        // Security check: user must be part of the ticket (or admin)
+        // فحص أمني: ممنوع وصول المشرفين والدعم إلى محتوى المحادثات الطبية الخاصة
+        if ($user['usertype'] == 3 || $user['usertype'] == 4) {
+            Response::error('محادثات المرضى والأطباء خاصة وسرية. لا يحق للإدارة الاطلاع على المحتوى الطبي للمحادثة.', 403);
+        }
+
+        // Security check: user must be part of the ticket (anti-IDOR)
         $stmt = $pdo->prepare("SELECT t.*, 
                 p.fullname as patientname, p.phone as patient_phone, p.email as patient_email,
                 d.fullname as doctorname, d.phone as doctor_phone, c.clinicname
@@ -279,15 +284,13 @@ class TicketController {
         $isAllowed = false;
         if ($user['usertype'] == 0) {
             $myId = self::getPatientId($user['user_id']);
-            if ($ticket['patient_id'] === $myId) $isAllowed = true;
+            if (!empty($myId) && $ticket['patient_id'] === $myId) $isAllowed = true;
         } else if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['doctor_id'] === $myId) $isAllowed = true;
+            if (!empty($myId) && $ticket['doctor_id'] === $myId) $isAllowed = true;
         } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
-            if ($ticket['clinic_id'] === $myId) $isAllowed = true;
-        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) {
-            $isAllowed = true; // Admin & Support have full access
+            if (!empty($myId) && $ticket['clinic_id'] === $myId) $isAllowed = true;
         }
 
         if (!$isAllowed) Response::error('ليس لديك صلاحية الاطلاع على هذه التذكرة.', 403);
@@ -306,9 +309,6 @@ class TicketController {
                 ->execute([$id]);
         } else if ($user['usertype'] == 2) {
             $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'clinic'")
-                ->execute([$id]);
-        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) {
-            $pdo->prepare("UPDATE ticketmessages SET is_read = 1 WHERE ticket_id = ? AND sender_type != 'admin'")
                 ->execute([$id]);
         }
 
@@ -334,6 +334,11 @@ class TicketController {
 
         if (!$message) Response::error('يرجى كتابة رسالتك قبل الإرسال.', 422);
 
+        // ممنوع للإدارة الرد في محادثات المرضى والأطباء الطبية
+        if ($user['usertype'] == 3 || $user['usertype'] == 4) {
+            Response::error('لا يمكن للإدارة الرد على محادثات المرضى والأطباء الخاصة. يرجى استخدام تذاكر الدعم الإداري.', 403);
+        }
+
         $stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -344,19 +349,18 @@ class TicketController {
         $type = '';
         if ($user['usertype'] == 0) {
             $myId = self::getPatientId($user['user_id']);
-            if ($ticket['patient_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
+            if (empty($myId) || $ticket['patient_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'patient';
         } else if ($user['usertype'] == 1) {
             $myId = self::getDoctorId($user['user_id']);
-            if ($ticket['doctor_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
+            if (empty($myId) || $ticket['doctor_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'doctor';
         } else if ($user['usertype'] == 2) {
             $myId = self::getClinicId($user['user_id']);
-            if ($ticket['clinic_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
+            if (empty($myId) || $ticket['clinic_id'] !== $myId) Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
             $type = 'clinic';
-        } else if ($user['usertype'] == 3 || $user['usertype'] == 4) {
-            $myId = $user['user_id'];
-            $type = 'admin';
+        } else {
+            Response::error('غير مسموح لك بالوصول إلى هذه التذكرة.', 403);
         }
 
         $pdo->prepare("INSERT INTO ticketmessages (id, ticket_id, sender_type, sender_id, message) VALUES (?, ?, ?, ?, ?)")

@@ -583,6 +583,7 @@ export default function AppointmentManager({ navigate, user }) {
   const [clinics, setClinics] = useState([]);
   const [selectedClinicId, setSelectedClinicId] = useState("all");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [doctorFullName, setDoctorFullName] = useState(() => user?.profile?.fullname || user?.fullname || "");
   const [showStats, setShowStats] = useState(() => {
     const saved = localStorage.getItem("appt_show_stats");
     return saved !== null ? saved === "true" : false;
@@ -702,8 +703,12 @@ export default function AppointmentManager({ navigate, user }) {
 
   useEffect(() => {
     if (user?.user_type !== 1) return;
+    if (user?.profile?.fullname || user?.fullname) {
+      setDoctorFullName(user?.profile?.fullname || user?.fullname);
+    }
     api.doctor.getProfile()
       .then(res => {
+        if (res?.fullname) setDoctorFullName(res.fullname);
         const docClinics = res.clinics || [];
         setClinics(docClinics.map(c => ({ id: c.clinicsdoctor_id, name: c.clinicname, clinic_id: c.clinic_id })));
         if (docClinics.length > 0) {
@@ -887,6 +892,9 @@ export default function AppointmentManager({ navigate, user }) {
     borderRadius: 24,
   };
 
+  const rawDoctorName = doctorFullName || user?.profile?.fullname || user?.fullname || user?.username || "";
+  const cleanDoctorName = (rawDoctorName || "").replace(/^(دكتور|الدكتور|د[\.\/]|Dr\.?)\s+/i, "").trim() || rawDoctorName;
+
   if (user?.user_type === 2) {
     return (
       <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px", direction: i18n.language === "ar" ? "rtl" : "ltr" }}>
@@ -971,10 +979,15 @@ export default function AppointmentManager({ navigate, user }) {
                   <h1 style={{ margin: 0, fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 900 }}>
                     {t("appt_mgr_title", "Gestionnaire de Rendez-vous")}
                   </h1>
-                  <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 700 }}>{user?.fullname || user?.username}</span>
-                    <span>•</span>
-                    <span>{t("appt_mgr_subtitle", "Planning des consultations et suivi des patients")}</span>
+                  <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>
+                    <span>
+                      {cleanDoctorName
+                        ? t("appt_mgr_subtitle", {
+                            name: cleanDoctorName,
+                            defaultValue: `مرحباً د. ${cleanDoctorName}، تابع مواعيدك ومرضاك من هنا.`
+                          })
+                        : t("appt_mgr_subtitle_generic", "تابع مواعيدك ومرضاك من هنا.")}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1088,56 +1101,6 @@ export default function AppointmentManager({ navigate, user }) {
                   {showStats ? t("appt_mgr_hide_stats") : t("appt_mgr_show_stats")}
                 </button>
 
-                <div style={{ width: 1, height: 24, background: "var(--border, #e2e8f0)", margin: "0 4px" }} />
-
-                {/* New Appointment Button */}
-                <button
-                  onClick={() => setShowModal(true)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    cursor: "pointer",
-                    background: "linear-gradient(135deg, var(--brand, #0891b2), var(--brand-dark, #0e7490))",
-                    color: "rgb(255, 255, 255)",
-                    fontWeight: 800,
-                    fontSize: 13,
-                    boxShadow: "rgba(8, 145, 178, 0.25) 0px 4px 12px",
-                    transition: "transform 0.15s"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
-                  onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-                >
-                  <Plus size={16} />
-                  {t("appt_mgr_new_appointment")}
-                </button>
-
-                {/* Refresh Button */}
-                <button
-                  onClick={() => fetchAppointments(true)}
-                  disabled={refreshing || loading}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderRadius: 12,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    border: "1px solid var(--border, #cffafe)",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    background: "var(--card-bg, #fff)",
-                    color: "var(--brand, #0891b2)",
-                    boxShadow: "rgba(8, 145, 178, 0.1) 0px 2px 8px"
-                  }}
-                >
-                  <RefreshCw size={16} className={refreshing ? "spin-anim" : ""} />
-                  {t("appt_mgr_refresh")}
-                </button>
               </div>
             </div>
 

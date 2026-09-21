@@ -2,6 +2,35 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-09-21
+
+### Added / Security
+- **المرحلة 01: الفصل التقني التام للمحادثات الطبية (Patient ↔ Médecin Confidentiality Separation)**:
+  - **الخادم الخلفي (`backend/controllers/TicketController.php`)**:
+    - حظر وصول حسابات المشرفين والدعم (`usertype = 3` و `4`) إلى قراءة نصوص الرسائل الطبية عبر `GET /api/tickets/:id` وإرجاع `403 Forbidden` فورياً.
+    - تجريد استعلام قائمة التذاكر `GET /api/tickets` للمشرفين من أي محتوى نصي وجعل `last_message` قيمة فارغة `NULL` مع الاحتفاظ بالبيانات الوصفية الإدارية اللازمة فقط.
+    - منع حسابات الإدارة كلياً من الرد داخل المحادثات الطبية بين المرضى والأطباء وإرجاع `403 Forbidden`.
+    - تعزيز الحماية من ثغرات التلاعب بالمعرفات (Anti-IDOR) بين المرضى والأطباء.
+  - **الواجهة الأمامية (`frontend/src/App.jsx`)**:
+    - إعادة توجيه الإدارة تلقائياً من مسار المحادثات الطبية `/tickets` إلى مركز الدعم الإداري `/admin?tab=support_tickets`.
+    - إضافة حاجز حماية في مكون `TicketsPage` يمنع استدعاء أو عرض الرسائل للمشرفين.
+    - توجيه كافة روابط واختصارات لوحة الإدارة إلى نظام الدعم الإداري المستقل (`admin_support_tickets`).
+  - **التوثيق**:
+    - إنشاء [`Docs/TABIBI_CONVERSATIONS_CONFIDENTIALITE_ARCHITECTURE.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_CONVERSATIONS_CONFIDENTIALITE_ARCHITECTURE.md).
+    - إنشاء [`Docs/TABIBI_CONVERSATIONS_CONFIDENTIALITE_PHASE_01.md`](file:///c:/xampp/htdocs/tabibi/Docs/TABIBI_CONVERSATIONS_CONFIDENTIALITE_PHASE_01.md).
+    - تحديث [`Docs/SECURITY.md`](file:///c:/xampp/htdocs/tabibi/Docs/SECURITY.md).
+
+### Files Changed
+- `backend/controllers/TicketController.php`
+- `frontend/src/App.jsx`
+- `Docs/SECURITY.md`
+- `Docs/TABIBI_CONVERSATIONS_CONFIDENTIALITE_ARCHITECTURE.md`
+- `Docs/TABIBI_CONVERSATIONS_CONFIDENTIALITE_PHASE_01.md`
+- `Docs/CHANGELOG.md`
+
+### Documentation Updated
+Yes
+
 ## 2026-09-20
 
 ### Fixed

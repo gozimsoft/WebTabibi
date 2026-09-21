@@ -38,3 +38,13 @@
 ### د. حماية الـ API من الهجمات المكثفة (Rate Limiting)
 - لا يوجد حالياً نظام `Rate Limiter` (تقييد عدد الطلبات) في الـ PHP.
 - **الحل**: ضبط إعدادات الـ Nginx / Apache في الخادم (Production) لتحديد عدد الطلبات في الثانية لمنع هجمات الـ DDoS والـ Brute Force على شاشة الـ Login.
+
+---
+
+## 🔒 4. سرية وفصل المحادثات الطبية بين المرضى والأطباء (Phase Confidentialité 01)
+- **مبدأ الخصوصية**: المحادثات بين المرضى والأطباء (`tickets`, `ticketmessages`) تعتبر مراسلات خاصة.
+- **الحماية التقنية**: يمنع النظام تقنياً وبشكل صارم الوصول الروتيني إلى محتوى الرسائل للمشرفين وموظفي الدعم (`usertype = 3` و `4`) على مستوى الواجهة البرمجية (Backend RBAC) والواجهة الأمامية.
+- **المعلومات الإدارية**: تقتصر الصلاحيات الإدارية على البيانات الوصفية الضرورية فقط (المعرفات، التواريخ، الحالات، العدادات) دون إمكانية قراءة أو كتابة أي رد داخل المحادثة الطبية.
+- **الصياغة التقنية المعتمدة**:  
+  > *« Le système interdit l'accès courant au contenu des conversations aux administrateurs et au support. Les modalités d'accès exceptionnel ou de communication aux autorités feront l'objet d'une procédure spécifique conforme au cadre juridique applicable. »*
+- **قناة الدعم الإداري المستقلة**: تواصل المستخدمين مع إدارة المنصة يتم حصرياً عبر نظام تذاكر الدعم الإداري المستقل (`admin_support_tickets`).
