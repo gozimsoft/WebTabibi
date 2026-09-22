@@ -757,12 +757,30 @@ class AuthController {
             unset($profile['logo']);
             unset($profile['password']);
         } elseif ($usertype === 3 || $usertype === 4) {
-            $stmt = $pdo->prepare("SELECT id, username FROM users WHERE id = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT id, username, last_login_at, last_login_ip FROM users WHERE id = ? LIMIT 1");
             $stmt->execute([$userId]);
             $profile = $stmt->fetch() ?: [];
             if ($usertype === 4) {
                 $profile['user_type_label'] = 'support';
             }
+            // Current session info
+            $stmtCurr = $pdo->prepare("
+                SELECT created_at, ip_address FROM sessions
+                WHERE user_id = ? ORDER BY id DESC LIMIT 1
+            ");
+            $stmtCurr->execute([$userId]);
+            $currSession = $stmtCurr->fetch();
+            // Previous session info (one before the current)
+            $stmtPrev = $pdo->prepare("
+                SELECT created_at, ip_address FROM sessions
+                WHERE user_id = ? ORDER BY id DESC LIMIT 1 OFFSET 1
+            ");
+            $stmtPrev->execute([$userId]);
+            $prevSession = $stmtPrev->fetch();
+            $profile['current_session_at'] = $currSession['created_at'] ?? null;
+            $profile['current_session_ip'] = $currSession['ip_address'] ?? null;
+            $profile['prev_session_at']    = $prevSession['created_at'] ?? null;
+            $profile['prev_session_ip']    = $prevSession['ip_address'] ?? null;
         }
 
         Response::success([
@@ -775,12 +793,24 @@ class AuthController {
 
     // ----------------------------------------------------------
     // Private: create DB session token
+    // Records client IP, user-agent, and updates last_login_at/ip on users table.
     // ----------------------------------------------------------
     private static function createSession(string $userId): string {
         $token = bin2hex(random_bytes(32));
         $pdo   = Database::getInstance();
-        $pdo->prepare("INSERT INTO sessions (user_id, token, created_at) VALUES (?, ?, NOW())")
-            ->execute([$userId, $token]);
+        // Capture client IP and user-agent
+        require_once __DIR__ . '/../helpers/RateLimiter.php';
+        $ip        = RateLimiter::getClientIp();
+        $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 512);
+        // Insert session with audit columns
+        $pdo->prepare("
+            INSERT INTO sessions (user_id, token, created_at, ip_address, user_agent)
+            VALUES (?, ?, NOW(), ?, ?)
+        ")->execute([$userId, $token, $ip, $userAgent]);
+        // Update last login on users
+        $pdo->prepare("
+            UPDATE users SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?
+        ")->execute([$ip, $userId]);
         return $token;
     }
 

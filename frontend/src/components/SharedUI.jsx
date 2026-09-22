@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShieldCheck, ChevronLeft, ChevronRight, Eye, EyeOff, HelpCircle } from "lucide-react";
+import PasswordStrengthMeter from "./PasswordStrengthMeter";
 
 export const Spinner = ({ size = 24 }) => (
   <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
@@ -224,9 +225,25 @@ export const Card = ({ children, style = {}, onClick }) => (
   }}>{children}</div>
 );
 
-export const Input = ({ label, error, ...p }) => (
+export const Input = ({ label, error, tooltip, helpText, ...p }) => (
   <div style={{ marginBottom: 16 }}>
-    {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
+    {label && (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>
+        {tooltip && (
+          <span
+            title={tooltip}
+            aria-label={tooltip}
+            style={{
+              cursor: "help", color: "#0891b2", display: "inline-flex", alignItems: "center",
+              background: "#ecfeff", borderRadius: "50%", padding: 2
+            }}
+          >
+            <HelpCircle size={13} />
+          </span>
+        )}
+      </div>
+    )}
     <input {...p} style={{
       width: "100%", padding: "10px 14px", border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
       borderRadius: 10, fontSize: 14, outline: "none", background: "#fafafa",
@@ -235,9 +252,69 @@ export const Input = ({ label, error, ...p }) => (
       onFocus={e => e.target.style.borderColor = "var(--brand)"}
       onBlur={e => e.target.style.borderColor = error ? "#f87171" : "var(--border)"}
     />
+    {helpText && <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{helpText}</div>}
     {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>⚠ {error}</div>}
   </div>
 );
+
+export const PasswordInput = ({ label, error, showStrength = false, ...p }) => {
+  const [show, setShow] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const isMeterVisible = showStrength && (focused || Boolean(p.value));
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      {label && <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>}
+      <div style={{ position: "relative" }}>
+        <input
+          {...p}
+          type={show ? "text" : "password"}
+          style={{
+            width: "100%", padding: "10px 14px", paddingInlineEnd: 42,
+            border: `1.5px solid ${error ? "#f87171" : "var(--border)"}`,
+            borderRadius: 10, fontSize: 14, outline: "none", background: "#fafafa",
+            boxSizing: "border-box", transition: "border 0.2s", ...p.style
+          }}
+          onFocus={e => {
+            setFocused(true);
+            e.target.style.borderColor = "var(--brand)";
+            if (p.onFocus) p.onFocus(e);
+          }}
+          onBlur={e => {
+            setFocused(false);
+            e.target.style.borderColor = error ? "#f87171" : "var(--border)";
+            if (p.onBlur) p.onBlur(e);
+          }}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setShow(!show)}
+          aria-label={show ? "Hide password" : "Show password"}
+          style={{
+            position: "absolute",
+            top: "50%",
+            transform: "translateY(-50%)",
+            insetInlineEnd: 10,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#94a3b8",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 4,
+            borderRadius: 6
+          }}
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+      {isMeterVisible && <PasswordStrengthMeter password={p.value || ""} alwaysShow={focused} />}
+      {error && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>⚠ {error}</div>}
+    </div>
+  );
+};
 
 export const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, ...p }) => {
   const variants = {

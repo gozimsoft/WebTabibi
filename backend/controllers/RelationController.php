@@ -90,17 +90,12 @@ class RelationController {
     public static function getRequests(): void {
         $user = AuthMiddleware::authenticate();
         $pdo = Database::getInstance();
-        
-        $myId = '';
-        $filterCol = '';
-        $joinTable = '';
-        $joinCol = '';
-        $nameCol = '';
 
         if ($user['usertype'] == 1) { // DOCTOR looking at clinics
+            $myId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
             $stmt = $pdo->prepare("
                 SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType,
-                       c.clinicname as targetname, c.phone, c.address, c.photo,
+                       c.clinicname as targetname, c.phone, c.address,
                        COALESCE(s.namear, s.namefr, '') as specialty_name,
                        '2025-01-01 00:00:00' as createdat
                 FROM clinicsdoctors r
@@ -110,10 +105,11 @@ class RelationController {
                 ORDER BY CASE WHEN UPPER(r.status) = 'PENDING' THEN 1 ELSE 2 END, r.id DESC
             ");
             $stmt->execute([$myId]);
-        } else { // CLINIC looking at doctors
+        } else if ($user['usertype'] == 2) { // CLINIC looking at doctors
+            $myId = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
             $stmt = $pdo->prepare("
                 SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType,
-                       d.fullname as targetname, d.phone, d.address, d.photo,
+                       d.fullname as targetname, d.phone, d.address,
                        COALESCE(s.namear, s.namefr, '') as specialty_name,
                        '2025-01-01 00:00:00' as createdat
                 FROM clinicsdoctors r
@@ -123,10 +119,14 @@ class RelationController {
                 ORDER BY CASE WHEN UPPER(r.status) = 'PENDING' THEN 1 ELSE 2 END, r.id DESC
             ");
             $stmt->execute([$myId]);
+        } else {
+            Response::success([]);
+            return;
         }
         
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($results as &$r) {
+            $r['photo'] = null;
             // Normalize status to upper for frontend
             if (strtolower($r['status']) === 'accepted' || strtoupper($r['status']) === 'APPROVED') {
                 $r['status'] = 'ACCEPTED';

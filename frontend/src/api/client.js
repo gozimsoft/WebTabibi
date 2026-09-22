@@ -32,6 +32,30 @@ async function request(method, path, body = null, auth = true) {
   }
 }
 
+async function upload(path, formData) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    const data = await res.json();
+    if (!data.success) {
+      const err = new Error(data.message || 'حدث خطأ في الخادم.');
+      err.status = res.status;
+      throw err;
+    }
+    return data.data ?? data;
+  } catch (e) {
+    if (e instanceof TypeError) throw new Error("تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
+    throw e;
+  }
+}
+
+
 // Broadcast helper for real-time cross-tab and in-app synchronization
 export const notifyAppointmentSync = (detail = {}) => {
   try {
@@ -74,6 +98,7 @@ export const api = {
     removeAttendingDoctor: () => request('DELETE', '/patients/attending-doctor'),
     getAttendingDoctorHistory: () => request('GET', '/patients/attending-doctor/history'),
     searchDoctors: (query = '') => request('GET', `/patients/attending-doctor/search?q=${encodeURIComponent(query)}`),
+    uploadPhoto: (formData) => upload('/patients/photo', formData),
   },
   doctor: {
     getProfile: () => request('GET', '/doctors/profile'),
@@ -120,9 +145,12 @@ export const api = {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
     getOne: (id) => request('GET', `/clinics/${id}`),
     getDoctorAtClinic: (cId, dId) => request('GET', `/clinics/${cId}/doctors/${dId}`),
+    profile: () => request('GET', '/clinics/profile'),
+    update: (body) => request('PUT', '/clinics/profile', body),
   },
   specialties: () => request('GET', '/specialties'),
   wilayas: () => request('GET', '/wilayas'),
+  baladiyas: (wilayaId) => request('GET', `/baladiyas${wilayaId ? `?wilaya_id=${encodeURIComponent(wilayaId)}` : ''}`),
   appointments: {
     getSlots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
     book: async (body) => {
@@ -146,6 +174,12 @@ export const api = {
   ratings: {
     add: (body) => request('POST', '/ratings', body),
     getForDoctor: (id) => request('GET', `/ratings/doctor/${id}`),
+  },
+  relations: {
+    request: (body) => request('POST', '/relations/request', body),
+    getRequests: () => request('GET', '/relations/requests'),
+    check: (id) => request('GET', `/relations/check/${id}`),
+    respond: (id, body) => request('POST', `/relations/requests/${id}/respond`, body),
   },
   notifications: {
     list: () => request('GET', '/notifications'),
@@ -187,5 +221,20 @@ export const api = {
     withdraw: (body) => request('POST', '/consent/withdraw', body),
     opposition: (body) => request('POST', '/consent/opposition', body),
     deleteAccount: () => request('DELETE', '/patients/account'),
+  },
+  admin: {
+    stats: () => request('GET', '/admin/stats'),
+    systemStatus: () => request('GET', '/admin/system-status'),
+    clinics: (params = {}) => request('GET', `/admin/clinics?${new URLSearchParams(params)}`),
+    doctors: (params = {}) => request('GET', `/admin/doctors?${new URLSearchParams(params)}`),
+    approveClinic: (id) => request('POST', `/admin/clinics/${id}/approve`, {}),
+    rejectClinic: (id, reason) => request('POST', `/admin/clinics/${id}/reject`, { reason }),
+    freezeClinic: (id, reason) => request('POST', `/admin/clinics/${id}/freeze`, { reason }),
+    releaseClinic: (id) => request('POST', `/admin/clinics/${id}/release`, {}),
+    approveDoctor: (id) => request('POST', `/admin/doctors/${id}/approve`, {}),
+    rejectDoctor: (id, reason) => request('POST', `/admin/doctors/${id}/reject`, { reason }),
+    freezeDoctor: (id, reason) => request('POST', `/admin/doctors/${id}/freeze`, { reason }),
+    releaseDoctor: (id) => request('POST', `/admin/doctors/${id}/release`, {}),
+    logs: (params = {}) => request('GET', `/admin/logs?${new URLSearchParams(params)}`),
   },
 };

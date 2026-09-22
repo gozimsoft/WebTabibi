@@ -158,6 +158,11 @@ try {
         require_once __DIR__ . '/controllers/PatientController.php';
         PatientController::updateProfile();
     }
+    // POST /api/patients/photo — تحميل الصورة الشخصية للمريض
+    if ($uri === '/patients/photo' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/PatientController.php';
+        PatientController::uploadPhoto();
+    }
     // PUT /api/patients/credentials — تغيير اسم المستخدم أو كلمة المرور للمريض
     if ($uri === '/patients/credentials' && $method === 'PUT') {
         require_once __DIR__ . '/controllers/PatientController.php';
@@ -503,6 +508,11 @@ try {
     if ($uri === '/admin/stats' && $method === 'GET') {
         require_once __DIR__ . '/controllers/AdminController.php';
         AdminController::stats();
+    }
+    // GET /api/admin/system-status — DB sync status + service health (admin & support)
+    if ($uri === '/admin/system-status' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AdminController.php';
+        AdminController::getSystemStatus();
     }
     if ($uri === '/admin/clinics' && $method === 'GET') {
         require_once __DIR__ . '/controllers/AdminController.php';

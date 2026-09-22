@@ -16,7 +16,7 @@ class PatientController {
         $pdo     = Database::getInstance();
 
         $stmt = $pdo->prepare("
-            SELECT p.*, b.namefr as BaladiyaName, b.namear as BaladiyaNameAr
+            SELECT p.*, b.namefr as BaladiyaName, b.namear as BaladiyaNameAr, b.wilaya_id
             FROM patients p
             LEFT JOIN baladiyas b ON b.id = p.baladiya_id
             WHERE p.user_id = ?
@@ -26,9 +26,85 @@ class PatientController {
         $patient = $stmt->fetch();
 
         if (!$patient) Response::notFound('لم يتم العثور على الملف الشخصي للمريض.');
-        unset($patient['photoprofile']);
+
+        if (!empty($patient['photoprofile'])) {
+            $patient['photoprofile'] = base64_encode($patient['photoprofile']);
+        } else {
+            $patient['photoprofile'] = null;
+        }
 
         Response::success($patient);
+    }
+
+    // POST /api/patients/photo
+    public static function uploadPhoto(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 0) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('حدث خطأ أثناء تحميل الصورة.', 400);
+        }
+
+        $file = $_FILES['photo'];
+        $maxSize = 5 * 1024 * 1024; // 5 MB
+
+        // 1. Fichier vide ou non uploadé via HTTP POST
+        if (empty($file['tmp_name']) || (int)$file['size'] === 0 || !is_uploaded_file($file['tmp_name'])) {
+            Response::error('الملف فارغ أو غير صالح.', 400);
+        }
+
+        // 2. Taille maximale (5 MB)
+        if ($file['size'] > $maxSize) {
+            Response::error('الملف يتجاوز الحد الأقصى المسموح به للحجم وهو 5 ميجابايت.', 400);
+        }
+
+        // 3. Extension de fichier autorisée
+        $extension = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (!in_array($extension, $allowedExtensions, true)) {
+            Response::error('امتداد الملف غير مدعوم. الصيغ المقبولة: JPG, PNG, GIF, WebP.', 400);
+        }
+
+        // 4. Validation MIME réelle basée sur les octets magiques (contenu réel)
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mimeType, $allowedMimes, true)) {
+            Response::error('نوع الملف غير مدعوم. التنسيقات المقبولة هي: JPEG، PNG، GIF، WebP.', 400);
+        }
+
+        // 5. Validation de cohérence d'image (intégrité du contenu)
+        $imageInfo = @getimagesize($file['tmp_name']);
+        if ($imageInfo === false) {
+            Response::error('محتوى الملف تالف أو لا يمثل صورة صالحة.', 400);
+        }
+
+        $fileContent = file_get_contents($file['tmp_name']);
+        if ($fileContent === false || strlen($fileContent) === 0) {
+            Response::error('تعذر قراءة ملف الصورة.', 400);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $patient_id = $stmt->fetchColumn();
+
+        if (!$patient_id) {
+            Response::error('لم يتم العثور على الملف الشخصي للمريض.', 404);
+        }
+
+        $stmtUpdate = $pdo->prepare("UPDATE patients SET photoprofile = ? WHERE id = ?");
+        $stmtUpdate->bindParam(1, $fileContent, PDO::PARAM_LOB);
+        $stmtUpdate->bindParam(2, $patient_id);
+        $stmtUpdate->execute();
+
+        Response::success([
+            'photoprofile' => base64_encode($fileContent)
+        ], 'تم تحديث الصورة الشخصية بنجاح.');
     }
 
     // PUT /api/patients/profile
@@ -132,6 +208,16 @@ class PatientController {
 
         // --- تحديث كلمة المرور الجديدة (إن طُلبت) ---
         if (!empty($data['new_password'])) {
+            // التحقق من كلمة المرور الحالية للأمان
+            if (!empty($user['password'])) {
+                if (empty($data['current_password'])) {
+                    Response::error('يرجى إدخال كلمة المرور الحالية لتأكيد التغيير.', 422);
+                }
+                if (!PasswordHelper::verify($data['current_password'], $user['password'])) {
+                    Response::error('كلمة المرور الحالية غير صحيحة.', 401);
+                }
+            }
+
             if (strlen($data['new_password']) < 6) {
                 Response::error('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.', 422);
             }

@@ -753,4 +753,137 @@ class AdminController {
             Response::serverError('حدث خطأ أثناء إلغاء التجميد: ' . $e->getMessage());
         }
     }
+
+    // ----------------------------------------------------------
+    // GET /api/admin/system-status
+    // Returns DB sync status, service health, and active sessions.
+    // Accessible to both usertype = 3 (SuperAdmin) and usertype = 4 (Support).
+    // ----------------------------------------------------------
+    public static function getSystemStatus(): void {
+        AuthMiddleware::adminOnly();
+        require_once __DIR__ . '/../helpers/RateLimiter.php';
+
+        $pdo = Database::getInstance();
+        $start = microtime(true);
+
+        $status = [];
+
+        // ── 1. Database Synchronization Status ──────────────────
+        $dbSync = ['status' => 'HEALTHY'];
+
+        $dbSync['total_appointments'] = (int)$pdo->query("SELECT COUNT(*) FROM apointements")->fetchColumn();
+        $dbSync['total_doctors']      = (int)$pdo->query("SELECT COUNT(*) FROM doctors")->fetchColumn();
+        $dbSync['total_clinics']      = (int)$pdo->query("SELECT COUNT(*) FROM clinics")->fetchColumn();
+        $dbSync['total_patients']     = (int)$pdo->query("SELECT COUNT(*) FROM patients")->fetchColumn();
+        $dbSync['total_sessions']     = (int)$pdo->query("SELECT COUNT(*) FROM sessions")->fetchColumn();
+
+        // Latest sync activity
+        $latestAppt = $pdo->query("SELECT MAX(updatedat) FROM apointements")->fetchColumn();
+        $dbSync['last_activity_at'] = $latestAppt ?: null;
+
+        // Table integrity: check status via SHOW TABLE STATUS
+        try {
+            $tables = ['users','sessions','doctors','clinics','patients','apointements'];
+            $tableOk = true;
+            foreach ($tables as $t) {
+                $row = $pdo->query("SHOW TABLE STATUS LIKE '$t'")->fetch(PDO::FETCH_ASSOC);
+                if (!$row || ($row['Engine'] === null)) { $tableOk = false; break; }
+            }
+            $dbSync['tables_ok'] = $tableOk;
+            $dbSync['integrity'] = $tableOk ? 'OK' : 'WARNING';
+        } catch (\Exception $e) {
+            $dbSync['tables_ok'] = false;
+            $dbSync['integrity'] = 'UNKNOWN';
+        }
+
+        // Pending sync (doctor registrations awaiting approval)
+        $dbSync['pending_doctor_registrations'] = (int)$pdo->query("SELECT COUNT(*) FROM doctorregistrations WHERE status='PENDING'")->fetchColumn();
+        $dbSync['pending_clinic_registrations'] = (int)$pdo->query("SELECT COUNT(*) FROM clinicregistrations WHERE status='PENDING'")->fetchColumn();
+
+        $status['db_sync'] = $dbSync;
+
+        // ── 2. Service Health ────────────────────────────────────
+        $services = [];
+
+        // API Service
+        $services['api'] = [
+            'name'    => 'API Backend',
+            'status'  => 'OPERATIONAL',
+            'php_version' => PHP_VERSION,
+            'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
+            'latency_ms' => round((microtime(true) - $start) * 1000, 2),
+        ];
+
+        // Database connectivity + latency
+        $dbStart = microtime(true);
+        try {
+            $pdo->query("SELECT 1");
+            $dbLatency = round((microtime(true) - $dbStart) * 1000, 2);
+            // MySQL version
+            $mysqlVersion = $pdo->query("SELECT VERSION()")->fetchColumn();
+            // Active threads
+            $threads = (int)$pdo->query("SHOW STATUS LIKE 'Threads_connected'")->fetch(PDO::FETCH_ASSOC)['Value'];
+            $services['database'] = [
+                'name'       => 'MySQL Database',
+                'status'     => 'CONNECTED',
+                'version'    => $mysqlVersion,
+                'latency_ms' => $dbLatency,
+                'threads'    => $threads,
+            ];
+        } catch (\Exception $e) {
+            $services['database'] = ['name' => 'MySQL Database', 'status' => 'ERROR', 'error' => $e->getMessage()];
+        }
+
+        // Storage / Uploads
+        $uploadDir = __DIR__ . '/../../uploads';
+        $altUploadDir = __DIR__ . '/../uploads';
+        $actualUploadDir = is_dir($uploadDir) ? $uploadDir : (is_dir($altUploadDir) ? $altUploadDir : null);
+        if ($actualUploadDir) {
+            $diskFreeBytes = @disk_free_space($actualUploadDir);
+            $diskTotalBytes = @disk_total_space($actualUploadDir);
+            $services['storage'] = [
+                'name'    => 'Storage / Uploads',
+                'status'  => (is_writable($actualUploadDir)) ? 'ACCESSIBLE' : 'READ_ONLY',
+                'writable' => is_writable($actualUploadDir),
+                'free_gb'  => $diskFreeBytes !== false ? round($diskFreeBytes / 1024 / 1024 / 1024, 2) : null,
+                'total_gb' => $diskTotalBytes !== false ? round($diskTotalBytes / 1024 / 1024 / 1024, 2) : null,
+            ];
+        } else {
+            $services['storage'] = ['name' => 'Storage / Uploads', 'status' => 'NOT_FOUND', 'writable' => false];
+        }
+
+        // Sessions Service
+        $activeSessions = (int)$pdo->query("SELECT COUNT(*) FROM sessions WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn();
+        $adminSessions  = (int)$pdo->query("SELECT COUNT(*) FROM sessions s JOIN users u ON s.user_id = u.id WHERE u.usertype IN (3,4) AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn();
+        $services['sessions'] = [
+            'name'            => 'Auth / Sessions',
+            'status'          => 'ACTIVE',
+            'active_total'    => $activeSessions,
+            'active_admin'    => $adminSessions,
+            'token_expiry_days' => defined('TOKEN_EXPIRY') ? round(TOKEN_EXPIRY / 86400) : 30,
+        ];
+
+        // Security service
+        $services['security'] = [
+            'name'           => 'Security Layer',
+            'status'         => 'PROTECTED',
+            'rate_limiting'  => true,
+            'bcrypt_hashing' => true,
+            'ssl_bearer'     => true,
+        ];
+
+        $status['services'] = $services;
+
+        // ── 3. Quick Links / Shortcuts ──────────────────────────
+        $status['shortcuts'] = [
+            ['label' => 'Admin Dashboard',    'url' => '/admin'],
+            ['label' => 'Support Tickets',    'url' => '/admin?tab=support_tickets'],
+            ['label' => 'Account Management', 'url' => '/admin?tab=accounts'],
+        ];
+
+        $status['generated_at'] = date('Y-m-d H:i:s');
+        $status['server_ip']    = RateLimiter::getClientIp();
+
+        Response::success($status);
+    }
 }

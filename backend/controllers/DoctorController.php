@@ -36,12 +36,14 @@ class DoctorController {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
         }
 
-        // Fetch associated clinics for this doctor
+        // Fetch associated clinics for this doctor with affiliation status and details
         $stmt = $pdo->prepare("
-            SELECT cd.id as clinicsdoctor_id, c.clinicname, c.id as clinic_id
+            SELECT cd.id as clinicsdoctor_id, cd.status as affiliation_status, cd.requestedby,
+                   c.id as clinic_id, c.clinicname, c.phone as clinic_phone, c.address as clinic_address, c.email as clinic_email
             FROM clinicsdoctors cd
             JOIN clinics c ON c.id = cd.clinic_id
             WHERE cd.doctor_id = ?
+            ORDER BY CASE WHEN UPPER(cd.status) IN ('APPROVED', 'ACCEPTED') THEN 1 WHEN UPPER(cd.status) = 'PENDING' THEN 2 ELSE 3 END, c.clinicname ASC
         ");
         $stmt->execute([$doctor['id']]);
         $doctor['clinics'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -117,17 +119,24 @@ class DoctorController {
             }
 
             $allowed = [
-                'fullname', 'email', 'phone', 'fix', 'casnos', 'speakinglanguage', 
+                'fullname', 'email', 'phone', 'fix', 'cnas', 'casnos', 'speakinglanguage', 
                 'rpps', 'numregister', 'pricing', 'degrees', 'academytitles', 
-                'postcode', 'specialtie_id', 'nin'
+                'postcode', 'specialtie_id', 'nin', 'presentation', 'education'
             ];
 
             $fields = [];
             $values = [];
             foreach ($allowed as $field) {
                 if (array_key_exists($field, $data)) {
+                    $val = $data[$field];
+                    if (($field === 'presentation' || $field === 'education') && is_string($val)) {
+                        $val = mb_substr(trim($val), 0, 1000);
+                    }
+                    if ($field === 'cnas' || $field === 'casnos') {
+                        $val = !empty($val) ? 1 : 0;
+                    }
                     $fields[] = "`$field` = ?";
-                    $values[] = $data[$field];
+                    $values[] = $val;
                 }
             }
 

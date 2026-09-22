@@ -36,6 +36,30 @@ class ClinicController
         }
         unset($clinic['password']);
 
+        // Fetch attached active doctors
+        $dStmt = $pdo->prepare("
+            SELECT cd.id as clinicsdoctor_id, cd.status as affiliation_status, cd.requestedby,
+                   d.id as doctor_id, d.fullname, d.phone, d.email, d.photoprofile,
+                   COALESCE(s.namefr, '') as specialtyfr,
+                   COALESCE(s.namear, '') as specialtyar
+            FROM clinicsdoctors cd
+            JOIN doctors d ON d.id = cd.doctor_id
+            LEFT JOIN specialties s ON s.id = COALESCE(cd.specialtie_id, d.specialtie_id)
+            WHERE cd.clinic_id = ? AND UPPER(cd.status) IN ('APPROVED', 'ACCEPTED')
+            ORDER BY d.fullname ASC
+        ");
+        $dStmt->execute([$clinic['id']]);
+        $doctors = $dStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($doctors as &$doc) {
+            if (!empty($doc['photoprofile'])) {
+                $doc['photoprofile'] = base64_encode($doc['photoprofile']);
+            } else {
+                $doc['photoprofile'] = null;
+            }
+        }
+        $clinic['doctors'] = $doctors;
+        $clinic['active_doctors_count'] = count($doctors);
+
         Response::success($clinic);
     }
 
@@ -595,8 +619,14 @@ class ClinicController
     public static function getBaladiyas(): void
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT * FROM baladiyas ORDER BY postcode ");
-        $stmt->execute();
+        $wilayaId = trim($_GET['wilaya_id'] ?? '');
+        if (!empty($wilayaId)) {
+            $stmt = $pdo->prepare("SELECT * FROM baladiyas WHERE wilaya_id = ? ORDER BY postcode ASC, namefr ASC");
+            $stmt->execute([$wilayaId]);
+        } else {
+            $stmt = $pdo->prepare("SELECT * FROM baladiyas ORDER BY postcode ASC");
+            $stmt->execute();
+        }
         Response::success($stmt->fetchAll());
     }
 

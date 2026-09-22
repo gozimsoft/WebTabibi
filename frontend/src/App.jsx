@@ -19,7 +19,7 @@ import {
   Spinner, Skeleton, CardSkeleton, ListSkeleton,
   DoctorDetailSkeleton, AppointmentSkeleton,
   useToast, Stars, VerifiedBadge, AvailabilityPulse,
-  DoctorImage, Badge, Card, Input, Btn
+  DoctorImage, Badge, Card, Input, PasswordInput, Btn
 } from "./components/SharedUI.jsx";
 import ContactPage from "./pages/Contact";
 import GoogleCalendarButton from "./components/GoogleCalendarButton";
@@ -35,6 +35,8 @@ import SuperAdminAccountManagement from "./pages/SuperAdminAccountManagement";
 import ClinicAppointmentManager from "./pages/ClinicAppointmentManager";
 import RequestsPage from "./pages/RequestsPage";
 import { useRoute } from "./hooks/useRoute";
+import AvatarCropModal from "./components/AvatarCropModal";
+import { AccountSecurityPill, AccountSecurityCard } from "./components/AccountSecuritySummary";
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -101,6 +103,7 @@ const api = {
   patient: {
     profile: () => req("GET", "/patients/profile"),
     update: b => req("PUT", "/patients/profile", b),
+    uploadPhoto: fd => reqFile("POST", "/patients/photo", fd),
     updateCredentials: b => req("PUT", "/patients/credentials", b),
     appointments: () => req("GET", "/patients/appointments"),
     family: () => {
@@ -149,6 +152,7 @@ const api = {
   specialties: () => req("GET", "/specialties"),
   reasons: specId => req("GET", `/reasons${specId ? '?specialty_id=' + specId : ''}`, null, false),
   wilayas: () => req("GET", "/wilayas"),
+  baladiyas: wilayaId => req("GET", `/baladiyas${wilayaId ? '?wilaya_id=' + encodeURIComponent(wilayaId) : ''}`),
   appointments: {
     slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, false),
     book: b => req("POST", "/appointments", b),
@@ -196,6 +200,7 @@ const api = {
   },
   admin: {
     stats: () => req("GET", "/admin/stats"),
+    systemStatus: () => req("GET", "/admin/system-status"),
     clinics: p => req("GET", `/admin/clinics?${new URLSearchParams(p)}`),
     doctors: p => req("GET", `/admin/doctors?${new URLSearchParams(p)}`),
     approveClinic: id => req("POST", `/admin/clinics/${id}/approve`, {}),
@@ -4100,10 +4105,10 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
       {/* INFO */}
       {tab === "info" && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-          {data.Education && (
+          {(data.Education || data.education) && (
             <Card style={{ flex: "1 1 250px", padding: "18px 20px" }}>
               <h3 style={{ color: "#0c4a6e", margin: "0 0 10px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Award size={18} /> {t("education")}</h3>
-              <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Education}</p>
+              <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Education || data.education}</p>
             </Card>
           )}
           <Card style={{ flex: "1 1 250px", padding: "18px 20px" }}>
@@ -4115,10 +4120,10 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
               {data.PayementMethods && <div style={{ display: "flex", alignItems: "center", gap: 8 }}><CreditCard size={14} /> <strong>{t("payment")}</strong> {data.PayementMethods}</div>}
             </div>
           </Card>
-          {data.Presentation && (
+          {(data.Presentation || data.presentation) && (
             <Card style={{ flex: "2 1 350px", padding: "18px 20px" }}>
               <h3 style={{ color: "#0c4a6e", margin: "0 0 10px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> {t("about_doctor")}</h3>
-              <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Presentation}</p>
+              <p style={{ color: "#374151", lineHeight: 1.8, margin: 0, fontSize: 14 }}>{data.Presentation || data.presentation}</p>
             </Card>
           )}
         </div>
@@ -9321,6 +9326,16 @@ function ProfilePage({ user, navigate, qs }) {
   const [verStatus, setVS] = useState(null);
   const [otpModal, setOTP] = useState(null);
 
+  // --- حالة قص وتعديل الصورة الشخصية ---
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
+
+  // --- حالة الولايات والبلديات للمريض ---
+  const [wilayasList, setWilayasList] = useState([]);
+  const [baladiyasList, setBaladiyasList] = useState([]);
+  const [loadingBaladiyas, setLoadingBaladiyas] = useState(false);
+
   // --- حالة قسم بيانات الدخول للمريض ---
   const [creds, setCreds] = useState({ current_password: "", new_username: "", new_password: "", confirm_new_password: "" });
   const [savingCreds, setSavingCreds] = useState(false);
@@ -9344,6 +9359,8 @@ function ProfilePage({ user, navigate, qs }) {
   const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
   const [adminStats, setAdminStats] = useState(null);
   const [adminTickets, setAdminTickets] = useState([]);
+  const [adminSystemStatus, setAdminSystemStatus] = useState(null);
+  const [loadingSystemStatus, setLoadingSystemStatus] = useState(false);
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
 
   // --- حالة قسم الموافقات والخصوصية (Loi 18-07) ---
@@ -9364,6 +9381,30 @@ function ProfilePage({ user, navigate, qs }) {
       }
     }
   }, [qs]);
+
+  const isSecurityActive = (
+    user?.user_type === 0 ? patientActiveTab === "security" :
+    user?.user_type === 1 ? doctorActiveTab === "security" :
+    user?.user_type === 2 ? clinicActiveTab === "security" :
+    adminActiveTab === "security"
+  );
+
+  const toggleSecurityTab = useCallback(() => {
+    const isSec = (
+      user?.user_type === 0 ? patientActiveTab === "security" :
+      user?.user_type === 1 ? doctorActiveTab === "security" :
+      user?.user_type === 2 ? clinicActiveTab === "security" :
+      adminActiveTab === "security"
+    );
+    const next = isSec ? "profile" : "security";
+    if (navigate) {
+      navigate(next === "security" ? "/profile?tab=security" : "/profile");
+    }
+    if (user?.user_type === 0) setPatientActiveTab(next);
+    else if (user?.user_type === 1) setDoctorActiveTab(next);
+    else if (user?.user_type === 2) setClinicActiveTab(next);
+    else if (user?.user_type === 3 || user?.user_type === 4) setAdminActiveTab(next);
+  }, [user, patientActiveTab, doctorActiveTab, clinicActiveTab, adminActiveTab, navigate]);
 
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
@@ -9557,26 +9598,54 @@ function ProfilePage({ user, navigate, qs }) {
       if (user?.user_type === 1) p = await api.doctor.profile();
       else if (user?.user_type === 2) p = await api.clinics.profile();
       else if (user?.user_type === 3 || user?.user_type === 4) {
-        p = {
-          fullname: user?.username || (user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام")),
-          email: user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : "admin@tabibi.dz"),
-          username: user?.username || (user?.user_type === 4 ? "support" : "admin"),
-          user_type_label: user?.user_type === 4 ? "support" : "admin",
-        };
-        setLoadingAdminStats(true);
+        // Fetch admin profile from auth/me for audit data (last_login_at, current_session_ip...)
         try {
-          const [st, tix] = await Promise.all([
+          const me = await api.auth.me();
+          const meProfile = me?.profile || {};
+          p = {
+            fullname: user?.username || (user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام")),
+            email: user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : "admin@tabibi.dz"),
+            username: user?.username || (user?.user_type === 4 ? "support" : "admin"),
+            user_type_label: user?.user_type === 4 ? "support" : "admin",
+            // Audit fields from backend
+            last_login_at: meProfile.last_login_at || null,
+            last_login_ip: meProfile.last_login_ip || null,
+            current_session_at: meProfile.current_session_at || null,
+            current_session_ip: meProfile.current_session_ip || null,
+            prev_session_at: meProfile.prev_session_at || null,
+            prev_session_ip: meProfile.prev_session_ip || null,
+          };
+        } catch (_) {
+          p = {
+            fullname: user?.username || (user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام")),
+            email: user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : "admin@tabibi.dz"),
+            username: user?.username || (user?.user_type === 4 ? "support" : "admin"),
+            user_type_label: user?.user_type === 4 ? "support" : "admin",
+          };
+        }
+        setLoadingAdminStats(true);
+        setLoadingSystemStatus(true);
+        try {
+          const [st, tix, sysStatus] = await Promise.all([
             api.admin.stats().catch(() => null),
             api.tickets.list().catch(() => []),
+            api.admin.systemStatus().catch(() => null),
           ]);
           setAdminStats(st);
           setAdminTickets(tix || []);
+          setAdminSystemStatus(sysStatus);
         } catch (err) {
-          console.error("Admin stats/tickets load error:", err);
+          console.error("Admin stats/tickets/status load error:", err);
         } finally {
           setLoadingAdminStats(false);
+          setLoadingSystemStatus(false);
         }
-      } else p = await api.patient.profile();
+      } else {
+        p = await api.patient.profile();
+        if (p?.wilaya_id) {
+          api.baladiyas(p.wilaya_id).then(b => setBaladiyasList(b || [])).catch(() => {});
+        }
+      }
 
       let vs = null;
       if (user?.user_type === 0) vs = await api.verify.status().catch(() => null);
@@ -9594,6 +9663,44 @@ function ProfilePage({ user, navigate, qs }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  // جلب قائمة الولايات للمريض
+  useEffect(() => {
+    if (user?.user_type === 0 && wilayasList.length === 0) {
+      api.wilayas().then(w => setWilayasList(w || [])).catch(() => {});
+    }
+  }, [user?.user_type, wilayasList.length]);
+
+  const handleWilayaChange = async (wilayaId) => {
+    setForm(prev => ({
+      ...prev,
+      wilaya_id: wilayaId,
+      baladiya_id: "",
+      postcode: ""
+    }));
+    if (wilayaId) {
+      setLoadingBaladiyas(true);
+      try {
+        const b = await api.baladiyas(wilayaId);
+        setBaladiyasList(b || []);
+      } catch (err) {
+        console.error("Error loading baladiyas:", err);
+      } finally {
+        setLoadingBaladiyas(false);
+      }
+    } else {
+      setBaladiyasList([]);
+    }
+  };
+
+  const handleBaladiyaChange = (baladiyaId) => {
+    const selected = baladiyasList.find(b => b.id === baladiyaId);
+    setForm(prev => ({
+      ...prev,
+      baladiya_id: baladiyaId,
+      postcode: selected?.postcode || prev.postcode || ""
+    }));
+  };
 
   // جلب مبررات الاستشارة من قاعدة البيانات عند فتح النافذة المنبثقة
   useEffect(() => {
@@ -9728,9 +9835,11 @@ function ProfilePage({ user, navigate, qs }) {
   const save = async e => {
     e.preventDefault(); setSaving(true);
     try {
-      if (user?.user_type === 1) await api.doctor.update(form);
-      else if (user?.user_type === 2) await api.clinics.update(form);
-      else await api.patient.update(form);
+      const cleanForm = { ...form };
+      delete cleanForm.password;
+      if (user?.user_type === 1) await api.doctor.update(cleanForm);
+      else if (user?.user_type === 2) await api.clinics.update(cleanForm);
+      else await api.patient.update(cleanForm);
       show(t("save_success"));
     }
     catch (e) { show(e.message, "error"); }
@@ -9755,34 +9864,71 @@ function ProfilePage({ user, navigate, qs }) {
   };
 
   const saveCredentials = async () => {
-    if (creds.new_password && creds.new_password !== creds.confirm_new_password) return show(t("passwords_no_match", "كلمتا المرور غير متطابقتين"), "error");
-    if (!creds.new_username && !creds.new_password) return show("يرجى إدخال اسم مستخدم أو كلمة مرور جديدة", "error");
+    if (creds.new_password) {
+      if (!creds.current_password) {
+        return show(t("current_password_required", "كلمة المرور الحالية مطلوبة"), "error");
+      }
+      if (creds.new_password.length < 6) {
+        return show(t("password_min_hint", "كلمة المرور يجب أن تكون 6 أحرف على الأقل"), "error");
+      }
+      if (creds.new_password !== creds.confirm_new_password) {
+        return show(t("passwords_no_match", "كلمتا المرور غير متطابقتين"), "error");
+      }
+    }
+    if (!creds.new_username && !creds.new_password) {
+      return show(t("enter_new_credentials_error", "يرجى إدخال اسم مستخدم أو كلمة مرور جديدة"), "error");
+    }
 
     setSavingCreds(true);
     try {
       await api.patient.updateCredentials({
+        current_password: creds.current_password || undefined,
         new_username: creds.new_username || undefined,
         new_password: creds.new_password || undefined,
       });
       show(t("credentials_save_success", "تم تحديث بيانات الدخول بنجاح"));
-      setCreds({ new_username: "", new_password: "", confirm_new_password: "" });
+      setCreds({ current_password: "", new_username: "", new_password: "", confirm_new_password: "" });
     } catch (e) { show(e.message, "error"); }
     finally { setSavingCreds(false); }
   };
 
-  const handlePhotoUpload = async e => {
-    const file = e.target.files[0];
+  const handleFileSelect = e => {
+    const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+    if (!file.type.startsWith("image/")) {
+      show(t("invalid_image_type", "الملف المحدد ليس صورة صالحة"), "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      show(t("file_too_large", "الملف يتجاوز الحد الأقصى المسموح به (5 ميغابايت)"), "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result);
+      setCropModalOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropSave = async (croppedBlob) => {
     setUPhoto(true);
     try {
       const fd = new FormData();
-      fd.append("photo", file);
+      fd.append("photo", croppedBlob, "avatar.jpg");
       if (user?.user_type === 2) await api.clinics.uploadLogo(fd);
-      else await api.doctor.uploadPhoto(fd);
-      show("تم تحديث الصورة بنجاح");
+      else if (user?.user_type === 1) await api.doctor.uploadPhoto(fd);
+      else await api.patient.uploadPhoto(fd);
+      show(t("photo_upload_success", "تم تحديث الصورة بنجاح"), "success");
+      setCropModalOpen(false);
+      setCropImageSrc(null);
       load();
-    } catch (err) { show(err.message, "error"); }
-    finally { setUPhoto(false); }
+    } catch (err) {
+      show(err.message, "error");
+    } finally {
+      setUPhoto(false);
+    }
   };
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -9792,20 +9938,31 @@ function ProfilePage({ user, navigate, qs }) {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
-      <input type="file" ref={fileInput} onChange={handlePhotoUpload} accept="image/*" style={{ display: "none" }} />
+      <input
+        type="file"
+        ref={fileInput}
+        onChange={handleFileSelect}
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        style={{ display: "none" }}
+      />
       {/* Header */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", marginBottom: 28 }}>
         <div style={{ display: "flex", gap: 18, alignItems: "center", minWidth: 0 }}>
           <div
-            onClick={() => (user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
+            onClick={() => (user?.user_type === 0 || user?.user_type === 1 || user?.user_type === 2) && fileInput.current?.click()}
+            onMouseEnter={() => setIsHoveringAvatar(true)}
+            onMouseLeave={() => setIsHoveringAvatar(false)}
+            title={(user?.user_type === 0 || user?.user_type === 1 || user?.user_type === 2) ? t("change_photo", "تغيير الصورة") : undefined}
             style={{
               width: 72, height: 72, borderRadius: 16,
               background: (user?.user_type === 3 || user?.user_type === 4) ? "linear-gradient(135deg, #7c3aed, #4f46e5)" : "linear-gradient(135deg,var(--brand),#0e7490)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 30, color: "#fff", fontWeight: 900,
-              cursor: (user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default",
+              cursor: (user?.user_type === 0 || user?.user_type === 1 || user?.user_type === 2) ? "pointer" : "default",
               position: "relative", overflow: "hidden", flexShrink: 0,
-              boxShadow: (user?.user_type === 3 || user?.user_type === 4) ? "0 8px 20px rgba(124, 58, 237, 0.25)" : "none"
+              boxShadow: (user?.user_type === 3 || user?.user_type === 4) ? "0 8px 20px rgba(124, 58, 237, 0.25)" : "none",
+              transform: isHoveringAvatar && (user?.user_type === 0 || user?.user_type === 1 || user?.user_type === 2) ? "scale(1.05)" : "scale(1)",
+              transition: "transform 0.18s, box-shadow 0.18s"
             }}>
             {uploadingPhoto ? <Spinner size={24} /> : (
               (form.photoprofile || form.logo) ? (
@@ -9816,26 +9973,46 @@ function ProfilePage({ user, navigate, qs }) {
                 (form.fullname || form.clinicname || "U")[0].toUpperCase()
               )
             )}
+            {(user?.user_type === 0 || user?.user_type === 1 || user?.user_type === 2) && !uploadingPhoto && (
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "rgba(15, 23, 42, 0.55)",
+                backdropFilter: "blur(2px)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                opacity: isHoveringAvatar ? 1 : 0,
+                transition: "opacity 0.2s ease-in-out",
+                color: "#ffffff"
+              }}>
+                <Camera size={24} />
+              </div>
+            )}
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0c4a6e", margin: "0 0 4px" }}>
               {form.fullname || form.clinicname || ((user?.user_type === 3 || user?.user_type === 4) ? (user?.username || (user?.user_type === 4 ? t("support_role", "فريق الدعم") : t("admin_role", "مدير النظام"))) : "")}
             </h1>
             <div style={{ fontSize: 13, color: "#6b7280" }}>{form.email || user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : user?.user_type === 3 ? "admin@tabibi.dz" : "")}</div>
-            {verStatus && (
-              <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <AccountSecurityPill
+                form={form}
+                verStatus={verStatus}
+                consentData={consentData}
+                isOpen={isSecurityActive}
+                onClick={toggleSecurityTab}
+              />
+              {verStatus && (
                 <Badge color={verStatus.email_verified ? "#059669" : "#ea580c"}>
                   {verStatus.email_verified ? <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} /> : <AlertCircle size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />}
                   {verStatus.email_verified ? t("email_verified") : t("email_unverified")}
                 </Badge>
-                {form.phone && (
-                  <Badge color="#059669">
-                    <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
-                    {t("phone_verified")}
-                  </Badge>
-                )}
-              </div>
-            )}
+              )}
+              {form?.phone && (
+                <Badge color="#059669">
+                  <Check size={12} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 4 }} />
+                  {t("phone_verified")}
+                </Badge>
+              )}
+            </div>
             {(user?.user_type === 3 || user?.user_type === 4) && (
               <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <Badge color={user?.user_type === 4 ? "#0284c7" : "#7c3aed"}>
@@ -10404,43 +10581,335 @@ function ProfilePage({ user, navigate, qs }) {
 
       {user?.user_type === 1 && doctorActiveTab === "profile" && (
         <form onSubmit={save}>
-          {/* Account Info */}
-          <Card style={{ marginBottom: 14 }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> بيانات الدخول</h3>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-              <Input label="اسم المستخدم" value={form.username || ""} onChange={e => f("username", e.target.value)} />
-              <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.password || ""} onChange={e => f("password", e.target.value)} />
+          {/* Security & Credentials Tab Notice Card */}
+          <Card style={{ marginBottom: 14, background: "linear-gradient(135deg, #f0fdfa, #f8fafc)", border: "1px solid #ccfbf1" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: "#0891b2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#0e7490" }}>{t("security_credentials_tab_hint", "إدارة اسم المستخدم وكلمة المرور")}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{t("security_credentials_tab_subhint", "لتغيير اسم المستخدم أو كلمة المرور، يرجى الانتقال إلى تبويب الأمان والحساب.")}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDoctorActiveTab("security")}
+                style={{
+                  padding: "8px 16px", borderRadius: 10, background: "#0891b2", color: "#fff",
+                  border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
+                  boxShadow: "0 2px 8px rgba(8,145,178,0.2)", transition: "all 0.2s"
+                }}
+              >
+                <Shield size={15} /> {t("tab_security", "الأمان والحساب")}
+              </button>
             </div>
           </Card>
 
-          {/* Personal Info */}
+          {/* 1. Official Specialty & Affiliated Clinics Showcase Card */}
+          <Card style={{ marginBottom: 14, border: "1px solid #bae6fd", background: "linear-gradient(135deg, #ffffff, #f0fdfa)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 14, marginBottom: 14 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    {t("doctor_specialty_title", "Spécialité médicale principale")}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    background: "linear-gradient(135deg, #0891b2, #0c4a6e)", color: "#fff",
+                    padding: "6px 14px", borderRadius: 12, fontWeight: 800, fontSize: 15,
+                    boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
+                  }}>
+                    <Stethoscope size={18} />
+                    <span>{(i18n.language === 'ar' ? form.specialtyar : form.specialtyfr) || form.specialtyfr || form.specialtyar || t("general_practitioner", "طب عام")}</span>
+                  </div>
+                  {form.degrees && (
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      background: "#f3e8ff", color: "#7e22ce", border: "1px solid #d8b4fe",
+                      padding: "5px 12px", borderRadius: 12, fontWeight: 700, fontSize: 13
+                    }}>
+                      <Award size={14} /> {form.degrees}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <Btn
+                type="button"
+                variant="outline"
+                onClick={() => navigate("/requests")}
+                style={{ fontSize: 12, padding: "8px 14px", borderColor: "#0891b2", color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <Building2 size={14} /> {t("manage_affiliations_btn", "Gérer les affiliations")}
+              </Btn>
+            </div>
+
+            {/* Affiliated Clinics Sub-section */}
+            <div style={{ borderTop: "1px solid #e0f2fe", paddingTop: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#0c4a6e", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <Building2 size={15} color="#0891b2" />
+                <span>{t("doctor_affiliations_title", "Structures médicales & Cliniques affiliées")}</span>
+                {form.clinics && form.clinics.length > 0 && (
+                  <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0284c7", padding: "1px 6px", borderRadius: 10, fontWeight: 800 }}>
+                    {form.clinics.length}
+                  </span>
+                )}
+              </div>
+
+              {form.clinics && form.clinics.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+                  {form.clinics.map(c => {
+                    const isApproved = String(c.affiliation_status || 'APPROVED').toUpperCase() === 'APPROVED' || String(c.affiliation_status || '').toUpperCase() === 'ACCEPTED';
+                    return (
+                      <div
+                        key={c.clinicsdoctor_id || c.clinic_id}
+                        style={{
+                          background: "#ffffff", border: `1px solid ${isApproved ? "#ccfbf1" : "#fef3c7"}`,
+                          borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6,
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.02)"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontWeight: 800, fontSize: 14, color: "#0f172a" }}>{c.clinicname}</span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 8,
+                            background: isApproved ? "#d1fae5" : "#fef3c7",
+                            color: isApproved ? "#065f46" : "#92400e",
+                            display: "inline-flex", alignItems: "center", gap: 4
+                          }}>
+                            {isApproved ? <CheckCircle size={10} /> : <Clock size={10} />}
+                            {isApproved ? t("active_affiliation", "Affiliation active") : t("pending_affiliation", "En attente")}
+                          </span>
+                        </div>
+                        {c.clinic_address && (
+                          <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}>
+                            <MapPin size={12} color="#0891b2" style={{ flexShrink: 0 }} />
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.clinic_address}</span>
+                          </div>
+                        )}
+                        {c.clinic_phone && (
+                          <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}>
+                            <Phone size={12} color="#0891b2" style={{ flexShrink: 0 }} />
+                            <span>{c.clinic_phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{
+                  padding: "14px 18px", borderRadius: 12, background: "#f8fafc",
+                  border: "1px dashed #cbd5e1", display: "flex", alignItems: "center",
+                  justifyContent: "space-between", flexWrap: "wrap", gap: 10
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#475569" }}>
+                      <Briefcase size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b" }}>{t("independent_practice", "Exercice libéral / Cabinet indépendant")}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>{t("independent_practice_desc")}</div>
+                    </div>
+                  </div>
+                  <Btn type="button" variant="ghost" onClick={() => navigate("/requests")} style={{ fontSize: 12, color: "#0891b2" }}>
+                    {t("manage_affiliations_btn", "Gérer les affiliations")} {i18n.language === 'ar' ? '←' : '→'}
+                  </Btn>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* 2. Personal Info */}
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
               <Input label={t("fullname")} value={form.fullname || ""} onChange={e => f("fullname", e.target.value)} />
               <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
               <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
-              <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
-              <Input label="رقم الهاتف الثابت" value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
-              <Input label="اللغات المتحدث بها" value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
-              <Input label="تسعيرة الكشف الأساسية" type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
-              <Input label="الرمز البريدي" value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
+              <Input
+                label={t("nin_label") || "الرقم الوطني (NIN)"}
+                value={form.nin || ""}
+                onChange={e => f("nin", e.target.value.replace(/\D/g, '').slice(0, 18))}
+                placeholder="18 chiffres (ex: 1980...)"
+                tooltip={t("nin_tooltip")}
+                helpText="18 chiffres (carte d'identité biométrique)"
+                maxLength={18}
+              />
+              <Input label={t("landline_phone", "رقم الهاتف الثابت")} value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
+              <Input label={t("spoken_languages", "اللغات المتحدث بها")} value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
+              <Input label={t("consultation_pricing", "تسعيرة الكشف الأساسية")} type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
+              <Input label={t("postal_code", "الرمز البريدي")} value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
             </div>
           </Card>
 
-          {/* Professional Info */}
+          {/* 3. Biography & Professional Presentation */}
           <Card style={{ marginBottom: 14 }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Briefcase size={18} /> المعلومات المهنية</h3>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-              <Input label="رقم casnos" value={form.casnos || ""} onChange={e => f("casnos", e.target.value)} />
-              <Input label="رقم rpps" value={form.rpps || ""} onChange={e => f("rpps", e.target.value)} />
-              <Input label="رقم التسجيل الطبي" value={form.numregister || ""} onChange={e => f("numregister", e.target.value)} />
-              <Input label="الشهادات العلمية" value={form.degrees || ""} onChange={e => f("degrees", e.target.value)} />
-              <Input label="الألقاب الأكاديمية" value={form.academytitles || ""} onChange={e => f("academytitles", e.target.value)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <FileText size={18} color="#0891b2" />
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 15, fontWeight: 800 }}>
+                  {t("bio_presentation_title", "Présentation professionnelle & Parcours")}
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                  {t("bio_presentation_subtitle", "Ces informations sont affichées sur votre fiche publique pour guider et rassurer les patients lors de la prise de rendez-vous.")}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* About Doctor */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                    {t("about_doctor_field", "À propos du praticien / Présentation")}
+                  </label>
+                  <span style={{ fontSize: 11, color: (form.presentation?.length || 0) > 950 ? "#dc2626" : "#94a3b8", fontWeight: 600 }}>
+                    {t("chars_count", { count: form.presentation?.length || 0, max: 1000 })}
+                  </span>
+                </div>
+                <textarea
+                  value={form.presentation || ""}
+                  onChange={e => f("presentation", e.target.value.slice(0, 1000))}
+                  placeholder={t("about_doctor_placeholder", "Présentez vos domaines d'expertise, votre approche thérapeutique, votre expérience clinique...")}
+                  rows={4}
+                  style={{
+                    width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)",
+                    borderRadius: 10, fontSize: 13, outline: "none", background: "#fafafa",
+                    boxSizing: "border-box", transition: "border 0.2s", fontFamily: "inherit",
+                    lineHeight: 1.6, resize: "vertical"
+                  }}
+                  onFocus={e => e.target.style.borderColor = "var(--brand)"}
+                  onBlur={e => e.target.style.borderColor = "var(--border)"}
+                />
+              </div>
+
+              {/* Education & Degrees */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                    {t("education_field", "Diplômes, Cursus & Formations complémentaires")}
+                  </label>
+                  <span style={{ fontSize: 11, color: (form.education?.length || 0) > 950 ? "#dc2626" : "#94a3b8", fontWeight: 600 }}>
+                    {t("chars_count", { count: form.education?.length || 0, max: 1000 })}
+                  </span>
+                </div>
+                <textarea
+                  value={form.education || ""}
+                  onChange={e => f("education", e.target.value.slice(0, 1000))}
+                  placeholder={t("education_placeholder", "Diplôme d'État, spécialisations universitaires (DU/DIU), formations continues...")}
+                  rows={3}
+                  style={{
+                    width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)",
+                    borderRadius: 10, fontSize: 13, outline: "none", background: "#fafafa",
+                    boxSizing: "border-box", transition: "border 0.2s", fontFamily: "inherit",
+                    lineHeight: 1.6, resize: "vertical"
+                  }}
+                  onFocus={e => e.target.style.borderColor = "var(--brand)"}
+                  onBlur={e => e.target.style.borderColor = "var(--border)"}
+                />
+              </div>
             </div>
           </Card>
 
-          {/* Join Requests */}
+          {/* 4. Professional Info */}
+          <Card style={{ marginBottom: 14 }}>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Briefcase size={18} /> {t("professional_info", "المعلومات المهنية")}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+              <Input
+                label={t("rpps_number", "رقم RPPS / DSP")}
+                value={form.rpps || ""}
+                onChange={e => f("rpps", e.target.value)}
+                placeholder="Ex: DSP-16-12345"
+                tooltip={t("rpps_tooltip")}
+                helpText={t("rpps_help", "Numéro d'autorisation DSP de wilaya")}
+              />
+              <Input
+                label={t("medical_registration_number", "رقم التسجيل الطبي")}
+                value={form.numregister || ""}
+                onChange={e => f("numregister", e.target.value)}
+                placeholder="Ex: 16/1234"
+                tooltip={t("order_num_tooltip")}
+                helpText={t("order_num_help", "Numéro d'inscription au tableau de l'Ordre des Médecins")}
+              />
+              <Input label={t("degrees_certificates", "الشهادات العلمية والمؤهلات")} value={form.degrees || ""} onChange={e => f("degrees", e.target.value)} />
+              <Input label={t("academic_titles", "الألقاب الأكاديمية")} value={form.academytitles || ""} onChange={e => f("academytitles", e.target.value)} />
+            </div>
+
+            {/* Chifa & Social Security Conventions */}
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <ShieldCheck size={17} color="#059669" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#065f46" }}>
+                  {t("conventions_title", "Conventions Sécurité Sociale & Carte Chifa")}
+                </span>
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
+                {t("conventions_desc", "Indiquez les conventions d'assurance dont bénéficient vos patients dans votre cabinet.")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <label style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                  borderRadius: 12, border: `1.5px solid ${+form.cnas === 1 ? '#10b981' : 'var(--border)'}`,
+                  background: +form.cnas === 1 ? '#ecfdf5' : '#fafafa', cursor: "pointer",
+                  transition: "all 0.2s ease", userSelect: "none"
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={+form.cnas === 1}
+                    onChange={e => f("cnas", e.target.checked ? 1 : 0)}
+                    style={{ width: 18, height: 18, accentColor: "#059669", cursor: "pointer" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: +form.cnas === 1 ? '#065f46' : '#334155' }}>
+                        {t("cnas_convention_label", "Conventionné CNAS (Chifa)")}
+                      </span>
+                      <span title={t("cnas_tooltip")} style={{ display: "inline-flex", color: "#94a3b8" }}>
+                        <HelpCircle size={13} />
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, color: "#64748b", display: "block", marginTop: 2 }}>
+                      {t("cnas_convention_sub", "Caisse Nationale des Assurances Sociales (Salariés)")}
+                    </span>
+                  </div>
+                </label>
+
+                <label style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                  borderRadius: 12, border: `1.5px solid ${+form.casnos === 1 ? '#0891b2' : 'var(--border)'}`,
+                  background: +form.casnos === 1 ? '#f0fdfa' : '#fafafa', cursor: "pointer",
+                  transition: "all 0.2s ease", userSelect: "none"
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={+form.casnos === 1}
+                    onChange={e => f("casnos", e.target.checked ? 1 : 0)}
+                    style={{ width: 18, height: 18, accentColor: "#0891b2", cursor: "pointer" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: +form.casnos === 1 ? '#0e7490' : '#334155' }}>
+                        {t("casnos_convention_label", "Conventionné CASNOS (Chifa)")}
+                      </span>
+                      <span title={t("casnos_tooltip")} style={{ display: "inline-flex", color: "#94a3b8" }}>
+                        <HelpCircle size={13} />
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, color: "#64748b", display: "block", marginTop: 2 }}>
+                      {t("casnos_convention_sub", "Sécurité Sociale des Non-Salariés & Indépendants")}
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </Card>
+
+          {/* 5. Join Requests */}
           <Card style={{ marginBottom: 20, border: "1px solid #ccfbf1", background: "#f0fdfa" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -10450,7 +10919,7 @@ function ProfilePage({ user, navigate, qs }) {
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 16, color: "#0e7490" }}>{t("join_requests", "طلبات الانضمام")}</div>
                   <div style={{ fontSize: 12, color: "#0891b2", marginTop: 2, fontWeight: 600 }}>
-                    إدارة ومتابعة طلبات الانضمام للعيادات
+                    {t("join_requests_doctor_desc", "إدارة ومتابعة طلبات الانضمام للعيادات")}
                   </div>
                 </div>
               </div>
@@ -10479,7 +10948,30 @@ function ProfilePage({ user, navigate, qs }) {
       {/* 5. Doctor Security & Privacy Tab */}
       {user?.user_type === 1 && doctorActiveTab === "security" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <ConsentsAndDataRightsSection
+          {/* Account Security Summary Badge & Checklist */}
+          <AccountSecurityCard
+            form={form}
+            verStatus={verStatus}
+            consentData={consentData}
+            onVerifyEmail={verStatus?.has_email ? () => setOTP("email") : null}
+            onManagePhone={() => {
+              if (navigate) navigate("/profile");
+              setDoctorActiveTab("profile");
+            }}
+            onManagePassword={() => {
+              const el = document.getElementById("doctor-credentials-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onManageConsents={() => {
+              const el = document.getElementById("doctor-consents-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onClose={toggleSecurityTab}
+            isMobile={isMobile}
+          />
+
+          <div id="doctor-consents-section">
+            <ConsentsAndDataRightsSection
             user={user}
             form={form}
             consentData={consentData}
@@ -10499,22 +10991,70 @@ function ProfilePage({ user, navigate, qs }) {
             navigate={navigate}
             isMobile={isMobile}
           />
+          </div>
 
-          <form onSubmit={save}>
-            <Card style={{ marginBottom: 14 }}>
-              <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                <Lock size={18} /> {t("login_credentials", "بيانات الدخول")}
-              </h3>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-                <Input label={t("username", "اسم المستخدم")} value={form.username || ""} onChange={e => f("username", e.target.value)} />
-                <Input label={t("new_password", "تغيير كلمة المرور")} type="password" placeholder={t("new_password_hint", "اتركه فارغاً إذا لم ترد تغييره")} value={form.password || ""} onChange={e => f("password", e.target.value)} />
+          {/* Doctor Credentials Card */}
+          <div id="doctor-credentials-section">
+          <Card style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Lock size={16} color="#fff" />
               </div>
-            </Card>
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("login_credentials", "بيانات الدخول")}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("credentials_doctor_desc", "تغيير اسم المستخدم أو كلمة مرور حسابك الطبي")}</p>
+              </div>
+            </div>
 
-            <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
-              <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
-            </Btn>
-          </form>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                  <User size={14} color="#0891b2" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي:")} </span>
+                  <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+                </div>
+                <Input
+                  label={t("new_username", "اسم المستخدم الجديد")}
+                  value={creds.new_username}
+                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                  placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
+                />
+              </div>
+              <div>
+                <PasswordInput
+                  label={t("current_password", "كلمة المرور الحالية")}
+                  value={creds.current_password}
+                  onChange={e => setCreds({ ...creds, current_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <PasswordInput
+                  label={t("new_password", "كلمة المرور الجديدة")}
+                  value={creds.new_password}
+                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                  placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+                  showStrength={true}
+                />
+                <PasswordInput
+                  label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                  value={creds.confirm_new_password}
+                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                onClick={saveCredentials}
+                loading={savingCreds}
+                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+              >
+                {t("save_changes")}
+              </Btn>
+            </div>
+          </Card>
+          </div>
         </div>
       )}
 
@@ -10532,19 +11072,87 @@ function ProfilePage({ user, navigate, qs }) {
               <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
               <Input label={t("nin_label") || "الرقم الوطني"} value={form.nin || ""} onChange={e => f("nin", e.target.value)} />
               <Input label={t("birth_date")} type="date" value={(form.birthdate || "").substring(0, 10)} onChange={e => f("birthdate", e.target.value)} />
-              <Input label={t("address")} value={form.address || ""} onChange={e => f("address", e.target.value)} style={{ gridColumn: isMobile ? "auto" : "1/-1" }} />
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("gender")}</label>
                 <select value={form.gender ?? 0} onChange={e => f("gender", +e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
                   <option value={0}>{t("male")}</option><option value={1}>{t("female")}</option>
                 </select>
               </div>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 16, gridColumn: isMobile ? "auto" : "1/-1" }}>
                 <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
                 <select value={form.bloodtype || ""} onChange={e => f("bloodtype", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
                   <option value="">{t("not_specified")}</option>
                   {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
                 </select>
+              </div>
+
+              {/* Geographic & Address Section */}
+              <div style={{ marginTop: 8, paddingTop: 16, borderTop: "1px solid var(--border)", gridColumn: "1 / -1" }}>
+                <div style={{ color: "#0c4a6e", marginBottom: 14, fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                  <MapPin size={16} color="var(--brand)" /> {t("location_address", "الموقع والعنوان")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+                  {/* Wilaya Selection */}
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                      {t("wilaya", "الولاية")}
+                    </label>
+                    <select
+                      value={form.wilaya_id || ""}
+                      onChange={e => handleWilayaChange(e.target.value)}
+                      style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}
+                    >
+                      <option value="">-- {t("select_wilaya", "اختر الولاية")} --</option>
+                      {wilayasList.map(w => (
+                        <option key={w.id} value={w.id}>
+                          {w.num ? `${w.num} - ` : ""}{i18n.language === 'ar' ? (w.namear || w.namefr) : (w.namefr || w.namear)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Commune (Baladiya) Selection */}
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                      {t("commune", "البلدية")} {loadingBaladiyas && <Spinner size={12} />}
+                    </label>
+                    <select
+                      value={form.baladiya_id || ""}
+                      onChange={e => handleBaladiyaChange(e.target.value)}
+                      disabled={!form.wilaya_id || loadingBaladiyas}
+                      style={{
+                        width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)",
+                        borderRadius: 10, fontSize: 14, background: (!form.wilaya_id || loadingBaladiyas) ? "#f1f5f9" : "var(--bg)",
+                        boxSizing: "border-box", cursor: (!form.wilaya_id || loadingBaladiyas) ? "not-allowed" : "default"
+                      }}
+                    >
+                      <option value="">
+                        {!form.wilaya_id ? `-- ${t("select_wilaya_first", "يرجى اختيار الولاية أولاً")} --` : `-- ${t("select_commune", "اختر البلدية")} --`}
+                      </option>
+                      {baladiyasList.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {i18n.language === 'ar' ? (b.namear || b.namefr) : (b.namefr || b.namear)}{b.postcode ? ` (${b.postcode})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Code Postal */}
+                  <Input
+                    label={t("postcode", "الرمز البريدي")}
+                    value={form.postcode || ""}
+                    onChange={e => f("postcode", e.target.value)}
+                    placeholder="ex: 16000"
+                  />
+
+                  {/* Detailed Street Address */}
+                  <Input
+                    label={t("address_details", "العنوان التفصيلي (الشارع، رقم المبنى...)")}
+                    value={form.address || ""}
+                    onChange={e => f("address", e.target.value)}
+                    placeholder={t("address_placeholder", "Wilaya, Commune, Rue...")}
+                  />
+                </div>
               </div>
             </div>
           </Card>
@@ -10619,6 +11227,28 @@ function ProfilePage({ user, navigate, qs }) {
       {/* 4. Patient Security & Credentials Tab */}
       {user?.user_type === 0 && patientActiveTab === "security" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Account Security Summary Badge & Checklist */}
+          <AccountSecurityCard
+            form={form}
+            verStatus={verStatus}
+            consentData={consentData}
+            onVerifyEmail={verStatus?.has_email ? () => setOTP("email") : null}
+            onManagePhone={() => {
+              if (navigate) navigate("/profile");
+              setPatientActiveTab("profile");
+            }}
+            onManagePassword={() => {
+              const el = document.getElementById("patient-credentials-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onManageConsents={() => {
+              const el = document.getElementById("patient-consents-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onClose={toggleSecurityTab}
+            isMobile={isMobile}
+          />
+
           {/* Identity Verification banner */}
           {verStatus && !verStatus.email_verified && (
             <Card style={{ marginBottom: 0, background: "#fffbeb", border: "1px solid #fde68a" }}>
@@ -10639,28 +11269,31 @@ function ProfilePage({ user, navigate, qs }) {
           )}
 
           {/* Consents & Data Rights Section (Loi 18-07) */}
-          <ConsentsAndDataRightsSection
-            user={user}
-            form={form}
-            consentData={consentData}
-            loadingConsent={loadingConsent}
-            handleToggleOpposition={handleToggleOpposition}
-            updatingOpposition={updatingOpposition}
-            handleDownloadPersonalData={handleDownloadPersonalData}
-            handleDeleteAccount={handleDeleteAccount}
-            handleAcceptConsent={handleAcceptConsent}
-            acceptingConsent={acceptingConsent}
-            showHistory={showHistory}
-            setShowHistory={setShowHistory}
-            formatConsentDate={formatConsentDate}
-            getConsentTypeLabel={getConsentTypeLabel}
-            getContextLabel={getContextLabel}
-            setProfileTab={setPatientActiveTab}
-            navigate={navigate}
-            isMobile={isMobile}
-          />
+          <div id="patient-consents-section">
+            <ConsentsAndDataRightsSection
+              user={user}
+              form={form}
+              consentData={consentData}
+              loadingConsent={loadingConsent}
+              handleToggleOpposition={handleToggleOpposition}
+              updatingOpposition={updatingOpposition}
+              handleDownloadPersonalData={handleDownloadPersonalData}
+              handleDeleteAccount={handleDeleteAccount}
+              handleAcceptConsent={handleAcceptConsent}
+              acceptingConsent={acceptingConsent}
+              showHistory={showHistory}
+              setShowHistory={setShowHistory}
+              formatConsentDate={formatConsentDate}
+              getConsentTypeLabel={getConsentTypeLabel}
+              getContextLabel={getContextLabel}
+              setProfileTab={setPatientActiveTab}
+              navigate={navigate}
+              isMobile={isMobile}
+            />
+          </div>
 
           {/* Login Credentials Card */}
+          <div id="patient-credentials-section">
           <Card>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
@@ -10687,16 +11320,21 @@ function ProfilePage({ user, navigate, qs }) {
                 />
               </div>
               <div>
-                <Input
+                <PasswordInput
+                  label={t("current_password", "كلمة المرور الحالية")}
+                  value={creds.current_password}
+                  onChange={e => setCreds({ ...creds, current_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <PasswordInput
                   label={t("new_password", "كلمة المرور الجديدة")}
-                  type="password"
                   value={creds.new_password}
                   onChange={e => setCreds({ ...creds, new_password: e.target.value })}
                   placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+                  showStrength={true}
                 />
-                <Input
+                <PasswordInput
                   label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
-                  type="password"
                   value={creds.confirm_new_password}
                   onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
                   placeholder="••••••••"
@@ -10715,6 +11353,7 @@ function ProfilePage({ user, navigate, qs }) {
               </Btn>
             </div>
           </Card>
+          </div>
         </div>
       )}
 
@@ -10722,35 +11361,277 @@ function ProfilePage({ user, navigate, qs }) {
       {/* 1. Clinic Profile Tab */}
       {user?.user_type === 2 && clinicActiveTab === "profile" && (
         <form onSubmit={save}>
+          {/* Security & Credentials Tab Notice Card */}
+          <Card style={{ marginBottom: 14, background: "linear-gradient(135deg, #f0fdfa, #f8fafc)", border: "1px solid #ccfbf1" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: "#0891b2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#0e7490" }}>{t("security_credentials_tab_hint", "إدارة اسم المستخدم وكلمة المرور")}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{t("security_credentials_tab_subhint", "لتغيير اسم المستخدم أو كلمة المرور، يرجى الانتقال إلى تبويب الأمان والحساب.")}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClinicActiveTab("security")}
+                style={{
+                  padding: "8px 16px", borderRadius: 10, background: "#0891b2", color: "#fff",
+                  border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
+                  boxShadow: "0 2px 8px rgba(8,145,178,0.2)", transition: "all 0.2s"
+                }}
+              >
+                <Shield size={15} /> {t("tab_security", "الأمان والحساب")}
+              </button>
+            </div>
+          </Card>
+
+          {/* Card: Médecins rattachés à l'établissement */}
+          <Card style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: "linear-gradient(135deg, #e0f2fe, #bae6fd)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#0369a1"
+                }}>
+                  <Stethoscope size={20} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 15, fontWeight: 800 }}>
+                      {t("clinic_attached_doctors_title", "Médecins rattachés à l'établissement")}
+                    </h3>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      padding: "2px 8px", borderRadius: 12,
+                      background: (form.doctors?.length || 0) > 0 ? "#ecfdf5" : "#f1f5f9",
+                      color: (form.doctors?.length || 0) > 0 ? "#059669" : "#64748b",
+                      border: `1px solid ${(form.doctors?.length || 0) > 0 ? '#a7f3d0' : '#cbd5e1'}`,
+                      fontSize: 11, fontWeight: 800
+                    }}>
+                      <Users size={12} />
+                      {(form.doctors?.length || 0) > 1 
+                        ? t("active_doctors_count_badge_plural", { count: form.doctors?.length || 0 })
+                        : t("active_doctors_count_badge", { count: form.doctors?.length || 0 })}
+                    </span>
+                  </div>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                    {t("clinic_attached_doctors_subtitle", "Équipe médicale en exercice au sein de votre établissement et disponible pour les rendez-vous.")}
+                  </p>
+                </div>
+              </div>
+
+              <Btn
+                type="button"
+                variant="ghost"
+                onClick={() => navigate("/requests")}
+                style={{ fontSize: 12, color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <Building2 size={14} /> {t("manage_affiliations_btn", "Gérer les affiliations")}
+              </Btn>
+            </div>
+
+            {form.doctors && form.doctors.length > 0 ? (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 12
+              }}>
+                {form.doctors.map((doc, idx) => (
+                  <div
+                    key={doc.clinicsdoctor_id || doc.doctor_id || idx}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "12px 14px", borderRadius: 12,
+                      background: "#fafafa", border: "1px solid var(--border)",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <DoctorImage photo={doc.photoprofile} size={46} borderRadius={10} style={{ fontSize: 18 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 3 }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {doc.fullname}
+                        </div>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          fontSize: 10, fontWeight: 700, color: "#059669", flexShrink: 0
+                        }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                          {t("active_practice_status", "En exercice")}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                        <Badge color="#0891b2" style={{ fontSize: 10, padding: "1px 6px" }}>
+                          {i18n.language === 'ar' ? (doc.specialtyar || doc.specialtyfr) : (doc.specialtyfr || doc.specialtyar)}
+                        </Badge>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11, color: "#64748b" }}>
+                        {doc.phone && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <Phone size={11} color="#0891b2" />
+                            <span>{doc.phone}</span>
+                          </div>
+                        )}
+                        {doc.email && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <Mail size={11} color="#0891b2" />
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{doc.email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                padding: "16px 20px", borderRadius: 12, background: "#f8fafc",
+                border: "1px dashed #cbd5e1", display: "flex", alignItems: "center",
+                justifyContent: "space-between", flexWrap: "wrap", gap: 12
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#475569" }}>
+                    <Users size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b" }}>{t("no_attached_doctors")}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{t("no_attached_doctors_desc")}</div>
+                  </div>
+                </div>
+                <Btn type="button" variant="ghost" onClick={() => navigate("/requests")} style={{ fontSize: 12, color: "#0891b2" }}>
+                  {t("manage_affiliations_btn", "Gérer les affiliations")} {i18n.language === 'ar' ? '←' : '→'}
+                </Btn>
+              </div>
+            )}
+          </Card>
+
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
               <Building size={18} /> {t("clinic_info_tab", "معلومات العيادة")}
             </h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-              <Input label="اسم العيادة" value={form.clinicname || ""} onChange={e => f("clinicname", e.target.value)} />
+              <Input label={t("clinic_name", "اسم العيادة")} value={form.clinicname || ""} onChange={e => f("clinicname", e.target.value)} />
               <Input label={t("phone")} type="tel" value={form.phone || ""} onChange={e => f("phone", e.target.value)} />
               <Input label={t("email")} type="email" value={form.email || ""} onChange={e => f("email", e.target.value)} />
-              <Input label="العنوان" value={form.address || ""} onChange={e => f("address", e.target.value)} />
+              <Input label={t("address", "العنوان")} value={form.address || ""} onChange={e => f("address", e.target.value)} />
 
-              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("clinic_gps")}</label>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <input type="number" step="any" placeholder="Latitude" value={form.latitude || 0} onChange={e => f("latitude", parseFloat(e.target.value) || 0)}
-                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
-                    <input type="number" step="any" placeholder="Longitude" value={form.longitude || 0} onChange={e => f("longitude", parseFloat(e.target.value) || 0)}
-                      style={{ width: "100%", padding: "10px 14px", background: "var(--bg)", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#475569", outline: "none" }} />
+              {/* Coordonnées GPS & Aperçu Cartographique */}
+              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginTop: 6, marginBottom: 8, padding: "16px", borderRadius: 14, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <MapPin size={16} color="#0891b2" />
+                      <label style={{ fontSize: 14, fontWeight: 700, color: "#0c4a6e", margin: 0 }}>
+                        {t("clinic_gps_title", "Coordonnées GPS & Géolocalisation")}
+                      </label>
+                    </div>
+                    <p style={{ margin: "3px 0 0", fontSize: 12, color: "#64748b" }}>
+                      {t("clinic_gps_desc", "Précisez l'emplacement exact de votre établissement pour permettre aux patients de vous localiser.")}
+                    </p>
                   </div>
-                  <Btn variant="secondary" onClick={detectLocation} style={{ padding: "10px 16px", fontSize: 12 }}>
-                    <MapPin size={14} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 6 }} /> {t("detect_location")}
-                  </Btn>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {Boolean(form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (Number(form.latitude) !== 0 || Number(form.longitude) !== 0)) && (
+                      <a
+                        href={`https://www.google.com/maps?q=${encodeURIComponent(form.latitude)},${encodeURIComponent(form.longitude)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "8px 14px", borderRadius: 9,
+                          background: "#ffffff", border: "1.5px solid #0891b2",
+                          color: "#0891b2", fontSize: 12, fontWeight: 700,
+                          textDecoration: "none", transition: "all 0.2s ease",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                        }}
+                      >
+                        <ExternalLink size={13} />
+                        {t("view_on_google_maps", "Vérifier sur Google Maps")}
+                      </a>
+                    )}
+                    <Btn type="button" variant="secondary" onClick={detectLocation} style={{ padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                      <MapPin size={13} /> {t("detect_location", "Détecter ma position")}
+                    </Btn>
+                  </div>
                 </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
+                      {t("latitude_label", "Latitude")}
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="Ex: 36.7538"
+                      value={form.latitude ?? ""}
+                      onChange={e => f("latitude", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
+                      {t("longitude_label", "Longitude")}
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="Ex: 3.0588"
+                      value={form.longitude ?? ""}
+                      onChange={e => f("longitude", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mini-carte interactive de prévisualisation */}
+                {Boolean(form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (Number(form.latitude) !== 0 || Number(form.longitude) !== 0)) ? (
+                  <div style={{
+                    borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1",
+                    background: "#e2e8f0", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)"
+                  }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "6px 12px", background: "#f1f5f9", borderBottom: "1px solid #cbd5e1",
+                      fontSize: 11, color: "#475569", fontWeight: 600
+                    }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#059669", display: "inline-block" }} />
+                        {t("map_preview_title", "Aperçu de la position sur la carte")}
+                      </span>
+                      <span style={{ color: "#64748b", fontFamily: "monospace" }}>
+                        {Number(form.latitude).toFixed(5)}, {Number(form.longitude).toFixed(5)}
+                      </span>
+                    </div>
+                    <iframe
+                      title="Clinic Location Preview"
+                      width="100%"
+                      height="200"
+                      style={{ border: 0, display: "block" }}
+                      loading="lazy"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.longitude) - 0.006}%2C${Number(form.latitude) - 0.004}%2C${Number(form.longitude) + 0.006}%2C${Number(form.latitude) + 0.004}&layer=mapnik&marker=${Number(form.latitude)}%2C${Number(form.longitude)}`}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: "12px 14px", borderRadius: 10, background: "#fffbeb",
+                    border: "1px solid #fef3c7", color: "#92400e", fontSize: 12,
+                    display: "flex", alignItems: "center", gap: 8
+                  }}>
+                    <Info size={15} style={{ flexShrink: 0 }} />
+                    <span>{t("no_gps_coords")}</span>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
 
           <Card style={{ marginBottom: 14 }}>
-            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> ملاحظات العيادة</h3>
+            <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><FileText size={18} /> {t("clinic_notes", "ملاحظات العيادة")}</h3>
             <textarea value={form.notes || ""} onChange={e => f("notes", e.target.value)} rows={4}
               style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: 'inherit' }} />
           </Card>
@@ -10764,42 +11645,113 @@ function ProfilePage({ user, navigate, qs }) {
       {/* 2. Clinic Security & Join Requests Tab */}
       {user?.user_type === 2 && clinicActiveTab === "security" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <ConsentsAndDataRightsSection
-            user={user}
+          {/* Account Security Summary Badge & Checklist */}
+          <AccountSecurityCard
             form={form}
+            verStatus={verStatus}
             consentData={consentData}
-            loadingConsent={loadingConsent}
-            handleToggleOpposition={handleToggleOpposition}
-            updatingOpposition={updatingOpposition}
-            handleDownloadPersonalData={handleDownloadPersonalData}
-            handleDeleteAccount={handleDeleteAccount}
-            handleAcceptConsent={handleAcceptConsent}
-            acceptingConsent={acceptingConsent}
-            showHistory={showHistory}
-            setShowHistory={setShowHistory}
-            formatConsentDate={formatConsentDate}
-            getConsentTypeLabel={getConsentTypeLabel}
-            getContextLabel={getContextLabel}
-            setProfileTab={setClinicActiveTab}
-            navigate={navigate}
+            onVerifyEmail={verStatus?.has_email ? () => setOTP("email") : null}
+            onManagePhone={() => {
+              if (navigate) navigate("/profile");
+              setClinicActiveTab("profile");
+            }}
+            onManagePassword={() => {
+              const el = document.getElementById("clinic-credentials-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onManageConsents={() => {
+              const el = document.getElementById("clinic-consents-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onClose={toggleSecurityTab}
             isMobile={isMobile}
           />
 
-          <form onSubmit={save} style={{ marginBottom: 0 }}>
-            <Card style={{ marginBottom: 14 }}>
-              <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                <Lock size={18} /> {t("login_credentials", "بيانات الدخول")}
-              </h3>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-                <Input label={t("username", "اسم المستخدم")} value={form.username || ""} onChange={e => f("username", e.target.value)} />
-                <Input label={t("new_password", "تغيير كلمة المرور")} type="password" placeholder={t("new_password_hint", "اتركه فارغاً إذا لم ترد تغييره")} value={form.password || ""} onChange={e => f("password", e.target.value)} />
-              </div>
-            </Card>
+          <div id="clinic-consents-section">
+            <ConsentsAndDataRightsSection
+              user={user}
+              form={form}
+              consentData={consentData}
+              loadingConsent={loadingConsent}
+              handleToggleOpposition={handleToggleOpposition}
+              updatingOpposition={updatingOpposition}
+              handleDownloadPersonalData={handleDownloadPersonalData}
+              handleDeleteAccount={handleDeleteAccount}
+              handleAcceptConsent={handleAcceptConsent}
+              acceptingConsent={acceptingConsent}
+              showHistory={showHistory}
+              setShowHistory={setShowHistory}
+              formatConsentDate={formatConsentDate}
+              getConsentTypeLabel={getConsentTypeLabel}
+              getContextLabel={getContextLabel}
+              setProfileTab={setClinicActiveTab}
+              navigate={navigate}
+              isMobile={isMobile}
+            />
+          </div>
 
-            <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
-              <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
-            </Btn>
-          </form>
+          {/* Clinic Credentials Card */}
+          <div id="clinic-credentials-section">
+          <Card style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Lock size={16} color="#fff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("login_credentials", "بيانات الدخول")}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("credentials_clinic_desc", "تغيير اسم المستخدم أو كلمة مرور حساب العيادة")}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                  <User size={14} color="#0891b2" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي:")} </span>
+                  <span style={{ fontSize: 13, color: "#0891b2", fontWeight: 800 }}>{user?.username || "—"}</span>
+                </div>
+                <Input
+                  label={t("new_username", "اسم المستخدم الجديد")}
+                  value={creds.new_username}
+                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                  placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
+                />
+              </div>
+              <div>
+                <PasswordInput
+                  label={t("current_password", "كلمة المرور الحالية")}
+                  value={creds.current_password}
+                  onChange={e => setCreds({ ...creds, current_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <PasswordInput
+                  label={t("new_password", "كلمة المرور الجديدة")}
+                  value={creds.new_password}
+                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                  placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+                  showStrength={true}
+                />
+                <PasswordInput
+                  label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                  value={creds.confirm_new_password}
+                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                onClick={saveCredentials}
+                loading={savingCreds}
+                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+              >
+                {t("save_changes")}
+              </Btn>
+            </div>
+          </Card>
+          </div>
 
           {/* Join Requests Shortcut Card */}
           <Card style={{ border: "1px solid #ccfbf1", background: "#f0fdfa" }}>
@@ -10811,7 +11763,7 @@ function ProfilePage({ user, navigate, qs }) {
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 16, color: "#0e7490" }}>{t("join_requests", "طلبات الانضمام")}</div>
                   <div style={{ fontSize: 12, color: "#0891b2", marginTop: 2, fontWeight: 600 }}>
-                    إدارة ومتابعة طلبات انضمام الأطباء للعيادة
+                    {t("join_requests_clinic_desc", "إدارة ومتابعة طلبات انضمام الأطباء للعيادة")}
                   </div>
                 </div>
               </div>
@@ -10896,86 +11848,240 @@ function ProfilePage({ user, navigate, qs }) {
             </div>
           </Card>
 
-          {/* Edit Credentials Card */}
-          <Card>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", borderRadius: 10, padding: 8, display: "flex" }}>
-                <Lock size={16} color="#fff" />
+          {/* Security & Credentials Tab Notice Card */}
+          <Card style={{ marginBottom: 14, background: "linear-gradient(135deg, #f5f3ff, #f8fafc)", border: "1px solid #ddd6fe" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#5b21b6" }}>{t("security_credentials_tab_hint", "إدارة اسم المستخدم وكلمة المرور")}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{t("security_credentials_tab_subhint", "لتغيير اسم المستخدم أو كلمة المرور، يرجى الانتقال إلى تبويب الأمان والحساب.")}</div>
+                </div>
               </div>
-              <div>
-                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("admin_credentials_title", "تحديث بيانات دخول المشرف")}</h3>
-                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("admin_credentials_subtitle", "تغيير اسم المستخدم أو كلمة مرور حساب المدير العام")}</p>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                  {t("username", "اسم المستخدم")}
-                </label>
-                <input
-                  type="text"
-                  value={creds.new_username}
-                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
-                  placeholder={user?.username || "admin"}
-                  style={{
-                    width: "100%", padding: "10px 14px", borderRadius: 10,
-                    border: "1.5px solid var(--border)", background: "var(--bg)",
-                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
-                  {t("username_hint", "3-30 حرف إنجليزي أو رقم")}
-                </span>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                  {t("new_password", "كلمة المرور الجديدة")}
-                </label>
-                <input
-                  type="password"
-                  value={creds.new_password}
-                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
-                  placeholder="••••••••"
-                  style={{
-                    width: "100%", padding: "10px 14px", borderRadius: 10,
-                    border: "1.5px solid var(--border)", background: "var(--bg)",
-                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
-                  {t("password_min_hint", "6 أحرف على الأقل")}
-                </span>
-              </div>
-
-              <div style={{ gridColumn: isMobile ? "auto" : "2" }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                  {t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
-                </label>
-                <input
-                  type="password"
-                  value={creds.confirm_new_password}
-                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
-                  placeholder="••••••••"
-                  style={{
-                    width: "100%", padding: "10px 14px", borderRadius: 10,
-                    border: "1.5px solid var(--border)", background: "var(--bg)",
-                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
-              <Btn
+              <button
                 type="button"
-                onClick={saveCredentials}
-                loading={savingCreds}
-                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+                onClick={() => setAdminActiveTab("security")}
+                style={{
+                  padding: "8px 16px", borderRadius: 10, background: "#7c3aed", color: "#fff",
+                  border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
+                  boxShadow: "0 2px 8px rgba(124,58,237,0.2)", transition: "all 0.2s"
+                }}
               >
-                {t("save_changes")}
-              </Btn>
+                <Shield size={15} /> {t("tab_security", "الأمان والحساب")}
+              </button>
+            </div>
+          </Card>
+
+          {/* ── AUDIT: Last Secure Login Card ── */}
+          <Card style={{ marginBottom: 14, background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)", border: "1.5px solid #312e81", borderRadius: 16, overflow: "hidden", position: "relative" }}>
+            {/* Subtle grid pattern overlay */}
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 80% 20%, rgba(124,58,237,0.15) 0%, transparent 60%), radial-gradient(circle at 20% 80%, rgba(8,145,178,0.1) 0%, transparent 60%)", pointerEvents: "none" }} />
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(124,58,237,0.3)", border: "1px solid rgba(124,58,237,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#a78bfa" }}>
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#e2e8f0" }}>
+                    {t("audit_last_login_title", "Horodatage — Dernière connexion sécurisée")}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    {t("audit_last_login_desc", "Audit et traçabilité des sessions administratives")}
+                  </div>
+                </div>
+                {/* SSL Badge */}
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.35)", borderRadius: 8, padding: "4px 10px" }}>
+                  <Lock size={11} color="#34d399" />
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#34d399", letterSpacing: "0.5px" }}>SSL / TLS</span>
+                </div>
+              </div>
+
+              {/* Current session */}
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 12, marginBottom: 14 }}>
+                <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#7dd3fc", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>
+                    {t("audit_current_session", "Session actuelle")}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <Clock size={13} color="#60a5fa" />
+                    {form?.current_session_at
+                      ? new Date(form.current_session_at).toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'en' ? 'en-GB' : 'fr-FR'), { dateStyle: 'medium', timeStyle: 'short' })
+                      : <span style={{ color: "#64748b", fontSize: 12 }}>{t("audit_no_data", "N/A")}</span>
+                    }
+                  </div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 5 }}>
+                    <Globe size={12} color="#7c3aed" />
+                    <span style={{ fontFamily: "monospace", color: "#c4b5fd" }}>{form?.current_session_ip || "127.0.0.1"}</span>
+                  </div>
+                </div>
+
+                <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#f9a8d4", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>
+                    {t("audit_prev_session", "Session précédente")}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <History size={13} color="#f472b6" />
+                    {form?.prev_session_at
+                      ? new Date(form.prev_session_at).toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'en' ? 'en-GB' : 'fr-FR'), { dateStyle: 'medium', timeStyle: 'short' })
+                      : <span style={{ color: "#64748b", fontSize: 12 }}>{t("audit_no_prev_session", "Aucune session précédente")}</span>
+                    }
+                  </div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 5 }}>
+                    <Globe size={12} color="#ec4899" />
+                    <span style={{ fontFamily: "monospace", color: "#f9a8d4" }}>{form?.prev_session_ip || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Last login row */}
+              {form?.last_login_at && (
+                <div style={{ background: "rgba(8,145,178,0.08)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(8,145,178,0.2)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <CheckCircle size={14} color="#22d3ee" />
+                  <span style={{ fontSize: 12, color: "#7dd3fc" }}>{t("audit_last_login_label", "Dernière connexion enregistrée :")}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", fontFamily: "monospace" }}>
+                    {new Date(form.last_login_at).toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'en' ? 'en-GB' : 'fr-FR'), { dateStyle: 'long', timeStyle: 'medium' })}
+                  </span>
+                  {form?.last_login_ip && (
+                    <>
+                      <span style={{ color: "#475569" }}>•</span>
+                      <span style={{ fontSize: 12, fontFamily: "monospace", color: "#c4b5fd" }}>{form.last_login_ip}</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* ── SYSTEM STATUS: DB Sync + Services Card ── */}
+          <Card style={{ marginBottom: 14, borderRadius: 16, border: "1.5px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg, #0891b2, #0e7490)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                <Activity size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#0c4a6e" }}>
+                  {t("system_status_title", "Statut système — Synchronisation & Services")}
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>
+                  {adminSystemStatus?.generated_at
+                    ? t("system_status_generated_at", `Mis à jour : ${new Date(adminSystemStatus.generated_at).toLocaleTimeString()}`, { time: new Date(adminSystemStatus.generated_at).toLocaleTimeString() })
+                    : t("system_status_loading", "Chargement...")}
+                </div>
+              </div>
+              {loadingSystemStatus && <Spinner size={16} style={{ marginLeft: "auto" }} />}
+            </div>
+
+            {/* DB Sync Metrics */}
+            {adminSystemStatus?.db_sync && (
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#0891b2", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.6px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#0891b2" }} />
+                  {t("db_sync_section", "Synchronisation Base de données")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 10 }}>
+                  {[
+                    { label: t("db_sync_appointments", "RDV"), value: adminSystemStatus.db_sync.total_appointments, color: "#7c3aed" },
+                    { label: t("db_sync_doctors", "Médecins"), value: adminSystemStatus.db_sync.total_doctors, color: "#0891b2" },
+                    { label: t("db_sync_clinics", "Cliniques"), value: adminSystemStatus.db_sync.total_clinics, color: "#059669" },
+                    { label: t("db_sync_patients", "Patients"), value: adminSystemStatus.db_sync.total_patients, color: "#d97706" },
+                  ].map(item => (
+                    <div key={item.label} style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: item.color, lineHeight: 1 }}>{item.value ?? 0}</div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Integrity row */}
+                <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8,
+                    background: adminSystemStatus.db_sync.integrity === "OK" ? "#dcfce7" : "#fef3c7",
+                    border: `1px solid ${adminSystemStatus.db_sync.integrity === "OK" ? "#86efac" : "#fcd34d"}`
+                  }}>
+                    <CheckCircle size={12} color={adminSystemStatus.db_sync.integrity === "OK" ? "#16a34a" : "#d97706"} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: adminSystemStatus.db_sync.integrity === "OK" ? "#15803d" : "#92400e" }}>
+                      {t("db_integrity_label", "Intégrité :")} {adminSystemStatus.db_sync.integrity}
+                    </span>
+                  </div>
+                  {adminSystemStatus.db_sync.last_activity_at && (
+                    <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
+                      <Clock size={11} />
+                      {t("db_last_activity", "Dernière activité :")} {new Date(adminSystemStatus.db_sync.last_activity_at).toLocaleString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Services Health Pills */}
+            {adminSystemStatus?.services && (
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#0891b2", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.6px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#059669" }} />
+                  {t("services_health_section", "État des services")}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {[
+                    { key: "api", icon: <Globe size={13} />, label: t("svc_api", "API"), statuses: { OPERATIONAL: "#dcfce7", ERROR: "#fee2e2" }, textColors: { OPERATIONAL: "#15803d", ERROR: "#b91c1c" }, statusText: adminSystemStatus.services.api?.status, sub: `PHP ${adminSystemStatus.services.api?.php_version || ''}` },
+                    { key: "database", icon: <Archive size={13} />, label: t("svc_db", "MySQL"), statuses: { CONNECTED: "#dcfce7", ERROR: "#fee2e2" }, textColors: { CONNECTED: "#15803d", ERROR: "#b91c1c" }, statusText: adminSystemStatus.services.database?.status, sub: `${adminSystemStatus.services.database?.latency_ms || '?'}ms` },
+                    { key: "storage", icon: <Download size={13} />, label: t("svc_storage", "Stockage"), statuses: { ACCESSIBLE: "#dcfce7", READ_ONLY: "#fef3c7", NOT_FOUND: "#fee2e2" }, textColors: { ACCESSIBLE: "#15803d", READ_ONLY: "#92400e", NOT_FOUND: "#b91c1c" }, statusText: adminSystemStatus.services.storage?.status, sub: adminSystemStatus.services.storage?.free_gb != null ? `${adminSystemStatus.services.storage.free_gb}GB libres` : '' },
+                    { key: "sessions", icon: <ShieldCheck size={13} />, label: t("svc_sessions", "Sessions"), statuses: { ACTIVE: "#dcfce7" }, textColors: { ACTIVE: "#15803d" }, statusText: adminSystemStatus.services.sessions?.status, sub: `${adminSystemStatus.services.sessions?.active_total || 0} actives` },
+                    { key: "security", icon: <Shield size={13} />, label: t("svc_security", "Sécurité"), statuses: { PROTECTED: "#dbeafe" }, textColors: { PROTECTED: "#1d4ed8" }, statusText: adminSystemStatus.services.security?.status, sub: "Bcrypt + Rate Limit" },
+                  ].map(svc => {
+                    const bg = svc.statuses[svc.statusText] || "#f1f5f9";
+                    const tc = svc.textColors[svc.statusText] || "#64748b";
+                    return (
+                      <div key={svc.key} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, background: bg, border: `1px solid ${bg === "#f1f5f9" ? "#e2e8f0" : "transparent"}`, minWidth: 120 }}>
+                        <span style={{ color: tc }}>{svc.icon}</span>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: tc }}>{svc.label}</div>
+                          <div style={{ fontSize: 10, color: "#64748b" }}>{svc.sub}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Maintenance Quick Action Shortcuts */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#0891b2", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.6px", display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7c3aed" }} />
+                {t("maintenance_shortcuts_section", "Raccourcis de maintenance")}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => { setLoadingSystemStatus(true); api.admin.systemStatus().then(setAdminSystemStatus).catch(()=>{}).finally(()=>setLoadingSystemStatus(false)); }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "#f0f9ff", border: "1.5px solid #bae6fd", color: "#0369a1", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  <RotateCw size={13} /> {t("btn_refresh_status", "Actualiser le statut")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin")}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "#f5f3ff", border: "1.5px solid #ddd6fe", color: "#7c3aed", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  <LayoutDashboard size={13} /> {t("btn_open_dashboard", "Tableau de bord")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin?tab=support_tickets")}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "#fffbeb", border: "1.5px solid #fde68a", color: "#b45309", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  <MessageSquare size={13} /> {t("btn_support_tickets", "Tickets support")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin?tab=accounts")}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "#f0fdf4", border: "1.5px solid #bbf7d0", color: "#15803d", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  <Users size={13} /> {t("btn_account_management", "Gestion comptes")}
+                </button>
+              </div>
             </div>
           </Card>
         </div>
@@ -11234,27 +12340,53 @@ function ProfilePage({ user, navigate, qs }) {
       {/* 2. Admin Security & Credentials Tab */}
       {(user?.user_type === 3 || user?.user_type === 4) && adminActiveTab === "security" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <ConsentsAndDataRightsSection
-            user={user}
+          {/* Account Security Summary Badge & Checklist */}
+          <AccountSecurityCard
             form={form}
+            verStatus={verStatus}
             consentData={consentData}
-            loadingConsent={loadingConsent}
-            handleToggleOpposition={handleToggleOpposition}
-            updatingOpposition={updatingOpposition}
-            handleDownloadPersonalData={handleDownloadPersonalData}
-            handleDeleteAccount={handleDeleteAccount}
-            handleAcceptConsent={handleAcceptConsent}
-            acceptingConsent={acceptingConsent}
-            showHistory={showHistory}
-            setShowHistory={setShowHistory}
-            formatConsentDate={formatConsentDate}
-            getConsentTypeLabel={getConsentTypeLabel}
-            getContextLabel={getContextLabel}
-            setProfileTab={setAdminActiveTab}
-            navigate={navigate}
+            onVerifyEmail={verStatus?.has_email ? () => setOTP("email") : null}
+            onManagePhone={() => {
+              if (navigate) navigate("/profile");
+              setAdminActiveTab("profile");
+            }}
+            onManagePassword={() => {
+              const el = document.getElementById("admin-credentials-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onManageConsents={() => {
+              const el = document.getElementById("admin-consents-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            onClose={toggleSecurityTab}
             isMobile={isMobile}
           />
 
+          <div id="admin-consents-section">
+            <ConsentsAndDataRightsSection
+              user={user}
+              form={form}
+              consentData={consentData}
+              loadingConsent={loadingConsent}
+              handleToggleOpposition={handleToggleOpposition}
+              updatingOpposition={updatingOpposition}
+              handleDownloadPersonalData={handleDownloadPersonalData}
+              handleDeleteAccount={handleDeleteAccount}
+              handleAcceptConsent={handleAcceptConsent}
+              acceptingConsent={acceptingConsent}
+              showHistory={showHistory}
+              setShowHistory={setShowHistory}
+              formatConsentDate={formatConsentDate}
+              getConsentTypeLabel={getConsentTypeLabel}
+              getContextLabel={getContextLabel}
+              setProfileTab={setAdminActiveTab}
+              navigate={navigate}
+              isMobile={isMobile}
+            />
+          </div>
+
+          {/* Admin Credentials Card */}
+          <div id="admin-credentials-section">
           <Card style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", borderRadius: 10, padding: 8, display: "flex" }}>
@@ -11266,61 +12398,40 @@ function ProfilePage({ user, navigate, qs }) {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                  {t("username", "اسم المستخدم")}
-                </label>
-                <input
-                  type="text"
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                  <User size={14} color="#7c3aed" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{t("current_username", "اسم المستخدم الحالي:")} </span>
+                  <span style={{ fontSize: 13, color: "#7c3aed", fontWeight: 800 }}>{user?.username || "admin"}</span>
+                </div>
+                <Input
+                  label={t("new_username", "اسم المستخدم الجديد")}
                   value={creds.new_username}
                   onChange={e => setCreds({ ...creds, new_username: e.target.value })}
-                  placeholder={user?.username || "admin"}
-                  style={{
-                    width: "100%", padding: "10px 14px", borderRadius: 10,
-                    border: "1.5px solid var(--border)", background: "var(--bg)",
-                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
-                  }}
+                  placeholder={t("new_username_hint", "أحرف إنجليزية وأرقام فقط (3-30 حرف)")}
                 />
-                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
-                  {t("username_hint", "3-30 حرف إنجليزي أو رقم")}
-                </span>
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                  {t("new_password", "كلمة المرور الجديدة")}
-                </label>
-                <input
-                  type="password"
+                <PasswordInput
+                  label={t("current_password", "كلمة المرور الحالية")}
+                  value={creds.current_password}
+                  onChange={e => setCreds({ ...creds, current_password: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <PasswordInput
+                  label={t("new_password", "كلمة المرور الجديدة")}
                   value={creds.new_password}
                   onChange={e => setCreds({ ...creds, new_password: e.target.value })}
-                  placeholder="••••••••"
-                  style={{
-                    width: "100%", padding: "10px 14px", borderRadius: 10,
-                    border: "1.5px solid var(--border)", background: "var(--bg)",
-                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
-                  }}
+                  placeholder={t("new_password_hint", "اتركه فارغاً إن لم تريد تغييره")}
+                  showStrength={true}
                 />
-                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
-                  {t("password_min_hint", "6 أحرف على الأقل")}
-                </span>
-              </div>
-
-              <div style={{ gridColumn: isMobile ? "auto" : "2" }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                  {t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
-                </label>
-                <input
-                  type="password"
+                <PasswordInput
+                  label={t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
                   value={creds.confirm_new_password}
                   onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
                   placeholder="••••••••"
-                  style={{
-                    width: "100%", padding: "10px 14px", borderRadius: 10,
-                    border: "1.5px solid var(--border)", background: "var(--bg)",
-                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
-                  }}
                 />
               </div>
             </div>
@@ -11336,6 +12447,7 @@ function ProfilePage({ user, navigate, qs }) {
               </Btn>
             </div>
           </Card>
+          </div>
 
           <Card style={{ border: "1px solid #e2e8f0", background: "#f8fafc" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -11613,6 +12725,18 @@ function ProfilePage({ user, navigate, qs }) {
           onClose={() => setOTP(null)}
           onSuccess={() => { load(); }} />
       )}
+
+      {/* Avatar Crop Modal */}
+      <AvatarCropModal
+        isOpen={cropModalOpen}
+        imageSrc={cropImageSrc}
+        onClose={() => {
+          setCropModalOpen(false);
+          setCropImageSrc(null);
+        }}
+        onSave={handleCropSave}
+      />
+
       <Toast />
     </div>
   );
