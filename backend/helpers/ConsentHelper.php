@@ -93,7 +93,7 @@ class ConsentHelper {
      */
     public static function getCurrent(PDO $pdo, string $userId): array {
         $stmt = $pdo->prepare("
-            SELECT consent_type, value, created_at
+            SELECT consent_type, value, created_at, doc_version
             FROM consent_logs
             WHERE user_id = ?
             ORDER BY created_at DESC
@@ -108,6 +108,7 @@ class ConsentHelper {
                 $result[$row['consent_type']] = [
                     'value'      => (int)$row['value'],
                     'created_at' => $row['created_at'],
+                    'version'    => !empty($row['doc_version']) ? $row['doc_version'] : self::DOC_VERSION,
                 ];
             }
         }

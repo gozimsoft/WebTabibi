@@ -9,7 +9,7 @@ import {
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
   FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale,
-  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle
+  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -189,7 +189,9 @@ const api = {
   // ── PHASE 02C : Consentements & Droits utilisateurs ──────────
   consent: {
     my: () => req("GET", "/consent/my"),
+    accept: b => req("POST", "/consent/accept", b),
     withdraw: b => req("POST", "/consent/withdraw", b),
+    opposition: b => req("POST", "/consent/opposition", b),
     deleteAccount: () => req("DELETE", "/patients/account"),
   },
   admin: {
@@ -8726,6 +8728,584 @@ function NewTicketPage({ navigate, user, qs }) {
   );
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── COMPONENT: CONSENTS & DATA RIGHTS SECTION (Loi 18-07)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function ConsentsAndDataRightsSection({
+  user,
+  form,
+  consentData,
+  loadingConsent,
+  handleToggleOpposition,
+  updatingOpposition,
+  handleDownloadPersonalData,
+  handleDeleteAccount,
+  handleAcceptConsent,
+  acceptingConsent,
+  showHistory,
+  setShowHistory,
+  formatConsentDate,
+  getConsentTypeLabel,
+  getContextLabel,
+  setProfileTab,
+  navigate,
+  isMobile
+}) {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+      {/* 1. MES CONSENTEMENTS ENREGISTRÉS */}
+      <Card style={{ border: "1.5px solid #e0f2fe", boxShadow: "0 4px 16px rgba(8, 145, 178, 0.05)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ background: "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)", borderRadius: 12, padding: 8, display: "flex", color: "#fff" }}>
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 17, fontWeight: 800 }}>{t("my_consents_title")}</h3>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>{t("my_consents_desc")}</p>
+            </div>
+          </div>
+          {loadingConsent && <Spinner size={18} />}
+        </div>
+
+        {/* Bannière de régularisation si CGU ou Politique non acceptées */}
+        {!loadingConsent && consentData?.consents && (consentData.consents.cgu?.value !== 1 || consentData.consents.privacy?.value !== 1) && (
+          <div style={{
+            marginBottom: 16,
+            padding: "14px 16px",
+            borderRadius: 12,
+            background: "#eff6ff",
+            border: "1.5px solid #93c5fd",
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: isMobile ? "flex-start" : "center",
+            justifyContent: "space-between",
+            gap: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={20} color="#1d4ed8" style={{ marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: "#1e3a8a" }}>
+                  {t("consent_regularization_banner_title")}
+                </div>
+                <div style={{ fontSize: 12, color: "#1e40af", marginTop: 2, lineHeight: 1.4 }}>
+                  {t("consent_regularization_banner_desc")}
+                </div>
+              </div>
+            </div>
+            {handleAcceptConsent && consentData.consents.cgu?.value !== 1 && consentData.consents.privacy?.value !== 1 && (
+              <Btn
+                type="button"
+                variant="primary"
+                loading={acceptingConsent === 'all'}
+                onClick={() => handleAcceptConsent(['cgu', 'privacy'])}
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "8px 16px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  color: "#fff",
+                  border: "none",
+                  alignSelf: isMobile ? "stretch" : "auto",
+                  justifyContent: "center"
+                }}
+              >
+                <Check size={14} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} />
+                {t("consent_accept_all_btn")}
+              </Btn>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 16 }}>
+          {/* CGU */}
+          <div style={{
+            padding: 16, borderRadius: 14,
+            background: "var(--bg, #f8fafc)",
+            border: "1.5px solid " + (consentData?.consents?.cgu?.value === 1 ? "#bbf7d0" : "#e2e8f0"),
+            display: "flex", flexDirection: "column", justifyContent: "space-between"
+          }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <FileText size={16} color="var(--brand, #0891b2)" />
+                  <span style={{ fontWeight: 800, fontSize: 13, color: "#1e293b" }}>{t("consent_cgu_title")}</span>
+                </div>
+                {consentData?.consents?.cgu?.value === 1 ? (
+                  <Badge color="#059669"><Check size={11} style={{ [isRtl ? "marginLeft" : "marginRight"]: 4 }} /> {t("consent_status_accepted")}</Badge>
+                ) : consentData?.consents?.cgu?.value === 0 ? (
+                  <Badge color="#d97706">{t("consent_status_withdrawn")}</Badge>
+                ) : (
+                  <Badge color="#64748b">{t("consent_status_not_recorded")}</Badge>
+                )}
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                {t("consent_cgu_desc")}
+              </p>
+              {handleAcceptConsent && consentData?.consents?.cgu?.value !== 1 && (
+                <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", background: "#ffffff", padding: "8px 10px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <a
+                    href="#/terms"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: "var(--brand, #0891b2)",
+                      textDecoration: "underline",
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    <ExternalLink size={13} /> {t("consent_read_link")}
+                  </a>
+                  <Btn
+                    type="button"
+                    variant="primary"
+                    loading={acceptingConsent === 'cgu'}
+                    onClick={() => handleAcceptConsent('cgu')}
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      borderRadius: 8,
+                      background: "linear-gradient(135deg, #059669, #047857)",
+                      border: "none",
+                      color: "#fff"
+                    }}
+                  >
+                    <Check size={13} style={{ [isRtl ? "marginLeft" : "marginRight"]: 4 }} />
+                    {t("consent_accept_btn")}
+                  </Btn>
+                </div>
+              )}
+              {consentData?.consents?.cgu?.value === 1 && (
+                <div style={{ marginBottom: 10 }}>
+                  <a
+                    href="#/terms"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: "var(--brand, #0891b2)",
+                      textDecoration: "underline",
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    <ExternalLink size={13} /> {t("consent_read_link")}
+                  </a>
+                  <div style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    background: "rgba(100, 116, 139, 0.06)",
+                    border: "1px dashed #cbd5e1",
+                    fontSize: 11,
+                    color: "#64748b",
+                    lineHeight: 1.4
+                  }}>
+                    <span>{t("consent_withdrawal_info")}{" "}</span>
+                    {handleDeleteAccount && user?.user_type === 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleDeleteAccount}
+                        style={{
+                          background: "none", border: "none", padding: 0, color: "#dc2626",
+                          textDecoration: "underline", fontWeight: 700, cursor: "pointer", fontSize: 11
+                        }}
+                      >
+                        {t("consent_withdrawal_link")}
+                      </button>
+                    ) : (
+                      <span style={{ fontWeight: 700, color: "#475569" }}>
+                        {t("consent_withdrawal_contact")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 10, fontSize: 11, color: "#64748b", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
+              <span>{t("consent_version_label")} <strong style={{ color: "#334155" }}>{consentData?.consents?.cgu?.version || consentData?.doc_version || 'v1.0-2026'}</strong></span>
+              {consentData?.consents?.cgu?.created_at && (
+                <span>{t("consent_date_label")} <strong style={{ color: "#334155" }}>{formatConsentDate(consentData.consents.cgu.created_at)}</strong></span>
+              )}
+            </div>
+          </div>
+
+          {/* Privacy */}
+          <div style={{
+            padding: 16, borderRadius: 14,
+            background: "var(--bg, #f8fafc)",
+            border: "1.5px solid " + (consentData?.consents?.privacy?.value === 1 ? "#bbf7d0" : "#e2e8f0"),
+            display: "flex", flexDirection: "column", justifyContent: "space-between"
+          }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Shield size={16} color="var(--brand, #0891b2)" />
+                  <span style={{ fontWeight: 800, fontSize: 13, color: "#1e293b" }}>{t("consent_privacy_title")}</span>
+                </div>
+                {consentData?.consents?.privacy?.value === 1 ? (
+                  <Badge color="#059669"><Check size={11} style={{ [isRtl ? "marginLeft" : "marginRight"]: 4 }} /> {t("consent_status_accepted")}</Badge>
+                ) : consentData?.consents?.privacy?.value === 0 ? (
+                  <Badge color="#d97706">{t("consent_status_withdrawn")}</Badge>
+                ) : (
+                  <Badge color="#64748b">{t("consent_status_not_recorded")}</Badge>
+                )}
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                {t("consent_privacy_desc")}
+              </p>
+              {handleAcceptConsent && consentData?.consents?.privacy?.value !== 1 && (
+                <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", background: "#ffffff", padding: "8px 10px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <a
+                    href="#/privacy"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: "var(--brand, #0891b2)",
+                      textDecoration: "underline",
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    <ExternalLink size={13} /> {t("consent_read_link")}
+                  </a>
+                  <Btn
+                    type="button"
+                    variant="primary"
+                    loading={acceptingConsent === 'privacy'}
+                    onClick={() => handleAcceptConsent('privacy')}
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      borderRadius: 8,
+                      background: "linear-gradient(135deg, #059669, #047857)",
+                      border: "none",
+                      color: "#fff"
+                    }}
+                  >
+                    <Check size={13} style={{ [isRtl ? "marginLeft" : "marginRight"]: 4 }} />
+                    {t("consent_accept_btn")}
+                  </Btn>
+                </div>
+              )}
+              {consentData?.consents?.privacy?.value === 1 && (
+                <div style={{ marginBottom: 10 }}>
+                  <a
+                    href="#/privacy"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: "var(--brand, #0891b2)",
+                      textDecoration: "underline",
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    <ExternalLink size={13} /> {t("consent_read_link")}
+                  </a>
+                  <div style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    background: "rgba(100, 116, 139, 0.06)",
+                    border: "1px dashed #cbd5e1",
+                    fontSize: 11,
+                    color: "#64748b",
+                    lineHeight: 1.4
+                  }}>
+                    <span>{t("consent_withdrawal_info")}{" "}</span>
+                    {handleDeleteAccount && user?.user_type === 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleDeleteAccount}
+                        style={{
+                          background: "none", border: "none", padding: 0, color: "#dc2626",
+                          textDecoration: "underline", fontWeight: 700, cursor: "pointer", fontSize: 11
+                        }}
+                      >
+                        {t("consent_withdrawal_link")}
+                      </button>
+                    ) : (
+                      <span style={{ fontWeight: 700, color: "#475569" }}>
+                        {t("consent_withdrawal_contact")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 10, fontSize: 11, color: "#64748b", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
+              <span>{t("consent_version_label")} <strong style={{ color: "#334155" }}>{consentData?.consents?.privacy?.version || consentData?.doc_version || 'v1.0-2026'}</strong></span>
+              {consentData?.consents?.privacy?.created_at && (
+                <span>{t("consent_date_label")} <strong style={{ color: "#334155" }}>{formatConsentDate(consentData.consents.privacy.created_at)}</strong></span>
+              )}
+            </div>
+          </div>
+
+          {/* Health Data (Appointments) */}
+          <div style={{
+            padding: 16, borderRadius: 14,
+            background: "var(--bg, #f8fafc)",
+            border: "1.5px solid " + (consentData?.consents?.health_data?.value === 1 ? "#bbf7d0" : "#e2e8f0"),
+            display: "flex", flexDirection: "column", justifyContent: "space-between"
+          }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <HeartPulse size={16} color="#e11d48" />
+                  <span style={{ fontWeight: 800, fontSize: 13, color: "#1e293b" }}>{t("consent_health_title")}</span>
+                </div>
+                {consentData?.consents?.health_data?.value === 1 ? (
+                  <Badge color="#059669"><Check size={11} style={{ [isRtl ? "marginLeft" : "marginRight"]: 4 }} /> {t("consent_status_accepted")}</Badge>
+                ) : consentData?.consents?.health_data?.value === 0 ? (
+                  <Badge color="#d97706">{t("consent_status_withdrawn")}</Badge>
+                ) : (
+                  <Badge color="#64748b">{t("consent_status_not_recorded")}</Badge>
+                )}
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                {consentData?.consents?.health_data?.value === 1 ? t("consent_health_note_active") : t("consent_health_note_none")}
+              </p>
+            </div>
+            <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 10, fontSize: 11, color: "#64748b", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
+              <span>{t("consent_version_label")} <strong style={{ color: "#334155" }}>{consentData?.consents?.health_data?.version || 'v1.0-2026'}</strong></span>
+              {consentData?.consents?.health_data?.created_at && (
+                <span>{t("consent_date_label")} <strong style={{ color: "#334155" }}>{formatConsentDate(consentData.consents.health_data.created_at)}</strong></span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Consents History Collapsible */}
+        {consentData?.history && consentData.history.length > 0 && (
+          <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 14 }}>
+            <button
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              style={{
+                background: "none", border: "none", padding: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6, color: "var(--brand, #0891b2)",
+                fontSize: 13, fontWeight: 700
+              }}
+            >
+              <History size={15} />
+              <span>{showHistory ? t("consent_history_toggle_hide") : t("consent_history_toggle_show")}</span>
+              <span style={{ fontSize: 11, background: "rgba(8,145,178,0.1)", padding: "2px 6px", borderRadius: 8 }}>{consentData.history.length}</span>
+              <ChevronDown size={14} style={{ transform: showHistory ? "rotate(180deg)" : "none", transition: "transform 0.2s ease" }} />
+            </button>
+
+            {showHistory && (
+              <div style={{ marginTop: 12, overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: isRtl ? 'right' : 'left' }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0", color: "#64748b" }}>
+                      <th style={{ padding: "8px 12px" }}>{t("consent_history_date")}</th>
+                      <th style={{ padding: "8px 12px" }}>{t("consent_history_type")}</th>
+                      <th style={{ padding: "8px 12px" }}>{t("consent_history_value")}</th>
+                      <th style={{ padding: "8px 12px" }}>{t("consent_history_context")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {consentData.history.map((h, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "8px 12px", whiteSpace: "nowrap", color: "#475569" }}>{formatConsentDate(h.created_at)}</td>
+                        <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1e293b" }}>{getConsentTypeLabel(h.consent_type)}</td>
+                        <td style={{ padding: "8px 12px" }}>
+                          {Number(h.value) === 1 ? (
+                            <Badge color="#059669">{t("consent_status_accepted")}</Badge>
+                          ) : (
+                            <Badge color="#d97706">{t("consent_status_withdrawn")}</Badge>
+                          )}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#64748b" }}>{getContextLabel(h.context)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* 2. OPPOSITION PROMOTIONNELLE (Art. 36) */}
+      <Card style={{ border: "1.5px solid #fed7aa", background: "linear-gradient(180deg, #fffbeb 0%, #ffffff 100%)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ background: "linear-gradient(135deg, #d97706, #b45309)", borderRadius: 12, padding: 8, display: "flex", color: "#fff" }}>
+            <BellOff size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, color: "#92400e", fontSize: 17, fontWeight: 800 }}>{t("opposition_promo_title")}</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#78350f" }}>{t("opposition_promo_desc")}</p>
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: 14, padding: "14px 18px", borderRadius: 12,
+          background: consentData?.consents?.opposition_promo?.value === 1 ? "#f0fdf4" : "#ffffff",
+          border: "1.5px solid " + (consentData?.consents?.opposition_promo?.value === 1 ? "#86efac" : "#fef08a"),
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+              background: consentData?.consents?.opposition_promo?.value === 1 ? "#dcfce7" : "#fef9c3",
+              color: consentData?.consents?.opposition_promo?.value === 1 ? "#16a34a" : "#ca8a04"
+            }}>
+              {consentData?.consents?.opposition_promo?.value === 1 ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{t("opposition_promo_status_label")}</div>
+              <div style={{
+                fontSize: 14, fontWeight: 800,
+                color: consentData?.consents?.opposition_promo?.value === 1 ? "#15803d" : "#854d0e"
+              }}>
+                {consentData?.consents?.opposition_promo?.value === 1 ? t("opposition_promo_active") : t("opposition_promo_inactive")}
+              </div>
+            </div>
+          </div>
+
+          <Btn
+            type="button"
+            onClick={handleToggleOpposition}
+            loading={updatingOpposition}
+            variant={consentData?.consents?.opposition_promo?.value === 1 ? "secondary" : "primary"}
+            style={{
+              padding: "9px 18px", fontSize: 13, fontWeight: 700,
+              ...(consentData?.consents?.opposition_promo?.value !== 1 ? { background: "linear-gradient(135deg, #d97706, #b45309)", border: "none", color: "#fff" } : {})
+            }}
+          >
+            {consentData?.consents?.opposition_promo?.value === 1 ? t("opposition_promo_deactivate_btn") : t("opposition_promo_activate_btn")}
+          </Btn>
+        </div>
+      </Card>
+
+      {/* 3. MES DROITS SUR MES DONNÉES (Art. 33-36) */}
+      <Card style={{ border: "1.5px solid #e2e8f0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ background: "linear-gradient(135deg, #0f766e, #115e59)", borderRadius: 12, padding: 8, display: "flex", color: "#fff" }}>
+            <Scale size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, color: "#134e4a", fontSize: 17, fontWeight: 800 }}>{t("data_rights_title")}</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>{t("data_rights_desc")}</p>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+          {/* Droit d'accès (Art. 33) */}
+          <div style={{ padding: 16, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <Eye size={16} color="var(--brand, #0891b2)" />
+                <span style={{ fontWeight: 800, fontSize: 13, color: "#0f172a" }}>{t("data_right_access_title")}</span>
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                {t("data_right_access_desc")}
+              </p>
+              <div style={{ background: "#ffffff", padding: "8px 10px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 11, marginBottom: 12 }}>
+                <div><strong>{t("fullname")}:</strong> {form?.fullname || form?.clinicname || user?.username}</div>
+                <div><strong>{t("email")}:</strong> {user?.email || form?.email || "—"}</div>
+                <div><strong>{t("phone")}:</strong> {user?.phone || form?.phone || "—"}</div>
+              </div>
+            </div>
+            {setProfileTab && (
+              <Btn
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (navigate) navigate("/profile");
+                  setProfileTab("profile");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                style={{ width: "100%", justifyContent: "center", fontSize: 12, padding: "8px 12px" }}
+              >
+                <Eye size={14} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} /> {t("data_right_access_btn")}
+              </Btn>
+            )}
+          </div>
+
+          {/* Droit à la portabilité (Art. 34) */}
+          <div style={{ padding: 16, borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <Download size={16} color="#059669" />
+                <span style={{ fontWeight: 800, fontSize: 13, color: "#166534" }}>{t("data_right_portability_title")}</span>
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#15803d", lineHeight: 1.5 }}>
+                {t("data_right_portability_desc")}
+              </p>
+            </div>
+            <Btn
+              type="button"
+              variant="secondary"
+              onClick={handleDownloadPersonalData}
+              style={{ width: "100%", justifyContent: "center", fontSize: 12, padding: "8px 12px", borderColor: "#059669", color: "#059669", background: "#ffffff" }}
+            >
+              <Download size={14} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} /> {t("data_right_download_btn")}
+            </Btn>
+          </div>
+
+          {/* Droit à l'effacement (Art. 35) */}
+          {user?.user_type === 0 && (
+            <div style={{ padding: 16, borderRadius: 12, background: "#fef2f2", border: "1.5px solid #fecaca", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Trash2 size={16} color="#dc2626" />
+                  <span style={{ fontWeight: 800, fontSize: 13, color: "#991b1b" }}>{t("data_right_erasure_title")}</span>
+                </div>
+                <p style={{ margin: "0 0 12px", fontSize: 12, color: "#7f1d1d", lineHeight: 1.5 }}>
+                  {t("data_right_erasure_desc")}
+                </p>
+              </div>
+              <Btn
+                type="button"
+                variant="ghost"
+                onClick={handleDeleteAccount}
+                style={{ width: "100%", justifyContent: "center", fontSize: 12, padding: "8px 12px", color: "#dc2626", borderColor: "#fca5a5", background: "#ffffff" }}
+              >
+                <Trash2 size={14} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} /> {t("data_right_delete_btn")}
+              </Btn>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* 4. CONTACT OFFICIEL DONNÉES PERSONNELLES */}
+      <div style={{
+        background: "linear-gradient(135deg, rgba(8,145,178,0.06), rgba(12,74,110,0.06))",
+        border: "1px solid rgba(8,145,178,0.2)", borderRadius: 14, padding: "14px 20px",
+        textAlign: "center", fontSize: 13, color: "#475569", display: "flex", alignItems: "center",
+        justifyContent: "center", gap: 10, flexWrap: "wrap"
+      }}>
+        <Mail size={16} color="var(--brand, #0891b2)" />
+        <span>{t("data_contact_official_label")}</span>
+        <a href="mailto:contact@tabibi.dz" style={{ color: "var(--brand, #0891b2)", fontWeight: 800, textDecoration: "none" }}>
+          contact@tabibi.dz
+        </a>
+      </div>
+    </div>
+  );
+}
+
 // ── PAGE: PROFILE ─────────────────────────────────────────────
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: PROFILE (ACCOUNT SETTINGS)
@@ -8757,14 +9337,21 @@ function ProfilePage({ user, navigate, qs }) {
   const [newReasonTime, setNewReasonTime] = useState(30);
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
-  const [doctorActiveTab, setDoctorActiveTab] = useState("profile"); // 'profile' | 'reasons' | 'appointment_settings' | 'off_hours'
-  const initialTab = (qs && new URLSearchParams(qs).get("tab") === "security") ? "security" : "profile";
-  const [patientActiveTab, setPatientActiveTab] = useState(initialTab); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
-  const [clinicActiveTab, setClinicActiveTab] = useState(initialTab); // 'profile' | 'security'
-  const [adminActiveTab, setAdminActiveTab] = useState((qs && new URLSearchParams(qs).get("tab") === "security") ? "security" : "overview"); // 'overview' | 'security'
+  const initialSecurity = (qs && new URLSearchParams(qs).get("tab") === "security");
+  const [doctorActiveTab, setDoctorActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'reasons' | 'appointment_settings' | 'off_hours' | 'security'
+  const [patientActiveTab, setPatientActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
+  const [clinicActiveTab, setClinicActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
+  const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
   const [adminStats, setAdminStats] = useState(null);
   const [adminTickets, setAdminTickets] = useState([]);
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
+
+  // --- حالة قسم الموافقات والخصوصية (Loi 18-07) ---
+  const [consentData, setConsentData] = useState(null);
+  const [loadingConsent, setLoadingConsent] = useState(false);
+  const [updatingOpposition, setUpdatingOpposition] = useState(false);
+  const [acceptingConsent, setAcceptingConsent] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (qs) {
@@ -8773,12 +9360,196 @@ function ProfilePage({ user, navigate, qs }) {
         setPatientActiveTab("security");
         setClinicActiveTab("security");
         setAdminActiveTab("security");
+        setDoctorActiveTab("security");
       }
     }
   }, [qs]);
 
   const fileInput = useRef(null);
   const { show, Toast } = useToast();
+
+  const fetchConsents = useCallback(async () => {
+    try {
+      setLoadingConsent(true);
+      const res = await api.consent.my();
+      setConsentData(res);
+    } catch (e) {
+      console.warn("Could not fetch user consents", e);
+    } finally {
+      setLoadingConsent(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (patientActiveTab === "security" || clinicActiveTab === "security" || doctorActiveTab === "security" || adminActiveTab === "security") {
+      fetchConsents();
+    }
+  }, [patientActiveTab, clinicActiveTab, doctorActiveTab, adminActiveTab, fetchConsents]);
+
+  const handleToggleOpposition = async () => {
+    try {
+      setUpdatingOpposition(true);
+      const currentOpposed = consentData?.consents?.opposition_promo?.value === 1;
+      const nextOpposed = !currentOpposed;
+      await api.consent.opposition({ opposed: nextOpposed });
+      setConsentData(prev => ({
+        ...prev,
+        consents: {
+          ...prev?.consents,
+          opposition_promo: {
+            value: nextOpposed ? 1 : 0,
+            created_at: new Date().toISOString()
+          }
+        }
+      }));
+      show(nextOpposed ? t("opposition_promo_active") : t("opposition_promo_inactive"), "success");
+      fetchConsents();
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setUpdatingOpposition(false);
+    }
+  };
+
+  const handleAcceptConsent = async (typeOrTypes) => {
+    try {
+      const isArr = Array.isArray(typeOrTypes);
+      setAcceptingConsent(isArr ? 'all' : typeOrTypes);
+      if (isArr) {
+        await api.consent.accept({ types: typeOrTypes });
+      } else {
+        await api.consent.accept({ type: typeOrTypes });
+      }
+      show(t("consent_accept_success"), "success");
+      await fetchConsents();
+    } catch (e) {
+      show(e.message || "Erreur lors de l'enregistrement du consentement", "error");
+    } finally {
+      setAcceptingConsent(null);
+    }
+  };
+
+  const handleDownloadPersonalData = async () => {
+    try {
+      show(t("export_preparing"), "info");
+      let fullProfile = user;
+      if (user?.user_type === 0) {
+        try {
+          const p = await api.patient.profile();
+          const appts = await api.patient.appointments().catch(() => []);
+          fullProfile = { ...user, profile_details: p, appointments: appts };
+        } catch (err) {
+          console.warn("Could not fetch extra profile for export", err);
+        }
+      } else if (user?.user_type === 1) {
+        try {
+          const p = await api.doctor.profile();
+          fullProfile = { ...user, profile_details: p };
+        } catch (err) {}
+      } else if (user?.user_type === 2) {
+        try {
+          const p = await api.clinics.profile();
+          fullProfile = { ...user, profile_details: p };
+        } catch (err) {}
+      }
+
+      const sanitizeExport = (obj) => {
+        if (!obj || typeof obj !== "object") return obj;
+        if (Array.isArray(obj)) return obj.map(sanitizeExport);
+        const sensitiveKeys = new Set([
+          "password", "password_hash", "token", "jwt", "access_token", "refresh_token",
+          "secret", "auth_token", "remember_token", "salt", "ip_hash", "user_agent_hash",
+          "apikey", "api_key"
+        ]);
+        const clean = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const lower = k.toLowerCase();
+          if (sensitiveKeys.has(lower) || lower.includes("token") || lower.includes("password") || lower.includes("secret")) {
+            continue;
+          }
+          if ((lower === "photoprofile" || lower === "photo" || lower === "logo") && typeof v === "string" && v.startsWith("data:")) {
+            clean[k] = "[Fichier média volumineux exclu de l'export JSON]";
+            continue;
+          }
+          clean[k] = sanitizeExport(v);
+        }
+        return clean;
+      };
+
+      const exportPayload = {
+        notice: "Extraction des données personnelles — Plateforme TABIBI (Loi 18-07 Art. 34)",
+        contact_requests: "contact@tabibi.dz",
+        extracted_at: new Date().toISOString(),
+        user_account: sanitizeExport(fullProfile)
+      };
+
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute("href", blobUrl);
+      dlAnchorElem.setAttribute("download", `tabibi_export_user_${user?.id || 'me'}_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(dlAnchorElem);
+      dlAnchorElem.click();
+      document.body.removeChild(dlAnchorElem);
+      URL.revokeObjectURL(blobUrl);
+
+      show(t("export_success"), "success");
+    } catch (e) {
+      show(e.message, "error");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(t("data_right_delete_confirm"));
+    if (!confirmed) return;
+    try {
+      await api.consent.deleteAccount();
+      show(t("account_deleted_success") || "تم حذف الحساب بنجاح. سيتم تسجيل خروجك.", "success");
+      setTimeout(() => {
+        localStorage.clear();
+        window.location.href = "/";
+      }, 2000);
+    } catch (e) {
+      show(e.message, "error");
+    }
+  };
+
+  const formatConsentDate = (dt) => {
+    if (!dt) return "—";
+    try {
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return dt;
+      return d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'en' ? 'en-US' : 'fr-FR'), {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (_) {
+      return dt;
+    }
+  };
+
+  const getContextLabel = (ctx) => {
+    switch (ctx) {
+      case 'registration': return t("consent_ctx_registration");
+      case 'google_registration': return t("consent_ctx_google_registration");
+      case 'appointment': return t("consent_ctx_appointment");
+      case 'withdrawal': return t("consent_ctx_withdrawal");
+      case 'opposition_activated': return t("consent_ctx_opposition_activated");
+      case 'opposition_deactivated': return t("consent_ctx_opposition_deactivated");
+      case 'account_deletion': return t("consent_ctx_account_deletion");
+      case 'profile_regularization': return t("consent_ctx_profile_regularization");
+      default: return ctx || "—";
+    }
+  };
+
+  const getConsentTypeLabel = (type) => {
+    switch (type) {
+      case 'cgu': return t("consent_cgu_title");
+      case 'privacy': return t("consent_privacy_title");
+      case 'health_data': return t("consent_health_title");
+      case 'opposition_promo': return t("opposition_promo_title");
+      default: return type;
+    }
+  };
 
   const load = async () => {
     try {
@@ -9126,7 +9897,32 @@ function ProfilePage({ user, navigate, qs }) {
         }}>
           <button
             type="button"
-            onClick={() => setAdminActiveTab("overview")}
+            onClick={() => { if (navigate) navigate("/profile"); setAdminActiveTab("profile"); }}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: adminActiveTab === "profile" ? "linear-gradient(135deg, #7c3aed, #4f46e5)" : "transparent",
+              color: adminActiveTab === "profile" ? "#ffffff" : "#64748b",
+              fontWeight: adminActiveTab === "profile" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <User size={17} />
+            {t("profile_info_tab", "الملف الشخصي")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { if (navigate) navigate("/profile"); setAdminActiveTab("overview"); }}
             style={{
               flex: 1,
               display: "flex",
@@ -9151,7 +9947,7 @@ function ProfilePage({ user, navigate, qs }) {
 
           <button
             type="button"
-            onClick={() => setAdminActiveTab("security")}
+            onClick={() => { if (navigate) navigate("/profile?tab=security"); setAdminActiveTab("security"); }}
             style={{
               flex: 1,
               display: "flex",
@@ -9171,7 +9967,7 @@ function ProfilePage({ user, navigate, qs }) {
             }}
           >
             <Lock size={17} />
-            {t("security_tab", "الأمان وبيانات الدخول")}
+            {t("security_privacy_title", "الأمان والخصوصية")}
           </button>
         </div>
       )}
@@ -9300,6 +10096,31 @@ function ProfilePage({ user, navigate, qs }) {
             <Clock size={17} />
             {t("off_hours_tab", "أوقات خارج العمل")}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("security")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "security" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "security" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Lock size={17} />
+            {t("security_privacy_title", "الأمان والخصوصية")}
+          </button>
         </div>
       )}
 
@@ -9318,7 +10139,7 @@ function ProfilePage({ user, navigate, qs }) {
         }}>
           <button
             type="button"
-            onClick={() => setPatientActiveTab("profile")}
+            onClick={() => { if (navigate) navigate("/profile"); setPatientActiveTab("profile"); }}
             style={{
               flex: 1,
               display: "flex",
@@ -9343,7 +10164,7 @@ function ProfilePage({ user, navigate, qs }) {
 
           <button
             type="button"
-            onClick={() => setPatientActiveTab("attending_doctor")}
+            onClick={() => { if (navigate) navigate("/profile"); setPatientActiveTab("attending_doctor"); }}
             style={{
               flex: 1,
               display: "flex",
@@ -9368,7 +10189,7 @@ function ProfilePage({ user, navigate, qs }) {
 
           <button
             type="button"
-            onClick={() => setPatientActiveTab("emergency")}
+            onClick={() => { if (navigate) navigate("/profile"); setPatientActiveTab("emergency"); }}
             style={{
               flex: 1,
               display: "flex",
@@ -9393,7 +10214,7 @@ function ProfilePage({ user, navigate, qs }) {
 
           <button
             type="button"
-            onClick={() => setPatientActiveTab("security")}
+            onClick={() => { if (navigate) navigate("/profile?tab=security"); setPatientActiveTab("security"); }}
             style={{
               flex: 1,
               display: "flex",
@@ -9413,7 +10234,7 @@ function ProfilePage({ user, navigate, qs }) {
             }}
           >
             <Lock size={17} />
-            {t("security_tab", "الأمان والحساب")}
+            {t("security_privacy_title", "الأمان والخصوصية")}
             {verStatus && !verStatus.email_verified && (
               <span style={{
                 width: 8,
@@ -9655,6 +10476,48 @@ function ProfilePage({ user, navigate, qs }) {
         </form>
       )}
 
+      {/* 5. Doctor Security & Privacy Tab */}
+      {user?.user_type === 1 && doctorActiveTab === "security" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <ConsentsAndDataRightsSection
+            user={user}
+            form={form}
+            consentData={consentData}
+            loadingConsent={loadingConsent}
+            handleToggleOpposition={handleToggleOpposition}
+            updatingOpposition={updatingOpposition}
+            handleDownloadPersonalData={handleDownloadPersonalData}
+            handleDeleteAccount={handleDeleteAccount}
+            handleAcceptConsent={handleAcceptConsent}
+            acceptingConsent={acceptingConsent}
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            formatConsentDate={formatConsentDate}
+            getConsentTypeLabel={getConsentTypeLabel}
+            getContextLabel={getContextLabel}
+            setProfileTab={setDoctorActiveTab}
+            navigate={navigate}
+            isMobile={isMobile}
+          />
+
+          <form onSubmit={save}>
+            <Card style={{ marginBottom: 14 }}>
+              <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <Lock size={18} /> {t("login_credentials", "بيانات الدخول")}
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
+                <Input label={t("username", "اسم المستخدم")} value={form.username || ""} onChange={e => f("username", e.target.value)} />
+                <Input label={t("new_password", "تغيير كلمة المرور")} type="password" placeholder={t("new_password_hint", "اتركه فارغاً إذا لم ترد تغييره")} value={form.password || ""} onChange={e => f("password", e.target.value)} />
+              </div>
+            </Card>
+
+            <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}>
+              <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
+            </Btn>
+          </form>
+        </div>
+      )}
+
       {/* ─── PATIENT TABS CONTENT ─── */}
       {/* 1. Patient Profile Tab */}
       {user?.user_type === 0 && patientActiveTab === "profile" && (
@@ -9755,10 +10618,10 @@ function ProfilePage({ user, navigate, qs }) {
 
       {/* 4. Patient Security & Credentials Tab */}
       {user?.user_type === 0 && patientActiveTab === "security" && (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Identity Verification banner */}
           {verStatus && !verStatus.email_verified && (
-            <Card style={{ marginBottom: 20, background: "#fffbeb", border: "1px solid #fde68a" }}>
+            <Card style={{ marginBottom: 0, background: "#fffbeb", border: "1px solid #fde68a" }}>
               <h3 style={{ color: "#92400e", margin: "0 0 14px", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}><Lock size={18} /> {t("id_verification")}</h3>
               <p style={{ color: "#78350f", fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
                 {t("id_verification_desc")}
@@ -9774,6 +10637,28 @@ function ProfilePage({ user, navigate, qs }) {
               </div>
             </Card>
           )}
+
+          {/* Consents & Data Rights Section (Loi 18-07) */}
+          <ConsentsAndDataRightsSection
+            user={user}
+            form={form}
+            consentData={consentData}
+            loadingConsent={loadingConsent}
+            handleToggleOpposition={handleToggleOpposition}
+            updatingOpposition={updatingOpposition}
+            handleDownloadPersonalData={handleDownloadPersonalData}
+            handleDeleteAccount={handleDeleteAccount}
+            handleAcceptConsent={handleAcceptConsent}
+            acceptingConsent={acceptingConsent}
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            formatConsentDate={formatConsentDate}
+            getConsentTypeLabel={getConsentTypeLabel}
+            getContextLabel={getContextLabel}
+            setProfileTab={setPatientActiveTab}
+            navigate={navigate}
+            isMobile={isMobile}
+          />
 
           {/* Login Credentials Card */}
           <Card>
@@ -9830,81 +10715,6 @@ function ProfilePage({ user, navigate, qs }) {
               </Btn>
             </div>
           </Card>
-
-          {/* PHASE 02C : Droits & Vie privée — Art. 33-36 Loi 18-07 */}
-          <Card style={{ marginTop: 16, border: "1px solid #fee2e2" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{ background: "linear-gradient(135deg,#dc2626,#b91c1c)", borderRadius: 10, padding: 8, display: "flex" }}>
-                <Scale size={16} color="#fff" />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, color: "#7f1d1d", fontSize: 16 }}>حقوقك القانونية (Art. 33-36 Loi 18-07)</h3>
-                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>ممارسة حقوق الوصول، المعارضة، والحذف وفق القانون 18-07</p>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ padding: "12px 16px", background: "#fef2f2", borderRadius: 10, border: "1px solid #fecaca" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 4 }}>🚫 المعارضة للاستخدام التجاري (Art. 36)</div>
-                <div style={{ fontSize: 12, color: "#7f1d1d", lineHeight: 1.6, marginBottom: 10 }}>
-                  يحق لك المعارضة دون أسباب وبدون تكلفة لاستخدام بياناتك في الاستهداف التجاري أو الإعلاني.
-                </div>
-                <Btn
-                  variant="ghost"
-                  style={{ fontSize: 12, padding: "6px 14px", color: "#dc2626", borderColor: "#fecaca" }}
-                  onClick={async () => {
-                    try {
-                      await api.consent.withdraw({ type: 'opposition_promo' });
-                      show('تم تسجيل معارضتك بنجاح. لن تتلقى رسائل تجارية بعد الآن.', 'success');
-                    } catch (e) { show(e.message, 'error'); }
-                  }}
-                >
-                  تسجيل المعارضة للاستخدام التجاري
-                </Btn>
-              </div>
-
-              <div style={{ padding: "12px 16px", background: "#fff7ed", borderRadius: 10, border: "1px solid #fed7aa" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#9a3412", marginBottom: 4 }}>📋 الاطلاع على موافقاتي (Art. 33)</div>
-                <div style={{ fontSize: 12, color: "#7c2d12", lineHeight: 1.6, marginBottom: 10 }}>
-                  يمكنك الاطلاع على سجل الموافقات التي أعطيتها لمنصة طبيبي.
-                </div>
-                <Btn
-                  variant="ghost"
-                  style={{ fontSize: 12, padding: "6px 14px", color: "#ea580c", borderColor: "#fed7aa" }}
-                  onClick={() => navigate('/privacy')}
-                >
-                  الاطلاع على سياسة الخصوصية
-                </Btn>
-              </div>
-
-              <div style={{ padding: "12px 16px", background: "#fef2f2", borderRadius: 10, border: "2px solid #fca5a5" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 4 }}>⚠️ حذف الحساب وإخفاء البيانات (Art. 35)</div>
-                <div style={{ fontSize: 12, color: "#7f1d1d", lineHeight: 1.6, marginBottom: 10 }}>
-                  يحق لك طلب حذف حسابك وإخفاء بياناتك الشخصية. ملاحظة: سجلات المواعيد المنجزة قد تُحفظ بصيغة مجهولة الهوية لصالح الطبيب المعالج وفق الالتزامات القانونية.
-                </div>
-                <Btn
-                  variant="ghost"
-                  style={{ fontSize: 12, padding: "6px 14px", color: "#dc2626", borderColor: "#fca5a5", background: "#fff" }}
-                  onClick={async () => {
-                    const confirmed = window.confirm('⚠️ هل أنت متأكد من حذف حسابك؟ هذا الإجراء لا يمكن التراجع عنه. سيتم إخفاء جميع بياناتك الشخصية.');
-                    if (!confirmed) return;
-                    try {
-                      await api.consent.deleteAccount();
-                      show('تم حذف الحساب بنجاح. سيتم تسجيل خروجك.', 'success');
-                      setTimeout(() => { localStorage.clear(); window.location.href = '/'; }, 2000);
-                    } catch (e) { show(e.message, 'error'); }
-                  }}
-                >
-                  <Trash2 size={13} style={{ marginLeft: 6 }} /> طلب حذف الحساب
-                </Btn>
-              </div>
-
-              <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", paddingTop: 8 }}>
-                {t("privacy_contact_note", "للتواصل بشأن حقوقك المتعلقة بالبيانات الشخصية:")}{" "}
-                <a href="mailto:contact@tabibi.dz" style={{ color: "var(--brand)", fontWeight: 700 }}>contact@tabibi.dz</a>
-              </div>
-            </div>
-          </Card>
         </div>
       )}
 
@@ -9953,15 +10763,36 @@ function ProfilePage({ user, navigate, qs }) {
 
       {/* 2. Clinic Security & Join Requests Tab */}
       {user?.user_type === 2 && clinicActiveTab === "security" && (
-        <div>
-          <form onSubmit={save} style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <ConsentsAndDataRightsSection
+            user={user}
+            form={form}
+            consentData={consentData}
+            loadingConsent={loadingConsent}
+            handleToggleOpposition={handleToggleOpposition}
+            updatingOpposition={updatingOpposition}
+            handleDownloadPersonalData={handleDownloadPersonalData}
+            handleDeleteAccount={handleDeleteAccount}
+            handleAcceptConsent={handleAcceptConsent}
+            acceptingConsent={acceptingConsent}
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            formatConsentDate={formatConsentDate}
+            getConsentTypeLabel={getConsentTypeLabel}
+            getContextLabel={getContextLabel}
+            setProfileTab={setClinicActiveTab}
+            navigate={navigate}
+            isMobile={isMobile}
+          />
+
+          <form onSubmit={save} style={{ marginBottom: 0 }}>
             <Card style={{ marginBottom: 14 }}>
               <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                <Lock size={18} /> بيانات الدخول
+                <Lock size={18} /> {t("login_credentials", "بيانات الدخول")}
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
-                <Input label="اسم المستخدم" value={form.username || ""} onChange={e => f("username", e.target.value)} />
-                <Input label="تغيير كلمة المرور" type="password" placeholder="اتركه فارغاً إذا لم ترد تغييره" value={form.password || ""} onChange={e => f("password", e.target.value)} />
+                <Input label={t("username", "اسم المستخدم")} value={form.username || ""} onChange={e => f("username", e.target.value)} />
+                <Input label={t("new_password", "تغيير كلمة المرور")} type="password" placeholder={t("new_password_hint", "اتركه فارغاً إذا لم ترد تغييره")} value={form.password || ""} onChange={e => f("password", e.target.value)} />
               </div>
             </Card>
 
@@ -10003,6 +10834,153 @@ function ProfilePage({ user, navigate, qs }) {
       )}
 
       {/* ─── ADMIN TABS CONTENT ─── */}
+      {/* 0. Admin Profile & Account Details Tab */}
+      {(user?.user_type === 3 || user?.user_type === 4) && adminActiveTab === "profile" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Personal & Account Info Card */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <div style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", borderRadius: 10, padding: 8, display: "flex", color: "#fff" }}>
+                <User size={18} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#1e1b4b", fontSize: 16, fontWeight: 800 }}>
+                  {t("admin_profile_info_title", "Informations du compte administrateur")}
+                </h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+                  {t("admin_profile_info_desc", "Visualisez et modifiez les identifiants et données du compte administrateur.")}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 14, marginBottom: 16 }}>
+              <div style={{ background: "var(--bg, #f8fafc)", padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>
+                  {t("role_label", "Rôle & Habilitation")}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
+                  <ShieldCheck size={16} />
+                  {user?.user_type === 4 ? t("support_role", "Équipe Support") : t("super_admin_role", "Administrateur système (SuperAdmin)")}
+                </div>
+              </div>
+
+              <div style={{ background: "var(--bg, #f8fafc)", padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>
+                  {t("email", "Email")}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Mail size={16} color="#7c3aed" />
+                  {user?.email || (user?.user_type === 4 ? "support@tabibi.dz" : "admin@tabibi.dz")}
+                </div>
+              </div>
+
+              <div style={{ background: "var(--bg, #f8fafc)", padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>
+                  {t("current_username", "Nom d'utilisateur actuel")}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}>
+                  <User size={16} />
+                  {user?.username || "admin"}
+                </div>
+              </div>
+
+              <div style={{ background: "var(--bg, #f8fafc)", padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>
+                  {t("account_status", "Statut du compte")}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a", display: "flex", alignItems: "center", gap: 6 }}>
+                  <CheckCircle size={16} />
+                  {t("account_active", "Actif — Accès complet")}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Edit Credentials Card */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", borderRadius: 10, padding: 8, display: "flex" }}>
+                <Lock size={16} color="#fff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: "#0c4a6e", fontSize: 16, fontWeight: 800 }}>{t("admin_credentials_title", "تحديث بيانات دخول المشرف")}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{t("admin_credentials_subtitle", "تغيير اسم المستخدم أو كلمة مرور حساب المدير العام")}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                  {t("username", "اسم المستخدم")}
+                </label>
+                <input
+                  type="text"
+                  value={creds.new_username}
+                  onChange={e => setCreds({ ...creds, new_username: e.target.value })}
+                  placeholder={user?.username || "admin"}
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
+                  {t("username_hint", "3-30 حرف إنجليزي أو رقم")}
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                  {t("new_password", "كلمة المرور الجديدة")}
+                </label>
+                <input
+                  type="password"
+                  value={creds.new_password}
+                  onChange={e => setCreds({ ...creds, new_password: e.target.value })}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, display: "block" }}>
+                  {t("password_min_hint", "6 أحرف على الأقل")}
+                </span>
+              </div>
+
+              <div style={{ gridColumn: isMobile ? "auto" : "2" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                  {t("confirm_new_password", "تأكيد كلمة المرور الجديدة")}
+                </label>
+                <input
+                  type="password"
+                  value={creds.confirm_new_password}
+                  onChange={e => setCreds({ ...creds, confirm_new_password: e.target.value })}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", background: "var(--bg)",
+                    fontSize: 14, color: "var(--text)", outline: "none", boxSizing: "border-box"
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                onClick={saveCredentials}
+                loading={savingCreds}
+                style={{ padding: "10px 28px", whiteSpace: "nowrap" }}
+              >
+                {t("save_changes")}
+              </Btn>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* 1. Admin Overview & Platform Stats Tab */}
       {(user?.user_type === 3 || user?.user_type === 4) && adminActiveTab === "overview" && (
         <div>
@@ -10255,7 +11233,28 @@ function ProfilePage({ user, navigate, qs }) {
 
       {/* 2. Admin Security & Credentials Tab */}
       {(user?.user_type === 3 || user?.user_type === 4) && adminActiveTab === "security" && (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <ConsentsAndDataRightsSection
+            user={user}
+            form={form}
+            consentData={consentData}
+            loadingConsent={loadingConsent}
+            handleToggleOpposition={handleToggleOpposition}
+            updatingOpposition={updatingOpposition}
+            handleDownloadPersonalData={handleDownloadPersonalData}
+            handleDeleteAccount={handleDeleteAccount}
+            handleAcceptConsent={handleAcceptConsent}
+            acceptingConsent={acceptingConsent}
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            formatConsentDate={formatConsentDate}
+            getConsentTypeLabel={getConsentTypeLabel}
+            getContextLabel={getContextLabel}
+            setProfileTab={setAdminActiveTab}
+            navigate={navigate}
+            isMobile={isMobile}
+          />
+
           <Card style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", borderRadius: 10, padding: 8, display: "flex" }}>

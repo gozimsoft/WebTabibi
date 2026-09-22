@@ -181,4 +181,11 @@ export const api = {
     book: (body) => request('POST', '/clinic/appointments/book', body),
     updateStatus: (id, body) => request('PUT', `/clinic/appointments/${id}/status`, body),
   },
+  consent: {
+    my: () => request('GET', '/consent/my'),
+    accept: (body) => request('POST', '/consent/accept', body),
+    withdraw: (body) => request('POST', '/consent/withdraw', body),
+    opposition: (body) => request('POST', '/consent/opposition', body),
+    deleteAccount: () => request('DELETE', '/patients/account'),
+  },
 };

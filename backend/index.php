@@ -196,9 +196,17 @@ try {
         require_once __DIR__ . '/controllers/ConsentController.php';
         ConsentController::getMy();
     }
+    if ($uri === '/consent/accept' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/ConsentController.php';
+        ConsentController::accept();
+    }
     if ($uri === '/consent/withdraw' && $method === 'POST') {
         require_once __DIR__ . '/controllers/ConsentController.php';
         ConsentController::withdraw();
+    }
+    if ($uri === '/consent/opposition' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/ConsentController.php';
+        ConsentController::opposition();
     }
     if ($uri === '/patients/account' && $method === 'DELETE') {
         require_once __DIR__ . '/controllers/ConsentController.php';

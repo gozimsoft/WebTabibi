@@ -18,7 +18,7 @@ class ConsentController {
 
     // ----------------------------------------------------------
     // GET /api/consent/my
-    // Retourne les consentements actuels de l'utilisateur connecté
+    // Retourne les consentements actuels et l'historique sécurisé de l'utilisateur connecté
     // ----------------------------------------------------------
     public static function getMy(): void {
         $session = AuthMiddleware::authenticate();
@@ -26,18 +26,66 @@ class ConsentController {
 
         $consents = ConsentHelper::getCurrent($pdo, $session['user_id']);
 
-        // Construire un état lisible
+        // Construire un état lisible avec version et horodatage
         $state = [
-            'cgu'              => isset($consents['cgu'])              ? $consents['cgu']              : ['value' => null, 'created_at' => null],
-            'privacy'          => isset($consents['privacy'])          ? $consents['privacy']          : ['value' => null, 'created_at' => null],
-            'health_data'      => isset($consents['health_data'])      ? $consents['health_data']      : ['value' => null, 'created_at' => null],
+            'cgu'              => isset($consents['cgu'])              ? $consents['cgu']              : ['value' => null, 'created_at' => null, 'version' => ConsentHelper::DOC_VERSION],
+            'privacy'          => isset($consents['privacy'])          ? $consents['privacy']          : ['value' => null, 'created_at' => null, 'version' => ConsentHelper::DOC_VERSION],
+            'health_data'      => isset($consents['health_data'])      ? $consents['health_data']      : ['value' => null, 'created_at' => null, 'version' => ConsentHelper::DOC_VERSION],
             'opposition_promo' => isset($consents['opposition_promo']) ? $consents['opposition_promo'] : ['value' => 0,    'created_at' => null],
         ];
+
+        // Vérification de repli sur la table patients (si compte patient)
+        $stmtPatient = $pdo->prepare("
+            SELECT id, consent_cgu, consent_privacy, consent_version, consent_at 
+            FROM patients 
+            WHERE user_id = ? 
+            LIMIT 1
+        ");
+        $stmtPatient->execute([$session['user_id']]);
+        $patient = $stmtPatient->fetch(PDO::FETCH_ASSOC);
+
+        if ($patient) {
+            if ($state['cgu']['value'] === null && !empty($patient['consent_cgu'])) {
+                $state['cgu'] = [
+                    'value'      => (int)$patient['consent_cgu'],
+                    'created_at' => $patient['consent_at'],
+                    'version'    => !empty($patient['consent_version']) ? $patient['consent_version'] : ConsentHelper::DOC_VERSION,
+                ];
+            }
+            if ($state['privacy']['value'] === null && !empty($patient['consent_privacy'])) {
+                $state['privacy'] = [
+                    'value'      => (int)$patient['consent_privacy'],
+                    'created_at' => $patient['consent_at'],
+                    'version'    => !empty($patient['consent_version']) ? $patient['consent_version'] : ConsentHelper::DOC_VERSION,
+                ];
+            }
+
+            // Vérification directe de l'état d'opposition promotionnelle dans settingpreferences
+            $stmtPref = $pdo->prepare("SELECT opposition_promo FROM settingpreferences WHERE patient_id = ? LIMIT 1");
+            $stmtPref->execute([$patient['id']]);
+            $pref = $stmtPref->fetch(PDO::FETCH_ASSOC);
+            if ($pref && isset($pref['opposition_promo'])) {
+                $state['opposition_promo']['value'] = (int)$pref['opposition_promo'];
+            }
+        }
+
+        // Récupérer l'historique pertinent de consent_logs pour le compte connecté uniquement
+        // Exclusion stricte de toute empreinte technique (ip_hash, user_agent_hash) ou donnée sensible
+        $stmtHist = $pdo->prepare("
+            SELECT consent_type, value, doc_version, context, created_at
+            FROM consent_logs
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT 50
+        ");
+        $stmtHist->execute([$session['user_id']]);
+        $history = $stmtHist->fetchAll(PDO::FETCH_ASSOC);
 
         Response::success([
             'user_id'      => $session['user_id'],
             'doc_version'  => ConsentHelper::DOC_VERSION,
             'consents'     => $state,
+            'history'      => $history ?: [],
         ]);
     }
 
@@ -103,6 +151,137 @@ class ConsentController {
         Response::success(
             ['type' => $data['type'], 'withdrawn_at' => date('Y-m-d H:i:s')],
             $messages[$data['type']] ?? 'تم تسجيل السحب.'
+        );
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/consent/accept
+    // Body: { "type": "cgu"|"privacy"|"health_data" } OU { "types": ["cgu", "privacy"] }
+    // Enregistre l'acceptation de consentements manquants ou régularisés (Art. 6, 8, 9, 32 Loi 18-07)
+    // ----------------------------------------------------------
+    public static function accept(): void {
+        $session = AuthMiddleware::authenticate();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $allowedTypes = [
+            ConsentHelper::TYPE_CGU,
+            ConsentHelper::TYPE_PRIVACY,
+            ConsentHelper::TYPE_HEALTH_DATA,
+        ];
+
+        $types = [];
+        if (!empty($data['types']) && is_array($data['types'])) {
+            $types = array_values(array_intersect($data['types'], $allowedTypes));
+        } elseif (!empty($data['type'])) {
+            if ($data['type'] === 'all') {
+                $types = [ConsentHelper::TYPE_CGU, ConsentHelper::TYPE_PRIVACY];
+            } elseif (in_array($data['type'], $allowedTypes)) {
+                $types = [$data['type']];
+            }
+        }
+
+        if (empty($types)) {
+            Response::error('نوع الموافقة غير صالح. يجب أن يكون: cgu | privacy | health_data أو قائمة types صالحة.', 422);
+        }
+
+        $pdo = Database::getInstance();
+
+        // Récupérer le patient si le compte est un patient
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+        $patientId = $patient ? $patient['id'] : null;
+
+        if ($patientId) {
+            $updateFields = [];
+            $updateParams = [];
+            if (in_array(ConsentHelper::TYPE_CGU, $types)) {
+                $updateFields[] = "consent_cgu = 1";
+            }
+            if (in_array(ConsentHelper::TYPE_PRIVACY, $types)) {
+                $updateFields[] = "consent_privacy = 1";
+            }
+            if (!empty($updateFields)) {
+                $updateFields[] = "consent_version = ?";
+                $updateFields[] = "consent_at = NOW()";
+                $updateParams[] = ConsentHelper::DOC_VERSION;
+                $updateParams[] = $patientId;
+                $sql = "UPDATE patients SET " . implode(", ", $updateFields) . " WHERE id = ?";
+                $pdo->prepare($sql)->execute($updateParams);
+            }
+        }
+
+        // Logger dans consent_logs pour traçabilité légale (Loi 18-07)
+        foreach ($types as $type) {
+            ConsentHelper::log(
+                $pdo,
+                $session['user_id'],
+                $patientId,
+                $type,
+                1,
+                'profile_regularization'
+            );
+        }
+
+        Response::success([
+            'accepted_types' => $types,
+            'doc_version'    => ConsentHelper::DOC_VERSION,
+            'accepted_at'    => date('Y-m-d H:i:s'),
+        ], 'تم تسجيل الموافقة بنجاح وفقاً للقانون 18-07.');
+    }
+
+    // ----------------------------------------------------------
+    // POST /api/consent/opposition
+    // Body: { "opposed": true|false } ou { "value": 1|0 }
+    // Enregistre ou annule l'opposition aux communications promotionnelles (Art. 36 Loi 18-07)
+    // ----------------------------------------------------------
+    public static function opposition(): void {
+        $session = AuthMiddleware::authenticate();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $opposed = (isset($data['opposed']) && $data['opposed'] === true)
+            || (isset($data['value']) && (int)$data['value'] === 1)
+            || (!empty($data['opposed']) && $data['opposed'] != 'false' && $data['opposed'] != '0')
+            ? 1 : 0;
+
+        $pdo = Database::getInstance();
+
+        // Récupérer le patient si le compte est un patient
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+        $patientId = $patient ? $patient['id'] : null;
+
+        if ($patientId) {
+            $stmtCheck = $pdo->prepare("SELECT id FROM settingpreferences WHERE patient_id = ? LIMIT 1");
+            $stmtCheck->execute([$patientId]);
+            $pref = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if ($pref) {
+                $pdo->prepare("UPDATE settingpreferences SET opposition_promo = ? WHERE patient_id = ?")
+                    ->execute([$opposed, $patientId]);
+            } else {
+                $newPrefId = UUIDHelper::generate();
+                $pdo->prepare("INSERT INTO settingpreferences (id, patient_id, opposition_promo) VALUES (?, ?, ?)")
+                    ->execute([$newPrefId, $patientId, $opposed]);
+            }
+        }
+
+        // Logger dans consent_logs pour traçabilité légale (Art. 36)
+        ConsentHelper::log(
+            $pdo,
+            $session['user_id'],
+            $patientId,
+            ConsentHelper::TYPE_OPPOSITION_PROMO,
+            $opposed,
+            $opposed ? 'opposition_activated' : 'opposition_deactivated'
+        );
+
+        Response::success([
+            'opposition_promo' => $opposed,
+            'updated_at'       => date('Y-m-d H:i:s'),
+        ], $opposed
+            ? 'تم تفعيل المعارضة للاستخدام التجاري بنجاح (Art. 36 Loi 18-07).'
+            : 'تم إلغاء المعارضة للاستخدام التجاري بنجاح.'
         );
     }
 
