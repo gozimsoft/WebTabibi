@@ -32,10 +32,10 @@ export default function ClinicAppointmentManager({ navigate, user }) {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
-  // Full width display toggle (persisted in localStorage)
+  // Full width display toggle (persisted in localStorage & synced globally)
   const [isFullWidth, setIsFullWidth] = useState(() => {
     try {
-      return localStorage.getItem("tabibi_clinic_fullwidth") === "true";
+      return localStorage.getItem("tabibi_fullwidth") === "true" || localStorage.getItem("tabibi_clinic_fullwidth") === "true";
     } catch {
       return false;
     }
@@ -45,11 +45,21 @@ export default function ClinicAppointmentManager({ navigate, user }) {
     setIsFullWidth(prev => {
       const next = !prev;
       try {
+        localStorage.setItem("tabibi_fullwidth", String(next));
         localStorage.setItem("tabibi_clinic_fullwidth", String(next));
       } catch {}
+      if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+      else document.documentElement.removeAttribute("data-fullwidth");
+      window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
       return next;
     });
   };
+
+  useEffect(() => {
+    const handleEvent = (e) => setIsFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
 
   // Modal states
   const [showNewModal, setShowNewModal] = useState(false);

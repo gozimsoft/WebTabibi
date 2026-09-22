@@ -170,6 +170,19 @@
         border-color: var(--border) !important;
       }
 
+      /* ── Full Width Mode Global Rules (Optimized for Tables & Stats) ── */
+      [data-fullwidth="true"] .tabibi-fullwidth-container,
+      [data-fullwidth="true"] .clinic-agenda-container,
+      [data-fullwidth="true"] #appt-manager-fullscreen-container > div,
+      [data-fullwidth="true"] .tabibi-table-page,
+      [data-fullwidth="true"] .tabibi-stats-page {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-left: clamp(14px, 2.2vw, 36px) !important;
+        padding-right: clamp(14px, 2.2vw, 36px) !important;
+        transition: max-width 0.25s ease, padding 0.25s ease;
+      }
+
       @keyframes flipRight {
         0% { transform: perspective(400px) rotateY(0deg); }
         100% { transform: perspective(400px) rotateY(360deg); }

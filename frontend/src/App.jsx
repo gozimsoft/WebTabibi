@@ -2219,6 +2219,7 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const [loading, setL] = useState(false);
   // مرجع حاوية زر Google الرسمي
   const googleBtnRef = React.useRef(null);
+  const googleInitializedRef = React.useRef(false);
 
   // Forgot Password State
   const [resetStep, setResetStep] = useState(0); // 0: hidden, 1: email, 2: otp & new password
@@ -2273,29 +2274,32 @@ function LoginPage({ onLogin, onGoogleLogin, navigate }) {
       if (window.google && window.google.accounts && googleBtnRef.current) {
         if (googleBtnRef.current.querySelector('iframe')) { clearInterval(timer); return; }
         clearInterval(timer);
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "875672071653-qjfc4ktsic21kato8i1s7ujp1q7dubi9.apps.googleusercontent.com",
-          callback: async (res) => {
-            try {
-              setError(""); setL(true);
-              await onGoogleLogin(res.credential, { accepted_cgu: consentAcceptedRef.current });
-              navigate("/");
-            } catch (e) {
-              if (e.requires_consent || e.message?.includes("شروط الاستخدام") || e.message?.includes("CGU")) {
-                setPendingGoogleCred(res.credential);
-                setModalConsentChecked(true);
-                setModalError("");
-                setShowConsentModal(true);
-              } else {
-                setError(e.message);
+        if (!googleInitializedRef.current) {
+          window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "875672071653-qjfc4ktsic21kato8i1s7ujp1q7dubi9.apps.googleusercontent.com",
+            callback: async (res) => {
+              try {
+                setError(""); setL(true);
+                await onGoogleLogin(res.credential, { accepted_cgu: consentAcceptedRef.current });
+                navigate("/");
+              } catch (e) {
+                if (e.requires_consent || e.message?.includes("شروط الاستخدام") || e.message?.includes("CGU")) {
+                  setPendingGoogleCred(res.credential);
+                  setModalConsentChecked(true);
+                  setModalError("");
+                  setShowConsentModal(true);
+                } else {
+                  setError(e.message);
+                }
+              } finally {
+                setL(false);
               }
-            } finally {
-              setL(false);
-            }
-          },
-          ux_mode: "popup",
-          context: "signin",
-        });
+            },
+            ux_mode: "popup",
+            context: "signin",
+          });
+          googleInitializedRef.current = true;
+        }
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: "outline", size: "large", text: "signin_with", width: 340,
         });
@@ -2730,6 +2734,7 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
   // مرجع حاوية زر Google الرسمي
   const googleBtnRef = React.useRef(null);
+  const googleInitializedRef = React.useRef(false);
 
   // renderButton - يعرض زر Google الرسمي ويفتح popup عند الضغط
   React.useEffect(() => {
@@ -2738,37 +2743,40 @@ function RegisterPage({ onRegister, onRegisterConfirm, onGoogleLogin, navigate }
       if (window.google && window.google.accounts && googleBtnRef.current) {
         if (googleBtnRef.current.querySelector('iframe')) { clearInterval(timer); return; }
         clearInterval(timer);
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "875672071653-qjfc4ktsic21kato8i1s7ujp1q7dubi9.apps.googleusercontent.com",
-          callback: async (res) => {
-            try {
-              setError(""); setL(true);
-              if (consentValidRef.current) {
-                await onGoogleLogin(res.credential, { accepted_cgu: true });
-                navigate("/");
-                return;
-              }
-              // If not checked, open the Consent Modal so they can approve in one click without getting blocked!
-              setPendingGoogleCred(res.credential);
-              setModalConsentChecked(true);
-              setModalError("");
-              setShowConsentModal(true);
-            } catch (e) {
-              if (e.requires_consent || e.message?.includes("شروط الاستخدام") || e.message?.includes("CGU")) {
+        if (!googleInitializedRef.current) {
+          window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "875672071653-qjfc4ktsic21kato8i1s7ujp1q7dubi9.apps.googleusercontent.com",
+            callback: async (res) => {
+              try {
+                setError(""); setL(true);
+                if (consentValidRef.current) {
+                  await onGoogleLogin(res.credential, { accepted_cgu: true });
+                  navigate("/");
+                  return;
+                }
+                // If not checked, open the Consent Modal so they can approve in one click without getting blocked!
                 setPendingGoogleCred(res.credential);
                 setModalConsentChecked(true);
                 setModalError("");
                 setShowConsentModal(true);
-              } else {
-                setError(e.message);
+              } catch (e) {
+                if (e.requires_consent || e.message?.includes("شروط الاستخدام") || e.message?.includes("CGU")) {
+                  setPendingGoogleCred(res.credential);
+                  setModalConsentChecked(true);
+                  setModalError("");
+                  setShowConsentModal(true);
+                } else {
+                  setError(e.message);
+                }
+              } finally {
+                setL(false);
               }
-            } finally {
-              setL(false);
-            }
-          },
-          ux_mode: "popup",
-          context: "signup",
-        });
+            },
+            ux_mode: "popup",
+            context: "signup",
+          });
+          googleInitializedRef.current = true;
+        }
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: "outline", size: "large", text: "signup_with", width: 380,
         });
@@ -5202,14 +5210,58 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: APPOINTMENTS (MY BOOKINGS)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function AppointmentsPage({ navigate, user }) {
+function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFullWidth: propToggleFullWidth }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
+  const isAr = i18n.language === 'ar';
   const [appts, setAppts] = useState([]);
   const [loading, setL] = useState(true);
   const [filter, setFilter] = useState("upcoming");
+
+  // Local sync for full-width mode
+  const [localFullWidth, setLocalFullWidth] = useState(() => {
+    try { return localStorage.getItem("tabibi_fullwidth") === "true"; } catch { return false; }
+  });
+
+  const fullWidth = propFullWidth !== undefined ? propFullWidth : localFullWidth;
+
+  const toggleFullWidth = () => {
+    if (propToggleFullWidth) {
+      propToggleFullWidth();
+    } else {
+      const next = !localFullWidth;
+      setLocalFullWidth(next);
+      try { localStorage.setItem("tabibi_fullwidth", String(next)); } catch {}
+      if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+      else document.documentElement.removeAttribute("data-fullwidth");
+      window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
+    }
+  };
+
+  useEffect(() => {
+    const handleEvent = (e) => setLocalFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("tabibi_appts_view") || "list";
+    } catch {
+      return "list";
+    }
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [beneficiaryFilter, setBeneficiaryFilter] = useState("all");
+  const [sortAsc, setSortAsc] = useState(false);
   const { show, Toast } = useToast();
   const now = new Date();
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("tabibi_appts_view", mode);
+    } catch { }
+  };
 
   useEffect(() => {
     api.patient.appointments().then(setAppts).catch(() => { }).finally(() => setL(false));
@@ -5219,69 +5271,999 @@ function AppointmentsPage({ navigate, user }) {
     if (!confirm(t("cancel_confirm"))) return;
     try {
       await api.appointments.cancel(id);
-      // Instead of filtering out, let's refresh to see it in "Cancelled" tab
       const updated = await api.patient.appointments();
       setAppts(updated);
       show(t("cancel_success"));
     } catch (e) { show(e.message, "error"); }
   };
 
-  const filtered = appts.filter(a => {
-    const d = new Date(a.apointementdate);
-    if (filter === "upcoming") return (a.status != 1) && d >= now;
-    if (filter === "past") return (a.status != 1) && d < now;
-    if (filter === "cancelled") return (a.status == 1);
-    return true;
-  });
+  // Helper to extract beneficiary info (patient themselves vs family member)
+  const getBeneficiaryInfo = useCallback((a) => {
+    const myName = (user?.profile?.fullname || user?.username || "").trim().toLowerCase();
+    const rawName = (a.patientname || a.patient_name || "").trim();
+    const isForMe = !rawName || rawName.toLowerCase() === myName;
+    return {
+      isForMe,
+      displayName: isForMe ? (user?.profile?.fullname || user?.username || t("badge_for_me")) : rawName,
+      rawName
+    };
+  }, [user, t]);
 
-  const cnt = (f) => appts.filter(a => {
-    const d = new Date(a.apointementdate);
-    if (f === "upcoming") return (a.status != 1) && d >= now;
-    if (f === "past") return (a.status != 1) && d < now;
-    if (f === "cancelled") return (a.status == 1);
-    return true;
-  }).length;
+  // Extract unique family members from appointments
+  const familyMembers = React.useMemo(() => {
+    const myName = (user?.profile?.fullname || user?.username || "").trim().toLowerCase();
+    const names = new Set();
+    appts.forEach(a => {
+      const raw = (a.patientname || a.patient_name || "").trim();
+      if (raw && raw.toLowerCase() !== myName) {
+        names.add(raw);
+      }
+    });
+    return Array.from(names);
+  }, [appts, user]);
+
+  // Overall counts for tabs & indicators
+  const counts = React.useMemo(() => {
+    return {
+      all: appts.length,
+      upcoming: appts.filter(a => a.status != 1 && new Date(a.apointementdate) >= now).length,
+      past: appts.filter(a => a.status != 1 && new Date(a.apointementdate) < now).length,
+      cancelled: appts.filter(a => a.status == 1).length,
+      forMe: appts.filter(a => getBeneficiaryInfo(a).isForMe).length,
+      family: appts.filter(a => !getBeneficiaryInfo(a).isForMe).length,
+    };
+  }, [appts, now, getBeneficiaryInfo]);
+
+  // Filtered & Sorted list
+  const filtered = React.useMemo(() => {
+    return appts.filter(a => {
+      const d = new Date(a.apointementdate);
+
+      // Status / Time tab filter
+      if (filter === "upcoming" && (a.status == 1 || d < now)) return false;
+      if (filter === "past" && (a.status == 1 || d >= now)) return false;
+      if (filter === "cancelled" && a.status != 1) return false;
+
+      // Beneficiary filter
+      const { isForMe, rawName } = getBeneficiaryInfo(a);
+      if (beneficiaryFilter === "me" && !isForMe) return false;
+      if (beneficiaryFilter === "family" && isForMe) return false;
+      if (beneficiaryFilter !== "all" && beneficiaryFilter !== "me" && beneficiaryFilter !== "family") {
+        if (rawName.toLowerCase() !== beneficiaryFilter.toLowerCase()) return false;
+      }
+
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const doc = (a.doctorname || "").toLowerCase();
+        const clinic = (a.clinicname || "").toLowerCase();
+        const reason = (typeof (a.Reason || a.reasons || a.reason_name || a.ReasonName || a.motif) === 'object'
+          ? (a.Reason?.reason_name || a.Reason?.ReasonName || a.reasons?.[0]?.reason_name || "")
+          : (a.Reason || a.reasons || a.reason_name || a.ReasonName || a.motif || "")).toLowerCase();
+        const pat = (a.patientname || a.patient_name || "").toLowerCase();
+        const spec = ((a.specialtyfr || "") + " " + (a.specialtyar || "")).toLowerCase();
+        const dateStr = d.toLocaleDateString().toLowerCase();
+
+        if (!doc.includes(q) && !clinic.includes(q) && !reason.includes(q) && !pat.includes(q) && !spec.includes(q) && !dateStr.includes(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).sort((a, b) => {
+      const da = new Date(a.apointementdate).getTime();
+      const db = new Date(b.apointementdate).getTime();
+      return sortAsc ? da - db : db - da;
+    });
+  }, [appts, filter, beneficiaryFilter, searchQuery, sortAsc, getBeneficiaryInfo, now]);
+
+  const getReasonText = (a) => {
+    const r = a.Reason || a.reasons || a.reason_name || a.ReasonName || a.motif;
+    if (!r) return null;
+    if (typeof r === 'object') {
+      return r.reason_name || r.ReasonName || r.reasons?.[0]?.reason_name || null;
+    }
+    return r;
+  };
+
+  const getDoctorSpecialty = (a) => {
+    return isAr ? (a.specialtyar || a.specialtyfr || "") : (a.specialtyfr || a.specialtyar || "");
+  };
+
+  const renderStatusBadge = (a, isPast) => {
+    if (a.status == 1) {
+      return <Badge color="#ef4444" style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>{t("cancelled_badge")}</Badge>;
+    }
+    if (a.status == 2) {
+      return <Badge color="#0ea5e9" style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>{t("diagnosed_badge")}</Badge>;
+    }
+    if (isPast) {
+      return <Badge color="#94a3b8" style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>{t("past_badge")}</Badge>;
+    }
+    return <Badge color="#059669" style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>{t("upcoming_badge")}</Badge>;
+  };
+
+  const renderBeneficiaryBadge = (a, compact = false) => {
+    const { isForMe, displayName } = getBeneficiaryInfo(a);
+    if (isForMe) {
+      return (
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: compact ? "2px 8px" : "4px 10px",
+          borderRadius: 20,
+          fontSize: compact ? 11 : 12,
+          fontWeight: 700,
+          background: "#ecfeff",
+          color: "#0891b2",
+          border: "1px solid #a5f3fc",
+          whiteSpace: "nowrap"
+        }} title={displayName}>
+          <User size={compact ? 12 : 13} />
+          <span>{compact ? t("badge_for_me") : displayName}</span>
+        </span>
+      );
+    }
+    return (
+      <span style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: compact ? "2px 8px" : "4px 10px",
+        borderRadius: 20,
+        fontSize: compact ? 11 : 12,
+        fontWeight: 700,
+        background: "#f5f3ff",
+        color: "#7c3aed",
+        border: "1px solid #ddd6fe",
+        whiteSpace: "nowrap",
+        maxWidth: 170,
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }} title={displayName}>
+        <Users size={compact ? 12 : 13} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</span>
+      </span>
+    );
+  };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px" : "28px 24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10, flexDirection: i18n.language === 'ar' ? 'row-reverse' : 'row' }}>
-        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, color: "#0c4a6e", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <Calendar size={isMobile ? 20 : 24} /> {t("appointments_title")}
-        </h1>
-        <Btn onClick={() => navigate("/search")} style={{ padding: "9px 18px", fontSize: 13 }}>{t("book_new")}</Btn>
+    <div className="tabibi-fullwidth-container" style={{
+      maxWidth: fullWidth ? "100%" : 1240,
+      margin: "0 auto",
+      padding: isMobile ? "16px 14px" : (fullWidth ? "20px 32px" : "28px 24px"),
+      transition: "max-width 0.25s ease, padding 0.25s ease"
+    }}>
+      {/* 1. Header with Title, Stats & CTA */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 20,
+        flexWrap: "wrap",
+        gap: 12,
+        flexDirection: isAr ? 'row-reverse' : 'row'
+      }}>
+        <div>
+          <h1 style={{
+            fontSize: isMobile ? 19 : 24,
+            fontWeight: 900,
+            color: "#0c4a6e",
+            margin: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 10
+          }}>
+            <Calendar size={isMobile ? 22 : 26} color="var(--brand)" />
+            <span>{t("appointments_title")}</span>
+            <span style={{
+              fontSize: 12,
+              fontWeight: 700,
+              background: "#ecfeff",
+              color: "#0891b2",
+              padding: "2px 9px",
+              borderRadius: 14,
+              border: "1px solid #a5f3fc"
+            }}>
+              {t("total_appts_count", { count: counts.all })}
+            </span>
+          </h1>
+        </div>
+        <Btn onClick={() => navigate("/search")} style={{ padding: "9px 18px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+          <Plus size={15} />
+          <span>{t("book_new")}</span>
+        </Btn>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        {[["all", t("all")], ["upcoming", t("upcoming")], ["past", t("past")], ["cancelled", t("cancelled")]].map(([v, l]) => (
-          <button key={v} onClick={() => setFilter(v)} style={{
-            padding: "7px 16px", borderRadius: 20, border: "1.5px solid",
-            fontWeight: 700, fontSize: 13, cursor: "pointer",
-            borderColor: filter === v ? "var(--brand)" : "var(--border)",
-            background: filter === v ? "#ecfeff" : "var(--bg)",
-            color: filter === v ? "var(--brand)" : "#6b7280"
-          }}>{l} ({cnt(v)})</button>
-        ))}
+      {/* 2. Controls Toolbar: Search + View Switcher + Sort */}
+      <div style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: 14,
+        padding: "12px 16px",
+        marginBottom: 16,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 12
+      }}>
+        {/* Search Input */}
+        <div style={{
+          position: "relative",
+          flex: "1 1 260px",
+          maxWidth: isMobile ? "100%" : 420
+        }}>
+          <Search size={16} color="#94a3b8" style={{
+            position: "absolute",
+            top: "50%",
+            transform: "translateY(-50%)",
+            [isAr ? "right" : "left"]: 12,
+            pointerEvents: "none"
+          }} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={t("search_appts_placeholder")}
+            style={{
+              width: "100%",
+              padding: isAr ? "8px 36px 8px 32px" : "8px 32px 8px 36px",
+              borderRadius: 10,
+              border: "1.5px solid #cbd5e1",
+              background: "#f8fafc",
+              fontSize: 13,
+              color: "#1e293b",
+              outline: "none",
+              boxSizing: "border-box",
+              transition: "border-color 0.2s"
+            }}
+            onFocus={e => { e.target.style.borderColor = "var(--brand)"; e.target.style.background = "#fff"; }}
+            onBlur={e => { e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#f8fafc"; }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              style={{
+                position: "absolute",
+                top: "50%",
+                transform: "translateY(-50%)",
+                [isAr ? "left" : "right"]: 10,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                color: "#94a3b8"
+              }}>
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        {/* View Mode Toggle & Sort */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Sort Button */}
+          <button
+            type="button"
+            onClick={() => setSortAsc(!sortAsc)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              background: "#ffffff",
+              color: "#475569",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer"
+            }}
+            title={sortAsc ? t("sort_date_asc") : t("sort_date_desc")}>
+            <RotateCw size={13} color="var(--brand)" />
+            <span>{sortAsc ? t("sort_date_asc") : t("sort_date_desc")}</span>
+          </button>
+
+          {/* View Mode Switcher (List vs Cards) */}
+          <div style={{
+            display: "inline-flex",
+            background: "#f1f5f9",
+            padding: 3,
+            borderRadius: 10,
+            border: "1px solid #e2e8f0"
+          }}>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode("list")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 7,
+                border: "none",
+                background: viewMode === "list" ? "var(--brand)" : "transparent",
+                color: viewMode === "list" ? "#ffffff" : "#64748b",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                transition: "all 0.15s ease"
+              }}>
+              <List size={14} />
+              <span>{t("view_mode_list")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode("cards")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 7,
+                border: "none",
+                background: viewMode === "cards" ? "var(--brand)" : "transparent",
+                color: viewMode === "cards" ? "#ffffff" : "#64748b",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: viewMode === "cards" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                transition: "all 0.15s ease"
+              }}>
+              <Grid size={14} />
+              <span>{t("view_mode_cards")}</span>
+            </button>
+          </div>
+
+          {/* Full Width Mode Switcher Button */}
+          <button
+            type="button"
+            onClick={toggleFullWidth}
+            title={fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: fullWidth ? "1.5px solid var(--brand, #0891b2)" : "1px solid #e2e8f0",
+              background: fullWidth ? "rgba(8,145,178,0.12)" : "#ffffff",
+              color: fullWidth ? "var(--brand, #0891b2)" : "#475569",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}>
+            {fullWidth ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+              </svg>
+            )}
+            <span>{fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
+          </button>
+        </div>
       </div>
 
+      {/* 3. Status Tabs & Beneficiary Filter Pills */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        marginBottom: 20
+      }}>
+        {/* Status Tabs (All, Upcoming, Past, Cancelled) */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {[
+            ["all", t("all"), counts.all],
+            ["upcoming", t("upcoming"), counts.upcoming],
+            ["past", t("past"), counts.past],
+            ["cancelled", t("cancelled"), counts.cancelled]
+          ].map(([v, l, c]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setFilter(v)}
+              style={{
+                padding: "7px 16px",
+                borderRadius: 20,
+                border: "1.5px solid",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                borderColor: filter === v ? "var(--brand)" : "var(--border)",
+                background: filter === v ? "#ecfeff" : "var(--bg)",
+                color: filter === v ? "var(--brand)" : "#6b7280",
+                transition: "all 0.15s ease"
+              }}>
+              {l} ({c})
+            </button>
+          ))}
+        </div>
+
+        {/* Beneficiary Filter Pills (All, Me, Family & Relatives) */}
+        <div style={{
+          display: "flex",
+          gap: 6,
+          flexWrap: "wrap",
+          alignItems: "center",
+          padding: "6px 10px",
+          background: "#f8fafc",
+          borderRadius: 10,
+          border: "1px solid #f1f5f9"
+        }}>
+          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginInlineEnd: 4 }}>
+            {t("beneficiary_label")}:
+          </span>
+          <button
+            type="button"
+            onClick={() => setBeneficiaryFilter("all")}
+            style={{
+              padding: "4px 11px",
+              borderRadius: 14,
+              border: "1px solid",
+              borderColor: beneficiaryFilter === "all" ? "var(--brand)" : "#e2e8f0",
+              background: beneficiaryFilter === "all" ? "#ecfeff" : "#ffffff",
+              color: beneficiaryFilter === "all" ? "var(--brand)" : "#64748b",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer"
+            }}>
+            {t("beneficiary_filter_all")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBeneficiaryFilter("me")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "4px 11px",
+              borderRadius: 14,
+              border: "1px solid",
+              borderColor: beneficiaryFilter === "me" ? "#0891b2" : "#e2e8f0",
+              background: beneficiaryFilter === "me" ? "#ecfeff" : "#ffffff",
+              color: beneficiaryFilter === "me" ? "#0891b2" : "#64748b",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer"
+            }}>
+            <User size={12} />
+            <span>{t("beneficiary_for_me")} ({counts.forMe})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBeneficiaryFilter("family")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "4px 11px",
+              borderRadius: 14,
+              border: "1px solid",
+              borderColor: beneficiaryFilter === "family" ? "#7c3aed" : "#e2e8f0",
+              background: beneficiaryFilter === "family" ? "#f5f3ff" : "#ffffff",
+              color: beneficiaryFilter === "family" ? "#7c3aed" : "#64748b",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer"
+            }}>
+            <Users size={12} />
+            <span>{t("beneficiary_family")} ({counts.family})</span>
+          </button>
+          {familyMembers.map(member => (
+            <button
+              key={member}
+              type="button"
+              onClick={() => setBeneficiaryFilter(member)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 9px",
+                borderRadius: 12,
+                border: "1px solid",
+                borderColor: beneficiaryFilter === member ? "#7c3aed" : "#ddd6fe",
+                background: beneficiaryFilter === member ? "#7c3aed" : "#fdf4ff",
+                color: beneficiaryFilter === member ? "#ffffff" : "#7c3aed",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer"
+              }}>
+              <span>{member}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Main Content Area */}
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 12 : 20 }}>
           {Array(6).fill(0).map((_, i) => <AppointmentSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 24px" }}>
+        <div style={{
+          textAlign: "center",
+          padding: "60px 24px",
+          background: "#fff",
+          borderRadius: 14,
+          border: "1px solid #e2e8f0"
+        }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <FileText size={44} color="#cbd5e1" />
+            <FileText size={48} color="#cbd5e1" />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "#374151", marginBottom: 16 }}>
-            {filter === "upcoming" ? t("no_upcoming") : t("no_results")}
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
+            {searchQuery || beneficiaryFilter !== "all" ? t("no_appts_found") : (filter === "upcoming" ? t("no_upcoming") : t("no_results"))}
           </div>
-          <Btn onClick={() => navigate("/search")}>{t("search")}</Btn>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 16 }}>
+            {(searchQuery || beneficiaryFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(""); setBeneficiaryFilter("all"); setFilter("all"); }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#475569",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer"
+                }}>
+                {t("all")}
+              </button>
+            )}
+            <Btn onClick={() => navigate("/search")}>{t("search")}</Btn>
+          </div>
+        </div>
+      ) : viewMode === "list" ? (
+        /* ── VIEW MODE 1: COMPACT LIST / TABLE VIEW ── */
+        <div style={{
+          background: "#ffffff",
+          borderRadius: 14,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.03)",
+          overflow: "hidden"
+        }}>
+          {!isMobile ? (
+            /* Desktop & Tablet High-Density Table */
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: isAr ? "right" : "left" }}>
+                <thead>
+                  <tr style={{
+                    background: "#f8fafc",
+                    borderBottom: "1px solid #e2e8f0",
+                    color: "#64748b",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px"
+                  }}>
+                    <th style={{ padding: "12px 16px" }}>{t("col_datetime")}</th>
+                    <th style={{ padding: "12px 16px" }}>{t("col_beneficiary")}</th>
+                    <th style={{ padding: "12px 16px" }}>{t("col_doctor")}</th>
+                    <th style={{ padding: "12px 16px" }}>{t("col_location")}</th>
+                    <th style={{ padding: "12px 16px" }}>{t("col_reason")}</th>
+                    <th style={{ padding: "12px 16px" }}>{t("col_status")}</th>
+                    <th style={{ padding: "12px 16px", textAlign: isAr ? "left" : "right" }}>{t("col_actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(a => {
+                    const d = new Date(a.apointementdate);
+                    const isPast = d < now;
+                    const reasonText = getReasonText(a);
+                    const specialty = getDoctorSpecialty(a);
+
+                    return (
+                      <tr
+                        key={a.id}
+                        style={{
+                          borderBottom: "1px solid #f1f5f9",
+                          transition: "background 0.15s ease",
+                          cursor: "default"
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+
+                        {/* Date & Time */}
+                        <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: isPast ? "#f1f5f9" : "#ecfeff",
+                              color: isPast ? "#64748b" : "#0891b2",
+                              border: `1px solid ${isPast ? "#e2e8f0" : "#a5f3fc"}`,
+                              borderRadius: 8,
+                              padding: "4px 8px",
+                              minWidth: 44
+                            }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
+                                {d.toLocaleDateString(isAr ? "ar-DZ" : "fr-FR", { weekday: 'short' })}
+                              </span>
+                              <span style={{ fontSize: 15, fontWeight: 900, lineHeight: 1 }}>
+                                {d.toLocaleDateString(isAr ? "ar-DZ" : "fr-DZ", { day: '2-digit' })}
+                              </span>
+                              <span style={{ fontSize: 10, fontWeight: 600 }}>
+                                {d.toLocaleDateString(isAr ? "ar-DZ" : "fr-FR", { month: 'short' })}
+                              </span>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 2 }}>
+                                {d.toLocaleDateString(isAr ? "ar-DZ" : "fr-FR", { year: 'numeric' })}
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 800, color: "#0c4a6e", fontSize: 13 }}>
+                                <Clock size={13} color="var(--brand)" />
+                                <span>{d.toLocaleTimeString(isAr ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
+                              </div>
+                            </div>
+                            {!isPast && a.status != 1 && a.status != 2 && (
+                              <div style={{ marginInlineStart: 4 }}>
+                                <GoogleCalendarButton
+                                  appointment={{
+                                    ...a,
+                                    patientname: user?.profile?.fullname || user?.username || a.patient_name || a.patientname
+                                  }}
+                                  iconOnly={true}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Beneficiary */}
+                        <td style={{ padding: "12px 16px" }}>
+                          {renderBeneficiaryBadge(a)}
+                        </td>
+
+                        {/* Doctor & Specialty */}
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <DoctorImage photo={a.photoprofile} size={40} borderRadius={10} />
+                            <div>
+                              <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 14, marginBottom: 2 }}>
+                                {a.doctorname || t("doctor")}
+                              </div>
+                              {specialty && (
+                                <div style={{ fontSize: 11, color: "#0891b2", fontWeight: 600 }}>
+                                  {specialty}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Location */}
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, maxWidth: 220 }}>
+                            <Building size={14} color="var(--brand)" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div>
+                              <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 13 }}>
+                                {a.clinicname || "—"}
+                              </div>
+                              {(a.wilaya || a.commune || a.address) && (
+                                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                                  {[a.commune, a.wilaya].filter(Boolean).join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Reason */}
+                        <td style={{ padding: "12px 16px" }}>
+                          {reasonText ? (
+                            <span style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              fontSize: 12,
+                              color: "#334155",
+                              background: "#f0fdfa",
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              border: "1px solid #ccfbf1",
+                              maxWidth: 180,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap"
+                            }} title={reasonText}>
+                              <Stethoscope size={12} color="var(--brand)" style={{ flexShrink: 0 }} />
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{reasonText}</span>
+                            </span>
+                          ) : (
+                            <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td style={{ padding: "12px 16px" }}>
+                          {renderStatusBadge(a, isPast)}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{ padding: "12px 16px", textAlign: isAr ? "left" : "right", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                            {!isPast && a.status != 1 && a.status != 2 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => cancel(a.id)}
+                                  title={t("cancel_btn")}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    padding: "6px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid #fecaca",
+                                    background: "#fef2f2",
+                                    color: "#dc2626",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease"
+                                  }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = "#fee2e2"; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = "#fef2f2"; }}>
+                                  <Trash2 size={13} />
+                                  <span>{t("cancel_btn")}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                                    else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                                    else navigate("/tickets/new");
+                                  }}
+                                  title={t("contact")}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    padding: "6px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid #e2e8f0",
+                                    background: "#ffffff",
+                                    color: "#475569",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease"
+                                  }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = "#f8fafc"; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = "#ffffff"; }}>
+                                  <MessageSquare size={13} />
+                                  <span>{t("contact")}</span>
+                                </button>
+                              </>
+                            )}
+
+                            {(isPast || a.status == 1 || a.status == 2) && (
+                              <>
+                                {a.clinicid && a.doctor_id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/clinic/${a.clinicid}/doctor/${a.doctor_id}`)}
+                                    title={t("quick_rebook")}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      padding: "6px 10px",
+                                      borderRadius: 8,
+                                      border: "1px solid #a5f3fc",
+                                      background: "#ecfeff",
+                                      color: "#0891b2",
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      transition: "all 0.15s ease"
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#cffafe"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#ecfeff"; }}>
+                                    <RotateCw size={12} />
+                                    <span>{t("quick_rebook")}</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                                    else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                                    else navigate("/tickets/new");
+                                  }}
+                                  title={t("contact")}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    padding: "6px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid #e2e8f0",
+                                    background: "#ffffff",
+                                    color: "#475569",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease"
+                                  }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = "#f8fafc"; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = "#ffffff"; }}>
+                                  <MessageSquare size={13} />
+                                  <span>{t("contact")}</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* Mobile High-Density Compact Stacked Cards */
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {filtered.map((a, idx) => {
+                const d = new Date(a.apointementdate);
+                const isPast = d < now;
+                const reasonText = getReasonText(a);
+                const specialty = getDoctorSpecialty(a);
+
+                return (
+                  <div
+                    key={a.id}
+                    style={{
+                      padding: "12px 14px",
+                      borderBottom: idx === filtered.length - 1 ? "none" : "1px solid #f1f5f9",
+                      background: "#ffffff",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8
+                    }}>
+                    {/* Top row: Date & Time + Beneficiary Badge + Status Badge */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#0c4a6e" }}>
+                        <Calendar size={13} color="var(--brand)" />
+                        <span>{d.toLocaleDateString(isAr ? "ar-DZ" : "fr-FR", { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                        <Clock size={12} color="#64748b" style={{ marginInlineStart: 4 }} />
+                        <span>{d.toLocaleTimeString(isAr ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {renderBeneficiaryBadge(a, true)}
+                        {renderStatusBadge(a, isPast)}
+                      </div>
+                    </div>
+
+                    {/* Middle row: Doctor Image + Name + Clinic */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <DoctorImage photo={a.photoprofile} size={38} borderRadius={10} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {a.doctorname || t("doctor")}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <Building size={11} color="var(--brand)" />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{a.clinicname || "—"}</span>
+                          {specialty && <span style={{ color: "#0891b2", fontWeight: 600 }}>• {specialty}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom row: Reason + Action Buttons */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 2 }}>
+                      {reasonText ? (
+                        <div style={{
+                          fontSize: 11,
+                          color: "#334155",
+                          background: "#f0fdfa",
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          maxWidth: "55%",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>
+                          <Stethoscope size={11} color="var(--brand)" />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{reasonText}</span>
+                        </div>
+                      ) : <div />}
+
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {!isPast && a.status != 1 && a.status != 2 && (
+                          <button
+                            type="button"
+                            onClick={() => cancel(a.id)}
+                            style={{
+                              padding: "5px 9px",
+                              borderRadius: 6,
+                              border: "1px solid #fecaca",
+                              background: "#fef2f2",
+                              color: "#dc2626",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 3
+                            }}>
+                            <Trash2 size={11} />
+                            <span>{t("cancel_btn")}</span>
+                          </button>
+                        )}
+                        {isPast && a.clinicid && a.doctor_id && (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/clinic/${a.clinicid}/doctor/${a.doctor_id}`)}
+                            style={{
+                              padding: "5px 9px",
+                              borderRadius: 6,
+                              border: "1px solid #a5f3fc",
+                              background: "#ecfeff",
+                              color: "#0891b2",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 3
+                            }}>
+                            <RotateCw size={11} />
+                            <span>{t("quick_rebook")}</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
+                            else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
+                            else navigate("/tickets/new");
+                          }}
+                          style={{
+                            padding: "5px 9px",
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            background: "#ffffff",
+                            color: "#475569",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 3
+                          }}>
+                          <MessageSquare size={11} />
+                          <span>{t("contact")}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
+        /* ── VIEW MODE 2: ORIGINAL CARDS VIEW (4 CARDS PER ROW) ── */
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
-          gap: isMobile ? 12 : 20
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
+          gap: isMobile ? 12 : 16
         }}>
           {filtered.map(a => {
             const isPast = new Date(a.apointementdate) < now;
@@ -5321,12 +6303,12 @@ function AppointmentsPage({ navigate, user }) {
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <Calendar size={14} color="rgba(255,255,255,0.9)" />
-                    <span>{d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-FR", { weekday: 'short' })} {d.toLocaleDateString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                    <span>{d.toLocaleDateString(isAr ? "ar-DZ" : "fr-FR", { weekday: 'short' })} {d.toLocaleDateString(isAr ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
                   </div>
                   <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.2)" }} />
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <Clock size={14} color="rgba(255,255,255,0.9)" />
-                    <span>{d.toLocaleTimeString(i18n.language === 'ar' ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span>{d.toLocaleTimeString(isAr ? "ar-DZ" : "fr-DZ", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                   {!isPast && (a.status != 1 && a.status != 2) && (
                     <GoogleCalendarButton
@@ -5335,40 +6317,45 @@ function AppointmentsPage({ navigate, user }) {
                         patientname: user?.profile?.fullname || user?.username || a.patient_name || a.patientname
                       }}
                       iconOnly={true}
-                      style={{ marginLeft: i18n.language === 'ar' ? 0 : "auto", marginRight: i18n.language === 'ar' ? "auto" : 0 }}
+                      style={{ marginLeft: isAr ? 0 : "auto", marginRight: isAr ? "auto" : 0 }}
                     />
                   )}
                 </div>
 
+                {/* Card Beneficiary Bar */}
+                <div style={{
+                  background: "#f8fafc",
+                  padding: "6px 12px",
+                  borderBottom: "1px solid #e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>{t("beneficiary_label")}:</span>
+                  {renderBeneficiaryBadge(a, true)}
+                </div>
+
                 <div style={{ padding: "12px" }}>
-                  {/* Header: Photo on the right, Info on the left */}
-                  <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-                    <DoctorImage photo={a.photoprofile} size={110} borderRadius={18} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 16, marginBottom: 2 }}>{a.doctorname || t("doctor")}</div>
+                  {/* Header: Photo on the right/left, Info on the other side */}
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                    <DoctorImage photo={a.photoprofile} size={76} borderRadius={14} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 4 }}>
+                        <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.doctorname || t("doctor")}>
+                          {a.doctorname || t("doctor")}
+                        </div>
                         <div>
-                          {(a.status == 1) ?
-                            <Badge color="#ef4444" style={{ padding: "3px 8px", fontSize: 10 }}>{t("cancelled_badge")}</Badge> :
-                            (a.status == 2) ?
-                              <Badge color="#0ea5e9" style={{ padding: "3px 8px", fontSize: 10 }}>{t("diagnosed_badge")}</Badge> :
-                              isPast ?
-                                <Badge color="#94a3b8" style={{ padding: "3px 8px", fontSize: 10 }}>{t("past_badge")}</Badge> :
-                                <Badge color="#059669" style={{ padding: "3px 8px", fontSize: 10 }}>{t("upcoming_badge")}</Badge>
-                          }
+                          {renderStatusBadge(a, isPast)}
                         </div>
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <Building size={12} color="var(--brand)" /> {a.clinicname || "—"}
+                      <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.clinicname || "—"}>
+                        <Building size={12} color="var(--brand)" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{a.clinicname || "—"}</span>
                       </div>
-                      {(a.Reason || a.reasons || a.reason_name || a.ReasonName || a.motif) && (
+                      {getReasonText(a) && (
                         <div style={{ fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 6, marginTop: 4, background: "#f0fdfa", padding: "4px 8px", borderRadius: 6, border: "1px solid #ccfbf1" }}>
                           <Stethoscope size={13} color="var(--brand)" />
-                          <span style={{ fontWeight: 700 }}>{t("step_reason")}:</span> {
-                            typeof (a.Reason || a.reasons || a.reason_name || a.ReasonName || a.motif) === 'object'
-                              ? (a.Reason?.reason_name || a.Reason?.ReasonName || a.reasons?.[0]?.reason_name || "—")
-                              : (a.Reason || a.reasons || a.reason_name || a.ReasonName || a.motif)
-                          }
+                          <span style={{ fontWeight: 700 }}>{t("step_reason")}:</span> {getReasonText(a)}
                         </div>
                       )}
                     </div>
@@ -5379,14 +6366,14 @@ function AppointmentsPage({ navigate, user }) {
                     {!isPast && (a.status != 1 && a.status != 2) && (
                       <>
                         <Btn variant="danger" onClick={() => cancel(a.id)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
-                          <Trash2 size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("cancel_btn")}
+                          <Trash2 size={13} style={{ marginLeft: isAr ? 0 : 6, marginRight: isAr ? 6 : 0 }} /> {t("cancel_btn")}
                         </Btn>
                         <Btn variant="ghost" onClick={() => {
                           if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
                           else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
                           else navigate("/tickets/new");
                         }} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
-                          <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
+                          <MessageSquare size={13} style={{ marginLeft: isAr ? 0 : 6, marginRight: isAr ? 6 : 0 }} /> {t("contact")}
                         </Btn>
                       </>
                     )}
@@ -5400,7 +6387,7 @@ function AppointmentsPage({ navigate, user }) {
                           else if (a.clinicid) navigate(`/tickets/new?clinic_id=${a.clinicid}`);
                           else navigate("/tickets/new");
                         }} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
-                          <MessageSquare size={13} style={{ marginLeft: i18n.language === 'ar' ? 0 : 6, marginRight: i18n.language === 'ar' ? 6 : 0 }} /> {t("contact")}
+                          <MessageSquare size={13} style={{ marginLeft: isAr ? 0 : 6, marginRight: isAr ? 6 : 0 }} /> {t("contact")}
                         </Btn>
                       </>
                     )}
@@ -5748,10 +6735,36 @@ function RegisterDoctorPage({ navigate, qs }) {
 }
 
 // ── PAGE: ADMIN DASHBOARD ─────────────────────────────────────
-function AdminDashboardPage({ navigate, user, qs }) {
+function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, toggleFullWidth: propToggleFullWidth }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const { show, Toast } = useToast();
+
+  // Local sync for full-width mode
+  const [localFullWidth, setLocalFullWidth] = useState(() => {
+    try { return localStorage.getItem("tabibi_fullwidth") === "true"; } catch { return false; }
+  });
+
+  const fullWidth = propFullWidth !== undefined ? propFullWidth : localFullWidth;
+
+  const toggleFullWidth = () => {
+    if (propToggleFullWidth) {
+      propToggleFullWidth();
+    } else {
+      const next = !localFullWidth;
+      setLocalFullWidth(next);
+      try { localStorage.setItem("tabibi_fullwidth", String(next)); } catch {}
+      if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+      else document.documentElement.removeAttribute("data-fullwidth");
+      window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
+    }
+  };
+
+  useEffect(() => {
+    const handleEvent = (e) => setLocalFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
 
   const initialTab = (qs && new URLSearchParams(qs).get("tab")) || 'overview';
   const [tab, setTab] = useState(initialTab); // overview | clinics | doctors
@@ -6054,7 +7067,12 @@ function AdminDashboardPage({ navigate, user, qs }) {
   const statusBg = { PENDING: '#fef3c7', APPROVED: '#d1fae5', REJECTED: '#fee2e2', FROZEN: '#ffedd5' };
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '12px' : '24px 24px' }}>
+    <div className="tabibi-fullwidth-container" style={{
+      maxWidth: fullWidth ? "100%" : 1200,
+      margin: '0 auto',
+      padding: isMobile ? '12px' : (fullWidth ? '18px 32px' : '24px 24px'),
+      transition: 'max-width 0.25s ease, padding 0.25s ease'
+    }}>
       <Toast />
 
       {/* Reject Modal */}
@@ -6332,6 +7350,31 @@ function AdminDashboardPage({ navigate, user, qs }) {
                   {supportUnreadCount}
                 </span>
               )}
+            </Btn>
+            <Btn
+              variant="ghost"
+              onClick={toggleFullWidth}
+              title={fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
+              style={{
+                color: '#fff',
+                borderColor: fullWidth ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)',
+                background: fullWidth ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
+                fontSize: 13,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              {fullWidth ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                </svg>
+              )}
+              <span>{fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
             </Btn>
           </div>
         </div>
@@ -13500,16 +14543,25 @@ function MainApp() {
   const isMobile = useIsMobile();
   const [showExitModal, setShowExitModal] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem("tabibi_theme") || "light");
+  const [fullWidth, setFullWidth] = useState(() => localStorage.getItem("tabibi_fullwidth") === "true");
   const { show, Toast } = useToast();
-
-
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("tabibi_theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (fullWidth) {
+      document.documentElement.setAttribute("data-fullwidth", "true");
+    } else {
+      document.documentElement.removeAttribute("data-fullwidth");
+    }
+    localStorage.setItem("tabibi_fullwidth", fullWidth ? "true" : "false");
+  }, [fullWidth]);
+
   const toggleTheme = () => setTheme(prev => prev === "light" ? "dark" : "light");
+  const toggleFullWidth = () => setFullWidth(prev => !prev);
 
   useEffect(() => {
     document.documentElement.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
@@ -13620,7 +14672,7 @@ function MainApp() {
         return <RegisterDoctorPage navigate={navigate} qs={qs} />;
       case "/admin":
         if (!user || (user.user_type !== 3 && user.user_type !== 4)) { setTimeout(() => navigate("/"), 0); return null; }
-        return <AdminDashboardPage key={`admin_${qs || 'default'}`} navigate={navigate} user={user} qs={qs} />;
+        return <AdminDashboardPage key={`admin_${qs || 'default'}`} navigate={navigate} user={user} qs={qs} fullWidth={fullWidth} toggleFullWidth={toggleFullWidth} />;
       case "/admin/accounts":
       case "/superadmin/accounts":
         if (!user || Number(user.user_type) !== 3) { setTimeout(() => navigate("/"), 0); return null; }
@@ -13643,7 +14695,7 @@ function MainApp() {
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         if (user.user_type === 1) { setTimeout(() => navigate("/appointmanager"), 0); return null; }
         if (user.user_type === 2) { setTimeout(() => navigate("/clinic/appointments"), 0); return null; }
-        return <AppointmentsPage key="appts" navigate={navigate} user={user} />;
+        return <AppointmentsPage key="appts" navigate={navigate} user={user} fullWidth={fullWidth} toggleFullWidth={toggleFullWidth} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ProfilePage key={route} user={user} navigate={navigate} qs={qs} />;
@@ -13752,7 +14804,7 @@ function MainApp() {
           ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
         `}</style>
       {route !== "/app" && (
-        <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} show={show} />
+        <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} fullWidth={fullWidth} toggleFullWidth={toggleFullWidth} show={show} />
       )}
       <BackgroundDecoration />
       <div style={{ flex: 1, paddingBottom: route === "/app" ? 0 : 80, position: "relative", zIndex: 1 }}>

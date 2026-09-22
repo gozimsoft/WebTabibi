@@ -135,10 +135,10 @@ export default function SuperAdminAccountManagement({ navigate, user, qs, api: i
   const [copiedId, setCopiedId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
 
-  // Full width display toggle (persisted in localStorage)
+  // Full width display toggle (persisted in localStorage & synced globally)
   const [isFullWidth, setIsFullWidth] = useState(() => {
     try {
-      return localStorage.getItem("tabibi_accounts_full_width") === "true";
+      return localStorage.getItem("tabibi_fullwidth") === "true" || localStorage.getItem("tabibi_accounts_full_width") === "true";
     } catch {
       return false;
     }
@@ -148,11 +148,21 @@ export default function SuperAdminAccountManagement({ navigate, user, qs, api: i
     setIsFullWidth(prev => {
       const next = !prev;
       try {
+        localStorage.setItem("tabibi_fullwidth", String(next));
         localStorage.setItem("tabibi_accounts_full_width", String(next));
       } catch {}
+      if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+      else document.documentElement.removeAttribute("data-fullwidth");
+      window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
       return next;
     });
   };
+
+  useEffect(() => {
+    const handleEvent = (e) => setIsFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
 
   // Hovered row tracking for seamless sticky column styling
   const [hoveredRow, setHoveredRow] = useState(null);

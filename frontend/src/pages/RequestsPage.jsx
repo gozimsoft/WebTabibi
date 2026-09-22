@@ -158,7 +158,7 @@ export default function RequestsPage({ navigate, user }) {
     }}>
       <Toast />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div className="tabibi-fullwidth-container" style={{ maxWidth: 1200, margin: "0 auto", transition: "max-width 0.25s ease" }}>
 
         {/* ── TABIBI GOLD STANDARD HERO BANNER ── */}
         <div style={{

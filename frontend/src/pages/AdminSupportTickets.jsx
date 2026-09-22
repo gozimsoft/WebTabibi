@@ -180,14 +180,14 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
 
   if (user?.user_type === 3 || user?.user_type === 4) {
     return (
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px" }}>
+      <div className="tabibi-fullwidth-container" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px", transition: "max-width 0.25s ease" }}>
         <AdminSupportBackoffice user={user} api={api} />
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 20px" }}>
+    <div className="tabibi-fullwidth-container" style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 20px", transition: "max-width 0.25s ease" }}>
       <Toast />
 
       {/* ── HEADER BANNER ── */}

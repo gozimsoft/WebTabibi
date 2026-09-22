@@ -16,7 +16,7 @@ const ANIM_MAP = {
   bounce: "nb-bounce 1s ease-in-out",
 };
 
-export default function Navbar({ user, navigate, onLogout }) {
+export default function Navbar({ user, navigate, onLogout, theme, toggleTheme, fullWidth: propFullWidth, toggleFullWidth: propToggleFullWidth }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -26,6 +26,32 @@ export default function Navbar({ user, navigate, onLogout }) {
   const menuRef = useRef(null);
   const notifRef = useRef(null);
   const name = user?.profile?.fullname?.split(" ")[0] || user?.username || "U";
+
+  // Global full-width state with fallback listener
+  const [internalFullWidth, setInternalFullWidth] = useState(() => {
+    try { return localStorage.getItem("tabibi_fullwidth") === "true"; } catch { return false; }
+  });
+
+  const fullWidth = propFullWidth !== undefined ? propFullWidth : internalFullWidth;
+
+  const handleToggleFullWidth = () => {
+    if (propToggleFullWidth) {
+      propToggleFullWidth();
+    } else {
+      const next = !internalFullWidth;
+      setInternalFullWidth(next);
+      try { localStorage.setItem("tabibi_fullwidth", String(next)); } catch {}
+      if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+      else document.documentElement.removeAttribute("data-fullwidth");
+      window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
+    }
+  };
+
+  useEffect(() => {
+    const handleEvent = (e) => setInternalFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
 
   useEffect(() => {
     let timeoutId;
@@ -207,6 +233,46 @@ export default function Navbar({ user, navigate, onLogout }) {
       {/* Nav items */}
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
         <LanguageSwitcher />
+
+        {/* Global Full Width Mode Toggle Button */}
+        <button
+          onClick={handleToggleFullWidth}
+          title={fullWidth ? t("standard_width_mode", "Largeur normale") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
+          aria-label={fullWidth ? t("standard_width_mode", "Largeur normale") : t("full_width_mode", "Plein écran")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: fullWidth ? "rgba(8, 145, 178, 0.15)" : "#f3f4f6",
+            border: fullWidth ? "1.5px solid var(--brand, #0891b2)" : "1px solid #e5e7eb",
+            color: fullWidth ? "var(--brand, #0891b2)" : "#64748b",
+            cursor: "pointer",
+            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            padding: 0
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = fullWidth ? "rgba(8, 145, 178, 0.22)" : "#e5e7eb";
+            e.currentTarget.style.transform = "scale(1.05)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = fullWidth ? "rgba(8, 145, 178, 0.15)" : "#f3f4f6";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          {fullWidth ? (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+            </svg>
+          ) : (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+            </svg>
+          )}
+        </button>
+
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {navItems.map(([l, p, ic]) => (
             <button key={p} onClick={() => navigate(p)} style={{

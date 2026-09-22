@@ -538,6 +538,26 @@ export default function AppointmentManager({ navigate, user }) {
   const isRtl = i18n.language === "ar";
   const { show, Toast } = useToast();
 
+  // Full width display toggle (persisted in localStorage & synced globally)
+  const [isFullWidth, setIsFullWidth] = useState(() => {
+    try { return localStorage.getItem("tabibi_fullwidth") === "true"; } catch { return false; }
+  });
+
+  const toggleFullWidth = () => {
+    const next = !isFullWidth;
+    setIsFullWidth(next);
+    try { localStorage.setItem("tabibi_fullwidth", String(next)); } catch {}
+    if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+    else document.documentElement.removeAttribute("data-fullwidth");
+    window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
+  };
+
+  useEffect(() => {
+    const handleEvent = (e) => setIsFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
+
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -935,7 +955,7 @@ export default function AppointmentManager({ navigate, user }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg, #f8fafc)", padding: "32px 24px", paddingBottom: 100 }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div className="tabibi-fullwidth-container" style={{ maxWidth: isFullWidth ? "100%" : 1200, margin: "0 auto", transition: "max-width 0.25s ease" }}>
 
         {/* Fullscreen Wrapper */}
         <div id="appt-manager-fullscreen-container" style={{ display: "flex", flexDirection: "column" }}>
@@ -1043,6 +1063,37 @@ export default function AppointmentManager({ navigate, user }) {
                   }}
                 >
                   <RefreshCw size={16} className={refreshing ? "spin-anim" : ""} />
+                </button>
+
+                {/* Full Width Mode Button */}
+                <button
+                  onClick={toggleFullWidth}
+                  title={isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
+                  style={{
+                    background: isFullWidth ? "rgba(255, 255, 255, 0.32)" : "rgba(255, 255, 255, 0.15)",
+                    border: isFullWidth ? "1.5px solid rgba(255, 255, 255, 0.6)" : "1px solid rgba(255, 255, 255, 0.25)",
+                    color: "rgb(255, 255, 255)",
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    transition: "0.2s"
+                  }}
+                >
+                  {isFullWidth ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                    </svg>
+                  )}
+                  <span>{isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
                 </button>
               </div>
             </div>
