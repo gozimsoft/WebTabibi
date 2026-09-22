@@ -48,3 +48,10 @@
 - **الصياغة التقنية المعتمدة**:  
   > *« Le système interdit l'accès courant au contenu des conversations aux administrateurs et au support. Les modalités d'accès exceptionnel ou de communication aux autorités feront l'objet d'une procédure spécifique conforme au cadre juridique applicable. »*
 - **قناة الدعم الإداري المستقلة**: تواصل المستخدمين مع إدارة المنصة يتم حصرياً عبر نظام تذاكر الدعم الإداري المستقل (`admin_support_tickets`).
+
+---
+
+## 🛑 5. سياسة الملفات المحمية وحصانة `.gitignore` (Protected Files Policy)
+- **الحصانة المطلقة لملف `.gitignore`**: يُعتبر ملف [`.gitignore`](file:///d:/Application%20Web/WebTabibi/.gitignore) الموجود في جذر المشروع ملفاً معتمداً ومحمياً نهائياً (Strictly Immutable).
+- **حظر التعديل المباشر أو غير المباشر**: يُحظر حظراً تاماً على أي مطور، أداة أتمتة، أو وكيل ذكاء اصطناعي (AI Agent) تعديل أو حذف أو إضافة أي أسطر إلى `.gitignore` تحت أي ظرف من الظروف ومهما كان السبب.
+- **التوثيق التفصيلي والبدائل**: تم تفصيل كامل الضوابط الأمنية والبدائل المحلية المعزولة (مثل `.git/info/exclude`) في الوثيقة المخصصة: [`Docs/GITIGNORE_PROTECTION_POLICY.md`](file:///d:/Application%20Web/WebTabibi/Docs/GITIGNORE_PROTECTION_POLICY.md).

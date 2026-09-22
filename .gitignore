@@ -27,19 +27,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ============================================================
-# SECRETS — NE JAMAIS COMMITTER CES FICHIERS
-# ============================================================
-# Variables d'environnement (credentials DB, SMTP, OAuth...)
-.env
-**/.env
-*.env.local
-*.env.production
-
-# Android signing keystore & passwords
-*.jks
-*.keystore
-**/keystore.properties
 
 # Project specific
 *.rar

@@ -572,7 +572,7 @@ class SyncController {
     private static function sanitizeDatetime(?string $dt): ?string {
         if (empty($dt)) return null;
         // Gérer 1899-12-30 (format Delphi pour date vide)
-        if (str_starts_with($dt, '1899') || str_starts_with($dt, '1900')) return null;
+        if (substr($dt, 0, 4) === '1899' || substr($dt, 0, 4) === '1900') return null;
         // Extraire une date valide
         if (preg_match('/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?)/', $dt, $m)) {
             $ts = strtotime($m[1]);
@@ -605,7 +605,7 @@ class SyncController {
                 $processed, $created, $updated, $deleted, $failed,
                 $errors ? json_encode($errors, JSON_UNESCAPED_UNICODE) : null
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
             // Ne pas bloquer la réponse principale si le log échoue
         }
     }
