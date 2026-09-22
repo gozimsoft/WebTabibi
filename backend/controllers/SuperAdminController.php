@@ -186,14 +186,14 @@ class SuperAdminController {
         $items = [];
         foreach ($rows as $r) {
             $usertype = (int)$r['usertype'];
-            $roleLabel = match ($usertype) {
+            $roleMap = [
                 0 => 'patient',
                 1 => 'doctor',
                 2 => 'clinic',
                 3 => 'superadmin',
                 4 => 'admin',
-                default => 'user'
-            };
+            ];
+            $roleLabel = $roleMap[$usertype] ?? 'user';
 
             // Calcul du statut unifié
             $statusKey = 'active';
@@ -482,16 +482,16 @@ class SuperAdminController {
         $sStmt->execute([$id]);
         $activeSessions = $sStmt->fetchAll();
 
-        $roleLabel = match ($usertype) {
+        $roleMap = [
             0 => 'patient',
             1 => 'doctor',
             2 => 'clinic',
             3 => 'superadmin',
             4 => 'admin',
-            default => 'user'
-        };
+        ];
+        $roleLabel = $roleMap[$usertype] ?? 'user';
 
-        $isAnonymized = !empty($profile['deleteacount']) || str_starts_with((string)$user['username'], 'DELETED_');
+        $isAnonymized = !empty($profile['deleteacount']) || (substr((string)$user['username'], 0, 8) === 'DELETED_');
         $isFrozen = !empty($profile['is_frozen']);
         $isActive = !$isAnonymized && !$isFrozen;
 

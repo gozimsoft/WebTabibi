@@ -4,6 +4,15 @@
 
 ## 2026-09-22
 
+### Fixed / SuperAdmin Account Management (إصلاح خطأ الخادم في إدارة الحسابات)
+- **إصلاح خطأ 500 (ParseError) في إدارة الحسابات على الخادم**:
+  - **السبب الجذري**: خادم الاستضافة (`tabibi.dz`) يعمل بإصدار **PHP 7.4**، بينما كان كلاس [`SuperAdminController.php`](file:///d:/Application%20Web/WebTabibi/backend/controllers/SuperAdminController.php) يحتوي على تراكيب لغوية خاصة بـ **PHP 8.0+** (`match ($usertype)` في السطرين 189 و 485 ودالة `str_starts_with` في السطر 494)، مما أدى إلى حدوث `ParseError` (Fatal Compile Error) عند استدعاء الملف، واعتراضه بواسطة `catch (Throwable $e)` في `backend/index.php` وإرجاع الرسالة: *"حدث خطأ غير متوقع في الخادم. يرجى المحاولة مرة أخرى. إذا استمرت المشكلة يرجى إبلاغ الدعم الفني."*.
+  - **الحل الجذري**:
+    - استبدال تعبير `match` بمصفوفة مطابقة معيارية سريعة ومتوافقة مع جميع إصدارات PHP (`$roleMap[$usertype] ?? 'user'`).
+    - استبدال `str_starts_with` بدالة `substr` القياسية.
+    - معالجة ملف [`SyncController.php`](file:///d:/Application%20Web/WebTabibi/backend/controllers/SyncController.php) بنفس الطريقة (استبدال `catch (Throwable)` بـ `catch (Throwable $e)` واستبدال `str_starts_with` بـ `substr`).
+    - اختبار وفحص الكود محلياً والتأكد من نجاح كافة الاستعلامات وتوافقها التام مع قاعدة البيانات.
+
 ### Added / Security & Governance
 - **سياسة الحظر القطعي والنهائي لتعديل ملف `.gitignore` (Strict .gitignore Protection Policy)**:
   - **إنشاء وثيقة الحظر الشاملة ([`Docs/GITIGNORE_PROTECTION_POLICY.md`](file:///d:/Application%20Web/WebTabibi/Docs/GITIGNORE_PROTECTION_POLICY.md))**:
