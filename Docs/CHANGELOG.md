@@ -2,6 +2,32 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-09-22
+
+### Added / Security & Governance
+- **سياسة الحظر القطعي والنهائي لتعديل ملف `.gitignore` (Strict .gitignore Protection Policy)**:
+  - **إنشاء وثيقة الحظر الشاملة ([`Docs/GITIGNORE_PROTECTION_POLICY.md`](file:///d:/Application%20Web/WebTabibi/Docs/GITIGNORE_PROTECTION_POLICY.md))**:
+    - إقرار الحصانة المطلقة لملف `.gitignore` الموجود في جذر المشروع ومنع أي تعديل أو إضافة أو حذف عليه تحت أي ظرف ومهما كانت الأسباب.
+    - توثيق أسباب ومبررات الحظر لحماية أسرار النظام (مثل `.env` ومفاتيح التوقيع `*.jks` و `keystore.properties`) ومنع تلوث المستودع بنواتج البناء والمجلدات الضخمة (`node_modules/`, `vendor/`, `dist/`).
+    - تحديد البدائل المحلية الآمنة للمطورين مثل `.git/info/exclude` وملف التجاهل العالمي للمستخدم دون المساس بالمستودع المشترك.
+  - **تحديث قواعد عمل الذكاء الاصطناعي ([`AI_WORKFLOW_RULES.md`](file:///d:/Application%20Web/WebTabibi/AI_WORKFLOW_RULES.md))**:
+    - إضافة البند الإلزامي رقم 11 الذي يحظر بشكل قطعي على أي أداة أو وكيل ذكاء اصطناعي التعديل على ملف `.gitignore`.
+    - إضافة وثيقة السياسة ضمن قائمة ملفات التوثيق الأساسية الواجب مراجعتها.
+  - **تحديث وثيقة الأمان ([`Docs/SECURITY.md`](file:///d:/Application%20Web/WebTabibi/Docs/SECURITY.md))**:
+    - إضافة البند رقم 5 الخاص بسياسة الملفات المحمية وحصانة `.gitignore`.
+  - **إنشاء قاعدة بيئة العمل للذكاء الاصطناعي ([`.agents/rules/protect_gitignore.md`](file:///d:/Application%20Web/WebTabibi/.agents/rules/protect_gitignore.md))**:
+    - فرض قاعدة نظام دائمة ومحمية تمنع المساس بملف `.gitignore` تلقائياً لأي جلسة ذكاء اصطناعي لاحقة.
+
+### Files Changed
+- `Docs/GITIGNORE_PROTECTION_POLICY.md`
+- `.agents/rules/protect_gitignore.md`
+- `AI_WORKFLOW_RULES.md`
+- `Docs/SECURITY.md`
+- `Docs/CHANGELOG.md`
+
+### Documentation Updated
+Yes
+
 ## 2026-09-21
 
 ### Added / Security
