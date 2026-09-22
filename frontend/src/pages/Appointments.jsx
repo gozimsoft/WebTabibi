@@ -43,7 +43,7 @@ export default function AppointmentsPage({ navigate, user }) {
   }).length;
 
   return (
-    <div style={{ maxWidth: 780, margin: "0 auto", padding: "28px 24px" }}>
+    <div className="tabibi-fullwidth-container" style={{ maxWidth: 780, margin: "0 auto", padding: "28px 24px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{t("appointments_title")}</h1>
         <Btn onClick={() => navigate("/search")} style={{ padding: "9px 18px", fontSize: 13 }}>{t("book_new")}</Btn>

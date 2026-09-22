@@ -8812,13 +8812,14 @@ function TicketsPage({ navigate, user, initialTicketId = null, onTicketRead = nu
   if (loading) return <div style={{ padding: 80, display: "flex", justifyContent: "center" }}><Spinner size={36} /></div>;
 
   return (
-    <div style={{
+    <div className="tabibi-fullwidth-container" style={{
       maxWidth: 1200,
       margin: "0 auto",
       padding: isMobile ? "12px 16px" : "20px 24px",
       minHeight: "calc(100vh - 80px)",
       display: "flex",
-      flexDirection: "column"
+      flexDirection: "column",
+      transition: "max-width 0.25s ease"
     }}>
       {/* Top Header */}
       <div style={{
@@ -14736,7 +14737,7 @@ function MainApp() {
           }, 0);
           return null;
         }
-        return <AdminSupportUserTicketsPage key="admin_support_tickets" navigate={navigate} user={user} qs={qs} api={api} />;
+        return <AdminSupportUserTicketsPage key="admin_support_tickets" navigate={navigate} user={user} qs={qs} api={api} fullWidth={fullWidth} toggleFullWidth={toggleFullWidth} />;
       case "/clinic/appointments":
         if (!user || user.user_type !== 2) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ClinicAppointmentManager key="clinic_appointments" navigate={navigate} user={user} />;

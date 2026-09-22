@@ -1,13 +1,23 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   HelpCircle, Plus, Send, Clock, CheckCircle, AlertCircle,
   Activity, Lock, Shield, User, Stethoscope, Building2,
   Search, Filter, ArrowLeft, ArrowRight, MessageSquare,
   ChevronDown, RefreshCw, Phone, Mail, FileText, Check,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, List, Grid, RotateCw, X, Eye
 } from "lucide-react";
 import { Card, Btn, Input, Badge, Spinner, useToast, SmartPaginationBar } from "../components/SharedUI.jsx";
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return mobile;
+}
 
 // ── Categories Configuration ──
 export const SUPPORT_CATEGORIES = [
@@ -48,15 +58,62 @@ export const SupportPaginationBar = SmartPaginationBar;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── USER-FACING: AdminSupportUserTicketsPage
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
+export function AdminSupportUserTicketsPage({ navigate, user, qs, api, fullWidth: propFullWidth, toggleFullWidth: propToggleFullWidth }) {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
+  const isMobile = useIsMobile();
   const { show, Toast } = useToast();
+
+  // Full-width mode state (persisted & synced)
+  const [localFullWidth, setLocalFullWidth] = useState(() => {
+    try { return localStorage.getItem("tabibi_fullwidth") === "true"; } catch { return false; }
+  });
+
+  const fullWidth = propFullWidth !== undefined ? propFullWidth : localFullWidth;
+
+  const toggleFullWidth = () => {
+    if (propToggleFullWidth) {
+      propToggleFullWidth();
+    } else {
+      const next = !localFullWidth;
+      setLocalFullWidth(next);
+      try { localStorage.setItem("tabibi_fullwidth", String(next)); } catch {}
+      if (next) document.documentElement.setAttribute("data-fullwidth", "true");
+      else document.documentElement.removeAttribute("data-fullwidth");
+      window.dispatchEvent(new CustomEvent('tabibi:fullwidth_change', { detail: next }));
+    }
+  };
+
+  useEffect(() => {
+    const handleEvent = (e) => setLocalFullWidth(Boolean(e.detail));
+    window.addEventListener('tabibi:fullwidth_change', handleEvent);
+    return () => window.removeEventListener('tabibi:fullwidth_change', handleEvent);
+  }, []);
+
+  // View mode state (Compact Table vs 4 Cards)
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("tabibi_support_view") || "list";
+    } catch {
+      return "list";
+    }
+  });
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("tabibi_support_view", mode);
+    } catch {}
+  };
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusTab, setStatusTab] = useState("all"); // all | active | resolved | closed
+  const [sortAsc, setSortAsc] = useState(false);
 
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const userListTopRef = useRef(null);
@@ -178,6 +235,46 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
   const getCatConfig = (catKey) => SUPPORT_CATEGORIES.find(c => c.key === catKey) || SUPPORT_CATEGORIES[SUPPORT_CATEGORIES.length - 1];
   const getStatusConfig = (stKey) => STATUS_CONFIG[stKey] || STATUS_CONFIG.OPEN;
 
+  // Compute status counts for overview
+  const counts = useMemo(() => {
+    const res = { all: tickets.length, open: 0, in_progress: 0, resolved: 0, closed: 0, active: 0 };
+    tickets.forEach(tk => {
+      const st = tk.status || 'OPEN';
+      if (st === 'OPEN') res.open++;
+      else if (st === 'IN_PROGRESS' || st === 'PENDING') res.in_progress++;
+      else if (st === 'RESOLVED') res.resolved++;
+      else if (st === 'CLOSED') res.closed++;
+    });
+    res.active = res.open + res.in_progress;
+    return res;
+  }, [tickets]);
+
+  // Client-side search and filtering
+  const filteredTickets = useMemo(() => {
+    return tickets.filter(tk => {
+      const st = tk.status || 'OPEN';
+      if (statusTab === 'active' && st !== 'OPEN' && st !== 'IN_PROGRESS' && st !== 'PENDING') return false;
+      if (statusTab === 'resolved' && st !== 'RESOLVED') return false;
+      if (statusTab === 'closed' && st !== 'CLOSED') return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const num = (tk.ticket_number || '').toLowerCase();
+        const subj = (tk.subject || '').toLowerCase();
+        const cat = (tk.category || '').toLowerCase();
+        const msg = (tk.last_message || '').toLowerCase();
+        if (!num.includes(q) && !subj.includes(q) && !cat.includes(q) && !msg.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    }).sort((a, b) => {
+      const da = new Date(a.updated_at || a.created_at).getTime();
+      const db = new Date(b.updated_at || b.created_at).getTime();
+      return sortAsc ? da - db : db - da;
+    });
+  }, [tickets, statusTab, searchQuery, sortAsc]);
+
   if (user?.user_type === 3 || user?.user_type === 4) {
     return (
       <div className="tabibi-fullwidth-container" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px", transition: "max-width 0.25s ease" }}>
@@ -187,16 +284,21 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
   }
 
   return (
-    <div className="tabibi-fullwidth-container" style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 20px", transition: "max-width 0.25s ease" }}>
+    <div className="tabibi-fullwidth-container" style={{
+      maxWidth: fullWidth ? "100%" : 1240,
+      margin: "0 auto",
+      padding: isMobile ? "16px 14px" : (fullWidth ? "20px 32px" : "28px 24px"),
+      transition: "max-width 0.25s ease, padding 0.25s ease"
+    }}>
       <Toast />
 
       {/* ── HEADER BANNER ── */}
       <div className="no-print" style={{
         background: "linear-gradient(135deg, rgb(14, 116, 144) 0%, rgb(8, 145, 178) 100%)",
         borderRadius: 24,
-        padding: "28px 32px",
+        padding: isMobile ? "20px 18px" : "28px 32px",
         color: "rgb(255, 255, 255)",
-        marginBottom: 24,
+        marginBottom: 20,
         boxShadow: "rgba(8, 145, 178, 0.25) 0px 10px 30px -5px",
         position: "relative",
         overflow: "hidden"
@@ -217,15 +319,15 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
-          gap: 20,
+          gap: 16,
           position: "relative",
           zIndex: 2
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{
-              width: 58,
-              height: 58,
-              borderRadius: 18,
+              width: 52,
+              height: 52,
+              borderRadius: 16,
               background: "rgba(255, 255, 255, 0.18)",
               backdropFilter: "blur(8px)",
               display: "flex",
@@ -233,10 +335,10 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
               justifyContent: "center",
               color: "rgb(255, 255, 255)"
             }}>
-              <Shield size={32} />
+              <Shield size={28} />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 900 }}>
+              <h1 style={{ margin: 0, fontSize: isMobile ? 20 : 25, fontWeight: 900 }}>
                 {t("admin_support_title", "الدعم الإداري والشكاوى")}
               </h1>
               <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
@@ -247,14 +349,14 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button
               onClick={() => setShowNewModal(true)}
               style={{
-                padding: "10px 18px",
+                padding: "9px 18px",
                 borderRadius: 10,
                 fontWeight: 800,
-                fontSize: 14,
+                fontSize: 13,
                 border: "none",
                 cursor: "pointer",
                 transition: "0.2s",
@@ -266,7 +368,7 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                 boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 14px"
               }}
             >
-              <Plus size={18} />
+              <Plus size={16} />
               {t("admin_support_new_btn", "Nouvelle demande")}
             </button>
 
@@ -278,8 +380,8 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                 background: "rgba(255, 255, 255, 0.15)",
                 border: "1px solid rgba(255, 255, 255, 0.25)",
                 color: "rgb(255, 255, 255)",
-                borderRadius: 12,
-                padding: "10px 14px",
+                borderRadius: 10,
+                padding: "9px 12px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -287,7 +389,40 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
                 transition: "0.15s"
               }}
             >
-              <RefreshCw size={16} className={loading ? "spin-animation" : ""} />
+              <RefreshCw size={15} className={loading ? "spin-animation" : ""} />
+            </button>
+
+            {/* Full Width Toggle Button */}
+            <button
+              onClick={toggleFullWidth}
+              title={fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
+              style={{
+                background: fullWidth ? "rgba(255, 255, 255, 0.32)" : "rgba(255, 255, 255, 0.15)",
+                border: fullWidth ? "1.5px solid rgba(255, 255, 255, 0.6)" : "1px solid rgba(255, 255, 255, 0.25)",
+                color: "rgb(255, 255, 255)",
+                borderRadius: 10,
+                padding: "9px 14px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                fontWeight: 700,
+                transition: "0.2s"
+              }}
+            >
+              {fullWidth ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                </svg>
+              )}
+              <span style={{ display: isMobile ? "none" : "inline" }}>
+                {fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}
+              </span>
             </button>
           </div>
         </div>
@@ -424,136 +559,648 @@ export function AdminSupportUserTicketsPage({ navigate, user, qs, api }) {
           )}
         </Card>
       ) : (
-        /* ── LIST VIEW ── */
+        /* ── LIST / TABLE / CARDS VIEW ── */
         <div>
           <div ref={userListTopRef} />
+
+          {/* 1. Stats Chips Grid */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 16
+          }}>
+            {[
+              { key: "all", label: t("admin_support_stat_all", "Total des tickets"), count: counts.all, color: "#0e7490", bg: "#f0fdfa", border: "#ccfbf1", icon: Shield },
+              { key: "active", label: t("admin_support_stat_active", "En cours & Ouverts"), count: counts.active, color: "#d97706", bg: "#fffbeb", border: "#fef3c7", icon: Activity },
+              { key: "resolved", label: t("admin_support_stat_resolved", "Résolus"), count: counts.resolved, color: "#059669", bg: "#f0fdf4", border: "#dcfce7", icon: CheckCircle },
+              { key: "closed", label: t("admin_support_stat_closed", "Fermés"), count: counts.closed, color: "#475569", bg: "#f8fafc", border: "#e2e8f0", icon: Lock },
+            ].map(item => {
+              const IconComp = item.icon;
+              const isSelected = statusTab === item.key;
+              return (
+                <div
+                  key={item.key}
+                  onClick={() => setStatusTab(item.key)}
+                  style={{
+                    background: isSelected ? item.bg : "var(--card-bg, #ffffff)",
+                    border: isSelected ? `2px solid ${item.color}` : "1px solid var(--border, #e2e8f0)",
+                    borderRadius: 14,
+                    padding: "12px 16px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    boxShadow: isSelected ? "0 4px 12px rgba(0,0,0,0.06)" : "0 1px 3px rgba(0,0,0,0.03)"
+                  }}
+                  onMouseEnter={e => {
+                    if (!isSelected) e.currentTarget.style.borderColor = item.color;
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSelected) e.currentTarget.style.borderColor = "var(--border, #e2e8f0)";
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: item.bg, color: item.color,
+                      display: "flex", alignItems: "center", justifyContent: "center"
+                    }}>
+                      <IconComp size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>{item.label}</div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: item.color }}>{item.count}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 2. Controls Toolbar: Search, Sort, View Switcher & Actions */}
+          <div style={{
+            background: "var(--card-bg, #ffffff)",
+            border: "1px solid var(--border, #e2e8f0)",
+            borderRadius: 14,
+            padding: "12px 16px",
+            marginBottom: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12
+          }}>
+            {/* Search Input */}
+            <div style={{
+              position: "relative",
+              flex: "1 1 260px",
+              maxWidth: isMobile ? "100%" : 420
+            }}>
+              <Search size={16} color="#94a3b8" style={{
+                position: "absolute",
+                top: "50%",
+                transform: "translateY(-50%)",
+                [isRtl ? "right" : "left"]: 12,
+                pointerEvents: "none"
+              }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={t("admin_support_user_search_placeholder", "Rechercher par n° de ticket, sujet ou message...")}
+                style={{
+                  width: "100%",
+                  padding: isRtl ? "8px 36px 8px 32px" : "8px 32px 8px 36px",
+                  borderRadius: 10,
+                  border: "1.5px solid #cbd5e1",
+                  background: "#f8fafc",
+                  fontSize: 13,
+                  color: "#1e293b",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  transition: "border-color 0.2s"
+                }}
+                onFocus={e => { e.target.style.borderColor = "var(--brand)"; e.target.style.background = "#fff"; }}
+                onBlur={e => { e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#f8fafc"; }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    [isRtl ? "left" : "right"]: 10,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    display: "flex",
+                    color: "#94a3b8"
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
+            {/* Right toolbar items */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {/* Sort Button */}
+              <button
+                type="button"
+                onClick={() => setSortAsc(!sortAsc)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #e2e8f0",
+                  background: "#ffffff",
+                  color: "#475569",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+                title={sortAsc ? t("sort_date_asc") : t("sort_date_desc")}
+              >
+                <RotateCw size={13} color="var(--brand)" />
+                <span>{sortAsc ? t("sort_date_asc") : t("sort_date_desc")}</span>
+              </button>
+
+              {/* View Switcher: List vs Cards */}
+              <div style={{
+                display: "inline-flex",
+                background: "#f1f5f9",
+                padding: 3,
+                borderRadius: 10,
+                border: "1px solid #e2e8f0"
+              }}>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode("list")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 7,
+                    border: "none",
+                    background: viewMode === "list" ? "var(--brand)" : "transparent",
+                    color: viewMode === "list" ? "#ffffff" : "#64748b",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  <List size={14} />
+                  <span>{t("view_mode_list", "Vue compacte")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode("cards")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 7,
+                    border: "none",
+                    background: viewMode === "cards" ? "var(--brand)" : "transparent",
+                    color: viewMode === "cards" ? "#ffffff" : "#64748b",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: viewMode === "cards" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  <Grid size={14} />
+                  <span>{t("view_mode_cards", "Vue cartes")}</span>
+                </button>
+              </div>
+
+              {/* Full Width Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleFullWidth}
+                title={fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: fullWidth ? "1.5px solid var(--brand, #0891b2)" : "1px solid #e2e8f0",
+                  background: fullWidth ? "rgba(8,145,178,0.12)" : "#ffffff",
+                  color: fullWidth ? "var(--brand, #0891b2)" : "#475569",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                {fullWidth ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                  </svg>
+                )}
+                <span>{fullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Status Filter Pills */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 20,
+            flexWrap: "wrap"
+          }}>
+            {[
+              { key: "all", label: t("admin_support_filter_all", "Tous les statuts"), count: counts.all },
+              { key: "active", label: t("admin_support_stat_active", "En cours & Ouverts"), count: counts.active },
+              { key: "resolved", label: t("admin_support_status_resolved", "Résolus"), count: counts.resolved },
+              { key: "closed", label: t("admin_support_status_closed", "Fermés"), count: counts.closed }
+            ].map(tab => {
+              const active = statusTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusTab(tab.key)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 20,
+                    border: active ? "1.5px solid var(--brand)" : "1px solid #e2e8f0",
+                    background: active ? "var(--brand)" : "#ffffff",
+                    color: active ? "#ffffff" : "#475569",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    transition: "all 0.15s ease",
+                    boxShadow: active ? "0 2px 8px rgba(8,145,178,0.2)" : "none"
+                  }}
+                >
+                  <span>{tab.label}</span>
+                  <span style={{
+                    fontSize: 11,
+                    background: active ? "rgba(255,255,255,0.25)" : "#f1f5f9",
+                    color: active ? "#ffffff" : "#64748b",
+                    padding: "1px 6px",
+                    borderRadius: 10,
+                    fontWeight: 800
+                  }}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 4. Content Area: Loading / Empty / Table / Cards */}
           {loading ? (
             <div style={{ padding: 60, textAlign: "center" }}><Spinner /></div>
-          ) : tickets.length === 0 ? (
+          ) : filteredTickets.length === 0 ? (
             <Card style={{ padding: "50px 24px", textAlign: "center", borderRadius: 20 }}>
               <HelpCircle size={48} color="#94a3b8" style={{ margin: "0 auto 12px" }} />
               <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, color: "#334155" }}>
-                {t("admin_support_no_tickets", "Aucun ticket administratif pour le moment")}
+                {searchQuery || statusTab !== "all"
+                  ? t("admin_support_no_match", "Aucun ticket ne correspond à vos critères de recherche.")
+                  : t("admin_support_no_tickets", "Aucun ticket administratif pour le moment")}
               </h3>
               <p style={{ margin: "0 0 18px", fontSize: 13, color: "#64748b", maxWidth: 460, marginInline: "auto" }}>
-                {t("admin_support_no_tickets_desc", "Vous pouvez soumettre une demande ou une réclamation auprès de l'administration à tout moment.")}
+                {searchQuery || statusTab !== "all"
+                  ? t("try_adjusting_filters", "Essayez de modifier vos termes de recherche ou vos filtres.")
+                  : t("admin_support_no_tickets_desc", "Vous pouvez soumettre une demande ou une réclamation auprès de l'administration à tout moment.")}
               </p>
-              <Btn onClick={() => setShowNewModal(true)} style={{ margin: "0 auto" }}>
-                <Plus size={16} /> {t("admin_support_new_btn", "Nouvelle demande")}
-              </Btn>
+              {searchQuery || statusTab !== "all" ? (
+                <Btn onClick={() => { setSearchQuery(""); setStatusTab("all"); }} style={{ margin: "0 auto" }}>
+                  <RotateCw size={15} /> {t("reset_filters", "Réinitialiser les filtres")}
+                </Btn>
+              ) : (
+                <Btn onClick={() => setShowNewModal(true)} style={{ margin: "0 auto" }}>
+                  <Plus size={16} /> {t("admin_support_new_btn", "Nouvelle demande")}
+                </Btn>
+              )}
+            </Card>
+          ) : viewMode === "list" ? (
+            /* ── VIEW MODE 1: COMPACT HIGH-DENSITY TABLE ── */
+            <Card style={{ padding: 0, overflow: "hidden", borderRadius: 16, border: "1px solid var(--border, #e2e8f0)", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: isRtl ? "right" : "left", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0", color: "#64748b", fontWeight: 800, fontSize: 12 }}>
+                      <th style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>{t("admin_support_ticket_number", "N° Ticket")}</th>
+                      <th style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>{t("admin_support_category", "Catégorie")}</th>
+                      <th style={{ padding: "12px 16px" }}>{t("admin_support_subject", "Objet & Message")}</th>
+                      <th style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>{t("col_status", "Statut")}</th>
+                      <th style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>{t("col_date", "Date")}</th>
+                      <th style={{ padding: "12px 16px", textAlign: "center", whiteSpace: "nowrap" }}>{t("col_actions", "Action")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTickets.map((tk, idx) => {
+                      const cat = getCatConfig(tk.category);
+                      const st = getStatusConfig(tk.status);
+                      const hasUnread = parseInt(tk.unread_count) > 0;
+                      const isClosed = tk.status === 'CLOSED';
+
+                      return (
+                        <tr
+                          key={tk.id}
+                          onClick={() => openTicket(tk.id)}
+                          style={{
+                            borderBottom: idx < filteredTickets.length - 1 ? "1px solid #f1f5f9" : "none",
+                            background: hasUnread ? "#f0fdfa" : (idx % 2 === 0 ? "#ffffff" : "#fcfcfd"),
+                            cursor: "pointer",
+                            transition: "background 0.15s ease"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+                          onMouseLeave={e => e.currentTarget.style.background = hasUnread ? "#f0fdfa" : (idx % 2 === 0 ? "#ffffff" : "#fcfcfd")}
+                        >
+                          {/* Ticket Number */}
+                          <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                            <span style={{
+                              fontSize: 12.5,
+                              fontWeight: 800,
+                              color: isClosed ? "#64748b" : "#0e7490",
+                              background: isClosed ? "#e2e8f0" : "#cffafe",
+                              padding: "3px 8px",
+                              borderRadius: 6
+                            }}>
+                              #{tk.ticket_number}
+                            </span>
+                            {hasUnread && (
+                              <span style={{
+                                background: "#ef4444", color: "#fff",
+                                fontSize: 9.5, fontWeight: 800,
+                                padding: "1px 5px", borderRadius: 8,
+                                marginInlineStart: 6
+                              }}>
+                                ●
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Category Badge */}
+                          <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                            <span style={{
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              background: isClosed ? "#f1f5f9" : cat.bg,
+                              color: isClosed ? "#64748b" : cat.color,
+                              display: "inline-block"
+                            }}>
+                              {t(cat.labelKey, cat.defaultLabel)}
+                            </span>
+                          </td>
+
+                          {/* Subject & Message excerpt */}
+                          <td style={{ padding: "12px 16px", maxWidth: 360 }}>
+                            <div style={{ fontWeight: 800, color: isClosed ? "#64748b" : "#0c4a6e", marginBottom: 2 }}>
+                              {tk.subject}
+                            </div>
+                            {tk.last_message && (
+                              <div style={{
+                                fontSize: 12,
+                                color: isClosed ? "#94a3b8" : "#64748b",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis"
+                              }}>
+                                {tk.last_sender_type === "admin" || tk.last_sender_type === "support" ? (
+                                  <strong style={{ color: isClosed ? "#64748b" : "#0891b2" }}>{t("admin_support_admin_badge", "Administration")}: </strong>
+                                ) : (
+                                  <strong style={{ color: "#475569" }}>{t("admin_support_user_badge", "Vous")}: </strong>
+                                )}
+                                {tk.last_message}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status Badge */}
+                          <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                            <span style={{
+                              fontSize: 11.5,
+                              fontWeight: 800,
+                              padding: "3px 9px",
+                              borderRadius: 8,
+                              background: isClosed ? "#e2e8f0" : st.bg,
+                              color: isClosed ? "#475569" : st.color,
+                              border: isClosed ? "1px solid #cbd5e1" : "none",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5
+                            }}>
+                              {React.createElement(st.icon, { size: 12 })}
+                              {t(st.labelKey, st.defaultLabel)}
+                            </span>
+                          </td>
+
+                          {/* Date */}
+                          <td style={{ padding: "12px 16px", whiteSpace: "nowrap", color: "#64748b", fontSize: 12 }}>
+                            {new Date(tk.updated_at || tk.created_at).toLocaleDateString(isRtl ? "ar-DZ" : i18n.language, { day: "2-digit", month: "short", year: "numeric" })}
+                          </td>
+
+                          {/* Action */}
+                          <td style={{ padding: "12px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
+                            <Btn
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); openTicket(tk.id); }}
+                              style={{ padding: "5px 12px", fontSize: 12, borderRadius: 8, color: "var(--brand)" }}
+                            >
+                              <Eye size={13} />
+                              <span style={{ marginInlineStart: 4 }}>{t("admin_support_open_ticket", "Consulter")}</span>
+                            </Btn>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           ) : (
-            <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {tickets.map(tk => {
-                  const cat = getCatConfig(tk.category);
-                  const st = getStatusConfig(tk.status);
-                  const hasUnread = parseInt(tk.unread_count) > 0;
-                  const isClosed = tk.status === 'CLOSED';
+            /* ── VIEW MODE 2: CARDS GRID (4 CARDS PER ROW ON DESKTOP) ── */
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
+              gap: isMobile ? 12 : 16
+            }}>
+              {filteredTickets.map(tk => {
+                const cat = getCatConfig(tk.category);
+                const st = getStatusConfig(tk.status);
+                const hasUnread = parseInt(tk.unread_count) > 0;
+                const isClosed = tk.status === 'CLOSED';
 
-                  return (
-                    <div
-                      key={tk.id}
-                      onClick={() => openTicket(tk.id)}
-                      style={{
-                        background: isClosed ? "#f8fafc" : "var(--card-bg, #ffffff)",
-                        borderRadius: 16,
-                        padding: "18px 22px",
-                        border: isClosed ? "1px solid #cbd5e1" : (hasUnread ? "1.5px solid var(--brand, #0891b2)" : "1px solid var(--border, #e2e8f0)"),
-                        boxShadow: isClosed ? "none" : (hasUnread ? "0 4px 16px rgba(8, 145, 178, 0.15)" : "0 2px 8px rgba(0,0,0,0.02)"),
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                        opacity: isClosed ? 0.76 : 1,
-                        filter: isClosed ? "grayscale(40%)" : "none"
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = "translateY(-1px)";
-                        if (isClosed) e.currentTarget.style.background = "#f1f5f9";
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = "none";
-                        if (isClosed) e.currentTarget.style.background = "#f8fafc";
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                return (
+                  <Card
+                    key={tk.id}
+                    onClick={() => openTicket(tk.id)}
+                    style={{
+                      padding: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                      border: isClosed ? "1px solid #cbd5e1" : (hasUnread ? "1.5px solid var(--brand, #0891b2)" : "1px solid #e2e8f0"),
+                      boxShadow: hasUnread ? "0 4px 16px rgba(8, 145, 178, 0.15)" : "0 2px 8px rgba(0,0,0,0.03)",
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      opacity: isClosed ? 0.8 : 1,
+                      filter: isClosed ? "grayscale(30%)" : "none"
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = "translateY(-4px)";
+                      e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.08)";
+                      if (!isClosed) e.currentTarget.style.borderColor = "var(--brand)";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = hasUnread ? "0 4px 16px rgba(8, 145, 178, 0.15)" : "0 2px 8px rgba(0,0,0,0.03)";
+                      if (!isClosed) e.currentTarget.style.borderColor = hasUnread ? "var(--brand, #0891b2)" : "#e2e8f0";
+                    }}
+                  >
+                    {/* Top Header Band */}
+                    <div style={{
+                      background: isClosed ? "#f1f5f9" : "linear-gradient(135deg, #0891b2, #0e7490)",
+                      padding: "8px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      color: isClosed ? "#475569" : "#ffffff",
+                      fontSize: 12,
+                      fontWeight: 800
+                    }}>
+                      <span>#{tk.ticket_number}</span>
+                      <span style={{
+                        fontSize: 10.5,
+                        fontWeight: 800,
+                        padding: "2px 7px",
+                        borderRadius: 6,
+                        background: isClosed ? "#e2e8f0" : "rgba(255,255,255,0.22)",
+                        color: isClosed ? "#475569" : "#ffffff",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4
+                      }}>
+                        {React.createElement(st.icon, { size: 10 })}
+                        {t(st.labelKey, st.defaultLabel)}
+                      </span>
+                    </div>
+
+                    {/* Card Interior */}
+                    <div style={{ padding: "14px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                      <div>
+                        {/* Category & Unread Badge */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
                           <span style={{
-                            fontSize: 13, fontWeight: 800,
-                            color: isClosed ? "#64748b" : "#0e7490",
-                            background: isClosed ? "#e2e8f0" : "#cffafe",
-                            padding: "2px 7px", borderRadius: 6
-                          }}>
-                            #{tk.ticket_number}
-                          </span>
-                          <span style={{
-                            fontSize: 11.5, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 6,
                             background: isClosed ? "#f1f5f9" : cat.bg,
-                            color: isClosed ? "#64748b" : cat.color
+                            color: isClosed ? "#64748b" : cat.color,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
                           }}>
                             {t(cat.labelKey, cat.defaultLabel)}
                           </span>
+
                           {hasUnread && (
-                            <span style={{ background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 10 }}>
-                              {t("unread", "Nouveau message")}
+                            <span style={{
+                              background: "#ef4444", color: "#fff",
+                              fontSize: 10, fontWeight: 800,
+                              padding: "1px 6px", borderRadius: 8
+                            }}>
+                              {t("unread", "Nouveau")}
                             </span>
                           )}
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{
-                            fontSize: 11.5, fontWeight: 800, padding: "2px 9px", borderRadius: 8,
-                            background: isClosed ? "#e2e8f0" : st.bg,
-                            color: isClosed ? "#475569" : st.color,
-                            border: isClosed ? "1px solid #cbd5e1" : "none",
-                            display: "inline-flex", alignItems: "center", gap: 4
+                        {/* Subject */}
+                        <div style={{
+                          fontSize: 14,
+                          fontWeight: 800,
+                          color: isClosed ? "#64748b" : "#0c4a6e",
+                          marginBottom: 8,
+                          lineHeight: 1.3,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }} title={tk.subject}>
+                          {tk.subject}
+                        </div>
+
+                        {/* Last message preview */}
+                        {tk.last_message && (
+                          <div style={{
+                            fontSize: 12,
+                            color: isClosed ? "#94a3b8" : "#475569",
+                            background: isClosed ? "#f8fafc" : "#f0fdfa",
+                            border: isClosed ? "1px solid #e2e8f0" : "1px solid #ccfbf1",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            lineHeight: 1.4,
+                            marginBottom: 10,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden"
                           }}>
-                            {React.createElement(st.icon, { size: 11 })}
-                            {t(st.labelKey, st.defaultLabel)}
-                          </span>
-                          <span style={{ fontSize: 11.5, color: "#94a3b8" }}>
-                            {new Date(tk.updated_at || tk.created_at).toLocaleDateString(isRtl ? "ar-DZ" : i18n.language)}
-                          </span>
-                        </div>
+                            {tk.last_sender_type === "admin" || tk.last_sender_type === "support" ? (
+                              <strong style={{ color: isClosed ? "#64748b" : "#0891b2" }}>{t("admin_support_admin_badge", "Administration")}: </strong>
+                            ) : null}
+                            {tk.last_message}
+                          </div>
+                        )}
                       </div>
 
-                      <div style={{ fontSize: 15, fontWeight: 800, color: isClosed ? "#64748b" : "var(--brand-dark, #0e7490)" }}>
-                        {tk.subject}
+                      {/* Card Footer: Date & CTA */}
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: 8,
+                        borderTop: "1px solid #f1f5f9",
+                        marginTop: 4
+                      }}>
+                        <span style={{ fontSize: 11.5, color: "#94a3b8" }}>
+                          {new Date(tk.updated_at || tk.created_at).toLocaleDateString(isRtl ? "ar-DZ" : i18n.language, { day: "2-digit", month: "short" })}
+                        </span>
+                        <span style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          color: "var(--brand)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}>
+                          {t("admin_support_open_ticket", "Consulter")} →
+                        </span>
                       </div>
-
-                      {tk.last_message && (
-                        <div style={{ fontSize: 12.5, color: isClosed ? "#94a3b8" : "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {tk.last_sender_type === "admin" || tk.last_sender_type === "support" ? (
-                            <strong style={{ color: isClosed ? "#64748b" : "#0891b2" }}>{t("admin_support_admin_badge", "Administration")}: </strong>
-                          ) : null}
-                          {tk.last_message}
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* ── Scalable Pagination Bar for User Tickets ── */}
-              <SupportPaginationBar
-                page={page}
-                setPage={(p) => {
-                  const nextP = typeof p === "function" ? p(page) : p;
-                  setPage(nextP);
-                  userListTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                limit={limit}
-                setLimit={setLimit}
-                totalItems={totalItems}
-                totalPages={totalPages}
-                limitOptions={[5, 10, 20, 50]}
-                isRtl={isRtl}
-                t={t}
-              />
-            </>
+                  </Card>
+                );
+              })}
+            </div>
           )}
+
+          {/* ── Scalable Pagination Bar for User Tickets ── */}
+          <SupportPaginationBar
+            page={page}
+            setPage={(p) => {
+              const nextP = typeof p === "function" ? p(page) : p;
+              setPage(nextP);
+              userListTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            limit={limit}
+            setLimit={setLimit}
+            totalItems={totalItems}
+            totalPages={totalPages}
+            limitOptions={[5, 10, 20, 50]}
+            isRtl={isRtl}
+            t={t}
+          />
         </div>
       )}
 
