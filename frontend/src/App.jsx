@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { jsPDF } from "jspdf";
 import {
   Search, Calendar, MessageSquare, User, LogOut, Sun, Moon,
   ChevronDown, ChevronRight, ChevronLeft, Menu, X, Bell, LayoutDashboard,
@@ -573,71 +574,285 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const name = user?.profile?.fullname?.split(" ")[0] || user?.profile?.clinicname?.split(" ")[0] || user?.username || "U";
   const animClass = useRandomAnimation(30);
 
+  // ─── Shared PDF export helper (Loi 18-07 Art. 34) ───────────────────────────
+  const generateTabibiPDF = (dataObj, filename) => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 18;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    const addPageIfNeeded = (needed = 10) => {
+      if (y + needed > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    // ── Header band ──────────────────────────────────────────────────────────
+    doc.setFillColor(8, 145, 178); // Tabibi Blue #0891b2
+    doc.rect(0, 0, pageW, 30, "F");
+    doc.setFillColor(6, 120, 150); // darker accent stripe
+    doc.rect(0, 28, pageW, 2, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("TABIBI", margin, 13);
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.text("Extraction des donnees personnelles — Loi 18-07 Art. 34", margin, 20);
+    doc.text("contact@tabibi.dz", margin, 26);
+    y = 40;
+
+    // ── Meta info ─────────────────────────────────────────────────────────────
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.text(`Date d'extraction : ${new Date().toLocaleString("fr-DZ")}`, margin, y);
+    y += 8;
+
+    // ── Recursive section renderer ────────────────────────────────────────────
+    const renderSection = (label, value, depth = 0) => {
+      const indent = margin + depth * 5;
+      const valIndent = indent + 55;
+      const maxValW = pageW - valIndent - margin;
+
+      if (value === null || value === undefined) return;
+
+      if (typeof value === "object" && !Array.isArray(value)) {
+        addPageIfNeeded(10);
+        doc.setFillColor(224, 247, 252); // light brand blue bg
+        doc.rect(indent - 2, y - 4.5, contentW - depth * 5 + 2, 8, "F");
+        doc.setDrawColor(8, 145, 178);
+        doc.setLineWidth(0.4);
+        doc.line(indent - 2, y - 4.5, indent - 2, y + 3.5);
+        doc.setLineWidth(0.2);
+        doc.setTextColor(8, 145, 178);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(label.toUpperCase(), indent + 2, y);
+        y += 7;
+        doc.setDrawColor(186, 230, 253);
+        doc.line(indent, y, pageW - margin, y);
+        y += 4;
+        for (const [k, v] of Object.entries(value)) {
+          renderSection(k, v, depth + 1);
+        }
+        y += 2;
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return;
+        addPageIfNeeded(8);
+        doc.setTextColor(8, 145, 178);
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${label} (${value.length})`, indent, y);
+        y += 5;
+        value.forEach((item, idx) => {
+          if (typeof item === "object") {
+            renderSection(`#${idx + 1}`, item, depth + 1);
+          } else {
+            addPageIfNeeded(6);
+            doc.setTextColor(100, 100, 100);
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.text(`• ${String(item)}`, indent + 5, y);
+            y += 5;
+          }
+        });
+        return;
+      }
+
+      // Primitive value row
+      addPageIfNeeded(6);
+      doc.setTextColor(90, 90, 90);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text(label, indent, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(40, 40, 40);
+      const strVal = String(value);
+      const lines = doc.splitTextToSize(strVal, maxValW);
+      doc.text(lines, valIndent, y);
+      y += lines.length * 5 + 1;
+
+      // Divider
+      doc.setDrawColor(230, 230, 230);
+      doc.line(indent, y, pageW - margin, y);
+      y += 2;
+    };
+
+    // ── Render data ───────────────────────────────────────────────────────────
+    for (const [sectionKey, sectionVal] of Object.entries(dataObj)) {
+      renderSection(sectionKey, sectionVal, 0);
+    }
+
+    // ── Footer on all pages ───────────────────────────────────────────────────
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFillColor(245, 248, 250);
+      doc.rect(0, pageH - 9, pageW, 9, "F");
+      doc.setDrawColor(186, 230, 253);
+      doc.setLineWidth(0.3);
+      doc.line(0, pageH - 9, pageW, pageH - 9);
+      doc.setTextColor(140, 140, 140);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(`TABIBI — Donnees personnelles (Loi 18-07 Art. 34) — Page ${i} / ${totalPages}`, margin, pageH - 3.5);
+    }
+
+    doc.save(filename);
+  };
+
+  const buildCuratedExport = (userObj, profileObj) => {
+    const val = (v) => (v !== null && v !== undefined && String(v).trim() !== '') ? String(v).trim() : null;
+    const utype = Number(userObj?.user_type);
+    const p = profileObj || {};
+
+    // ─── Compte (common) ─────────────────────────────────────────────────────
+    const compte = {};
+    if (val(userObj?.username))   compte["Nom d'utilisateur"] = val(userObj.username);
+    if (val(userObj?.email))      compte["E-mail"]            = val(userObj.email);
+    compte["Type de compte"] = utype === 0 ? "Patient" : utype === 1 ? "Medecin" : utype === 2 ? "Clinique" : "Autre";
+    if (val(userObj?.created_at)) compte["Compte cree le"]    = val(userObj.created_at);
+
+    if (utype === 0) {
+      const info = {};
+      if (val(p.fullname))     info["Nom complet"]             = val(p.fullname);
+      if (val(p.email))        info["E-mail"]                  = val(p.email);
+      if (val(p.phone))        info["Telephone"]               = val(p.phone);
+      if (val(p.gender))       info["Genre"]                   = val(p.gender);
+      if (val(p.birthdate || p.dob)) info["Date de naissance"] = val(p.birthdate || p.dob);
+      if (val(p.address))      info["Adresse"]                 = val(p.address);
+      if (val(p.BaladiyaName || p.baladiya_name || p.baladiya)) {
+        info["Commune (Baladiya)"] = val(p.BaladiyaName || p.baladiya_name || p.baladiya);
+      }
+      if (val(p.wilaya_id))    info["Wilaya ID"]               = val(p.wilaya_id);
+      if (val(p.postcode))     info["Code postal"]             = val(p.postcode);
+      if (val(p.cnas))         info["N. CNAS"]                 = val(p.cnas);
+      if (val(p.casnos))       info["N. CASNOS"]               = val(p.casnos);
+      if (val(p.notes))        info["Notes medicales"]         = val(p.notes);
+      if (val(p.created_at))   info["Profil cree le"]          = val(p.created_at);
+      if (val(p.updated_at))   info["Derniere modification"]   = val(p.updated_at);
+      return { "Compte": compte, "Informations personnelles": info };
+    }
+
+    if (utype === 1) {
+      const info = {};
+      if (val(p.fullname))        info["Nom complet"]           = val(p.fullname);
+      if (val(p.email))           info["E-mail"]                = val(p.email);
+      if (val(p.phone))           info["Telephone mobile"]      = val(p.phone);
+      if (val(p.fix))             info["Telephone fixe"]        = val(p.fix);
+      if (val(p.fax))             info["Fax"]                   = val(p.fax);
+      if (val(p.address))         info["Adresse cabinet"]       = val(p.address);
+      if (val(p.baladiya_id))     info["Baladiya ID"]           = val(p.baladiya_id);
+      if (val(p.postcode))        info["Code postal"]           = val(p.postcode);
+      if (val(p.birthdate))       info["Date de naissance"]     = val(p.birthdate);
+      if (val(p.specialtyfr || p.specialtyar)) {
+        info["Specialite"] = val(p.specialtyfr) || val(p.specialtyar);
+      }
+      if (val(p.experience))      info["Experience (annees)"]   = val(p.experience);
+      if (val(p.presentation))    info["Presentation / Bio"]    = val(p.presentation);
+      if (val(p.education))       info["Formation"]             = val(p.education);
+      if (val(p.degrees))         info["Diplomes"]              = val(p.degrees);
+      if (val(p.academytitles))   info["Titres academiques"]    = val(p.academytitles);
+      if (val(p.speakinglanguage || p.speakinglanguages)) {
+        info["Langues parlees"] = val(p.speakinglanguage || p.speakinglanguages);
+      }
+      if (val(p.payementmethods)) info["Modes de paiement"]     = val(p.payementmethods);
+      if (val(p.activitysector))  info["Secteur d'activite"]    = val(p.activitysector);
+      if (val(p.pricing))         info["Tarification"]          = val(p.pricing);
+      if (val(p.cnas))            info["N. CNAS"]               = val(p.cnas);
+      if (val(p.casnos))          info["N. CASNOS"]             = val(p.casnos);
+      if (val(p.rpps))            info["N. RPPS"]               = val(p.rpps);
+      if (val(p.numregister))     info["N. Registre"]           = val(p.numregister);
+      if (val(p.nin))             info["NIN"]                   = val(p.nin);
+      if (val(p.latitude) && val(p.longitude)) {
+        info["Localisation GPS"] = `${val(p.latitude)}, ${val(p.longitude)}`;
+      }
+      if (val(p.created_at))      info["Profil cree le"]        = val(p.created_at);
+      if (val(p.updated_at))      info["Derniere modification"]  = val(p.updated_at);
+
+      const clinicsSection = {};
+      if (Array.isArray(p.clinics) && p.clinics.length > 0) {
+        p.clinics.forEach((c, i) => {
+          const cs = {};
+          if (val(c.clinicname))         cs["Nom"] = val(c.clinicname);
+          if (val(c.clinic_phone))       cs["Telephone"] = val(c.clinic_phone);
+          if (val(c.clinic_address))     cs["Adresse"] = val(c.clinic_address);
+          if (val(c.clinic_email))       cs["E-mail"] = val(c.clinic_email);
+          if (val(c.affiliation_status)) cs["Statut affiliation"] = val(c.affiliation_status);
+          clinicsSection[`Clinique ${i + 1}`] = cs;
+        });
+      }
+      const reasonsSection = {};
+      if (Array.isArray(p.reasons) && p.reasons.length > 0) {
+        p.reasons.forEach((r, i) => {
+          reasonsSection[`Motif ${i + 1}`] = val(r.reason_name) || val(r.name) || String(r);
+        });
+      }
+      const sections = { "Compte": compte, "Informations professionnelles": info };
+      if (Object.keys(clinicsSection).length > 0) sections["Cliniques affiliees"] = clinicsSection;
+      if (Object.keys(reasonsSection).length > 0) sections["Motifs de consultation"] = reasonsSection;
+      return sections;
+    }
+
+    if (utype === 2) {
+      const info = {};
+      if (val(p.clinicname))    info["Nom de la clinique"]    = val(p.clinicname);
+      if (val(p.email))         info["E-mail"]                = val(p.email);
+      if (val(p.phone))         info["Telephone"]             = val(p.phone);
+      if (val(p.fax))           info["Fax"]                   = val(p.fax);
+      if (val(p.address))       info["Adresse"]               = val(p.address);
+      if (val(p.baladiya_id))   info["Baladiya ID"]           = val(p.baladiya_id);
+      if (val(p.postcode))      info["Code postal"]           = val(p.postcode);
+      if (val(p.notes))         info["Notes / Description"]   = val(p.notes);
+      if (val(p.latitude) && val(p.longitude)) {
+        info["Localisation GPS"] = `${val(p.latitude)}, ${val(p.longitude)}`;
+      }
+      if (val(p.active_doctors_count)) info["Medecins actifs"] = val(p.active_doctors_count);
+      if (val(p.created_at))    info["Profil cree le"]         = val(p.created_at);
+      if (val(p.updated_at))    info["Derniere modification"]  = val(p.updated_at);
+
+      const doctorsSection = {};
+      if (Array.isArray(p.doctors) && p.doctors.length > 0) {
+        p.doctors.forEach((d, i) => {
+          const ds = {};
+          if (val(d.fullname))     ds["Nom complet"] = val(d.fullname);
+          if (val(d.phone))        ds["Telephone"]   = val(d.phone);
+          if (val(d.email))        ds["E-mail"]      = val(d.email);
+          if (val(d.specialtyfr || d.specialtyar)) ds["Specialite"] = val(d.specialtyfr) || val(d.specialtyar);
+          if (val(d.affiliation_status)) ds["Statut"] = val(d.affiliation_status);
+          doctorsSection[`Dr. ${i + 1}`] = ds;
+        });
+      }
+      const sections = { "Compte": compte, "Informations de la clinique": info };
+      if (Object.keys(doctorsSection).length > 0) sections["Medecins rattaches"] = doctorsSection;
+      return sections;
+    }
+
+    // Autre type
+    return { "Compte": compte };
+  };
+
+
   const handleDownloadData = async () => {
     try {
       if (show) show(t("export_preparing"), "info");
-      let fullProfile = user;
+      let profileObj = null;
       if (user?.user_type === 0) {
-        try {
-          const p = await api.patient.profile();
-          const appts = await api.patient.appointments().catch(() => []);
-          fullProfile = { ...user, profile_details: p, appointments: appts };
-        } catch (err) {
-          console.warn("Could not fetch extra profile for export", err);
-        }
+        profileObj = await api.patient.profile().catch(() => null);
       } else if (user?.user_type === 1) {
-        try {
-          const p = await api.doctor.profile();
-          fullProfile = { ...user, profile_details: p };
-        } catch (err) { }
+        profileObj = await api.doctor.profile().catch(() => null);
       } else if (user?.user_type === 2) {
-        try {
-          const p = await api.clinics.profile();
-          fullProfile = { ...user, profile_details: p };
-        } catch (err) { }
+        profileObj = await api.clinics.profile().catch(() => null);
       }
-
-      // Nettoyage et sécurisation stricts : suppression de tout token, hash ou credential
-      const sanitizeExport = (obj) => {
-        if (!obj || typeof obj !== "object") return obj;
-        if (Array.isArray(obj)) return obj.map(sanitizeExport);
-        const sensitiveKeys = new Set([
-          "password", "password_hash", "token", "jwt", "access_token", "refresh_token",
-          "secret", "auth_token", "remember_token", "salt", "ip_hash", "user_agent_hash",
-          "apikey", "api_key"
-        ]);
-        const clean = {};
-        for (const [k, v] of Object.entries(obj)) {
-          const lower = k.toLowerCase();
-          if (sensitiveKeys.has(lower) || lower.includes("token") || lower.includes("password") || lower.includes("secret")) {
-            continue; // Exclure tout champ confidentiel ou credential
-          }
-          if ((lower === "photoprofile" || lower === "photo" || lower === "logo") && typeof v === "string" && v.startsWith("data:")) {
-            clean[k] = "[Fichier média volumineux exclu de l'export JSON]";
-            continue;
-          }
-          clean[k] = sanitizeExport(v);
-        }
-        return clean;
-      };
-
-      const exportPayload = {
-        notice: "Extraction des données personnelles — Plateforme TABIBI (Loi 18-07 Art. 34)",
-        contact_requests: "contact@tabibi.dz",
-        extracted_at: new Date().toISOString(),
-        user_account: sanitizeExport(fullProfile)
-      };
-
-      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json;charset=utf-8" });
-      const blobUrl = URL.createObjectURL(blob);
-      const dlAnchorElem = document.createElement('a');
-      dlAnchorElem.setAttribute("href", blobUrl);
-      dlAnchorElem.setAttribute("download", `tabibi_export_user_${user?.id || 'me'}_${new Date().toISOString().slice(0, 10)}.json`);
-      document.body.appendChild(dlAnchorElem);
-      dlAnchorElem.click();
-      document.body.removeChild(dlAnchorElem);
-      URL.revokeObjectURL(blobUrl);
-
+      const exportPayload = buildCuratedExport(user, profileObj);
+      generateTabibiPDF(exportPayload, `tabibi_export_user_${user?.id || 'me'}_${new Date().toISOString().slice(0, 10)}.pdf`);
       if (show) show(t("export_success"), "success");
     } catch (e) {
       if (show) show(t("export_error"), "error");
@@ -672,7 +887,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
         return prev;
       });
     } catch (err) {
-      console.error("فشل في جلب الإشعارات:", err);
+      console.warn("Poll notification warning:", err?.message || err);
     }
   };
 
@@ -773,10 +988,13 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
     let timer = null;
     const scheduleNext = () => {
-      // 5s when active tab, 15s when in background
-      const interval = document.hidden ? 15000 : 5000;
+      // 12s when active tab, 30s when in background (avoids HTTP/2 race condition with Apache 5s keep-alive)
+      const interval = document.hidden ? 30000 : 12000;
       timer = setTimeout(async () => {
-        await Promise.all([fetchNotifications(), fetchCounts()]);
+        try {
+          await fetchNotifications();
+          await fetchCounts();
+        } catch (_) {}
         scheduleNext();
       }, interval);
     };
@@ -4098,6 +4316,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
           ["reasons", i18n.language === 'ar' ? "الأسباب" : "Raisons"],
           ["clinics", i18n.language === 'ar' ? "العيادات" : "Cliniques"],
           ["schedule", i18n.language === 'ar' ? "المواعيد" : "Horaires"],
+          ["location", i18n.language === 'ar' ? "الخريطة والموقع" : "Plan & Carte"],
           ["ratings", i18n.language === 'ar' ? "التقييمات" : "Avis"]
         ].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{
@@ -4263,6 +4482,53 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
             <p style={{ margin: 0, fontSize: 14 }}>{t("no_schedule_desc")}</p>
           </div>
         )
+      )}
+
+      {/* LOCATION / MAP */}
+      {tab === "location" && (
+        <Card style={{ padding: 24 }}>
+          <h3 style={{ color: "#0c4a6e", margin: "0 0 16px", fontSize: 18, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
+            <MapPin size={20} color="var(--brand)" /> {i18n.language === 'ar' ? "الموقع على الخريطة" : "Location on Map"}
+          </h3>
+          {(() => {
+            const activeClinic = data.OtherClinics?.find(c => c.id === selectedClinicId) || data.OtherClinics?.[0];
+            const lat = data.latitude || activeClinic?.latitude;
+            const lng = data.longitude || activeClinic?.longitude;
+            const addr = data.address || activeClinic?.address || data.ClinicAddress || (i18n.language === 'ar' ? "موقع العيادة" : "Emplacement de consultation");
+
+            return (
+              <div style={{ position: "relative", borderRadius: 16, height: 400, overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                {(lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng)) && (Number(lat) !== 0 || Number(lng) !== 0)) ? (
+                  <iframe
+                    title="Doctor / Clinic Location"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    src={`https://maps.google.com/maps?q=${lat},${lng}&hl=${i18n.language}&z=15&output=embed`}
+                    allowFullScreen
+                  />
+                ) : (
+                  <div style={{ background: "#f8fafc", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+                    <MapPin size={48} color="var(--brand)" style={{ opacity: 0.3 }} />
+                    <div style={{ color: "#94a3b8" }}>{i18n.language === 'ar' ? "لا توجد إحداثيات متوفرة لهذا الطبيب أو العيادة" : "Aucune coordonnée disponible pour ce médecin ou établissement"}</div>
+                  </div>
+                )}
+
+                <div style={{ position: "absolute", bottom: 20, left: 20, right: 20, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", padding: 16, borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 15px rgba(0,0,0,0.08)", flexWrap: "wrap", gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#0c4a6e", fontSize: 15 }}>{addr}</div>
+                    {(lat && lng) && <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{`${lat}, ${lng}`}</div>}
+                  </div>
+                  {(lat && lng) && (
+                    <Btn onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank')}>
+                      {i18n.language === 'ar' ? "فتح في خرائط جوجل" : "Ouvrir sur Maps"}
+                    </Btn>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </Card>
       )}
 
       {/* RATINGS */}
@@ -10517,67 +10783,16 @@ function ProfilePage({ user, navigate, qs }) {
   const handleDownloadPersonalData = async () => {
     try {
       show(t("export_preparing"), "info");
-      let fullProfile = user;
+      let profileObj = null;
       if (user?.user_type === 0) {
-        try {
-          const p = await api.patient.profile();
-          const appts = await api.patient.appointments().catch(() => []);
-          fullProfile = { ...user, profile_details: p, appointments: appts };
-        } catch (err) {
-          console.warn("Could not fetch extra profile for export", err);
-        }
+        profileObj = await api.patient.profile().catch(() => null);
       } else if (user?.user_type === 1) {
-        try {
-          const p = await api.doctor.profile();
-          fullProfile = { ...user, profile_details: p };
-        } catch (err) {}
+        profileObj = await api.doctor.profile().catch(() => null);
       } else if (user?.user_type === 2) {
-        try {
-          const p = await api.clinics.profile();
-          fullProfile = { ...user, profile_details: p };
-        } catch (err) {}
+        profileObj = await api.clinics.profile().catch(() => null);
       }
-
-      const sanitizeExport = (obj) => {
-        if (!obj || typeof obj !== "object") return obj;
-        if (Array.isArray(obj)) return obj.map(sanitizeExport);
-        const sensitiveKeys = new Set([
-          "password", "password_hash", "token", "jwt", "access_token", "refresh_token",
-          "secret", "auth_token", "remember_token", "salt", "ip_hash", "user_agent_hash",
-          "apikey", "api_key"
-        ]);
-        const clean = {};
-        for (const [k, v] of Object.entries(obj)) {
-          const lower = k.toLowerCase();
-          if (sensitiveKeys.has(lower) || lower.includes("token") || lower.includes("password") || lower.includes("secret")) {
-            continue;
-          }
-          if ((lower === "photoprofile" || lower === "photo" || lower === "logo") && typeof v === "string" && v.startsWith("data:")) {
-            clean[k] = "[Fichier média volumineux exclu de l'export JSON]";
-            continue;
-          }
-          clean[k] = sanitizeExport(v);
-        }
-        return clean;
-      };
-
-      const exportPayload = {
-        notice: "Extraction des données personnelles — Plateforme TABIBI (Loi 18-07 Art. 34)",
-        contact_requests: "contact@tabibi.dz",
-        extracted_at: new Date().toISOString(),
-        user_account: sanitizeExport(fullProfile)
-      };
-
-      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json;charset=utf-8" });
-      const blobUrl = URL.createObjectURL(blob);
-      const dlAnchorElem = document.createElement('a');
-      dlAnchorElem.setAttribute("href", blobUrl);
-      dlAnchorElem.setAttribute("download", `tabibi_export_user_${user?.id || 'me'}_${new Date().toISOString().slice(0, 10)}.json`);
-      document.body.appendChild(dlAnchorElem);
-      dlAnchorElem.click();
-      document.body.removeChild(dlAnchorElem);
-      URL.revokeObjectURL(blobUrl);
-
+      const exportPayload = buildCuratedExport(user, profileObj);
+      generateTabibiPDF(exportPayload, `tabibi_export_user_${user?.id || 'me'}_${new Date().toISOString().slice(0, 10)}.pdf`);
       show(t("export_success"), "success");
     } catch (e) {
       show(e.message, "error");
@@ -10691,10 +10906,17 @@ function ProfilePage({ user, navigate, qs }) {
         }
       }
 
-      let vs = null;
-      if (user?.user_type === 0) vs = await api.verify.status().catch(() => null);
-
-      setForm(p); setVS(vs);
+      if (p) {
+        if (typeof p.latitude === 'string') p.latitude = p.latitude.trim();
+        if (typeof p.longitude === 'string') p.longitude = p.longitude.trim();
+      }
+      setForm(p); setVS(null); // verStatus loaded separately below
+      api.auth.me().then(me => {
+        if (me) setVS({
+          email_verified: me.profile?.emailvalidation == 1 || me.profile?.emailvalidation === true,
+          has_email: !!(me.profile?.email || me.email || me.username)
+        });
+      }).catch(() => {});
       if (user?.user_type === 1) {
         if (p?.reasons && p.reasons.length > 0) {
           setReasons(p.reasons);
@@ -10881,10 +11103,21 @@ function ProfilePage({ user, navigate, qs }) {
     try {
       const cleanForm = { ...form };
       delete cleanForm.password;
+      if (cleanForm.latitude !== undefined) {
+        const latStr = String(cleanForm.latitude ?? "").trim();
+        const latNum = Number(latStr);
+        cleanForm.latitude = (latStr !== "" && !isNaN(latNum)) ? latNum : null;
+      }
+      if (cleanForm.longitude !== undefined) {
+        const lngStr = String(cleanForm.longitude ?? "").trim();
+        const lngNum = Number(lngStr);
+        cleanForm.longitude = (lngStr !== "" && !isNaN(lngNum)) ? lngNum : null;
+      }
       if (user?.user_type === 1) await api.doctor.update(cleanForm);
       else if (user?.user_type === 2) await api.clinics.update(cleanForm);
       else await api.patient.update(cleanForm);
       show(t("save_success"));
+      await load();
     }
     catch (e) { show(e.message, "error"); }
     finally { setSaving(false); }
@@ -11768,7 +12001,7 @@ function ProfilePage({ user, navigate, qs }) {
             </div>
           </Card>
 
-          {/* 2. Personal Info */}
+          {/* 2. Personal Info & Practice Location */}
           <Card style={{ marginBottom: 14 }}>
             <h3 style={{ color: "#0c4a6e", margin: "0 0 18px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><User size={18} /> {t("personal_info")}</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 0 : 10 }}>
@@ -11788,6 +12021,118 @@ function ProfilePage({ user, navigate, qs }) {
               <Input label={t("spoken_languages", "اللغات المتحدث بها")} value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
               <Input label={t("consultation_pricing", "تسعيرة الكشف الأساسية")} type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
               <Input label={t("postal_code", "الرمز البريدي")} value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
+              <div style={{ gridColumn: isMobile ? "auto" : "1/-1" }}>
+                <Input label={t("address", "العنوان / عنوان العيادة الخاصة")} value={form.address || ""} onChange={e => f("address", e.target.value)} />
+              </div>
+
+              {/* Coordonnées GPS & Géolocalisation pour le médecin */}
+              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginTop: 6, marginBottom: 8, padding: "16px", borderRadius: 14, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <MapPin size={16} color="#0891b2" />
+                      <label style={{ fontSize: 14, fontWeight: 700, color: "#0c4a6e", margin: 0 }}>
+                        {t("doctor_gps_title", "Coordonnées GPS & Géolocalisation du cabinet")}
+                      </label>
+                    </div>
+                    <p style={{ margin: "3px 0 0", fontSize: 12, color: "#64748b" }}>
+                      {t("doctor_gps_desc", "Précisez l'emplacement exact de votre cabinet médical pour permettre aux patients de vous localiser et d'obtenir un itinéraire précis.")}
+                    </p>
+                  </div>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {Boolean(form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (Number(form.latitude) !== 0 || Number(form.longitude) !== 0)) && (
+                      <a
+                        href={`https://www.google.com/maps?q=${encodeURIComponent(form.latitude)},${encodeURIComponent(form.longitude)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "8px 14px", borderRadius: 9,
+                          background: "#ffffff", border: "1.5px solid #0891b2",
+                          color: "#0891b2", fontSize: 12, fontWeight: 700,
+                          textDecoration: "none", transition: "all 0.2s ease",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                        }}
+                      >
+                        <ExternalLink size={13} />
+                        {t("view_on_google_maps", "Vérifier sur Google Maps")}
+                      </a>
+                    )}
+                    <Btn type="button" variant="secondary" onClick={detectLocation} style={{ padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                      <MapPin size={13} /> {t("detect_location", "Détecter ma position")}
+                    </Btn>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
+                      {t("latitude_label", "Latitude")}
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ex: 36.7538"
+                      value={form.latitude ?? ""}
+                      onChange={e => f("latitude", e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
+                      {t("longitude_label", "Longitude")}
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ex: 3.0588"
+                      value={form.longitude ?? ""}
+                      onChange={e => f("longitude", e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mini-carte interactive de prévisualisation */}
+                {Boolean(form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (Number(form.latitude) !== 0 || Number(form.longitude) !== 0)) ? (
+                  <div style={{
+                    borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1",
+                    background: "#e2e8f0", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)"
+                  }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "6px 12px", background: "#f1f5f9", borderBottom: "1px solid #cbd5e1",
+                      fontSize: 11, color: "#475569", fontWeight: 600
+                    }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#059669", display: "inline-block" }} />
+                        {t("map_preview_title", "Aperçu de la position sur la carte")}
+                      </span>
+                      <span style={{ color: "#64748b", fontFamily: "monospace" }}>
+                        {Number(form.latitude).toFixed(5)}, {Number(form.longitude).toFixed(5)}
+                      </span>
+                    </div>
+                    <iframe
+                      title="Doctor Practice Location Preview"
+                      width="100%"
+                      height="200"
+                      style={{ border: 0, display: "block" }}
+                      loading="lazy"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.longitude) - 0.006}%2C${Number(form.latitude) - 0.004}%2C${Number(form.longitude) + 0.006}%2C${Number(form.latitude) + 0.004}&layer=mapnik&marker=${Number(form.latitude)}%2C${Number(form.longitude)}`}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: "12px 14px", borderRadius: 10, background: "#fffbeb",
+                    border: "1px solid #fef3c7", color: "#92400e", fontSize: 12,
+                    display: "flex", alignItems: "center", gap: 8
+                  }}>
+                    <Info size={15} style={{ flexShrink: 0 }} />
+                    <span>{t("no_gps_coords")}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
 
@@ -12609,11 +12954,11 @@ function ProfilePage({ user, navigate, qs }) {
                       {t("latitude_label", "Latitude")}
                     </span>
                     <input
-                      type="number"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="Ex: 36.7538"
                       value={form.latitude ?? ""}
-                      onChange={e => f("latitude", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      onChange={e => f("latitude", e.target.value)}
                       style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
                     />
                   </div>
@@ -12622,11 +12967,11 @@ function ProfilePage({ user, navigate, qs }) {
                       {t("longitude_label", "Longitude")}
                     </span>
                     <input
-                      type="number"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="Ex: 3.0588"
                       value={form.longitude ?? ""}
-                      onChange={e => f("longitude", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      onChange={e => f("longitude", e.target.value)}
                       style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
                     />
                   </div>

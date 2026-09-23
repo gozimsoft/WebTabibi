@@ -30,8 +30,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
-  if (event.request.method !== 'GET') return;
+  // Ignore non-GET requests and API calls completely
+  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {

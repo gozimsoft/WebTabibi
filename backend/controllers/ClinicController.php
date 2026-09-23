@@ -120,8 +120,18 @@ class ClinicController
             $values = [];
             foreach ($allowed as $field) {
                 if (array_key_exists($field, $data)) {
+                    $val = $data[$field];
+                    if ($field === 'latitude' || $field === 'longitude') {
+                        if ($val === '' || $val === null || (is_string($val) && trim($val) === '')) {
+                            $val = null;
+                        } elseif (is_numeric($val)) {
+                            $val = (string)(float)$val;
+                        } else {
+                            $val = null;
+                        }
+                    }
                     $fields[] = "`$field` = ?";
-                    $values[] = $data[$field];
+                    $values[] = $val;
                 }
             }
 
@@ -572,7 +582,7 @@ class ClinicController
 
         // All clinics for this doctor
         $stmtClinics = $pdo->prepare("
-            SELECT c.id, c.clinicname, c.address, c.phone
+            SELECT c.id, c.clinicname, c.address, c.phone, c.latitude, c.longitude
             FROM clinics c
             JOIN clinicsdoctors cd ON cd.clinic_id = c.id
             WHERE cd.doctor_id = ?  AND cd.status IN ('APPROVED', 'ACCEPTED')

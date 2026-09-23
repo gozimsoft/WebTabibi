@@ -121,7 +121,8 @@ class DoctorController {
             $allowed = [
                 'fullname', 'email', 'phone', 'fix', 'cnas', 'casnos', 'speakinglanguage', 
                 'rpps', 'numregister', 'pricing', 'degrees', 'academytitles', 
-                'postcode', 'specialtie_id', 'nin', 'presentation', 'education'
+                'postcode', 'specialtie_id', 'nin', 'presentation', 'education',
+                'address', 'latitude', 'longitude'
             ];
 
             $fields = [];
@@ -134,6 +135,15 @@ class DoctorController {
                     }
                     if ($field === 'cnas' || $field === 'casnos') {
                         $val = !empty($val) ? 1 : 0;
+                    }
+                    if ($field === 'latitude' || $field === 'longitude') {
+                        if ($val === '' || $val === null || (is_string($val) && trim($val) === '')) {
+                            $val = null;
+                        } elseif (is_numeric($val)) {
+                            $val = (float)$val;
+                        } else {
+                            $val = null;
+                        }
                     }
                     $fields[] = "`$field` = ?";
                     $values[] = $val;

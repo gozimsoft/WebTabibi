@@ -23,6 +23,17 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
+    preview: {
+      port: 4173,
+      host: 'localhost',
+      proxy: {
+        '/api': {
+          target: apiTarget,
+          changeOrigin: true,
+          secure: false,
+        }
+      }
+    },
     optimizeDeps: {
       entries: ['index.html', 'src/**/*.{js,jsx}'],
     },
