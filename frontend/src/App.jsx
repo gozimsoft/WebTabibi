@@ -7192,11 +7192,11 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
     const isDoc = tab === 'doctors';
     const headers = isDoc
       ? ['ID', t('admin_th_doctor_name', 'الاسم'), t('admin_th_specialty', 'التخصص'), t('email', 'البريد الإلكتروني'), t('phone', 'الهاتف'), t('admin_th_clinic', 'العيادة المرتبطة'), t('admin_th_status', 'الحالة'), t('admin_th_createdat', 'تاريخ التسجيل'), t('admin_th_approvedat', 'تاريخ الاعتماد')]
-      : ['ID', t('admin_th_clinic_name', 'اسم العيادة'), t('email', 'البريد الإلكتروني'), t('phone', 'الهاتف'), t('admin_th_address', 'العنوان'), t('admin_th_status', 'الحالة'), t('admin_th_createdat', 'تاريخ التسجيل'), t('admin_th_approvedat', 'تاريخ الاعتماد')];
+      : ['ID', t('admin_th_clinic_name', 'اسم العيادة'), t('admin_th_owner_doctor', 'الطبيب المسؤول'), t('email', 'البريد الإلكتروني'), t('phone', 'الهاتف'), t('admin_th_address', 'العنوان'), t('admin_th_status', 'الحالة'), t('admin_th_createdat', 'تاريخ التسجيل'), t('admin_th_approvedat', 'تاريخ الاعتماد')];
 
     const rows = items.map(i => isDoc
       ? [i.id, i.fullname, i.speciality, i.email, i.phone, i.clinicname || '', i.status, i.createdat, i.approvedat || '']
-      : [i.id, i.clinicname, i.email, i.phone, i.address || '', i.status, i.createdat, i.approvedat || '']
+      : [i.id, i.clinicname, i.owner_doctor_name || '', i.email, i.phone, i.address || '', i.status, i.createdat, i.approvedat || '']
     );
 
     const csvContent = "\uFEFF" + [
@@ -7401,6 +7401,24 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
                 <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_clinic', 'العيادة المرتبطة')}</div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2 }}>{detailModal.clinicname}</div>
+                </div>
+              )}
+
+              {tab === 'clinics' && detailModal.owner_doctor_name && (
+                <div style={{ background: '#f0fdfa', border: '1.5px solid #99f6e4', padding: 14, borderRadius: 12, gridColumn: '1/-1' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#0f766e', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Stethoscope size={16} /> {t('admin_owner_doctor_section', 'الطبيب المنشئ والمسؤول عن العيادة')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#134e4a' }}>{detailModal.owner_doctor_name}</div>
+                      {detailModal.owner_doctor_speciality && <div style={{ fontSize: 12, color: '#0d9488' }}>{detailModal.owner_doctor_speciality}</div>}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#115e59', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {detailModal.owner_doctor_email && <span>{detailModal.owner_doctor_email}</span>}
+                      {detailModal.owner_doctor_phone && <span dir="ltr">{detailModal.owner_doctor_phone}</span>}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -7979,6 +7997,7 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
                       <th style={{ padding: '12px 14px' }}>{tab === 'doctors' ? t('admin_th_specialty', 'التخصص الطبي') : t('admin_th_address', 'العنوان')}</th>
                       <th style={{ padding: '12px 14px' }}>{t('admin_th_contact', 'معلومات الاتصال')}</th>
                       {tab === 'doctors' && <th style={{ padding: '12px 14px' }}>{t('admin_th_clinic', 'العيادة')}</th>}
+                      {tab === 'clinics' && <th style={{ padding: '12px 14px' }}>{t('admin_th_owner_doctor', 'الطبيب المسؤول')}</th>}
                       <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>{t('admin_th_createdat', 'تاريخ التسجيل')}</th>
                       {subTab === 'APPROVED' && <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>{t('admin_th_approvedat', 'تاريخ الاعتماد')}</th>}
                       <th style={{ padding: '12px 14px' }}>{t('admin_th_status', 'الحالة')}</th>
@@ -8055,6 +8074,22 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
                           {tab === 'doctors' && (
                             <td style={{ padding: '12px 14px', fontSize: 12, color: '#475569' }}>
                               {item.clinicname || <span style={{ color: '#94a3b8' }}>{t('admin_independent_doctor', 'مستقل')}</span>}
+                            </td>
+                          )}
+                          {tab === 'clinics' && (
+                            <td style={{ padding: '12px 14px', fontSize: 12, color: '#475569' }}>
+                              {item.owner_doctor_name ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <span style={{ fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <Stethoscope size={13} /> {item.owner_doctor_name}
+                                  </span>
+                                  {item.owner_doctor_speciality && (
+                                    <span style={{ fontSize: 11, color: '#64748b' }}>{item.owner_doctor_speciality}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94a3b8' }}>{t('admin_standalone_clinic', 'مستقلة')}</span>
+                              )}
                             </td>
                           )}
                           <td style={{ padding: '12px 14px', fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
@@ -8237,6 +8272,16 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <Building2 size={13} color="#64748b" />
                           <span>{item.clinicname}</span>
+                        </div>
+                      )}
+                      {tab === 'clinics' && item.owner_doctor_name && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f0fdfa', padding: '6px 10px', borderRadius: 8, border: '1px solid #ccfbf1' }}>
+                          <Stethoscope size={14} color="var(--brand)" />
+                          <div>
+                            <span style={{ fontSize: 11, color: '#0e7490', display: 'block' }}>{t('clinic_owner_doctor', 'الطبيب المنشئ / المسؤول')}:</span>
+                            <strong style={{ color: '#0c4a6e', fontSize: 12 }}>{item.owner_doctor_name}</strong>
+                            {item.owner_doctor_speciality && <span style={{ fontSize: 11, color: '#64748b', marginInlineStart: 4 }}>({item.owner_doctor_speciality})</span>}
+                          </div>
                         </div>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
