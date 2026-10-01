@@ -115,7 +115,7 @@ class AdminController {
         $allowed = ['PENDING','APPROVED','REJECTED','FROZEN','ALL'];
         if (!in_array($status, $allowed)) $status = 'PENDING';
 
-        // Global status counts for badges
+        // Global status counts for badges (combining clinics and unapproved clinicregistrations)
         $countsStmt = $pdo->query("
             SELECT 
                 COUNT(*) as total,
@@ -123,7 +123,11 @@ class AdminController {
                 SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved,
                 SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
                 SUM(CASE WHEN is_frozen = 1 THEN 1 ELSE 0 END) as frozen
-            FROM clinicregistrations
+            FROM (
+                SELECT status, is_frozen FROM clinics
+                UNION ALL
+                SELECT status, is_frozen FROM clinicregistrations WHERE clinic_id IS NULL
+            ) combined_clinics
         ");
         $rawCounts = $countsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
         $counts = [
@@ -146,8 +150,9 @@ class AdminController {
         }
 
         if ($search !== '') {
-            $where[] = "(clinicname LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?)";
+            $where[] = "(clinicname LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ? OR owner_doctor_name LIKE ?)";
             $term = "%$search%";
+            $params[] = $term;
             $params[] = $term;
             $params[] = $term;
             $params[] = $term;
@@ -166,8 +171,31 @@ class AdminController {
 
         $whereClause = !empty($where) ? "WHERE " . implode(' AND ', $where) : "";
 
+        // Source UNION subquery
+        $sourceSubquery = "
+            (
+                SELECT 
+                    c.id, c.clinicname, c.email, c.phone, c.address, c.notes, c.status, 
+                    c.rejectedreason, c.approvedat, c.createdat, c.user_id, c.owner_doctor_id,
+                    c.is_frozen, c.freeze_reason, c.frozen_at,
+                    d.fullname as owner_doctor_name, d.email as owner_doctor_email, d.phone as owner_doctor_phone,
+                    'clinic' as source_table
+                FROM clinics c
+                LEFT JOIN doctors d ON d.id = c.owner_doctor_id
+                UNION ALL
+                SELECT 
+                    cr.id, cr.clinicname, cr.email, cr.phone, cr.address, cr.notes, cr.status, 
+                    cr.rejectedreason, cr.approvedat, cr.createdat, cr.user_id, NULL as owner_doctor_id,
+                    cr.is_frozen, cr.freeze_reason, cr.frozen_at,
+                    NULL as owner_doctor_name, NULL as owner_doctor_email, NULL as owner_doctor_phone,
+                    'registration' as source_table
+                FROM clinicregistrations cr
+                WHERE cr.clinic_id IS NULL
+            ) combined_sources
+        ";
+
         // Total for filtered set
-        $totalStmt = $pdo->prepare("SELECT COUNT(*) FROM clinicregistrations $whereClause");
+        $totalStmt = $pdo->prepare("SELECT COUNT(*) FROM $sourceSubquery $whereClause");
         $totalStmt->execute($params);
         $total = (int)$totalStmt->fetchColumn();
 
@@ -179,8 +207,7 @@ class AdminController {
         $orderDir = (isset($_GET['order_dir']) && strtoupper($_GET['order_dir']) === 'ASC') ? 'ASC' : 'DESC';
 
         $query = "
-            SELECT id, clinicname, email, phone, address, notes, status, rejectedreason, approvedat, createdat, clinic_id, user_id, is_frozen, freeze_reason, frozen_at
-            FROM clinicregistrations
+            SELECT * FROM $sourceSubquery
             $whereClause
             ORDER BY $orderCol $orderDir
             LIMIT $limit OFFSET $offset
@@ -302,12 +329,66 @@ class AdminController {
 
     // ----------------------------------------------------------
     // POST /api/admin/clinics/{id}/approve
-    // Approves clinic registration → creates clinics + users rows & sends credentials email
+    // Approves clinic → updates clinics table (or handles legacy clinicregistrations)
     // ----------------------------------------------------------
     public static function approveClinic(string $id): void {
         AuthMiddleware::adminOnly();
         $pdo = Database::getInstance();
 
+        // 1. Check if ID exists in clinics table (Unified Architecture)
+        $cStmt = $pdo->prepare("SELECT * FROM clinics WHERE id = ? LIMIT 1");
+        $cStmt->execute([$id]);
+        $clinic = $cStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($clinic) {
+            if ($clinic['status'] === 'APPROVED') {
+                Response::error('تمت الموافقة على هذه العيادة بالفعل.', 409);
+            }
+
+            $pdo->beginTransaction();
+            try {
+                $pdo->prepare("
+                    UPDATE clinics 
+                    SET status = 'APPROVED', approvedat = NOW() 
+                    WHERE id = ?
+                ")->execute([$id]);
+
+                // Also approve the owner relation in clinicsdoctors
+                $pdo->prepare("
+                    UPDATE clinicsdoctors 
+                    SET status = 'APPROVED' 
+                    WHERE clinic_id = ? AND is_owner = 1
+                ")->execute([$id]);
+
+                $pdo->commit();
+
+                // Send email notification to owner doctor if available
+                if (!empty($clinic['owner_doctor_id'])) {
+                    $dStmt = $pdo->prepare("SELECT fullname, email FROM doctors WHERE id = ?");
+                    $dStmt->execute([$clinic['owner_doctor_id']]);
+                    $doc = $dStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($doc && !empty($doc['email'])) {
+                        require_once __DIR__ . '/../helpers/EmailHelper.php';
+                        if (class_exists('EmailHelper') && method_exists('EmailHelper', 'sendClinicApproved')) {
+                            EmailHelper::sendClinicApproved($doc['email'], $doc['fullname'], $clinic['clinicname']);
+                        }
+                    }
+                }
+
+                Response::success([
+                    'clinic_id' => $id,
+                    'status'    => 'APPROVED'
+                ], 'تمت الموافقة على العيادة وتفعيلها بنجاح.');
+                return;
+
+            } catch (\Exception $e) {
+                $pdo->rollBack();
+                Response::serverError('حدث خطأ في الخادم أثناء اعتماد العيادة: ' . $e->getMessage());
+                return;
+            }
+        }
+
+        // 2. Fallback: check legacy clinicregistrations
         $stmt = $pdo->prepare("SELECT * FROM clinicregistrations WHERE id=? LIMIT 1");
         $stmt->execute([$id]);
         $reg = $stmt->fetch();
@@ -320,9 +401,6 @@ class AdminController {
             $userId   = UUIDHelper::generate();
             $clinicid = UUIDHelper::generate();
             $username = strtolower(str_replace(' ', '_', $reg['clinicname'])) . '_' . substr($id, 0, 6);
-
-            // PHASE 02F : Ne jamais envoyer de mot de passe en clair par email (Loi 18-07).
-            // L'utilisateur utilise le mot de passe qu'il a saisi lors de son inscription.
 
             // Create User (usertype=2 = Clinic)
             $pdo->prepare("INSERT INTO users (id, username, password, usertype) VALUES (?,?,?,2)")
@@ -343,7 +421,6 @@ class AdminController {
 
             $pdo->commit();
 
-            // Email d'approbation : ne jamais transmettre le mot de passe (null = message générique)
             EmailHelper::sendApprovalCredentials(
                 $reg['email'],
                 $reg['clinicname'],
@@ -372,7 +449,31 @@ class AdminController {
         AuthMiddleware::adminOnly();
         $pdo  = Database::getInstance();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $reason = $data['reason'] ?? null;
 
+        // 1. Check clinics table
+        $cStmt = $pdo->prepare("SELECT id, status FROM clinics WHERE id = ? LIMIT 1");
+        $cStmt->execute([$id]);
+        $clinic = $cStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($clinic) {
+            $pdo->prepare("
+                UPDATE clinics 
+                SET status = 'REJECTED', rejectedreason = ? 
+                WHERE id = ?
+            ")->execute([$reason, $id]);
+
+            $pdo->prepare("
+                UPDATE clinicsdoctors 
+                SET status = 'REJECTED' 
+                WHERE clinic_id = ? AND is_owner = 1
+            ")->execute([$id]);
+
+            Response::success(null, 'تم رفض طلب العيادة.');
+            return;
+        }
+
+        // 2. Fallback: check legacy clinicregistrations
         $stmt = $pdo->prepare("SELECT status FROM clinicregistrations WHERE id=? LIMIT 1");
         $stmt->execute([$id]);
         $reg = $stmt->fetch();
@@ -384,7 +485,7 @@ class AdminController {
             UPDATE clinicregistrations
             SET status='REJECTED', rejectedreason=?
             WHERE id=?
-        ")->execute([$data['reason'] ?? null, $id]);
+        ")->execute([$reason, $id]);
 
         Response::success(null, 'تم رفض طلب العيادة.');
     }
