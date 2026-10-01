@@ -30,6 +30,7 @@ import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
+import DoctorClinicManager from "./components/DoctorClinicManager";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
 import { AdminSupportUserTicketsPage, AdminSupportBackoffice } from "./pages/AdminSupportTickets";
 import SuperAdminAccountManagement from "./pages/SuperAdminAccountManagement";
@@ -10585,7 +10586,7 @@ function ProfilePage({ user, navigate, qs }) {
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
   const initialSecurity = (qs && new URLSearchParams(qs).get("tab") === "security");
-  const [doctorActiveTab, setDoctorActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'reasons' | 'appointment_settings' | 'off_hours' | 'security'
+  const [doctorActiveTab, setDoctorActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'clinic' | 'reasons' | 'appointment_settings' | 'off_hours' | 'security'
   const [patientActiveTab, setPatientActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
   const [clinicActiveTab, setClinicActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
   const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
@@ -11388,6 +11389,31 @@ function ProfilePage({ user, navigate, qs }) {
 
           <button
             type="button"
+            onClick={() => setDoctorActiveTab("clinic")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "clinic" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              color: doctorActiveTab === "clinic" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "clinic" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Building2 size={17} />
+            {t("my_clinic_tab", "عيادتي ومقر العمل")}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setDoctorActiveTab("reasons")}
             style={{
               flex: 1,
@@ -11690,6 +11716,10 @@ function ProfilePage({ user, navigate, qs }) {
       )}
 
       {/* ─── DOCTOR TABS CONTENT ─── */}
+      {user?.user_type === 1 && doctorActiveTab === "clinic" && (
+        <DoctorClinicManager api={api} showToast={show} isMobile={isMobile} />
+      )}
+
       {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
         <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
       )}
