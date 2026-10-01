@@ -235,6 +235,23 @@ try {
         require_once __DIR__ . '/controllers/DoctorController.php';
         DoctorController::uploadDoctor();
     }
+    // ── Doctor Owned Clinic Management ───────────────────────
+    if ($uri === '/doctors/clinic' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::getMyClinic();
+    }
+    if ($uri === '/doctors/clinic' && $method === 'POST') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::createClinic();
+    }
+    if ($uri === '/doctors/clinic' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::updateMyClinic();
+    }
+    if ($uri === '/doctors/clinic/settings' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/DoctorController.php';
+        DoctorController::updateClinicSettings();
+    }
     // ── Doctor Consultation Reasons ───────────────────────────
     if ($uri === '/doctors/reasons' && $method === 'GET') {
         require_once __DIR__ . '/controllers/DoctorController.php';

@@ -847,4 +847,377 @@ class DoctorController {
 
         Response::success(null, 'تم حذف فترة خارج العمل بنجاح.');
     }
+
+    // ──────────────────────────────────────────────────────────
+    // DOCTOR-OWNED CLINIC MANAGEMENT (Unified Architecture)
+    // ──────────────────────────────────────────────────────────
+
+    // GET /api/doctors/clinic
+    public static function getMyClinic(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id, specialtie_id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctor = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$doctor) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $doctorId = $doctor['id'];
+
+        // Find clinic owned by this doctor
+        $stmt = $pdo->prepare("
+            SELECT c.* 
+            FROM clinics c
+            WHERE c.owner_doctor_id = ? 
+               OR (c.user_id = ? AND c.owner_doctor_id IS NULL)
+               OR c.id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
+            ORDER BY c.createdat DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
+        $clinic = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$clinic) {
+            Response::success(null, 'لا توجد عيادة مرتبطة بهذا الطبيب حتى الآن.');
+            return;
+        }
+
+        // If owner_doctor_id wasn't set, auto-link it now
+        if (empty($clinic['owner_doctor_id'])) {
+            $pdo->prepare("UPDATE clinics SET owner_doctor_id = ? WHERE id = ?")
+                ->execute([$doctorId, $clinic['id']]);
+            $clinic['owner_doctor_id'] = $doctorId;
+        }
+
+        // Format Logo
+        if (!empty($clinic['logo'])) {
+            $clinic['logo'] = base64_encode($clinic['logo']);
+        }
+
+        // Fetch Doctor's Appointment Settings for this Clinic
+        $sStmt = $pdo->prepare("
+            SELECT * FROM doctorssettingapointements 
+            WHERE doctor_id = ? AND clinic_id = ? 
+            LIMIT 1
+        ");
+        $sStmt->execute([$doctorId, $clinic['id']]);
+        $clinic['appointment_settings'] = $sStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        // Fetch Doctor's Off-Hours for this Clinic
+        $ohStmt = $pdo->prepare("
+            SELECT id, day, 
+                   DATE_FORMAT(timebegin, '%H:%i') as timebegin, 
+                   DATE_FORMAT(timeend, '%H:%i') as timeend 
+            FROM doctorsoffhours 
+            WHERE doctor_id = ? AND clinic_id = ? 
+            ORDER BY day ASC, timebegin ASC
+        ");
+        $ohStmt->execute([$doctorId, $clinic['id']]);
+        $clinic['off_hours'] = $ohStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Fetch Doctor's Consultation Reasons for this Clinic
+        $rStmt = $pdo->prepare("
+            SELECT id, reason_name, price, countreason, colorreason, timereason 
+            FROM doctorsreasons 
+            WHERE doctor_id = ? AND (clinic_id = ? OR clinic_id IS NULL)
+            ORDER BY reason_name ASC
+        ");
+        $rStmt->execute([$doctorId, $clinic['id']]);
+        $clinic['reasons'] = $rStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $clinic['is_owner'] = true;
+
+        Response::success($clinic);
+    }
+
+    // POST /api/doctors/clinic
+    public static function createClinic(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id, specialtie_id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctor = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$doctor) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $doctorId = $doctor['id'];
+
+        // Verify if doctor already has an active or pending clinic
+        $stmt = $pdo->prepare("
+            SELECT id FROM clinics 
+            WHERE owner_doctor_id = ? 
+               OR (user_id = ? AND owner_doctor_id IS NULL)
+               OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
+            LIMIT 1
+        ");
+        $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
+        if ($stmt->fetch()) {
+            Response::error('لديك عيادة منشأة بالفعل، يمكنك تعديل بياناتها مباشرة من لوحة التحكم.', 409);
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        if (empty($data['clinicname']) || empty($data['phone']) || empty($data['address'])) {
+            Response::error('يرجى ملء جميع الحقول المطلوبة: اسم العيادة، رقم الهاتف، والعنوان.', 422);
+        }
+
+        $clinicId   = UUIDHelper::generate();
+        $relationId = UUIDHelper::generate();
+
+        // Process logo
+        $logoBinary = null;
+        if (!empty($data['logo'])) {
+            $logoStr = $data['logo'];
+            if (strpos($logoStr, ',') !== false) {
+                $logoStr = explode(',', $logoStr)[1];
+            }
+            $logoBinary = base64_decode($logoStr);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            // Insert clinic with PENDING status
+            $insClinic = $pdo->prepare("
+                INSERT INTO clinics (
+                    id, user_id, owner_doctor_id, clinicname, phone, fax, address,
+                    email, website, emergency, ambulances, hospitalization,
+                    postcode, services, aboutclinic, latitude, longitude,
+                    status, logo, createdat, updatedat
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    'PENDING', ?, NOW(), NOW()
+                )
+            ");
+            $insClinic->execute([
+                $clinicId,
+                $session['user_id'],
+                $doctorId,
+                trim($data['clinicname']),
+                trim($data['phone']),
+                $data['fax'] ?? null,
+                trim($data['address']),
+                $data['email'] ?? null,
+                $data['website'] ?? null,
+                !empty($data['emergency']) ? 1 : 0,
+                !empty($data['ambulances']) ? 1 : 0,
+                !empty($data['hospitalization']) ? 1 : 0,
+                $data['postcode'] ?? null,
+                $data['services'] ?? null,
+                $data['aboutclinic'] ?? null,
+                $data['latitude'] ?? null,
+                $data['longitude'] ?? null,
+                $logoBinary
+            ]);
+
+            // Link doctor to clinic in clinicsdoctors with is_owner = 1 and status = APPROVED
+            $insRelation = $pdo->prepare("
+                INSERT INTO clinicsdoctors (
+                    id, clinic_id, doctor_id, specialtie_id, status, requestedby, is_owner
+                ) VALUES (?, ?, ?, ?, 'APPROVED', 'DOCTOR', 1)
+            ");
+            $insRelation->execute([
+                $relationId,
+                $clinicId,
+                $doctorId,
+                $doctor['specialtie_id'] ?? null
+            ]);
+
+            $pdo->commit();
+
+            Response::success([
+                'clinic_id' => $clinicId,
+                'status'    => 'PENDING'
+            ], 'تم إنشاء العيادة بنجاح وهي الآن قيد مراجعة الإدارة للتفعيل.', 201);
+
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('حدث خطأ أثناء حفظ بيانات العيادة: ' . $e->getMessage());
+        }
+    }
+
+    // PUT /api/doctors/clinic
+    public static function updateMyClinic(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        // Find clinic owned by this doctor
+        $stmt = $pdo->prepare("
+            SELECT id FROM clinics 
+            WHERE owner_doctor_id = ? 
+               OR (user_id = ? AND owner_doctor_id IS NULL)
+               OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
+            LIMIT 1
+        ");
+        $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
+        $clinicId = $stmt->fetchColumn();
+
+        if (!$clinicId) {
+            Response::notFound('لم يتم العثور على عيادة خاصة بك لتحديثها.');
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        // Build dynamic updates
+        $fields = [
+            'clinicname'     => $data['clinicname'] ?? null,
+            'phone'          => $data['phone'] ?? null,
+            'fax'            => $data['fax'] ?? null,
+            'address'        => $data['address'] ?? null,
+            'email'          => $data['email'] ?? null,
+            'website'        => $data['website'] ?? null,
+            'services'       => $data['services'] ?? null,
+            'aboutclinic'    => $data['aboutclinic'] ?? null,
+            'latitude'       => $data['latitude'] ?? null,
+            'longitude'      => $data['longitude'] ?? null,
+            'emergency'      => isset($data['emergency']) ? ($data['emergency'] ? 1 : 0) : null,
+            'ambulances'     => isset($data['ambulances']) ? ($data['ambulances'] ? 1 : 0) : null,
+            'hospitalization'=> isset($data['hospitalization']) ? ($data['hospitalization'] ? 1 : 0) : null,
+            'postcode'       => $data['postcode'] ?? null,
+        ];
+
+        $setClauses = [];
+        $params     = [];
+
+        foreach ($fields as $col => $val) {
+            if ($val !== null) {
+                $setClauses[] = "`$col` = ?";
+                $params[]     = $val;
+            }
+        }
+
+        // Process logo update if supplied
+        if (!empty($data['logo'])) {
+            $logoStr = $data['logo'];
+            if (strpos($logoStr, ',') !== false) {
+                $logoStr = explode(',', $logoStr)[1];
+            }
+            $setClauses[] = "`logo` = ?";
+            $params[]     = base64_decode($logoStr);
+        }
+
+        if (empty($setClauses)) {
+            Response::error('لم يتم توفير أي بيانات جديدة للتحديث.', 422);
+        }
+
+        $setClauses[] = "`updatedat` = NOW()";
+        $setSql = implode(', ', $setClauses);
+
+        $params[] = $clinicId;
+        $upd = $pdo->prepare("UPDATE clinics SET $setSql WHERE id = ?");
+        $upd->execute($params);
+
+        Response::success(['clinic_id' => $clinicId], 'تم تحديث بيانات العيادة بنجاح.');
+    }
+
+    // PUT /api/doctors/clinic/settings
+    public static function updateClinicSettings(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        // Find clinic owned by this doctor
+        $stmt = $pdo->prepare("
+            SELECT id FROM clinics 
+            WHERE owner_doctor_id = ? 
+               OR (user_id = ? AND owner_doctor_id IS NULL)
+               OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
+            LIMIT 1
+        ");
+        $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
+        $clinicId = $stmt->fetchColumn();
+
+        if (!$clinicId) {
+            Response::notFound('لم يتم العثور على عيادة خاصة بك.');
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $pdo->beginTransaction();
+        try {
+            // 1. Update Appointment Settings if provided
+            if (!empty($data['appointment_settings'])) {
+                $as = $data['appointment_settings'];
+                $timescale    = (int)($as['timescale'] ?? 15);
+                $daytimestart = !empty($as['daytimestart']) ? $as['daytimestart'] : '08:00';
+                $daytimeend   = !empty($as['daytimeend']) ? $as['daytimeend'] : '17:00';
+                $weekbeginday = (int)($as['weekbeginday'] ?? 0);
+                $workingdays  = !empty($as['workingdays']) ? (is_array($as['workingdays']) ? implode(',', $as['workingdays']) : $as['workingdays']) : '0,1,2,3,4';
+                $countdays    = (int)($as['countdays'] ?? 5);
+                $isregistered = !empty($as['isregistered']) ? 1 : 0;
+
+                // Normalize time format to full datetime
+                $startDt = (strpos($daytimestart, ':') !== false && strlen($daytimestart) <= 8) ? "2000-01-01 $daytimestart" : $daytimestart;
+                $endDt   = (strpos($daytimeend, ':') !== false && strlen($daytimeend) <= 8) ? "2000-01-01 $daytimeend" : $daytimeend;
+
+                $checkStmt = $pdo->prepare("SELECT id FROM doctorssettingapointements WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+                $checkStmt->execute([$doctorId, $clinicId]);
+                $existingId = $checkStmt->fetchColumn();
+
+                if ($existingId) {
+                    $updAs = $pdo->prepare("
+                        UPDATE doctorssettingapointements 
+                        SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                        WHERE id = ?
+                    ");
+                    $updAs->execute([$timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered, $existingId]);
+                } else {
+                    $insAs = $pdo->prepare("
+                        INSERT INTO doctorssettingapointements (
+                            id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $insAs->execute([UUIDHelper::generate(), $doctorId, $clinicId, $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered]);
+                }
+            }
+
+            // 2. Update Off-Hours if provided
+            if (isset($data['off_hours']) && is_array($data['off_hours'])) {
+                $delOh = $pdo->prepare("DELETE FROM doctorsoffhours WHERE doctor_id = ? AND clinic_id = ?");
+                $delOh->execute([$doctorId, $clinicId]);
+
+                $insOh = $pdo->prepare("
+                    INSERT INTO doctorsoffhours (id, doctor_id, clinic_id, day, timebegin, timeend)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                foreach ($data['off_hours'] as $oh) {
+                    if (isset($oh['day']) && !empty($oh['timebegin']) && !empty($oh['timeend'])) {
+                        $tb = strlen($oh['timebegin']) <= 8 ? "2000-01-01 " . $oh['timebegin'] : $oh['timebegin'];
+                        $te = strlen($oh['timeend']) <= 8 ? "2000-01-01 " . $oh['timeend'] : $oh['timeend'];
+                        $insOh->execute([UUIDHelper::generate(), $doctorId, $clinicId, (int)$oh['day'], $tb, $te]);
+                    }
+                }
+            }
+
+            $pdo->commit();
+            Response::success(['clinic_id' => $clinicId], 'تم تحديث إعدادات وأوقات دوام العيادة بنجاح.');
+
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::serverError('حدث خطأ أثناء تحديث إعدادات العيادة: ' . $e->getMessage());
+        }
+    }
 }
+
