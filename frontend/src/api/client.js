@@ -140,6 +140,10 @@ export const api = {
     createOffHour: (body) => request('POST', '/doctors/off-hours', body),
     updateOffHour: (id, body) => request('PUT', `/doctors/off-hours/${id}`, body),
     deleteOffHour: (id) => request('DELETE', `/doctors/off-hours/${id}`),
+    getMyClinic: () => request('GET', '/doctors/clinic'),
+    createClinic: (body) => request('POST', '/doctors/clinic', body),
+    updateMyClinic: (body) => request('PUT', '/doctors/clinic', body),
+    updateClinicSettings: (body) => request('PUT', '/doctors/clinic/settings', body),
   },
   clinics: {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),

@@ -149,6 +149,10 @@ const api = {
   },
   doctors: {
     get: id => req("GET", `/doctors/${id}`),
+    getMyClinic: () => req("GET", "/doctors/clinic"),
+    createClinic: b => req("POST", "/doctors/clinic", b),
+    updateMyClinic: b => req("PUT", "/doctors/clinic", b),
+    updateClinicSettings: b => req("PUT", "/doctors/clinic/settings", b),
   },
   specialties: () => req("GET", "/specialties"),
   reasons: specId => req("GET", `/reasons${specId ? '?specialty_id=' + specId : ''}`, null, false),
@@ -2391,30 +2395,17 @@ function HomePage({ user, navigate }) {
           }}>
             <button onClick={() => navigate("/register-doctor")} style={{
               background: "var(--card-bg)", border: "none",
-              borderRadius: 10, padding: "12px 28px",
-              color: "var(--brand)", fontSize: 14, fontWeight: 800,
+              borderRadius: 12, padding: "14px 32px",
+              color: "var(--brand)", fontSize: 15, fontWeight: 800,
               transition: "all 0.2s", cursor: "pointer",
               width: isMobile ? "100%" : "auto",
-              display: "flex", alignItems: "center", gap: 8, justifyContent: "center"
+              display: "flex", alignItems: "center", gap: 10, justifyContent: "center",
+              boxShadow: "0 6px 20px rgba(0,0,0,0.12)"
             }}
               onMouseEnter={e => e.currentTarget.style.opacity = "0.92"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}
             >
-              <Stethoscope size={18} /> {t("join_as_doctor")}
-            </button>
-            <button onClick={() => navigate("/register-clinic")} style={{
-              background: "rgba(255,255,255,0.15)",
-              border: "1.5px solid rgba(255,255,255,0.35)",
-              borderRadius: 10, padding: "12px 28px",
-              color: "#fff", fontSize: 14, fontWeight: 800,
-              transition: "all 0.2s", cursor: "pointer",
-              width: isMobile ? "100%" : "auto",
-              display: "flex", alignItems: "center", gap: 8, justifyContent: "center"
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
-              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.15)"}
-            >
-              <Building size={18} /> {t("register_clinic_btn")}
+              <Stethoscope size={20} /> {t("join_as_doctor")}
             </button>
           </div>
         </div>
@@ -6731,147 +6722,78 @@ function AboutPage({ navigate }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── PAGE: REGISTER CLINIC (FOR doctors)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── PAGE: REGISTER CLINIC (GUIDANCE TO DOCTOR REGISTRATION)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function RegisterClinicPage({ navigate }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
-  const { show, Toast } = useToast();
-  const isAnimating = useRandomAnimation(30, 60);
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ clinic_name: '', email: '', phone: '', password: '', address: '', notes: '', latitude: 0, longitude: 0 });
-  const [errors, setErrors] = useState({});
-  // PHASE 02C : consentements obligatoires
-  const [consentCguClinic, setConsentCguClinic] = useState(false);
-  const [consentPrivacyClinic, setConsentPrivacyClinic] = useState(false);
-  const consentClinicValid = consentCguClinic && consentPrivacyClinic;
-
-  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
-
-  const validate = () => {
-    const e = {};
-    if (!form.clinic_name.trim()) e.clinic_name = t("clinic_name_required");
-    if (!form.email.trim()) e.email = t("email_required");
-    if (!form.phone.trim()) e.phone = t("phone_required");
-    if (form.password.length < 6) e.password = t("password_min_6");
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      show(t("browser_no_gps"), "error");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
-        show(t("location_detected"), "success");
-      },
-      (err) => {
-        show(t("location_err") + err.message, "error");
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
-  };
-
-  const submit = async () => {
-    if (!validate()) return;
-    if (!consentClinicValid) { show('يجب قبول شروط الاستخدام وسياسة الخصوصية', 'error'); return; }
-    setLoading(true);
-    try {
-      await api.register.clinic({ ...form, consent_cgu: 1, consent_privacy: 1 });
-      setDone(true);
-    } catch (e) { show(e.message, 'error'); }
-    finally { setLoading(false); }
-  };
-
-  if (done) return (
-    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: 'var(--card-bg)', borderRadius: 24, padding: isMobile ? 28 : 48, maxWidth: 500, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
-        <div className={isAnimating ? "random-flip" : ""} style={{ width: 80, height: 80, background: 'linear-gradient(135deg,#059669,#047857)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-          <CheckCircle size={40} color="#fff" />
-        </div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0c4a6e', marginBottom: 12 }}>{t("registration_success")}</h2>
-        <p style={{ color: '#6b7280', lineHeight: 1.8, marginBottom: 28, fontSize: 15 }}>
-          {t("registration_success_desc")}
-        </p>
-        <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12, padding: '14px 20px', marginBottom: 28, textAlign: i18n.language === 'ar' ? 'right' : 'left' }}>
-          <div style={{ fontSize: 13, color: '#0f766e', fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <AlertCircle size={14} /> {t("request_details")}
-          </div>
-          <div style={{ fontSize: 14, color: '#134e4a' }}>{t("stats_clinics")}: <strong>{form.clinic_name}</strong></div>
-          <div style={{ fontSize: 14, color: '#134e4a' }}>{t("email")}: <strong>{form.email}</strong></div>
-        </div>
-        <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>{t("back_to_home")}</Btn>
-      </div>
-    </div>
-  );
+  const isRtl = i18n.language === 'ar';
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '16px' : '28px 24px' }}>
-      <Toast />
-      <div style={{ textAlign: 'center', marginBottom: 36 }}>
-        <div className={isAnimating ? "random-flip" : ""} style={{ width: 72, height: 72, borderRadius: 22, background: 'var(--brand-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <Building size={36} color="var(--brand)" />
+    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 16 : 32, background: 'var(--bg)' }}>
+      <div style={{
+        maxWidth: 620,
+        width: '100%',
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
+        borderRadius: 24,
+        padding: isMobile ? 24 : 40,
+        textAlign: 'center',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.06)'
+      }}>
+        <div style={{
+          width: 80,
+          height: 80,
+          borderRadius: 24,
+          background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(2, 132, 199, 0.25))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 24px',
+          color: 'var(--brand)'
+        }}>
+          <Building size={42} />
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0c4a6e', marginBottom: 8 }}>{t("register_clinic_title")}</h1>
-        <p style={{ color: '#6b7280', fontSize: 15 }}>{t("register_clinic_desc")}</p>
-      </div>
 
-      <Card style={{ padding: isMobile ? 20 : 36 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
-          <Input label={`${t("clinic_name_input")} *`} placeholder="عيادة الرحمة" value={form.clinic_name} onChange={e => set('clinic_name', e.target.value)} error={errors.clinic_name} />
-          <Input label={`${t("professional_phone")} *`} placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
-        </div>
-        <Input label={`${t("email")} *`} type="email" placeholder="clinic@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
-        <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
-        <Input label={t("full_address")} placeholder={t("address_placeholder")} value={form.address} onChange={e => set('address', e.target.value)} />
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>{t("additional_info")}</label>
-          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder={t("additional_info_placeholder")}
-            style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-        </div>
+        <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 900, color: 'var(--heading-color)', marginBottom: 12 }}>
+          {isRtl ? 'إنشاء وإدارة العيادات في منصة طبيبي' : 'Gestion des Cliniques sur Tabibi'}
+        </h1>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: '#374151' }}>{t("clinic_gps")}</label>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <input type="number" step="any" placeholder="Latitude" value={form.latitude} onChange={e => set('latitude', parseFloat(e.target.value) || 0)}
-                style={{ width: '100%', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, color: '#475569', outline: 'none' }} />
-              <input type="number" step="any" placeholder="Longitude" value={form.longitude} onChange={e => set('longitude', parseFloat(e.target.value) || 0)}
-                style={{ width: '100%', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, color: '#475569', outline: 'none' }} />
-            </div>
-            <Btn variant="secondary" onClick={detectLocation} style={{ padding: '10px 16px', fontSize: 12 }}>
-              <MapPin size={14} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 6 }} /> {t("detect_location")}
-            </Btn>
-          </div>
-          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>{t("gps_hint")}</p>
-        </div>
-        {/* PHASE 02C : Consentements obligatoires */}
-        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '14px 20px', marginBottom: 20 }}>
-          <div style={{ fontSize: 12, color: '#0369a1', fontWeight: 700, marginBottom: 10 }}>يجب قبول ما يلي قبل إرسال الطلب:</div>
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 10 }}>
-            <input type="checkbox" id="consent_cgu_clinic" checked={consentCguClinic} onChange={e => setConsentCguClinic(e.target.checked)}
-              style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--brand)', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.5 }}>أقر بأنني قرأت وأوافق على{' '}
-              <button type="button" onClick={() => navigate('/terms')} style={{ color: 'var(--brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>شروط الاستخدام</button>{' '}الخاصة بمنصة طبيبي. *
-            </span>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-            <input type="checkbox" id="consent_privacy_clinic" checked={consentPrivacyClinic} onChange={e => setConsentPrivacyClinic(e.target.checked)}
-              style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--brand)', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.5 }}>أوافق على{' '}
-              <button type="button" onClick={() => navigate('/privacy')} style={{ color: 'var(--brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>سياسة الخصوصية وحماية البيانات</button>{' '}وفق القانون الجزائري 18-07. *
-            </span>
-          </label>
-        </div>
-        <Btn onClick={submit} loading={loading} disabled={!consentClinicValid} style={{ width: '100%', justifyContent: 'center', padding: 15, fontSize: 16, opacity: consentClinicValid ? 1 : 0.5 }}>
-          <Send size={18} style={{ [i18n.language === 'ar' ? 'marginLeft' : 'marginRight']: 8 }} /> {t("submit_join_btn")}
-        </Btn>
-        <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 14 }}>
-          {t("join_verification_msg")}
+        <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.8, marginBottom: 24 }}>
+          {isRtl
+            ? 'في منصة طبيبي، يتم التحكم في العيادة وإدارتها مباشرة من خلال حساب الطبيب الرئيسي بحساب واحد موحد وبدون الحاجة لإنشاء حسابات متعددة. إذا كنت ممارساً صحياً أو صاحب عيادة، يرجى تسجيل حسابك كطبيب أولاً، وستتمكن من إنشاء عيادتك وضبط أوقات عملها واستقبال المرضى فور تفعيل حسابك.'
+            : 'Sur la plateforme Tabibi, les cliniques et cabinets sont gérés directement via le compte principal du médecin propriétaire, avec un compte unique unifié. Veuillez créer votre compte médecin pour pouvoir ouvrir et gérer votre clinique.'}
         </p>
-      </Card>
+
+        <div style={{
+          background: 'rgba(14, 165, 233, 0.06)',
+          border: '1px solid rgba(14, 165, 233, 0.2)',
+          borderRadius: 14,
+          padding: '16px 20px',
+          marginBottom: 32,
+          textAlign: isRtl ? 'right' : 'left',
+          display: 'flex',
+          gap: 12,
+          alignItems: 'flex-start'
+        }}>
+          <CheckCircle size={20} color="var(--brand)" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: 13, color: 'var(--heading-color)', lineHeight: 1.6 }}>
+            {isRtl
+              ? 'حساب واحد للطبيب والعيادة يتيح لك إدارة ملفك المهني، إنشاء العيادة، وتحديد أوقات الكشف والمواعيد، مع التوافق التام مع المزامنة لبرنامج سطح المكتب Tabibi.'
+              : 'Un compte unique médecin & clinique pour gérer vos coordonnées, créer votre clinique et synchroniser avec l\'application de bureau.'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 12 }}>
+          <Btn onClick={() => navigate('/register-doctor')} style={{ flex: 1, padding: 14, fontSize: 15, justifyContent: 'center' }}>
+            <Stethoscope size={18} style={{ [isRtl ? 'marginLeft' : 'marginRight']: 8 }} />
+            {isRtl ? 'الانتقال لتسجيل حساب طبيب' : 'S\'inscrire en tant que médecin'}
+          </Btn>
+          <Btn variant="secondary" onClick={() => navigate('/')} style={{ flex: 1, padding: 14, fontSize: 15, justifyContent: 'center' }}>
+            {isRtl ? 'العودة للصفحة الرئيسية' : 'Retour à l\'accueil'}
+          </Btn>
+        </div>
+      </div>
     </div>
   );
 }
@@ -14591,11 +14513,6 @@ function Footer({ navigate, show, user }) {
                   label: t("join_as_doctor", "انضم كطبيب"),
                   icon: <UserPlus size={14} color="var(--brand)" />,
                   action: () => navigate("/register-doctor")
-                },
-                {
-                  label: t("join_as_clinic", "انضم كعيادة"),
-                  icon: <Building size={14} color="var(--brand)" />,
-                  action: () => navigate("/register-clinic")
                 }
               ]}
             />
