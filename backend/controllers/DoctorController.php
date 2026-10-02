@@ -980,20 +980,25 @@ class DoctorController {
             $logoBinary = base64_decode($logoStr);
         }
 
+        $wilayaId   = !empty($data['wilaya_id']) ? (int)$data['wilaya_id'] : null;
+        $baladiyaId = !empty($data['baladiya_id']) ? (int)$data['baladiya_id'] : null;
+
         $pdo->beginTransaction();
         try {
-            // Insert clinic with PENDING status
+            // Insert clinic with APPROVED status (Option 3 - Verified Doctor Self-Serve)
             $insClinic = $pdo->prepare("
                 INSERT INTO clinics (
                     id, user_id, owner_doctor_id, clinicname, phone, fax, address,
+                    wilaya_id, baladiya_id,
                     email, website, emergency, ambulances, hospitalization,
                     postcode, services, aboutclinic, latitude, longitude,
                     status, logo, createdat, updatedat
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    'PENDING', ?, NOW(), NOW()
+                    'APPROVED', ?, NOW(), NOW()
                 )
             ");
             $insClinic->execute([
@@ -1004,6 +1009,8 @@ class DoctorController {
                 trim($data['phone']),
                 $data['fax'] ?? null,
                 trim($data['address']),
+                $wilayaId,
+                $baladiyaId,
                 $data['email'] ?? null,
                 $data['website'] ?? null,
                 !empty($data['emergency']) ? 1 : 0,
@@ -1018,6 +1025,7 @@ class DoctorController {
             ]);
 
             // Link doctor to clinic in clinicsdoctors with is_owner = 1 and status = APPROVED
+            $specId = !empty($doctor['specialtie_id']) ? $doctor['specialtie_id'] : ($pdo->query("SELECT id FROM specialties ORDER BY id LIMIT 1")->fetchColumn() ?: null);
             $insRelation = $pdo->prepare("
                 INSERT INTO clinicsdoctors (
                     id, clinic_id, doctor_id, specialtie_id, status, requestedby, is_owner
@@ -1027,15 +1035,31 @@ class DoctorController {
                 $relationId,
                 $clinicId,
                 $doctorId,
-                $doctor['specialtie_id'] ?? null
+                $specId
             ]);
+
+            // Initialize default schedule settings if not yet present
+            $settingsStmt = $pdo->prepare("SELECT id FROM doctorssettingapointements WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+            $settingsStmt->execute([$doctorId, $clinicId]);
+            if (!$settingsStmt->fetch()) {
+                $settingsId = UUIDHelper::generate();
+                $pdo->prepare("
+                    INSERT INTO doctorssettingapointements (
+                        id, doctor_id, clinic_id, timescale, daytimestart, daytimeend,
+                        weekbeginday, countdays, workingdays, isregistered
+                    ) VALUES (
+                        ?, ?, ?, 20, '1899-12-30 08:00:00', '1899-12-30 16:00:00',
+                        0, 30, '1111100', 1
+                    )
+                ")->execute([$settingsId, $doctorId, $clinicId]);
+            }
 
             $pdo->commit();
 
             Response::success([
                 'clinic_id' => $clinicId,
-                'status'    => 'PENDING'
-            ], 'تم إنشاء العيادة بنجاح وهي الآن قيد مراجعة الإدارة للتفعيل.', 201);
+                'status'    => 'APPROVED'
+            ], 'تم إنشاء وتفعيل عيادتك بنجاح وأصبحت جاهزة لاستقبال المرضى وحجز المواعيد.', 201);
 
         } catch (\Exception $e) {
             $pdo->rollBack();
@@ -1083,6 +1107,8 @@ class DoctorController {
             'website'        => $data['website'] ?? null,
             'services'       => $data['services'] ?? null,
             'aboutclinic'    => $data['aboutclinic'] ?? null,
+            'wilaya_id'      => isset($data['wilaya_id']) ? (int)$data['wilaya_id'] : null,
+            'baladiya_id'    => isset($data['baladiya_id']) ? (int)$data['baladiya_id'] : null,
             'latitude'       => $data['latitude'] ?? null,
             'longitude'      => $data['longitude'] ?? null,
             'emergency'      => isset($data['emergency']) ? ($data['emergency'] ? 1 : 0) : null,

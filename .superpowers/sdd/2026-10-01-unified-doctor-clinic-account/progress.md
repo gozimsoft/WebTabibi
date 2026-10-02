@@ -8,4 +8,12 @@ Task 5: complete (commit 9f0883b0, removed register-clinic from header/footer, u
 Task 6: complete (commit 95472e48, created DoctorClinicManager.jsx and integrated into ProfilePage under doctorActiveTab 'clinic')
 Task 7: complete (commit c5b4883a, enhanced Admin pending & approved clinics with owner doctor info in table, card, CSV, and detail modal)
 Task 8: complete (vite build compiled cleanly in 10s with zero errors, MariaDB schema verified live, Admin query executed successfully)
-All tasks complete. Architecture unified.
+## Option 3: Unified All-in-One Registration & Practice Details
+- Task 1: complete (DB migration `update_doctor_clinic_option3.sql` verified live on MariaDB: clinic location columns in doctorregistrations & clinics)
+- Task 2: complete (RegistrationController accepts practice fields: clinicname, clinic_wilaya_id, clinic_baladiya_id, clinic_address, clinic_phone)
+- Task 3: complete (AdminController one-click atomic approval creates user, doctor, clinic, clinicsdoctors with is_owner=1, and doctorssettingapointements with robust specialty fallback)
+- Task 4: complete (DoctorController auto-approves self-serve clinic creation for verified doctors with immediate active status)
+- Task 5: complete (Frontend RegisterDoctorPage integrated with practice details card, auto-suggestion, wilaya/baladiya cascading selects)
+- Task 6: complete (DoctorClinicManager UI updated with immediate active badges and notifications)
+- Task 7: complete (E2E simulation passed cleanly on live MariaDB, frontend compiled cleanly in Vite with zero errors, backend.zip updated)
+Option 3 fully implemented and verified.

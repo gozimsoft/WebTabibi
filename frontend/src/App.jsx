@@ -6803,12 +6803,32 @@ function RegisterClinicPage({ navigate }) {
 function RegisterDoctorPage({ navigate, qs }) {
   const isMobile = useIsMobile();
   const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const { show, Toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ fullname: '', speciality: '', email: '', phone: '', password: '', nin: '', doctor_id: '' });
+  const [form, setForm] = useState({
+    fullname: '',
+    speciality: '',
+    email: '',
+    phone: '',
+    password: '',
+    nin: '',
+    doctor_id: '',
+    clinicname: '',
+    clinic_wilaya_id: '',
+    clinic_baladiya_id: '',
+    clinic_address: '',
+    clinic_phone: ''
+  });
   const [errors, setErrors] = useState({});
   const [specs, setSpecs] = useState([]);
+  const [wilayasList, setWilayasList] = useState([]);
+  const [baladiyasList, setBaladiyasList] = useState([]);
+  const [loadingBaladiyas, setLoadingBaladiyas] = useState(false);
+  const [clinicNameTouched, setClinicNameTouched] = useState(false);
+  const [clinicPhoneTouched, setClinicPhoneTouched] = useState(false);
+
   // PHASE 02C : consentements obligatoires
   const [consentCguDoc, setConsentCguDoc] = useState(false);
   const [consentPrivacyDoc, setConsentPrivacyDoc] = useState(false);
@@ -6816,6 +6836,7 @@ function RegisterDoctorPage({ navigate, qs }) {
 
   useEffect(() => {
     api.specialties().then(setSpecs).catch(() => { });
+    api.wilayas?.().then(w => setWilayasList(w || [])).catch(() => { });
     if (qs) {
       const params = new URLSearchParams(qs);
       const claimId = params.get('claim_id');
@@ -6824,6 +6845,46 @@ function RegisterDoctorPage({ navigate, qs }) {
   }, [qs]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
+
+  const handleFullnameChange = (val) => {
+    setForm(prev => {
+      const updated = { ...prev, fullname: val };
+      if (!clinicNameTouched) {
+        updated.clinicname = val.trim() ? (isRtl ? `عيادة د. ${val.trim()}` : `Cabinet Dr. ${val.trim()}`) : '';
+      }
+      return updated;
+    });
+    setErrors(e => ({ ...e, fullname: '' }));
+  };
+
+  const handlePhoneChange = (val) => {
+    setForm(prev => {
+      const updated = { ...prev, phone: val };
+      if (!clinicPhoneTouched) {
+        updated.clinic_phone = val;
+      }
+      return updated;
+    });
+    setErrors(e => ({ ...e, phone: '' }));
+  };
+
+  const handleWilayaChange = async (wilayaId) => {
+    set('clinic_wilaya_id', wilayaId);
+    set('clinic_baladiya_id', '');
+    if (!wilayaId) {
+      setBaladiyasList([]);
+      return;
+    }
+    setLoadingBaladiyas(true);
+    try {
+      const bList = await api.baladiyas?.(wilayaId);
+      setBaladiyasList(bList || []);
+    } catch {
+      setBaladiyasList([]);
+    } finally {
+      setLoadingBaladiyas(false);
+    }
+  };
 
   const validate = () => {
     const e = {};
@@ -6861,6 +6922,11 @@ function RegisterDoctorPage({ navigate, qs }) {
           <div style={{ fontSize: 14, color: '#1e40af' }}>{t("fullname")}: <strong>{form.fullname}</strong></div>
           <div style={{ fontSize: 14, color: '#1e40af' }}>{t("specialty_title")}: <strong>{form.speciality}</strong></div>
           <div style={{ fontSize: 14, color: '#1e40af' }}>{t("email")}: <strong>{form.email}</strong></div>
+          {form.clinicname && (
+            <div style={{ fontSize: 14, color: '#0891b2', marginTop: 4 }}>
+              {isRtl ? 'العيادة / المقر' : 'Cabinet'}: <strong>{form.clinicname}</strong>
+            </div>
+          )}
         </div>
         <Btn onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>{t("back_to_home")}</Btn>
       </div>
@@ -6879,7 +6945,7 @@ function RegisterDoctorPage({ navigate, qs }) {
       </div>
       <Card style={{ padding: isMobile ? 20 : 36 }}>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
-          <Input label={`${t("fullname")} *`} placeholder="د. محمد أمين" value={form.fullname} onChange={e => set('fullname', e.target.value)} error={errors.fullname} />
+          <Input label={`${t("fullname")} *`} placeholder="د. محمد أمين" value={form.fullname} onChange={e => handleFullnameChange(e.target.value)} error={errors.fullname} />
           <Select label={`${t("specialty_title")} *`} value={form.speciality} onChange={e => set('speciality', e.target.value)} error={errors.speciality}>
             <option value="">{t("select_specialty")}</option>
             {specs.map(s => (
@@ -6891,12 +6957,105 @@ function RegisterDoctorPage({ navigate, qs }) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
           <Input label={`${t("email")} *`} type="email" placeholder="doctor@example.com" value={form.email} onChange={e => set('email', e.target.value)} error={errors.email} />
-          <Input label={`${t("phone")} *`} placeholder="0550000000" value={form.phone} onChange={e => set('phone', e.target.value)} error={errors.phone} />
+          <Input label={`${t("phone")} *`} placeholder="0550000000" value={form.phone} onChange={e => handlePhoneChange(e.target.value)} error={errors.phone} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
           <Input label={`${t("password")} *`} type="password" placeholder={t("password_hint")} value={form.password} onChange={e => set('password', e.target.value)} error={errors.password} />
           <Input label={t("nin_label") || "الرقم الوطني"} placeholder="الرقم الوطني (NIN)" value={form.nin} onChange={e => set('nin', e.target.value)} error={errors.nin} />
         </div>
+
+        {/* Practice / Clinic Section (Option 3 - Unified Architecture) */}
+        <div style={{
+          marginTop: 20,
+          marginBottom: 20,
+          padding: isMobile ? '16px' : '20px',
+          background: 'rgba(14, 165, 233, 0.04)',
+          border: '1.5px solid rgba(14, 165, 233, 0.25)',
+          borderRadius: 16
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'
+            }}>
+              <Building2 size={18} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--heading-color)', margin: 0 }}>
+                {isRtl ? 'بيانات مقر العمل / العيادة الخاصة' : 'Informations du Cabinet / Clinique'}
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                {isRtl
+                  ? 'يتم تفعيل مقرك الخاص تلقائياً فور اعتماد حسابك لتتمكن من استقبال الحجوزات والمزامنة المباشرة مع Tabibi.'
+                  : 'Votre cabinet sera activé automatiquement dès validation pour recevoir des réservations.'}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+            <Input
+              label={isRtl ? 'اسم العيادة / المقر' : 'Nom du cabinet'}
+              placeholder={isRtl ? 'مثال: عيادة د. محمد أمين' : 'Ex: Cabinet Dr. Mohamed'}
+              value={form.clinicname}
+              onChange={e => {
+                setClinicNameTouched(true);
+                set('clinicname', e.target.value);
+              }}
+              helpText={isRtl ? 'يقترح تلقائياً ويمكنك تعديله لأي اسم مهني تفضله' : 'Suggéré automatiquement, modifiable'}
+            />
+            <Input
+              label={isRtl ? 'هاتف العيادة / الاستقبال' : 'Téléphone du cabinet'}
+              placeholder="0550000000"
+              value={form.clinic_phone}
+              onChange={e => {
+                setClinicPhoneTouched(true);
+                set('clinic_phone', e.target.value);
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+            <Select
+              label={isRtl ? 'الولاية' : 'Wilaya'}
+              value={form.clinic_wilaya_id}
+              onChange={e => handleWilayaChange(e.target.value)}
+            >
+              <option value="">{isRtl ? 'اختر الولاية' : 'Sélectionner la wilaya'}</option>
+              {wilayasList.map(w => (
+                <option key={w.id} value={w.id}>
+                  {w.code ? `${w.code} - ` : ''}{isRtl ? (w.name_ar || w.name) : (w.name || w.name_ar)}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              label={isRtl ? 'البلدية' : 'Commune'}
+              value={form.clinic_baladiya_id}
+              onChange={e => set('clinic_baladiya_id', e.target.value)}
+              disabled={!form.clinic_wilaya_id || loadingBaladiyas}
+            >
+              <option value="">
+                {loadingBaladiyas
+                  ? (isRtl ? 'جاري التحميل...' : 'Chargement...')
+                  : (isRtl ? 'اختر البلدية' : 'Sélectionner la commune')}
+              </option>
+              {baladiyasList.map(b => (
+                <option key={b.id} value={b.id}>
+                  {isRtl ? (b.name_ar || b.name) : (b.name || b.name_ar)}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <Input
+            label={isRtl ? 'عنوان العيادة بالتفصيل' : 'Adresse du cabinet'}
+            placeholder={isRtl ? 'مثال: حي النصر، عمارة 4، الطابق الأول' : 'Ex: Cité Ennasr, Bâtiment 4'}
+            value={form.clinic_address}
+            onChange={e => set('clinic_address', e.target.value)}
+          />
+        </div>
+
         {/* PHASE 02C : Consentements obligatoires */}
         <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '14px 20px', marginBottom: 20 }}>
           <div style={{ fontSize: 12, color: '#0369a1', fontWeight: 700, marginBottom: 10 }}>يجب قبول ما يلي قبل إرسال الطلب:</div>
@@ -7398,9 +7557,28 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
               )}
 
               {detailModal.clinicname && tab === 'doctors' && (
-                <div style={{ background: 'var(--bg, #f8fafc)', padding: 12, borderRadius: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>{t('admin_detail_clinic', 'العيادة المرتبطة')}</div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0c4a6e', marginTop: 2 }}>{detailModal.clinicname}</div>
+                <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', padding: 14, borderRadius: 12, gridColumn: '1/-1' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#15803d', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Building2 size={16} /> {isAr ? 'بيانات مقر العمل / العيادة الخاصة التابعة للطبيب' : 'Cabinet / Clinique rattaché(e)'}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>{isAr ? 'اسم العيادة' : 'Nom du cabinet'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#14532d' }}>{detailModal.clinicname}</div>
+                    </div>
+                    {detailModal.clinic_phone && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>{isAr ? 'هاتف العيادة' : 'Téléphone'}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#14532d' }} dir="ltr">{detailModal.clinic_phone}</div>
+                      </div>
+                    )}
+                    {detailModal.clinic_address && (
+                      <div style={{ gridColumn: '1/-1' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>{isAr ? 'عنوان العيادة' : 'Adresse'}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#14532d' }}>{detailModal.clinic_address}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

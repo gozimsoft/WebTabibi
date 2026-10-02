@@ -241,4 +241,7 @@ export const api = {
     releaseDoctor: (id) => request('POST', `/admin/doctors/${id}/release`, {}),
     logs: (params = {}) => request('GET', `/admin/logs?${new URLSearchParams(params)}`),
   },
+  specialties: () => request('GET', '/specialties', null, false),
+  wilayas: () => request('GET', '/wilayas', null, false),
+  baladiyas: (wilayaId) => request('GET', `/baladiyas${wilayaId ? '?wilaya_id=' + encodeURIComponent(wilayaId) : ''}`, null, false),
 };

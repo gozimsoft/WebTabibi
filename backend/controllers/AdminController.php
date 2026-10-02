@@ -307,7 +307,7 @@ class AdminController {
         $orderDir = (isset($_GET['order_dir']) && strtoupper($_GET['order_dir']) === 'ASC') ? 'ASC' : 'DESC';
 
         $query = "
-            SELECT id, fullname, speciality, email, phone, clinicname, status, rejectedreason, approvedat, createdat, doctor_id, user_id, is_frozen, freeze_reason, frozen_at
+            SELECT id, fullname, speciality, email, phone, clinicname, clinic_wilaya_id, clinic_baladiya_id, clinic_address, clinic_phone, status, rejectedreason, approvedat, createdat, doctor_id, user_id, is_frozen, freeze_reason, frozen_at
             FROM doctorregistrations
             $whereClause
             ORDER BY $orderCol $orderDir
@@ -515,9 +515,32 @@ class AdminController {
             // PHASE 02F : Ne jamais envoyer de mot de passe en clair par email (Loi 18-07).
             // L'utilisateur utilise le mot de passe qu'il a saisi lors de son inscription.
 
+            // Resolve specialtie_id from speciality name or fallback to valid specialty
+            $specialtieId = null;
+            if (!empty($reg['speciality'])) {
+                $specCheck = $pdo->prepare("SELECT id FROM specialties WHERE id = ? LIMIT 1");
+                $specCheck->execute([$reg['speciality']]);
+                $specialtieId = $specCheck->fetchColumn() ?: null;
+
+                if (!$specialtieId) {
+                    $specStmt = $pdo->prepare("SELECT id FROM specialties WHERE namear = ? OR namefr = ? LIMIT 1");
+                    $specStmt->execute([$reg['speciality'], $reg['speciality']]);
+                    $specialtieId = $specStmt->fetchColumn() ?: null;
+                }
+
+                if (!$specialtieId) {
+                    $specStmt = $pdo->prepare("SELECT id FROM specialties WHERE namear LIKE ? OR namefr LIKE ? LIMIT 1");
+                    $specStmt->execute(['%' . $reg['speciality'] . '%', '%' . $reg['speciality'] . '%']);
+                    $specialtieId = $specStmt->fetchColumn() ?: null;
+                }
+            }
+            if (!$specialtieId) {
+                $specialtieId = $pdo->query("SELECT id FROM specialties ORDER BY id LIMIT 1")->fetchColumn() ?: null;
+            }
+
             if ($isVirtualClaim) {
                 // Fetch the existing virtual doctor to see if they already have a user_id
-                $stmtDoc = $pdo->prepare("SELECT user_id FROM doctors WHERE id=?");
+                $stmtDoc = $pdo->prepare("SELECT user_id, specialtie_id FROM doctors WHERE id=?");
                 $stmtDoc->execute([$doctorIdToUse]);
                 $existingDoc = $stmtDoc->fetch();
 
@@ -532,12 +555,16 @@ class AdminController {
                         ->execute([$userId, $username, $reg['password']]);
                 }
 
+                if (!empty($existingDoc['specialtie_id'])) {
+                    $specialtieId = $existingDoc['specialtie_id'];
+                }
+
                 // Update the existing virtual doctor profile with phonevalidation = 1
                 $pdo->prepare("
                     UPDATE doctors 
-                    SET fullname=?, phone=?, email=?, emailvalidation=1, phonevalidation=1, user_id=?, status='APPROVED', approvedat=NOW()
+                    SET fullname=?, phone=?, email=?, specialtie_id=COALESCE(?, specialtie_id), emailvalidation=1, phonevalidation=1, user_id=?, status='APPROVED', approvedat=NOW()
                     WHERE id=?
-                ")->execute([$reg['fullname'], $reg['phone'], $reg['email'], $userId, $doctorIdToUse]);
+                ")->execute([$reg['fullname'], $reg['phone'], $reg['email'], $specialtieId, $userId, $doctorIdToUse]);
 
             } else {
                 // Completely new doctor
@@ -546,9 +573,80 @@ class AdminController {
 
                 // Create doctor with emailvalidation = 1 and phonevalidation = 1
                 $pdo->prepare("
-                    INSERT INTO doctors (id, fullname, phone, email, emailvalidation, phonevalidation, status, approvedat, user_id)
-                    VALUES (?,?,?,?, 1, 1, 'APPROVED', NOW(), ?)
-                ")->execute([$doctorIdToUse, $reg['fullname'], $reg['phone'], $reg['email'], $userId]);
+                    INSERT INTO doctors (id, fullname, phone, email, specialtie_id, emailvalidation, phonevalidation, status, approvedat, user_id)
+                    VALUES (?,?,?,?, ?, 1, 1, 'APPROVED', NOW(), ?)
+                ")->execute([$doctorIdToUse, $reg['fullname'], $reg['phone'], $reg['email'], $specialtieId, $userId]);
+            }
+
+            // Option 3: Unified Doctor-Clinic Automatic Creation & Approval
+            // Check if doctor already has an owned clinic (e.g. if this was a claim of a dummy doctor profile)
+            $checkClinic = $pdo->prepare("
+                SELECT id FROM clinics 
+                WHERE owner_doctor_id = ? 
+                   OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
+                LIMIT 1
+            ");
+            $checkClinic->execute([$doctorIdToUse, $doctorIdToUse]);
+            $existingClinic = $checkClinic->fetch();
+
+            if (!$existingClinic) {
+                $clinicId    = UUIDHelper::generate();
+                $cdId        = UUIDHelper::generate();
+                $clinicName  = !empty($reg['clinicname']) ? trim($reg['clinicname']) : ('عيادة د. ' . $reg['fullname']);
+                $clinicPhone = !empty($reg['clinic_phone']) ? trim($reg['clinic_phone']) : $reg['phone'];
+                $clinicAddr  = !empty($reg['clinic_address']) ? trim($reg['clinic_address']) : 'الجزائر';
+                $wilayaId    = !empty($reg['clinic_wilaya_id']) ? (int)$reg['clinic_wilaya_id'] : null;
+                $baladiyaId  = !empty($reg['clinic_baladiya_id']) ? (int)$reg['clinic_baladiya_id'] : null;
+
+                // 1. Insert clinic with status APPROVED
+                $insClinic = $pdo->prepare("
+                    INSERT INTO clinics (
+                        id, user_id, owner_doctor_id, clinicname, phone, address,
+                        wilaya_id, baladiya_id, status, createdat, updatedat
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, ?,
+                        ?, ?, 'APPROVED', NOW(), NOW()
+                    )
+                ");
+                $insClinic->execute([
+                    $clinicId,
+                    $userId,
+                    $doctorIdToUse,
+                    $clinicName,
+                    $clinicPhone,
+                    $clinicAddr,
+                    $wilayaId,
+                    $baladiyaId
+                ]);
+
+                // 2. Link doctor in clinicsdoctors with is_owner = 1 and status = APPROVED
+                $insRelation = $pdo->prepare("
+                    INSERT INTO clinicsdoctors (
+                        id, clinic_id, doctor_id, specialtie_id, status, requestedby, is_owner
+                    ) VALUES (?, ?, ?, ?, 'APPROVED', 'ADMIN', 1)
+                ");
+                $insRelation->execute([
+                    $cdId,
+                    $clinicId,
+                    $doctorIdToUse,
+                    $specialtieId
+                ]);
+
+                // 3. Initialize default appointment settings (Mon-Fri 08:00 - 16:00, 20 min slots)
+                $settingsId = UUIDHelper::generate();
+                $pdo->prepare("
+                    INSERT INTO doctorssettingapointements (
+                        id, doctor_id, clinic_id, timescale, daytimestart, daytimeend,
+                        weekbeginday, countdays, workingdays, isregistered
+                    ) VALUES (
+                        ?, ?, ?, 20, '1899-12-30 08:00:00', '1899-12-30 16:00:00',
+                        0, 30, '1111100', 1
+                    )
+                ")->execute([
+                    $settingsId,
+                    $doctorIdToUse,
+                    $clinicId
+                ]);
             }
 
             // Update registration status

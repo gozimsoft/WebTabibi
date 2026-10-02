@@ -202,7 +202,7 @@ export default function DoctorClinicManager({ api, showToast, isMobile }) {
     setSaving(true);
     try {
       await api.doctors.createClinic(form);
-      showToast?.(isRtl ? "تم إنشاء العيادة بنجاح وهي قيد مراجعة الإدارة" : "Clinique créée avec succès", "success");
+      showToast?.(isRtl ? "تم تفعيل عيادتك بنجاح وأصبحت جاهزة لاستقبال المرضى وحجز المواعيد" : "Votre clinique est activée avec succès", "success");
       await loadClinic();
     } catch (err) {
       showToast?.(err.message || "حدث خطأ أثناء إنشاء العيادة", "error");
@@ -504,7 +504,7 @@ export default function DoctorClinicManager({ api, showToast, isMobile }) {
 
             <Btn type="submit" loading={saving} style={{ width: "100%", justifyContent: "center", padding: 14, fontSize: 15, borderRadius: 12 }}>
               <Plus size={18} style={{ [isRtl ? "marginLeft" : "marginRight"]: 8 }} />
-              {isRtl ? "إنشاء العيادة وإرسالها للمراجعة" : "Créer la clinique et envoyer pour validation"}
+              {isRtl ? "إنشاء وتفعيل العيادة الآن" : "Créer et activer la clinique"}
             </Btn>
           </form>
         </Card>

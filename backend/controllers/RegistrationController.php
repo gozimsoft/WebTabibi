@@ -71,9 +71,23 @@ class RegistrationController {
         $passwordHashed = PasswordHelper::hash($data['password']);
         $doctorId       = !empty($data['doctor_id']) ? $data['doctor_id'] : null;
 
+        // Practice / Clinic details (Option 3 - Unified Registration)
+        $clinicName       = !empty($data['clinicname']) ? trim($data['clinicname']) : null;
+        $clinicWilayaId   = !empty($data['clinic_wilaya_id']) ? (int)$data['clinic_wilaya_id'] : null;
+        $clinicBaladiyaId = !empty($data['clinic_baladiya_id']) ? (int)$data['clinic_baladiya_id'] : null;
+        $clinicAddress    = !empty($data['clinic_address']) ? trim($data['clinic_address']) : null;
+        $clinicPhone      = !empty($data['clinic_phone']) ? trim($data['clinic_phone']) : null;
+
+        if ($clinicName && empty($clinicPhone)) {
+            $clinicPhone = trim($data['phone']);
+        }
+
         $pdo->prepare("
-            INSERT INTO doctorregistrations (id, fullname, speciality, email, phone, password, status, nin, doctor_id)
-            VALUES (?,?,?,?,?,?, 'PENDING', ?, ?)
+            INSERT INTO doctorregistrations (
+                id, fullname, speciality, email, phone, password, status, nin, doctor_id,
+                clinicname, clinic_wilaya_id, clinic_baladiya_id, clinic_address, clinic_phone
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)
         ")->execute([
             $id,
             trim($data['fullname']),
@@ -82,7 +96,12 @@ class RegistrationController {
             trim($data['phone']),
             $passwordHashed,
             $data['nin'] ?? null,
-            $doctorId
+            $doctorId,
+            $clinicName,
+            $clinicWilayaId,
+            $clinicBaladiyaId,
+            $clinicAddress,
+            $clinicPhone
         ]);
 
         // Send email validation OTP
