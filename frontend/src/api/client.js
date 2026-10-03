@@ -102,7 +102,7 @@ export const api = {
   },
   doctor: {
     getProfile: () => request('GET', '/doctors/profile'),
-    getReasons: () => request('GET', '/doctors/reasons'),
+    getReasons: (clinicId) => request('GET', `/doctors/reasons${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     addReason: (body) => request('POST', '/doctors/reasons', body),
     deleteReason: (id) => request('DELETE', `/doctors/reasons/${id}`),
     getAppointments: (params = {}) => {
@@ -140,10 +140,17 @@ export const api = {
     createOffHour: (body) => request('POST', '/doctors/off-hours', body),
     updateOffHour: (id, body) => request('PUT', `/doctors/off-hours/${id}`, body),
     deleteOffHour: (id) => request('DELETE', `/doctors/off-hours/${id}`),
-    getMyClinic: () => request('GET', '/doctors/clinic'),
+    getMyClinic: (clinicId) => request('GET', `/doctors/clinic${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     createClinic: (body) => request('POST', '/doctors/clinic', body),
     updateMyClinic: (body) => request('PUT', '/doctors/clinic', body),
     updateClinicSettings: (body) => request('PUT', '/doctors/clinic/settings', body),
+    updateClinicPricing: (clinicId, pricing) => request('PUT', `/doctors/clinics/${encodeURIComponent(clinicId)}/pricing`, { pricing }),
+    getReasons: (clinicId) => request('GET', `/doctors/reasons${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
+    addReason: (body) => request('POST', '/doctors/reasons', body),
+    deleteReason: (id) => request('DELETE', `/doctors/reasons/${encodeURIComponent(id)}`),
+    getClinicDoctors: (clinicId) => request('GET', `/doctors/clinic/${encodeURIComponent(clinicId)}/doctors`),
+    removeDoctorFromClinic: (clinicId, doctorId) => request('DELETE', `/doctors/clinic/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}`),
+    searchDoctorsForClinic: (clinicId, q = '') => request('GET', `/doctors/clinic/search-doctors?clinic_id=${encodeURIComponent(clinicId)}&q=${encodeURIComponent(q)}`),
   },
   clinics: {
     search: (params) => request('GET', `/clinics?${new URLSearchParams(params)}`),
@@ -181,7 +188,7 @@ export const api = {
   },
   relations: {
     request: (body) => request('POST', '/relations/request', body),
-    getRequests: () => request('GET', '/relations/requests'),
+    getRequests: (clinicId) => request('GET', `/relations/requests${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     check: (id) => request('GET', `/relations/check/${id}`),
     respond: (id, body) => request('POST', `/relations/requests/${id}/respond`, body),
   },
@@ -245,3 +252,7 @@ export const api = {
   wilayas: () => request('GET', '/wilayas', null, false),
   baladiyas: (wilayaId) => request('GET', `/baladiyas${wilayaId ? '?wilaya_id=' + encodeURIComponent(wilayaId) : ''}`, null, false),
 };
+
+// Alias for backwards/cross-compatibility
+api.doctors = api.doctor;
+

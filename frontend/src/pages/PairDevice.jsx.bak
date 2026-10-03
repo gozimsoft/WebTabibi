@@ -1,0 +1,811 @@
+// frontend/src/pages/PairDevice.jsx
+import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { 
+  Laptop, ShieldCheck, CheckCircle2, AlertCircle, 
+  ArrowRight, ArrowLeft, RefreshCw, Building2, Check, Lock,
+  QrCode, Camera, X, Upload
+} from "lucide-react";
+import jsQR from "jsqr";
+import { Spinner, useToast } from "../components/SharedUI";
+
+export default function PairDevicePage({ user, navigate, isMobile, api }) {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === "ar";
+  const { show, Toast } = useToast();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialCode = urlParams.get("code") || "";
+  const initialSession = urlParams.get("session") || "";
+
+  const [code, setCode] = useState(initialCode);
+  const [sessionId, setSessionId] = useState(initialSession);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [details, setDetails] = useState(null);
+  const [selectedClinicId, setSelectedClinicId] = useState("");
+  const [clinicsList, setClinicsList] = useState([]);
+  const [approving, setApproving] = useState(false);
+  const [approved, setApproved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // QR Scanner States
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [cameraFacing, setCameraFacing] = useState("environment");
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const currentStreamRef = useRef(null);
+  const animationFrameId = useRef(null);
+
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+  // Load doctor's affiliated clinics (both owned and visiting)
+  useEffect(() => {
+    if (!token || user?.user_type !== 1) return;
+    if (api?.doctor?.profile) {
+      api.doctor.profile().then(res => {
+        if (res?.data?.clinics && Array.isArray(res.data.clinics)) {
+          const list = res.data.clinics.map(c => ({
+            id: c.clinic_id || c.id,
+            name: c.clinicname || c.name,
+            is_owner: Boolean(c.is_owner)
+          }));
+          setClinicsList(list);
+          if (list.length > 0) {
+            setSelectedClinicId(prev => prev || list[0].id);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [token, user]);
+
+  // Fetch details if code is present
+  useEffect(() => {
+    if (!code || !token || user?.user_type !== 1) return;
+
+    setLoadingDetails(true);
+    setErrorMsg("");
+
+    fetch(`/api/sync/device/details?code=${encodeURIComponent(code)}&session_id=${encodeURIComponent(sessionId)}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/json"
+      }
+    })
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && json.data) {
+          setDetails(json.data);
+          if (json.data.clinics && Array.isArray(json.data.clinics) && json.data.clinics.length > 0) {
+            setClinicsList(json.data.clinics);
+            setSelectedClinicId(prev => prev || json.data.clinic_id || json.data.clinics[0].id);
+          } else if (json.data.clinic_id) {
+            setSelectedClinicId(prev => prev || json.data.clinic_id);
+          }
+        } else {
+          setErrorMsg(json.message || t("pairing_code_invalid", "رمز الربط غير صالح أو انتهت صلاحيته"));
+        }
+      })
+      .catch(err => {
+        setErrorMsg(t("network_error", "تعذر الاتصال بالخادم"));
+      })
+      .finally(() => setLoadingDetails(false));
+  }, [code, sessionId, token, user]);
+
+  const handleApprove = async () => {
+    if (!code.trim()) {
+      show(t("code_required", "يرجى إدخال رمز الربط المكون من 6 أرقام"), "error");
+      return;
+    }
+
+    setApproving(true);
+    setErrorMsg("");
+
+    try {
+      const res = await fetch("/api/sync/device/approve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          code: code.trim(),
+          session_id: sessionId,
+          clinic_id: selectedClinicId || details?.clinic_id
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setApproved(true);
+        show(t("pairing_success_toast", "تمت الموافقة وربط جهاز العيادة بنجاح!"), "success");
+      } else {
+        setErrorMsg(json.message || t("pairing_failed", "فشلت عملية الموافقة على الربط"));
+        show(json.message || t("pairing_failed", "فشلت عملية الموافقة"), "error");
+      }
+    } catch (err) {
+      setErrorMsg(t("network_error", "تعذر الاتصال بالخادم"));
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  // QR Scanning Handlers
+  const handleScannedData = (raw) => {
+    let foundCode = "";
+    let foundSession = "";
+
+    // 1. Try URL parsing
+    if (raw.includes("code=")) {
+      try {
+        const parsedUrl = new URL(raw, window.location.origin);
+        foundCode = parsedUrl.searchParams.get("code") || "";
+        foundSession = parsedUrl.searchParams.get("session") || "";
+      } catch (_) {
+        const mCode = raw.match(/code=([0-9]{6})/);
+        if (mCode) foundCode = mCode[1];
+        const mSess = raw.match(/session=([a-zA-Z0-9_-]+)/);
+        if (mSess) foundSession = mSess[1];
+      }
+    } else if (/^\d{6}$/.test(raw.trim())) {
+      foundCode = raw.trim();
+    } else {
+      try {
+        const json = JSON.parse(raw);
+        if (json.code) foundCode = String(json.code);
+        if (json.session || json.session_id) foundSession = String(json.session || json.session_id);
+      } catch (_) {}
+    }
+
+    if (foundCode && foundCode.length === 6) {
+      if (navigator.vibrate) {
+        try { navigator.vibrate(100); } catch (_) {}
+      }
+      stopCamera();
+      setCode(foundCode);
+      if (foundSession) setSessionId(foundSession);
+      show(t("qr_scanned_success", "تم مسح رمز QR بنجاح!"), "success");
+    } else {
+      show(t("invalid_qr_code", "رمز QR غير صالح لربط العيادة"), "error");
+    }
+  };
+
+  const scanFrame = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const qr = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert"
+        });
+        if (qr && qr.data) {
+          handleScannedData(qr.data);
+          return;
+        }
+      }
+    }
+    animationFrameId.current = requestAnimationFrame(scanFrame);
+  };
+
+  const startCamera = async (facing = "environment") => {
+    setCameraError("");
+    setScannerOpen(true);
+    setCameraLoading(true);
+    try {
+      if (currentStreamRef.current) {
+        currentStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing } },
+        audio: false
+      });
+      currentStreamRef.current = stream;
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute("playsinline", "true");
+          videoRef.current.play().then(() => {
+            setCameraLoading(false);
+            if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = requestAnimationFrame(scanFrame);
+          }).catch(err => {
+            console.error("Video play error:", err);
+            setCameraLoading(false);
+          });
+        }
+      }, 120);
+    } catch (err) {
+      console.error("Camera access error:", err);
+      setCameraLoading(false);
+      setCameraError(t("camera_permission_denied", "تعذر فتح الكاميرا. يرجى التأكد من منح الإذن للمتصفح أو رفع صورة QR مباشرة."));
+    }
+  };
+
+  const stopCamera = () => {
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+    }
+    if (currentStreamRef.current) {
+      currentStreamRef.current.getTracks().forEach(t => t.stop());
+      currentStreamRef.current = null;
+    }
+    setScannerOpen(false);
+  };
+
+  const toggleCameraFacing = () => {
+    const next = cameraFacing === "environment" ? "user" : "environment";
+    setCameraFacing(next);
+    startCamera(next);
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const qr = jsQR(imageData.data, imageData.width, imageData.height);
+        if (qr && qr.data) {
+          handleScannedData(qr.data);
+        } else {
+          show(t("no_qr_found", "لم يتم العثور على رمز QR صالح في الصورة المحددة"), "error");
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+      if (currentStreamRef.current) currentStreamRef.current.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  // Not logged in guard
+  if (!user) {
+    return (
+      <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
+        {Toast}
+        <div style={{
+          background: "var(--card-bg, #ffffff)",
+          borderRadius: 20,
+          padding: "36px 24px",
+          textAlign: "center",
+          boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+          border: "1px solid var(--border, #e2e8f0)"
+        }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: "50%",
+            background: "rgba(8, 145, 178, 0.1)",
+            color: "var(--brand, #0891b2)",
+            display: "inline-flex",
+            alignItems: "center", justifyContent: "center",
+            marginBottom: 20
+          }}>
+            <Laptop size={32} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 900, margin: "0 0 10px" }}>
+            {t("pair_login_title", "ربط برنامج العيادة (Tabibi)")}
+          </h2>
+          <p style={{ fontSize: 14, color: "var(--text-secondary, #64748b)", margin: "0 0 24px", lineHeight: 1.6 }}>
+            {t("pair_login_desc", "يرجى تسجيل الدخول إلى حساب الطبيب الخاص بك على المنصة للموافقة على ربط جهاز الكمبيوتر.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate?.("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}
+            style={{
+              width: "100%", padding: "14px",
+              borderRadius: 12, border: "none",
+              background: "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)",
+              color: "#fff", fontWeight: 800, fontSize: 15,
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(8, 145, 178, 0.3)"
+            }}
+          >
+            {t("login_to_continue", "تسجيل الدخول للمتابعة")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Not a doctor guard
+  if (user.user_type !== 1) {
+    return (
+      <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
+        {Toast}
+        <div style={{
+          background: "var(--card-bg, #ffffff)",
+          borderRadius: 20, padding: "36px 24px",
+          textAlign: "center",
+          border: "1px solid #fed7aa",
+          boxShadow: "0 10px 25px rgba(0,0,0,0.04)"
+        }}>
+          <AlertCircle size={40} color="#d97706" style={{ margin: "0 auto 16px" }} />
+          <h3 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 10px" }}>
+            {t("doctor_account_required", "حساب طبيب مطلوب")}
+          </h3>
+          <p style={{ fontSize: 13.5, color: "#64748b", margin: "0 0 20px", lineHeight: 1.6 }}>
+            {t("doctor_account_required_desc", "عملية ربط العيادة تتطلب تسجيل الدخول بحساب طبيب ممارس.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate?.("/")}
+            style={{
+              padding: "10px 20px", borderRadius: 10,
+              border: "1px solid #cbd5e1", background: "#fff",
+              cursor: "pointer", fontWeight: 700
+            }}
+          >
+            {t("return_home", "العودة للرئيسية")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Success State
+  if (approved) {
+    return (
+      <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
+        {Toast}
+        <div style={{
+          background: "var(--card-bg, #ffffff)",
+          borderRadius: 24, padding: "40px 24px",
+          textAlign: "center",
+          boxShadow: "0 12px 30px rgba(16, 185, 129, 0.12)",
+          border: "1.5px solid #a7f3d0"
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: "50%",
+            background: "#dcfce7", color: "#16a34a",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            marginBottom: 20,
+            boxShadow: "0 4px 12px rgba(22, 163, 74, 0.2)"
+          }}>
+            <CheckCircle2 size={40} />
+          </div>
+
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: "#065f46", margin: "0 0 10px" }}>
+            {t("paired_success_title", "تم الربط بنجاح! 🎉")}
+          </h2>
+
+          <p style={{ fontSize: 14.5, color: "#334155", margin: "0 0 20px", lineHeight: 1.6 }}>
+            {t("paired_success_desc", "تم اعتماد جهاز العيادة بنجاح. شاشة الكمبيوتر في العيادة مرتبطة الآن وجاهزة لمزامنة المواعيد وجدول العمل فورياً.")}
+          </p>
+
+          <div style={{
+            padding: "12px", background: "#f0fdf4",
+            borderRadius: 12, border: "1px solid #bbf7d0",
+            marginBottom: 24, fontSize: 13, color: "#15803d", fontWeight: 700
+          }}>
+            {clinicsList.find(c => c.id === selectedClinicId)?.name || details?.clinic_name || user?.profile?.fullname || t("my_clinic", "عيادتك")}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate?.("/appointmanager")}
+            style={{
+              width: "100%", padding: "13px",
+              borderRadius: 12, border: "none",
+              background: "#16a34a", color: "#fff",
+              fontWeight: 800, fontSize: 15, cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(22, 163, 74, 0.3)"
+            }}
+          >
+            {t("go_to_appointments", "الذهاب إلى جدول المواعيد")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 480, margin: "30px auto", padding: "0 16px" }}>
+      {Toast}
+
+      <div style={{
+        background: "var(--card-bg, #ffffff)",
+        borderRadius: 24,
+        padding: isMobile ? "28px 20px" : "36px 28px",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+        border: "1px solid var(--border, #e2e8f0)"
+      }}>
+        {/* Header Icon */}
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: "50%",
+            background: "rgba(8, 145, 178, 0.1)",
+            color: "var(--brand, #0891b2)",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            marginBottom: 12
+          }}>
+            <Laptop size={30} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: "var(--heading-color, #0f172a)", margin: 0 }}>
+            {t("pair_request_title", "طلب ربط برنامج العيادة")}
+          </h2>
+          <span style={{ fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+            {t("tabibi_desktop_sync", "طبيبي — الربط المكتبي السريع")}
+          </span>
+        </div>
+
+        {/* Doctor and Clinic Card */}
+        <div style={{
+          padding: "16px",
+          borderRadius: 16,
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 14
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: "#e0f2fe", color: "#0284c7",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0
+          }}>
+            <Building2 size={24} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: 11.5, color: "#64748b", fontWeight: 700, display: "block" }}>
+              {t("target_doctor_clinic", "الطبيب والعيادة المصرح لها")}
+            </span>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {user.profile?.fullname || user.username}
+            </div>
+
+            {clinicsList.length > 1 ? (
+              <div style={{ marginTop: 8 }}>
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: "#0284c7", display: "block", marginBottom: 4 }}>
+                  {t("choose_clinic_to_pair", "اختر مقر العيادة المطلوب ربط هذا الجهاز به:")}
+                </label>
+                <select
+                  value={selectedClinicId}
+                  onChange={e => setSelectedClinicId(e.target.value)}
+                  style={{
+                    width: "100%", padding: "7px 10px", borderRadius: 8,
+                    border: "1.5px solid #0284c7", background: "#fff",
+                    fontSize: 12.5, fontWeight: 700, color: "#0f172a",
+                    cursor: "pointer"
+                  }}
+                >
+                  {clinicsList.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.is_owner ? `(${t("owner_clinic", "عيادتي الخاصة - مالك")})` : `(${t("visiting_doctor", "طبيب ممارس")})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: "#0d9488", fontWeight: 600, marginTop: 3 }}>
+                {clinicsList[0]?.name || details?.clinic_name || t("main_clinic", "العيادة الرئيسية")}
+                {clinicsList[0]?.is_owner ? ` (${t("owner_clinic", "مالك")})` : (clinicsList.length === 1 ? ` (${t("doctor_member", "طبيب ممارس")})` : "")}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* QR Scan Button */}
+        <div style={{ marginBottom: 20 }}>
+          <button
+            type="button"
+            onClick={() => startCamera("environment")}
+            style={{
+              width: "100%",
+              padding: "13px 18px",
+              borderRadius: 14,
+              border: "1.5px solid var(--brand, #0891b2)",
+              background: "linear-gradient(135deg, rgba(8, 145, 178, 0.08), rgba(6, 182, 212, 0.15))",
+              color: "var(--brand, #0891b2)",
+              fontWeight: 800,
+              fontSize: 14.5,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 9,
+              boxShadow: "0 2px 8px rgba(8, 145, 178, 0.1)",
+              transition: "all 0.2s ease"
+            }}
+          >
+            <QrCode size={20} />
+            <span>{t("scan_qr_code_btn", "مسح رمز QR بالكاميرا")}</span>
+          </button>
+
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            margin: "16px 0 10px",
+            color: "#94a3b8",
+            fontSize: 12,
+            fontWeight: 700
+          }}>
+            <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+            <span style={{ padding: "0 12px" }}>{t("or_enter_code_manually", "أو إدخال الرمز يدوياً")}</span>
+            <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+          </div>
+        </div>
+
+        {/* 6-Digit Code Box */}
+        <div style={{ marginBottom: 24, textAlign: "center" }}>
+          <label style={{ fontSize: 13, fontWeight: 700, color: "#475569", display: "block", marginBottom: 8 }}>
+            {t("pairing_code_label", "رمز الربط المعروض على شاشة الكمبيوتر:")}
+          </label>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            direction: "ltr"
+          }}>
+            {(code || "------").split("").slice(0, 6).map((digit, idx) => (
+              <span
+                key={idx}
+                style={{
+                  width: 44, height: 50,
+                  borderRadius: 12,
+                  background: "#f1f5f9",
+                  border: "2px solid #cbd5e1",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 22, fontWeight: 900, color: "#0f172a",
+                  letterSpacing: 0
+                }}
+              >
+                {digit !== "-" ? digit : ""}
+              </span>
+            ))}
+          </div>
+
+          {!initialCode && (
+            <div style={{ marginTop: 12 }}>
+              <input
+                type="text"
+                maxLength={6}
+                value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, ""))}
+                placeholder={t("enter_6_digits", "أدخل الـ 6 أرقام")}
+                style={{
+                  textAlign: "center", width: "100%", maxWidth: 220,
+                  padding: "10px", borderRadius: 10,
+                  border: "1.5px solid var(--brand, #0891b2)",
+                  fontSize: 16, fontWeight: 800, letterSpacing: 4
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {errorMsg && (
+          <div style={{
+            padding: "12px 14px", borderRadius: 12,
+            background: "#fef2f2", border: "1px solid #fecaca",
+            color: "#dc2626", fontSize: 13, fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 8,
+            marginBottom: 20
+          }}>
+            <AlertCircle size={18} flexShrink={0} />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Action Button */}
+        <button
+          type="button"
+          onClick={handleApprove}
+          disabled={approving || !code || code.length !== 6}
+          style={{
+            width: "100%",
+            padding: "15px",
+            borderRadius: 14,
+            border: "none",
+            background: (code.length === 6 && !approving)
+              ? "linear-gradient(135deg, #10b981, #059669)"
+              : "#94a3b8",
+            color: "#ffffff",
+            fontSize: 16,
+            fontWeight: 800,
+            cursor: (code.length === 6 && !approving) ? "pointer" : "not-allowed",
+            boxShadow: code.length === 6 ? "0 4px 16px rgba(16, 185, 129, 0.35)" : "none",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+            transition: "all 0.2s ease"
+          }}
+        >
+          {approving ? (
+            <>
+              <RefreshCw size={18} className="animate-spin" />
+              <span>{t("approving", "جارٍ تأكيد الربط...")}</span>
+            </>
+          ) : (
+            <>
+              <ShieldCheck size={20} />
+              <span>{t("confirm_and_pair", "الموافقة وتأكيد الربط الآن")}</span>
+            </>
+          )}
+        </button>
+
+        <p style={{
+          textAlign: "center", fontSize: 12,
+          color: "#94a3b8", margin: "16px 0 0", lineHeight: 1.5
+        }}>
+          {t("pairing_security_note", "هذه العملية تمنح البرنامج المكتبي بالعيادة صلاحية مزامنة المواعيد وأوقات العمل.")}
+        </p>
+      </div>
+
+      {/* QR Scanner Modal */}
+      {scannerOpen && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0, 0, 0, 0.82)",
+          backdropFilter: "blur(8px)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 16
+        }}>
+          <div style={{
+            background: "#0f172a",
+            color: "#fff",
+            borderRadius: 20,
+            maxWidth: 440,
+            width: "100%",
+            overflow: "hidden",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            position: "relative"
+          }}>
+            {/* Header */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "16px 20px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 15 }}>
+                <Camera size={18} color="#00d2df" />
+                <span>{t("scan_clinic_qr", "مسح رمز QR للعيادة")}</span>
+              </div>
+              <button
+                type="button"
+                onClick={stopCamera}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  border: "none",
+                  borderRadius: 8,
+                  color: "#fff",
+                  cursor: "pointer",
+                  padding: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Viewfinder Area */}
+            <div style={{ position: "relative", width: "100%", height: 320, background: "#000", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover"
+                }}
+              />
+              <canvas ref={canvasRef} style={{ display: "none" }} />
+
+              {cameraLoading && (
+                <div style={{ position: "absolute", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                  <Spinner size={32} />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{t("opening_camera", "جارٍ تشغيل الكاميرا...")}</span>
+                </div>
+              )}
+
+              {cameraError && (
+                <div style={{ position: "absolute", padding: 20, textAlign: "center", color: "#f87171", fontSize: 13, fontWeight: 600 }}>
+                  <AlertCircle size={32} style={{ margin: "0 auto 8px" }} />
+                  <p style={{ margin: "0 0 12px" }}>{cameraError}</p>
+                  <label style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    background: "rgba(255,255,255,0.15)", padding: "8px 14px",
+                    borderRadius: 8, cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700
+                  }}>
+                    <Upload size={15} />
+                    <span>{t("choose_qr_image", "اختيار صورة تحتوي على QR")}</span>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+                  </label>
+                </div>
+              )}
+
+              {/* Target Square Overlay */}
+              {!cameraLoading && !cameraError && (
+                <div style={{
+                  position: "absolute",
+                  width: 220,
+                  height: 220,
+                  border: "2.5px solid #00d2df",
+                  borderRadius: 18,
+                  boxShadow: "0 0 0 4000px rgba(0, 0, 0, 0.45)",
+                  pointerEvents: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center"
+                }}>
+                  <div style={{
+                    width: "90%",
+                    height: 2,
+                    background: "#00d2df",
+                    boxShadow: "0 0 10px #00d2df",
+                    borderRadius: 2
+                  }} />
+                </div>
+              )}
+            </div>
+
+            {/* Footer Controls */}
+            <div style={{
+              padding: "14px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "#0a0f16",
+              fontSize: 12.5
+            }}>
+              <label style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                color: "#94a3b8", cursor: "pointer", fontWeight: 700
+              }}>
+                <Upload size={15} />
+                <span>{t("upload_qr_image", "رفع صورة QR")}</span>
+                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+              </label>
+
+              <button
+                type="button"
+                onClick={toggleCameraFacing}
+                style={{
+                  background: "none", border: "none",
+                  color: "#00d2df", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6,
+                  fontWeight: 700
+                }}
+              >
+                <RefreshCw size={14} />
+                <span>{t("switch_camera", "تبديل الكاميرا")}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

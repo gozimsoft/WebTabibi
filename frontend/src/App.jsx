@@ -1,3 +1,4 @@
+import PairDevicePage from "./pages/PairDevice";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { jsPDF } from "jspdf";
 import {
@@ -9,7 +10,7 @@ import {
   Flame, Award, Users, Home, ClipboardList, Activity,
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
-  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale,
+  FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale, Laptop,
   Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -30,12 +31,12 @@ import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
-import DoctorClinicManager from "./components/DoctorClinicManager";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
 import { AdminSupportUserTicketsPage, AdminSupportBackoffice } from "./pages/AdminSupportTickets";
 import SuperAdminAccountManagement from "./pages/SuperAdminAccountManagement";
 import ClinicAppointmentManager from "./pages/ClinicAppointmentManager";
 import RequestsPage from "./pages/RequestsPage";
+import DoctorClinicsPage from "./pages/DoctorClinicsPage";
 import { useRoute } from "./hooks/useRoute";
 import AvatarCropModal from "./components/AvatarCropModal";
 import { AccountSecurityPill, AccountSecurityCard } from "./components/AccountSecuritySummary";
@@ -150,10 +151,17 @@ const api = {
   },
   doctors: {
     get: id => req("GET", `/doctors/${id}`),
-    getMyClinic: () => req("GET", "/doctors/clinic"),
+    getMyClinic: clinicId => req("GET", `/doctors/clinic${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     createClinic: b => req("POST", "/doctors/clinic", b),
     updateMyClinic: b => req("PUT", "/doctors/clinic", b),
     updateClinicSettings: b => req("PUT", "/doctors/clinic/settings", b),
+    updateClinicPricing: (clinicId, pricing) => req("PUT", `/doctors/clinics/${encodeURIComponent(clinicId)}/pricing`, { pricing }),
+    getReasons: clinicId => req("GET", `/doctors/reasons${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
+    addReason: b => req("POST", "/doctors/reasons", b),
+    deleteReason: id => req("DELETE", `/doctors/reasons/${encodeURIComponent(id)}`),
+    getClinicDoctors: clinicId => req("GET", `/doctors/clinic/${encodeURIComponent(clinicId)}/doctors`),
+    removeDoctorFromClinic: (clinicId, doctorId) => req("DELETE", `/doctors/clinic/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}`),
+    searchDoctorsForClinic: (clinicId, q = '') => req("GET", `/doctors/clinic/search-doctors?clinic_id=${encodeURIComponent(clinicId)}&q=${encodeURIComponent(q)}`),
   },
   specialties: () => req("GET", "/specialties"),
   reasons: specId => req("GET", `/reasons${specId ? '?specialty_id=' + specId : ''}`, null, false),
@@ -187,7 +195,7 @@ const api = {
   },
   relations: {
     request: b => req("POST", "/relations/request", b),
-    getRequests: () => req("GET", "/relations/requests"),
+    getRequests: clinicId => req("GET", `/relations/requests${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     check: id => req("GET", `/relations/check/${id}`),
     respond: (id, b) => req("POST", `/relations/requests/${id}/respond`, b),
   },
@@ -1077,6 +1085,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       iconOnly: true
     }] : []),
     ...(user?.user_type === 1 ? [
+      { label: t("my_clinic_tab", "عيادتي ومقرات العمل"), icon: <Building2 size={18} />, path: "/clinics", private: true },
       { label: t("appt_mgr_title", "إدارة المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
     ] : []),
     ...(user?.user_type === 2 ? [
@@ -1505,6 +1514,8 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         (user.user_type === 3 || user.user_type === 4) && { icon: <Shield size={16} />, label: t("admin_panel", "لوحة الإدارة"), path: "/admin" },
                         Number(user?.user_type) === 3 && { icon: <ShieldCheck size={16} />, label: t("account_management_nav", "Gestion des comptes"), path: "/admin/accounts" },
                         { icon: <User size={16} />, label: t("profile"), path: "/profile" },
+                        user?.user_type === 1 ? { icon: <Building2 size={16} />, label: t("my_clinic_tab", "عيادتي ومقرات العمل"), path: "/clinics" } : null,
+                        user?.user_type === 1 ? { icon: <Laptop size={16} />, label: t("pair_desktop_nav", "ربط تطبيق العيادة"), path: "/pair" } : null,
                         user?.user_type === 0 ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                         user?.user_type === 1 ? { icon: <Calendar size={16} />, label: t("appt_mgr_title", "إدارة المواعيد"), path: "/appointmanager" } : null,
                         user?.user_type === 2 ? { icon: <Calendar size={16} />, label: t("clinic_agenda_nav", "Agenda de la clinique"), path: "/clinic/appointments" } : null,
@@ -4085,6 +4096,144 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
   const [myComment, setMC] = useState("");
   const [saving, setSav] = useState(false);
   const { show, Toast } = useToast();
+  const isRtl = i18n.language === 'ar';
+
+  // ── Claim Doctor Modal State ──
+  const [showClaimModal, setShowClaimModal] = useState(false);
+  const [claimDone, setClaimDone] = useState(false);
+  const [claimLoading, setClaimLoading] = useState(false);
+  const [specs, setSpecs] = useState([]);
+  const [wilayasList, setWilayasList] = useState([]);
+  const [baladiyasList, setBaladiyasList] = useState([]);
+  const [loadingBaladiyas, setLoadingBaladiyas] = useState(false);
+  const [claimForm, setClaimForm] = useState({
+    fullname: "",
+    speciality: "",
+    email: "",
+    phone: "",
+    password: "",
+    nin: "",
+    doctor_id: doctor_id,
+    clinicname: "",
+    clinic_wilaya_id: "",
+    clinic_baladiya_id: "",
+    clinic_address: "",
+    clinic_phone: "",
+    consent_cgu: false,
+    consent_privacy: false
+  });
+  const [claimErrors, setClaimErrors] = useState({});
+
+  const setClaimField = (k, v) => {
+    setClaimForm(f => ({ ...f, [k]: v }));
+    setClaimErrors(e => ({ ...e, [k]: "" }));
+  };
+
+  const handleClaimWilayaChange = async (wilayaId) => {
+    setClaimField("clinic_wilaya_id", wilayaId);
+    setClaimField("clinic_baladiya_id", "");
+    if (!wilayaId) {
+      setBaladiyasList([]);
+      return;
+    }
+    setLoadingBaladiyas(true);
+    try {
+      const bList = await api.baladiyas?.(wilayaId);
+      setBaladiyasList(bList || []);
+    } catch {
+      setBaladiyasList([]);
+    } finally {
+      setLoadingBaladiyas(false);
+    }
+  };
+
+  const openClaimModal = async () => {
+    try {
+      const [sList, wList] = await Promise.all([
+        specs.length === 0 ? api.specialties().catch(() => []) : Promise.resolve(specs),
+        wilayasList.length === 0 ? api.wilayas?.().catch(() => []) : Promise.resolve(wilayasList),
+      ]);
+      if (sList && sList.length > 0) setSpecs(sList);
+      if (wList && wList.length > 0) setWilayasList(wList || []);
+
+      let specName = "";
+      const foundSpec = (sList || []).find(s => s.id == data?.specialtie_id || s.namear === data?.specialtyar || s.namefr === data?.specialtyfr);
+      if (foundSpec) {
+        specName = isRtl ? (foundSpec.namear || foundSpec.namefr) : (foundSpec.namefr || foundSpec.namear);
+      } else {
+        specName = isRtl ? (data?.specialtyar || data?.specialtyfr || "") : (data?.specialtyfr || data?.specialtyar || "");
+      }
+
+      const clinic = data?.OtherClinics?.[0] || {};
+      const cName = data?.clinicname || clinic.clinicname || (data?.fullname ? (isRtl ? `عيادة د. ${data.fullname}` : `Cabinet Dr. ${data.fullname}`) : "");
+      const cPhone = data?.phone || clinic.phone || "";
+      const cAddress = data?.address || clinic.address || "";
+      const wId = data?.wilaya_id || clinic.wilaya_id || "";
+      const bId = data?.baladiya_id || clinic.baladiya_id || "";
+      const cleanEmail = (data?.email && !data.email.includes("@tabibi.dummy") && !data.email.includes("@temp.")) ? data.email : "";
+
+      setClaimForm({
+        fullname: data?.fullname || "",
+        speciality: specName,
+        email: cleanEmail,
+        phone: data?.phone || "",
+        password: "",
+        nin: data?.nin || "",
+        doctor_id: doctor_id,
+        clinicname: cName,
+        clinic_wilaya_id: wId,
+        clinic_baladiya_id: bId,
+        clinic_address: cAddress,
+        clinic_phone: cPhone,
+        consent_cgu: false,
+        consent_privacy: false
+      });
+
+      if (wId) {
+        setLoadingBaladiyas(true);
+        api.baladiyas?.(wId)
+          .then(b => setBaladiyasList(b || []))
+          .catch(() => setBaladiyasList([]))
+          .finally(() => setLoadingBaladiyas(false));
+      }
+    } catch (_) {}
+
+    setClaimDone(false);
+    setClaimErrors({});
+    setShowClaimModal(true);
+  };
+
+  const handleClaimSubmit = async (e) => {
+    e?.preventDefault();
+    const errs = {};
+    if (!claimForm.fullname.trim()) errs.fullname = t("fullname_required", "الاسم الكامل مطلوب");
+    if (!claimForm.speciality.trim()) errs.speciality = t("specialty_required", "التخصص مطلوب");
+    if (!claimForm.email.trim()) errs.email = t("email_required", "البريد الإلكتروني مطلوب");
+    if (!claimForm.phone.trim()) errs.phone = t("phone_required", "رقم الهاتف مطلوب");
+    if (!claimForm.password || claimForm.password.length < 6) errs.password = t("password_min_6", "كلمة المرور يجب أن لا تقل عن 6 أحرف");
+    if (!claimForm.consent_cgu || !claimForm.consent_privacy) {
+      show(t("must_accept_cgu", "يجب قبول شروط الاستخدام وسياسة الخصوصية للمتابعة"), "error");
+      return;
+    }
+    setClaimErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    setClaimLoading(true);
+    try {
+      await api.register.doctor({
+        ...claimForm,
+        doctor_id: doctor_id,
+        consent_cgu: 1,
+        consent_privacy: 1
+      });
+      setClaimDone(true);
+      show(t("registration_success", "تم إرسال طلب تفعيل واسترجاع الحساب بنجاح"), "success");
+    } catch (err) {
+      show(err.message, "error");
+    } finally {
+      setClaimLoading(false);
+    }
+  };
 
   useEffect(() => {
     setL(true);
@@ -4293,7 +4442,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
               </div>
             </div>
             <Btn
-              onClick={() => navigate(`/register-doctor?claim_id=${doctor_id}`)}
+              onClick={openClaimModal}
               style={{ background: "#d97706", border: "none", padding: "10px 22px", flexShrink: 0 }}
             >
               هل أنت هذا الطبيب؟
@@ -4558,6 +4707,482 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                 {r.comment && <p style={{ color: "#6b7280", marginTop: 8, fontSize: 13, lineHeight: 1.6 }}>{r.comment}</p>}
               </Card>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Inscription & Récupération de Compte Médecin ── */}
+      {showClaimModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: isMobile ? 12 : 20,
+            animation: "fadeIn 0.2s ease"
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowClaimModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: "var(--card-bg, #ffffff)",
+              borderRadius: 24,
+              width: "100%",
+              maxWidth: 720,
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.3)",
+              border: "1px solid var(--border)",
+              overflow: "hidden"
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    background: "#d97706",
+                    color: "#ffffff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 4px 12px rgba(217, 119, 6, 0.3)"
+                  }}
+                >
+                  <UserPlus size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#92400e" }}>
+                    {isRtl ? "تسجيل واسترداد حساب الطبيب" : "Inscription et récupération de compte médecin"}
+                  </h3>
+                  <div style={{ fontSize: 12, color: "#b45309", marginTop: 2, fontWeight: 500 }}>
+                    {isRtl
+                      ? `المطالبة بالملف المهني لـ: د. ${data?.fullname || ""}`
+                      : `Revendiquer le profil de: Dr. ${data?.fullname || ""}`}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClaimModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#92400e",
+                  padding: 8,
+                  borderRadius: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "background 0.2s"
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(217, 119, 6, 0.15)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: isMobile ? "16px 16px" : "24px 28px", overflowY: "auto", flex: 1 }}>
+              {claimDone ? (
+                /* Success View */
+                <div style={{ textAlign: "center", padding: "30px 10px" }}>
+                  <div
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #10b981, #059669)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 20px",
+                      boxShadow: "0 10px 25px rgba(16, 185, 129, 0.3)"
+                    }}
+                  >
+                    <CheckCircle size={40} />
+                  </div>
+                  <h3 style={{ fontSize: 22, fontWeight: 800, color: "#065f46", margin: "0 0 10px" }}>
+                    {isRtl ? "تم إرسال طلب تفعيل واسترداد الحساب بنجاح!" : "Demande envoyée avec succès !"}
+                  </h3>
+                  <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.7, maxWidth: 520, margin: "0 auto 24px" }}>
+                    {isRtl
+                      ? `شكراً د. ${claimForm.fullname}. تم استلام طلبك ومطابقته مع الملف الحالي. ستصلك رسالة تأكيد إلى بريدك الإلكتروني (${claimForm.email})، وسيقوم فريق الإشراف بالتحقق وتفعيل الحساب لتتمكن من إدارته بالكامل.`
+                      : `Merci Dr. ${claimForm.fullname}. Votre demande a été reçue. Un e-mail de confirmation a été envoyé à (${claimForm.email}). Notre équipe validera votre compte rapidement.`}
+                  </p>
+                  <div
+                    style={{
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: 16,
+                      padding: 16,
+                      marginBottom: 24,
+                      textAlign: isRtl ? "right" : "left",
+                      fontSize: 13
+                    }}
+                  >
+                    <div style={{ color: "#166534", marginBottom: 6 }}>
+                      <strong>{isRtl ? "الطبيب:" : "Médecin :"}</strong> {claimForm.fullname}
+                    </div>
+                    <div style={{ color: "#166534", marginBottom: 6 }}>
+                      <strong>{isRtl ? "التخصص:" : "Spécialité :"}</strong> {claimForm.speciality}
+                    </div>
+                    <div style={{ color: "#166534", marginBottom: 6 }}>
+                      <strong>{isRtl ? "البريد الإلكتروني:" : "Email :"}</strong> {claimForm.email}
+                    </div>
+                    {claimForm.clinicname && (
+                      <div style={{ color: "#166534" }}>
+                        <strong>{isRtl ? "العيادة / المقر:" : "Cabinet :"}</strong> {claimForm.clinicname}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                    <Btn
+                      onClick={() => setShowClaimModal(false)}
+                      style={{ padding: "12px 28px", borderRadius: 12 }}
+                    >
+                      {isRtl ? "إغلاق" : "Fermer"}
+                    </Btn>
+                    <Btn
+                      variant="secondary"
+                      onClick={() => {
+                        setShowClaimModal(false);
+                        navigate("/login");
+                      }}
+                      style={{ padding: "12px 28px", borderRadius: 12 }}
+                    >
+                      {isRtl ? "تسجيل الدخول" : "Se connecter"}
+                    </Btn>
+                  </div>
+                </div>
+              ) : (
+                /* Registration & Claim Form */
+                <form onSubmit={handleClaimSubmit}>
+                  {/* Notice banner */}
+                  <div
+                    style={{
+                      background: "#ecfeff",
+                      border: "1px solid #a5f3fc",
+                      borderRadius: 14,
+                      padding: "12px 16px",
+                      marginBottom: 20,
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      fontSize: 13,
+                      color: "#0e7490",
+                      lineHeight: 1.6
+                    }}
+                  >
+                    <Info size={20} style={{ flexShrink: 0, marginTop: 2, color: "#0891b2" }} />
+                    <div>
+                      {isRtl ? (
+                        <>
+                          تم <strong>استيراد وتعبئة بيانات الطبيب والتخصص تلقائياً</strong> من هذا الملف التعريفي. يرجى مراجعتها وتعيين كلمة مرور وبريد إلكتروني صالحين لإنشاء حسابك وتفعيله.
+                        </>
+                      ) : (
+                        <>
+                          Les <strong>informations et la spécialité ont été préremplies automatiquement</strong> depuis ce profil. Veuillez les vérifier et renseigner un e-mail valide et un mot de passe.
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section 1: Professional Details */}
+                  <div style={{ marginBottom: 20 }}>
+                    <h4
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: "#0c4a6e",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8
+                      }}
+                    >
+                      <User size={16} color="var(--brand)" />
+                      {isRtl ? "البيانات الشخصية والمهنية" : "Informations professionnelles"}
+                    </h4>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+                      <div>
+                        <Input
+                          label={`${isRtl ? "اسم الطبيب واللقب" : "Nom et prénom du médecin"} *`}
+                          value={claimForm.fullname}
+                          onChange={(e) => setClaimField("fullname", e.target.value)}
+                          placeholder={isRtl ? "د. فلان الفلاني" : "Dr. Nom Prénom"}
+                          error={claimErrors.fullname}
+                        />
+                      </div>
+
+                      <div>
+                        {specs && specs.length > 0 ? (
+                          <Select
+                            label={`${isRtl ? "التخصص الطبي" : "Spécialité médicale"} *`}
+                            value={claimForm.speciality}
+                            onChange={(e) => setClaimField("speciality", e.target.value)}
+                            error={claimErrors.speciality}
+                          >
+                            <option value="">{isRtl ? "-- اختر التخصص --" : "-- Choisir la spécialité --"}</option>
+                            {specs.map((s) => {
+                              const sName = isRtl ? (s.namear || s.namefr) : (s.namefr || s.namear);
+                              return (
+                                <option key={s.id || sName} value={sName}>
+                                  {sName}
+                                </option>
+                              );
+                            })}
+                            {claimForm.speciality && !specs.some(s => (s.namear === claimForm.speciality || s.namefr === claimForm.speciality)) && (
+                              <option value={claimForm.speciality}>{claimForm.speciality}</option>
+                            )}
+                          </Select>
+                        ) : (
+                          <Input
+                            label={`${isRtl ? "التخصص الطبي" : "Spécialité médicale"} *`}
+                            value={claimForm.speciality}
+                            onChange={(e) => setClaimField("speciality", e.target.value)}
+                            placeholder={isRtl ? "التخصص" : "Spécialité"}
+                            error={claimErrors.speciality}
+                          />
+                        )}
+                      </div>
+
+                      <div>
+                        <Input
+                          label={`${isRtl ? "رقم الهاتف الشخصي / المهني" : "Numéro de téléphone"} *`}
+                          type="tel"
+                          value={claimForm.phone}
+                          onChange={(e) => setClaimField("phone", e.target.value)}
+                          placeholder="05 / 06 / 07..."
+                          dir="ltr"
+                          error={claimErrors.phone}
+                        />
+                      </div>
+
+                      <div>
+                        <Input
+                          label={`${isRtl ? "البريد الإلكتروني للوصول إلى الحساب" : "Adresse e-mail de connexion"} *`}
+                          type="email"
+                          value={claimForm.email}
+                          onChange={(e) => setClaimField("email", e.target.value)}
+                          placeholder="medecin@exemple.com"
+                          dir="ltr"
+                          error={claimErrors.email}
+                        />
+                      </div>
+
+                      <div style={{ gridColumn: isMobile ? "span 1" : "span 2" }}>
+                        <PasswordInput
+                          label={`${isRtl ? "تعيين كلمة مرور جديدة للحساب" : "Définir un mot de passe"} *`}
+                          value={claimForm.password}
+                          onChange={(e) => setClaimField("password", e.target.value)}
+                          placeholder={isRtl ? "6 أحرف أو أرقام على الأقل" : "Au moins 6 caractères"}
+                          error={claimErrors.password}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Clinic & Location */}
+                  <div style={{ marginBottom: 20 }}>
+                    <h4
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: "#0c4a6e",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8
+                      }}
+                    >
+                      <Building size={16} color="var(--brand)" />
+                      {isRtl ? "بيانات العيادة ومكان الممارسة" : "Cabinet et lieu d'exercice"}
+                    </h4>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+                      <div>
+                        <Input
+                          label={isRtl ? "اسم العيادة" : "Nom du cabinet"}
+                          value={claimForm.clinicname}
+                          onChange={(e) => setClaimField("clinicname", e.target.value)}
+                          placeholder={isRtl ? "عيادة د. ..." : "Cabinet Dr. ..."}
+                        />
+                      </div>
+
+                      <div>
+                        <Input
+                          label={isRtl ? "هاتف العيادة" : "Téléphone du cabinet"}
+                          type="tel"
+                          value={claimForm.clinic_phone}
+                          onChange={(e) => setClaimField("clinic_phone", e.target.value)}
+                          placeholder="0..."
+                          dir="ltr"
+                        />
+                      </div>
+
+                      <div>
+                        <Select
+                          label={isRtl ? "الولاية" : "Wilaya"}
+                          value={claimForm.clinic_wilaya_id}
+                          onChange={(e) => handleClaimWilayaChange(e.target.value)}
+                        >
+                          <option value="">{isRtl ? "-- اختر الولاية --" : "-- Choisir la wilaya --"}</option>
+                          {wilayasList.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.id} - {isRtl ? (w.namear || w.name) : (w.name || w.namear)}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Select
+                          label={isRtl ? "البلدية" : "Commune"}
+                          value={claimForm.clinic_baladiya_id}
+                          onChange={(e) => setClaimField("clinic_baladiya_id", e.target.value)}
+                          disabled={!claimForm.clinic_wilaya_id || loadingBaladiyas}
+                        >
+                          <option value="">
+                            {loadingBaladiyas
+                              ? (isRtl ? "جاري التحميل..." : "Chargement...")
+                              : (isRtl ? "-- اختر البلدية --" : "-- Choisir la commune --")}
+                          </option>
+                          {baladiyasList.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {isRtl ? (b.namear || b.name) : (b.name || b.namear)}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+
+                      <div style={{ gridColumn: isMobile ? "span 1" : "span 2" }}>
+                        <Input
+                          label={isRtl ? "عنوان العيادة التفصيلي" : "Adresse complète"}
+                          value={claimForm.clinic_address}
+                          onChange={(e) => setClaimField("clinic_address", e.target.value)}
+                          placeholder={isRtl ? "الحي، الشارع، العمارة، الطابق..." : "Rue, bâtiment, étage..."}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3: Legal Consents */}
+                  <div
+                    style={{
+                      background: "var(--bg, #f8fafc)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                      marginBottom: 24,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10
+                    }}
+                  >
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#374151" }}>
+                      <input
+                        type="checkbox"
+                        checked={claimForm.consent_cgu}
+                        onChange={(e) => setClaimField("consent_cgu", e.target.checked)}
+                        style={{ marginTop: 3, width: 16, height: 16, accentColor: "var(--brand)" }}
+                      />
+                      <span>
+                        {isRtl ? (
+                          <>
+                            أوافق وألتزم بـ <a href="/terms" target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontWeight: 700 }}>شروط الاستخدام العامة</a> لمنصة طبيبي.
+                          </>
+                        ) : (
+                          <>
+                            J'accepte les <a href="/terms" target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontWeight: 700 }}>Conditions Générales d'Utilisation</a>.
+                          </>
+                        )}
+                      </span>
+                    </label>
+
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#374151" }}>
+                      <input
+                        type="checkbox"
+                        checked={claimForm.consent_privacy}
+                        onChange={(e) => setClaimField("consent_privacy", e.target.checked)}
+                        style={{ marginTop: 3, width: 16, height: 16, accentColor: "var(--brand)" }}
+                      />
+                      <span>
+                        {isRtl ? (
+                          <>
+                            أقر بأنني اطلعت ووافقت على <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontWeight: 700 }}>سياسة الخصوصية وحماية المعطيات الشخصية</a> طبقاً للقانون 18-07.
+                          </>
+                        ) : (
+                          <>
+                            J'ai lu et accepté la <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontWeight: 700 }}>Politique de Confidentialité</a> (Loi 18-07).
+                          </>
+                        )}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Submit / Cancel Buttons */}
+                  <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                    <Btn
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setShowClaimModal(false)}
+                      disabled={claimLoading}
+                      style={{ padding: "12px 22px" }}
+                    >
+                      {isRtl ? "إلغاء" : "Annuler"}
+                    </Btn>
+                    <Btn
+                      type="submit"
+                      disabled={claimLoading}
+                      style={{
+                        padding: "12px 28px",
+                        background: "#d97706",
+                        border: "none",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: 14,
+                        boxShadow: "0 4px 14px rgba(217, 119, 6, 0.3)"
+                      }}
+                    >
+                      {claimLoading ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Spinner size={18} color="#fff" />
+                          <span>{isRtl ? "جاري الإرسال..." : "Envoi en cours..."}</span>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Check size={18} />
+                          <span>{isRtl ? "تأكيد التسجيل واسترداد الحساب" : "Confirmer et récupérer le compte"}</span>
+                        </div>
+                      )}
+                    </Btn>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -6835,14 +7460,61 @@ function RegisterDoctorPage({ navigate, qs }) {
   const consentDocValid = consentCguDoc && consentPrivacyDoc;
 
   useEffect(() => {
-    api.specialties().then(setSpecs).catch(() => { });
-    api.wilayas?.().then(w => setWilayasList(w || [])).catch(() => { });
-    if (qs) {
-      const params = new URLSearchParams(qs);
-      const claimId = params.get('claim_id');
-      if (claimId) setForm(f => ({ ...f, doctor_id: claimId }));
-    }
-  }, [qs]);
+    Promise.all([
+      api.specialties().catch(() => []),
+      api.wilayas?.().catch(() => [])
+    ]).then(([sList, wList]) => {
+      if (sList && sList.length > 0) setSpecs(sList);
+      if (wList && wList.length > 0) setWilayasList(wList || []);
+
+      if (qs) {
+        const params = new URLSearchParams(qs);
+        const claimId = params.get('claim_id');
+        if (claimId) {
+          setForm(f => ({ ...f, doctor_id: claimId }));
+          api.doctors.get(claimId).then(doc => {
+            if (doc) {
+              let specName = "";
+              const foundSpec = (sList || []).find(s => s.id == doc.specialtie_id || s.namear === doc.specialtyar || s.namefr === doc.specialtyfr);
+              if (foundSpec) {
+                specName = isRtl ? (foundSpec.namear || foundSpec.namefr) : (foundSpec.namefr || foundSpec.namear);
+              } else {
+                specName = isRtl ? (doc.specialtyar || doc.specialtyfr || "") : (doc.specialtyfr || doc.specialtyar || "");
+              }
+
+              const clinic = doc.OtherClinics?.[0] || {};
+              const cName = doc.clinicname || clinic.clinicname || (doc.fullname ? (isRtl ? `عيادة د. ${doc.fullname}` : `Cabinet Dr. ${doc.fullname}`) : "");
+              const wId = doc.wilaya_id || clinic.wilaya_id || "";
+              const bId = doc.baladiya_id || clinic.baladiya_id || "";
+              const cleanEmail = (doc.email && !doc.email.includes("@tabibi.dummy") && !doc.email.includes("@temp.")) ? doc.email : "";
+
+              setForm(f => ({
+                ...f,
+                fullname: doc.fullname || f.fullname,
+                speciality: specName || f.speciality,
+                phone: doc.phone || f.phone,
+                email: cleanEmail || f.email,
+                clinicname: cName || f.clinicname,
+                clinic_wilaya_id: wId || f.clinic_wilaya_id,
+                clinic_baladiya_id: bId || f.clinic_baladiya_id,
+                clinic_address: doc.address || clinic.address || f.clinic_address,
+                clinic_phone: doc.phone || clinic.phone || f.clinic_phone,
+                doctor_id: claimId
+              }));
+
+              if (wId) {
+                setLoadingBaladiyas(true);
+                api.baladiyas?.(wId)
+                  .then(b => setBaladiyasList(b || []))
+                  .catch(() => setBaladiyasList([]))
+                  .finally(() => setLoadingBaladiyas(false));
+              }
+            }
+          }).catch(() => {});
+        }
+      }
+    });
+  }, [qs, isRtl]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); };
 
@@ -6944,6 +7616,27 @@ function RegisterDoctorPage({ navigate, qs }) {
         <p style={{ color: '#6b7280', fontSize: 15 }}>{t("register_doctor_desc")}</p>
       </div>
       <Card style={{ padding: isMobile ? 20 : 36 }}>
+        {form.doctor_id && (
+          <div style={{
+            background: "#fffbeb",
+            border: "1.5px dashed #fbbf24",
+            borderRadius: 14,
+            padding: "14px 18px",
+            marginBottom: 24,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            color: "#92400e"
+          }}>
+            <Info size={24} style={{ flexShrink: 0, color: "#d97706" }} />
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+              <strong>{isRtl ? "طلب استرداد وتأكيد حساب طبيب:" : "Revendication de profil médecin :"}</strong>{" "}
+              {isRtl
+                ? "تم استيراد وتعبئة بيانات الطبيب والتخصص تلقائياً من هذا الملف التعريفي. يرجى إدخال بريد إلكتروني صالح وكلمة مرور جديدة لإكمال إنشاء وتفعيل الحساب."
+                : "Les informations et la spécialité ont été importées automatiquement. Veuillez saisir un e-mail valide et un mot de passe pour finaliser l'inscription."}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
           <Input label={`${t("fullname")} *`} placeholder="د. محمد أمين" value={form.fullname} onChange={e => handleFullnameChange(e.target.value)} error={errors.fullname} />
           <Select label={`${t("specialty_title")} *`} value={form.speciality} onChange={e => set('speciality', e.target.value)} error={errors.speciality}>
@@ -10774,6 +11467,7 @@ function ConsentsAndDataRightsSection({
 function ProfilePage({ user, navigate, qs }) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
+  const isRtl = i18n.language === 'ar';
 
   const [form, setForm] = useState(null);
   const [loading, setL] = useState(true);
@@ -10808,8 +11502,11 @@ function ProfilePage({ user, navigate, qs }) {
   const [newReasonTime, setNewReasonTime] = useState(30);
   const [addingReason, setAddingReason] = useState(false);
   const [showAddReasonModal, setShowAddReasonModal] = useState(false);
-  const initialSecurity = (qs && new URLSearchParams(qs).get("tab") === "security");
-  const [doctorActiveTab, setDoctorActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'clinic' | 'reasons' | 'appointment_settings' | 'off_hours' | 'security'
+  const [reasonsSelectedClinicId, setReasonsSelectedClinicId] = useState("");
+  const initialTab = qs ? new URLSearchParams(qs).get("tab") : null;
+  const initialSecurity = initialTab === "security";
+  const initialClinic = initialTab === "clinic";
+  const [doctorActiveTab, setDoctorActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
   const [patientActiveTab, setPatientActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
   const [clinicActiveTab, setClinicActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
   const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
@@ -10818,6 +11515,13 @@ function ProfilePage({ user, navigate, qs }) {
   const [adminSystemStatus, setAdminSystemStatus] = useState(null);
   const [loadingSystemStatus, setLoadingSystemStatus] = useState(false);
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
+
+  // If doctor enters profile with tab=clinic, redirect to dedicated /clinics page
+  useEffect(() => {
+    if (user?.user_type === 1 && initialClinic) {
+      if (navigate) navigate("/clinics");
+    }
+  }, [user, initialClinic, navigate]);
 
   // --- حالة قسم الموافقات والخصوصية (Loi 18-07) ---
   const [consentData, setConsentData] = useState(null);
@@ -10834,9 +11538,18 @@ function ProfilePage({ user, navigate, qs }) {
         setClinicActiveTab("security");
         setAdminActiveTab("security");
         setDoctorActiveTab("security");
+      } else if (tab === "clinic") {
+        if (user?.user_type === 1 && navigate) {
+          navigate("/clinics");
+        }
+      } else if (tab === "profile") {
+        setDoctorActiveTab("profile");
+        setPatientActiveTab("profile");
+        setClinicActiveTab("profile");
+        setAdminActiveTab("profile");
       }
     }
-  }, [qs]);
+  }, [qs, user, navigate]);
 
   const isSecurityActive = (
     user?.user_type === 0 ? patientActiveTab === "security" :
@@ -11064,17 +11777,35 @@ function ProfilePage({ user, navigate, qs }) {
         });
       }).catch(() => {});
       if (user?.user_type === 1) {
-        if (p?.reasons && p.reasons.length > 0) {
-          setReasons(p.reasons);
-        } else {
-          api.doctor.getReasons().then(r => setReasons(r || [])).catch(() => { });
+        const docClinics = Array.isArray(p?.clinics) ? p.clinics : [];
+        let initialClinicId = "";
+        if (docClinics.length > 0) {
+          const owned = docClinics.find(c => c.is_owner == 1 || c.is_owner === true);
+          initialClinicId = owned ? owned.id : docClinics[0].id;
+          setReasonsSelectedClinicId(initialClinicId);
         }
+        api.doctor.getReasons(initialClinicId || undefined).then(r => setReasons(r || [])).catch(() => { });
       }
     } catch (e) { show(e.message, "error"); }
     finally { setL(false); }
   };
 
   useEffect(() => { load(); }, []);
+
+  // جلب مبررات الاستشارة عند تبديل العيادة المختارة
+  const prevReasonsClinicRef = useRef(null);
+  useEffect(() => {
+    if (user?.user_type === 1 && reasonsSelectedClinicId) {
+      if (prevReasonsClinicRef.current !== null && prevReasonsClinicRef.current !== reasonsSelectedClinicId) {
+        setLoadingReasons(true);
+        api.doctor.getReasons(reasonsSelectedClinicId)
+          .then(r => setReasons(r || []))
+          .catch(() => {})
+          .finally(() => setLoadingReasons(false));
+      }
+      prevReasonsClinicRef.current = reasonsSelectedClinicId;
+    }
+  }, [user?.user_type, reasonsSelectedClinicId]);
 
   // جلب قائمة الولايات للمريض
   useEffect(() => {
@@ -11218,13 +11949,16 @@ function ProfilePage({ user, navigate, qs }) {
 
     setAddingReason(true);
     try {
-      await api.doctor.addReason({ items: itemsToAdd });
+      await api.doctor.addReason({
+        items: itemsToAdd,
+        clinic_id: reasonsSelectedClinicId || undefined
+      });
       show(t("reasons_add_success", "تمت إضافة أسباب الاستشارة بنجاح إلى ملفك الشخصي"), "success");
       setSelectedReasonIds([]);
       setCustomReasonName("");
       setReasonSearchQuery("");
       setShowAddReasonModal(false);
-      const updated = await api.doctor.getReasons();
+      const updated = await api.doctor.getReasons(reasonsSelectedClinicId || undefined);
       setReasons(updated || []);
     } catch (err) {
       show(err.message, "error");
@@ -11450,7 +12184,27 @@ function ProfilePage({ user, navigate, qs }) {
             )}
           </div>
         </div>
-        {(user?.user_type === 1 || user?.user_type === 2) && (
+        {user?.user_type === 1 && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Btn
+              type="button"
+              variant="primary"
+              onClick={() => navigate("/clinics")}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", fontWeight: 700, borderRadius: 12 }}
+            >
+              <Building2 size={18} /> {t("my_clinic_tab", "عيادتي ومقرات العمل")}
+            </Btn>
+            <Btn
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/requests")}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", fontWeight: 700, borderRadius: 12 }}
+            >
+              <Check size={18} /> {t("join_requests", "طلبات الانضمام")}
+            </Btn>
+          </div>
+        )}
+        {user?.user_type === 2 && (
           <Btn
             type="button"
             variant="outline"
@@ -11610,117 +12364,6 @@ function ProfilePage({ user, navigate, qs }) {
             {t("profile_info_tab", "الملف الشخصي")}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setDoctorActiveTab("clinic")}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "11px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: doctorActiveTab === "clinic" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
-              color: doctorActiveTab === "clinic" ? "#ffffff" : "#64748b",
-              fontWeight: doctorActiveTab === "clinic" ? 800 : 600,
-              fontSize: 14,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <Building2 size={17} />
-            {t("my_clinic_tab", "عيادتي ومقر العمل")}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDoctorActiveTab("reasons")}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "11px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: doctorActiveTab === "reasons" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
-              color: doctorActiveTab === "reasons" ? "#ffffff" : "#64748b",
-              fontWeight: doctorActiveTab === "reasons" ? 800 : 600,
-              fontSize: 14,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <Stethoscope size={17} />
-            {t("consultation_reasons_tab", "أسباب الاستشارة")}
-            {reasons.length > 0 && (
-              <span style={{
-                background: doctorActiveTab === "reasons" ? "rgba(255,255,255,0.25)" : "rgba(8, 145, 178, 0.12)",
-                color: doctorActiveTab === "reasons" ? "#ffffff" : "var(--brand, #0891b2)",
-                fontSize: 11,
-                padding: "2px 7px",
-                borderRadius: 10,
-                fontWeight: 800
-              }}>
-                {reasons.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDoctorActiveTab("appointment_settings")}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "11px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: doctorActiveTab === "appointment_settings" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
-              color: doctorActiveTab === "appointment_settings" ? "#ffffff" : "#64748b",
-              fontWeight: doctorActiveTab === "appointment_settings" ? 800 : 600,
-              fontSize: 14,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <Calendar size={17} />
-            {t("appointment_settings_tab", "إعدادات المواعيد")}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDoctorActiveTab("off_hours")}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "11px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: doctorActiveTab === "off_hours" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
-              color: doctorActiveTab === "off_hours" ? "#ffffff" : "#64748b",
-              fontWeight: doctorActiveTab === "off_hours" ? 800 : 600,
-              fontSize: 14,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <Clock size={17} />
-            {t("off_hours_tab", "أوقات خارج العمل")}
-          </button>
 
           <button
             type="button"
@@ -11939,97 +12582,6 @@ function ProfilePage({ user, navigate, qs }) {
       )}
 
       {/* ─── DOCTOR TABS CONTENT ─── */}
-      {user?.user_type === 1 && doctorActiveTab === "clinic" && (
-        <DoctorClinicManager api={api} showToast={show} isMobile={isMobile} />
-      )}
-
-      {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
-        <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
-      )}
-
-      {user?.user_type === 1 && doctorActiveTab === "off_hours" && (
-        <DoctorOffHoursSettings doctor={form} showToast={show} isMobile={isMobile} />
-      )}
-
-      {user?.user_type === 1 && doctorActiveTab === "reasons" && (
-        <Card style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
-            <div>
-              <h3 style={{ color: "#0c4a6e", margin: "0 0 4px", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-                <Stethoscope size={18} color="var(--brand)" /> {t("doctor_reasons_title", "أسباب ومبررات الاستشارة")}
-              </h3>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
-                {t("doctor_reasons_desc", "الأسباب التي تظهر لمرضاك للاختيار منها عند حجز موعد جديد")}
-              </p>
-            </div>
-            <Btn
-              type="button"
-              onClick={() => setShowAddReasonModal(true)}
-              style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
-            >
-              <Plus size={16} /> {t("add_reason_btn", "إضافة سبب استشارة")}
-            </Btn>
-          </div>
-
-          {loadingReasons ? (
-            <div style={{ padding: 24, textAlign: "center" }}><Spinner size={20} /></div>
-          ) : reasons.length === 0 ? (
-            <div style={{
-              padding: "24px 16px", textAlign: "center", background: "var(--bg)",
-              borderRadius: 12, border: "1px dashed var(--border)", color: "#64748b"
-            }}>
-              <FileText size={32} style={{ color: "#94a3b8", marginBottom: 8 }} />
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{t("no_doctor_reasons", "لم تقم بإضافة أسباب استشارة بعد")}</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                {t("no_doctor_reasons_hint", "أضف أسباب الكشف ليتمكن المرضى من تحديد مبرر الزيارة عند الحجز")}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-              {reasons.map(r => (
-                <div key={r.id} style={{
-                  padding: "12px 16px", background: "var(--bg)", borderRadius: 12,
-                  border: "1.5px solid var(--border)", display: "flex", alignItems: "center",
-                  justifyContent: "space-between", gap: 10, transition: "all 0.2s"
-                }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#0c4a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.reason_name}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                        background: "var(--brand-light)", color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4
-                      }}>
-                        <Clock size={11} /> {r.reason_time || 30} {t("minutes_short", "دقيقة")}
-                      </span>
-                      {r.clinicname && (
-                        <span style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {r.clinicname}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteReason(r.id)}
-                    title={t("delete", "حذف")}
-                    style={{
-                      background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
-                      padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "all 0.2s"
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fee2e2"; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "none"; }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
 
       {user?.user_type === 1 && doctorActiveTab === "profile" && (
         <form onSubmit={save}>
@@ -12194,120 +12746,12 @@ function ProfilePage({ user, navigate, qs }) {
               />
               <Input label={t("landline_phone", "رقم الهاتف الثابت")} value={form.fix || ""} onChange={e => f("fix", e.target.value)} />
               <Input label={t("spoken_languages", "اللغات المتحدث بها")} value={form.speakinglanguage || ""} onChange={e => f("speakinglanguage", e.target.value)} />
-              <Input label={t("consultation_pricing", "تسعيرة الكشف الأساسية")} type="number" value={form.pricing || ""} onChange={e => f("pricing", e.target.value)} />
               <Input label={t("postal_code", "الرمز البريدي")} value={form.postcode || ""} onChange={e => f("postcode", e.target.value)} />
               <div style={{ gridColumn: isMobile ? "auto" : "1/-1" }}>
-                <Input label={t("address", "العنوان / عنوان العيادة الخاصة")} value={form.address || ""} onChange={e => f("address", e.target.value)} />
+                <Input label={t("address", "العنوان الشخصي / الإداري")} value={form.address || ""} onChange={e => f("address", e.target.value)} />
               </div>
 
-              {/* Coordonnées GPS & Géolocalisation pour le médecin */}
-              <div style={{ gridColumn: isMobile ? "auto" : "1/-1", marginTop: 6, marginBottom: 8, padding: "16px", borderRadius: 14, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <MapPin size={16} color="#0891b2" />
-                      <label style={{ fontSize: 14, fontWeight: 700, color: "#0c4a6e", margin: 0 }}>
-                        {t("doctor_gps_title", "Coordonnées GPS & Géolocalisation du cabinet")}
-                      </label>
-                    </div>
-                    <p style={{ margin: "3px 0 0", fontSize: 12, color: "#64748b" }}>
-                      {t("doctor_gps_desc", "Précisez l'emplacement exact de votre cabinet médical pour permettre aux patients de vous localiser et d'obtenir un itinéraire précis.")}
-                    </p>
-                  </div>
-                  
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {Boolean(form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (Number(form.latitude) !== 0 || Number(form.longitude) !== 0)) && (
-                      <a
-                        href={`https://www.google.com/maps?q=${encodeURIComponent(form.latitude)},${encodeURIComponent(form.longitude)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          padding: "8px 14px", borderRadius: 9,
-                          background: "#ffffff", border: "1.5px solid #0891b2",
-                          color: "#0891b2", fontSize: 12, fontWeight: 700,
-                          textDecoration: "none", transition: "all 0.2s ease",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                        }}
-                      >
-                        <ExternalLink size={13} />
-                        {t("view_on_google_maps", "Vérifier sur Google Maps")}
-                      </a>
-                    )}
-                    <Btn type="button" variant="secondary" onClick={detectLocation} style={{ padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                      <MapPin size={13} /> {t("detect_location", "Détecter ma position")}
-                    </Btn>
-                  </div>
-                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                  <div>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
-                      {t("latitude_label", "Latitude")}
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Ex: 36.7538"
-                      value={form.latitude ?? ""}
-                      onChange={e => f("latitude", e.target.value)}
-                      style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
-                    />
-                  </div>
-                  <div>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
-                      {t("longitude_label", "Longitude")}
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Ex: 3.0588"
-                      value={form.longitude ?? ""}
-                      onChange={e => f("longitude", e.target.value)}
-                      style={{ width: "100%", padding: "9px 12px", background: "#ffffff", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Mini-carte interactive de prévisualisation */}
-                {Boolean(form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (Number(form.latitude) !== 0 || Number(form.longitude) !== 0)) ? (
-                  <div style={{
-                    borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1",
-                    background: "#e2e8f0", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)"
-                  }}>
-                    <div style={{
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "6px 12px", background: "#f1f5f9", borderBottom: "1px solid #cbd5e1",
-                      fontSize: 11, color: "#475569", fontWeight: 600
-                    }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#059669", display: "inline-block" }} />
-                        {t("map_preview_title", "Aperçu de la position sur la carte")}
-                      </span>
-                      <span style={{ color: "#64748b", fontFamily: "monospace" }}>
-                        {Number(form.latitude).toFixed(5)}, {Number(form.longitude).toFixed(5)}
-                      </span>
-                    </div>
-                    <iframe
-                      title="Doctor Practice Location Preview"
-                      width="100%"
-                      height="200"
-                      style={{ border: 0, display: "block" }}
-                      loading="lazy"
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.longitude) - 0.006}%2C${Number(form.latitude) - 0.004}%2C${Number(form.longitude) + 0.006}%2C${Number(form.latitude) + 0.004}&layer=mapnik&marker=${Number(form.latitude)}%2C${Number(form.longitude)}`}
-                    />
-                  </div>
-                ) : (
-                  <div style={{
-                    padding: "12px 14px", borderRadius: 10, background: "#fffbeb",
-                    border: "1px solid #fef3c7", color: "#92400e", fontSize: 12,
-                    display: "flex", alignItems: "center", gap: 8
-                  }}>
-                    <Info size={15} style={{ flexShrink: 0 }} />
-                    <span>{t("no_gps_coords")}</span>
-                  </div>
-                )}
-              </div>
             </div>
           </Card>
 
@@ -14060,6 +14504,48 @@ function ProfilePage({ user, navigate, qs }) {
 
             {/* Modal Body */}
             <form onSubmit={handleAddReasons} style={{ display: "flex", flexDirection: "column", flex: 1, overflowY: "auto", padding: "16px 22px 10px" }}>
+              {/* Target Clinic Selector / Badge */}
+              {(() => {
+                const docClinics = Array.isArray(form?.clinics) ? form.clinics : [];
+                if (docClinics.length > 1) {
+                  return (
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 700, color: "#334155" }}>
+                        {t("select_target_clinic_reasons", "العيادة المراد إضافة أسباب الاستشارة إليها:")}
+                      </label>
+                      <select
+                        value={reasonsSelectedClinicId}
+                        onChange={e => setReasonsSelectedClinicId(e.target.value)}
+                        style={{
+                          width: "100%", padding: "9px 12px", borderRadius: 10,
+                          border: "1.5px solid var(--border)", background: "var(--bg)",
+                          fontSize: 13, outline: "none", color: "var(--heading-color)",
+                          fontWeight: 700
+                        }}
+                      >
+                        {docClinics.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.clinicname} {c.is_owner ? `(${t("owner_clinic_opt", "عيادتي الخاصة")})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                } else if (docClinics.length === 1) {
+                  return (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                      borderRadius: 8, background: "rgba(14, 165, 233, 0.08)", marginBottom: 12,
+                      fontSize: 12, color: "var(--brand, #0891b2)", fontWeight: 700
+                    }}>
+                      <Building2 size={15} />
+                      <span>{t("target_clinic", "العيادة:")} {docClinics[0].clinicname}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Scope Switch (Specialty vs All) */}
               {specialtyDbReasons.length > 0 && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -15212,6 +15698,14 @@ function MainApp() {
         if (user.user_type === 1) { setTimeout(() => navigate("/appointmanager"), 0); return null; }
         if (user.user_type === 2) { setTimeout(() => navigate("/clinic/appointments"), 0); return null; }
         return <AppointmentsPage key="appts" navigate={navigate} user={user} fullWidth={fullWidth} toggleFullWidth={toggleFullWidth} />;
+      case "/pair":
+        return <PairDevicePage key="pair_device" user={user} navigate={navigate} isMobile={isMobile} api={api} />;
+      case "/clinic":
+      case "/clinics":
+      case "/my-clinic":
+        if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+        if (user.user_type !== 1) { setTimeout(() => navigate("/"), 0); return null; }
+        return <DoctorClinicsPage key="doctor_clinics" user={user} navigate={navigate} isMobile={isMobile} api={api} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ProfilePage key={route} user={user} navigate={navigate} qs={qs} />;

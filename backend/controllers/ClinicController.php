@@ -522,6 +522,9 @@ class ClinicController
         $stmt = $pdo->prepare("
             SELECT 
                 d.*, 
+                COALESCE(cd.pricing, d.pricing) as pricing,
+                cd.pricing as clinic_pricing,
+                d.pricing as default_pricing,
                 d.cnas as Cnas, d.casnos as Casnos,
                 d.education as Education, d.presentation as Presentation,
                 d.payementmethods as PayementMethods,
@@ -554,14 +557,25 @@ class ClinicController
             $doctor['photoprofile'] = null;
         }
 
-        // Doctor's reasons
+        // Doctor's reasons for this clinic
         $stmt2 = $pdo->prepare("
-            SELECT id, reason_name, reason_time, reason_color
+            SELECT id, reason_name, reason_time, reason_color, clinic_id
             FROM doctorsreasons
-            WHERE doctor_id = ?
+            WHERE doctor_id = ? AND clinic_id = ?
         ");
-        $stmt2->execute([$doctor_id]);
-        $doctor['reasons'] = $stmt2->fetchAll();
+        $stmt2->execute([$doctor_id, $clinicid]);
+        $reasons = $stmt2->fetchAll();
+        if (empty($reasons)) {
+            // Fallback for older reasons created without clinic_id
+            $stmtFallback = $pdo->prepare("
+                SELECT id, reason_name, reason_time, reason_color, clinic_id
+                FROM doctorsreasons
+                WHERE doctor_id = ? AND (clinic_id IS NULL OR clinic_id = '')
+            ");
+            $stmtFallback->execute([$doctor_id]);
+            $reasons = $stmtFallback->fetchAll();
+        }
+        $doctor['reasons'] = $reasons;
 
         // Schedule settings
         $stmt3 = $pdo->prepare("
@@ -799,18 +813,20 @@ class ClinicController
         }
 
         // 2. Reasons
-        $stmt2 = $pdo->prepare("SELECT id, reason_name, reason_time, reason_color FROM doctorsreasons WHERE doctor_id = ?");
+        $stmt2 = $pdo->prepare("SELECT id, reason_name, reason_time, reason_color, clinic_id FROM doctorsreasons WHERE doctor_id = ?");
         $stmt2->execute([$id]);
         $doctor['reasons'] = $stmt2->fetchAll();
 
         // 3. Clinics where this doctor works
         $stmt3 = $pdo->prepare("
-            SELECT c.id, c.clinicname, c.address, c.phone, cd.status as relationstatus
+            SELECT c.id, c.clinicname, c.address, c.phone, cd.status as relationstatus,
+                   cd.pricing as clinic_pricing,
+                   COALESCE(cd.pricing, ?) as effective_pricing
             FROM clinics c
             JOIN clinicsdoctors cd ON cd.clinic_id = c.id
             WHERE cd.doctor_id = ? AND UPPER(cd.status) IN ('APPROVED', 'ACCEPTED')
         ");
-        $stmt3->execute([$id]);
+        $stmt3->execute([$doctor['pricing'] ?? null, $id]);
         $doctor['OtherClinics'] = $stmt3->fetchAll();
 
         Response::success($doctor);

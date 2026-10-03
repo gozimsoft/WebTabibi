@@ -498,25 +498,6 @@ try {
     }
 
     // ── Sync (مزامنة دلفي ↔ سيرفر) ──────────────────────────
-    
-    // Device Pairing (QR Code & Mobile App Pairing)
-    if ($uri === '/sync/device/init' && $method === 'POST') {
-        require_once __DIR__ . '/controllers/SyncController.php';
-        SyncController::initDevicePairing();
-    }
-    if ($uri === '/sync/device/check' && $method === 'GET') {
-        require_once __DIR__ . '/controllers/SyncController.php';
-        SyncController::checkDevicePairing();
-    }
-    if ($uri === '/sync/device/details' && $method === 'GET') {
-        require_once __DIR__ . '/controllers/SyncController.php';
-        SyncController::getDevicePairingDetails();
-    }
-    if ($uri === '/sync/device/approve' && $method === 'POST') {
-        require_once __DIR__ . '/controllers/SyncController.php';
-        SyncController::approveDevicePairing();
-    }
-
     if ($uri === '/sync/upload' && $method === 'POST') {
         require_once __DIR__ . '/controllers/SyncController.php';
         SyncController::upload();

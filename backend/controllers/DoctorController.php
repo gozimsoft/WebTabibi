@@ -36,23 +36,27 @@ class DoctorController {
             $doctor['photoprofile'] = base64_encode($doctor['photoprofile']);
         }
 
-        // Fetch associated clinics for this doctor with affiliation status and details
+        // Fetch associated clinics for this doctor with affiliation status, owner flag, and clinic-specific pricing
         $stmt = $pdo->prepare("
-            SELECT cd.id as clinicsdoctor_id, cd.status as affiliation_status, cd.requestedby,
+            SELECT cd.id as clinicsdoctor_id, cd.status as affiliation_status, cd.requestedby, cd.is_owner,
+                   cd.pricing as clinic_pricing, COALESCE(cd.pricing, ?) as effective_pricing,
                    c.id as clinic_id, c.clinicname, c.phone as clinic_phone, c.address as clinic_address, c.email as clinic_email
             FROM clinicsdoctors cd
             JOIN clinics c ON c.id = cd.clinic_id
             WHERE cd.doctor_id = ?
-            ORDER BY CASE WHEN UPPER(cd.status) IN ('APPROVED', 'ACCEPTED') THEN 1 WHEN UPPER(cd.status) = 'PENDING' THEN 2 ELSE 3 END, c.clinicname ASC
+            ORDER BY cd.is_owner DESC, CASE WHEN UPPER(cd.status) IN ('APPROVED', 'ACCEPTED') THEN 1 WHEN UPPER(cd.status) = 'PENDING' THEN 2 ELSE 3 END, c.clinicname ASC
         ");
-        $stmt->execute([$doctor['id']]);
+        $stmt->execute([$doctor['pricing'] ?? null, $doctor['id']]);
         $doctor['clinics'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch reasons
         $stmt = $pdo->prepare("
-            SELECT id, reason_name, clinic_id 
-            FROM doctorsreasons 
-            WHERE doctor_id = ?
+            SELECT dr.id, dr.reason_id, dr.doctor_id, dr.clinic_id, dr.reason_name, dr.reason_time, dr.reason_color,
+                   c.clinicname
+            FROM doctorsreasons dr
+            LEFT JOIN clinics c ON c.id = dr.clinic_id
+            WHERE dr.doctor_id = ?
+            ORDER BY dr.clinic_id ASC, dr.reason_name ASC
         ");
         $stmt->execute([$doctor['id']]);
         $doctor['reasons'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -363,15 +367,28 @@ class DoctorController {
         $doctorId = $stmt->fetchColumn();
         if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
 
-        $stmt = $pdo->prepare("
-            SELECT dr.id, dr.reason_id, dr.doctor_id, dr.clinic_id, dr.reason_name, dr.reason_time, dr.reason_color,
-                   c.clinicname
-            FROM doctorsreasons dr
-            LEFT JOIN clinics c ON c.id = dr.clinic_id
-            WHERE dr.doctor_id = ?
-            ORDER BY dr.reason_name ASC
-        ");
-        $stmt->execute([$doctorId]);
+        $clinicId = isset($_GET['clinic_id']) && !empty($_GET['clinic_id']) ? trim($_GET['clinic_id']) : null;
+        if ($clinicId) {
+            $stmt = $pdo->prepare("
+                SELECT dr.id, dr.reason_id, dr.doctor_id, dr.clinic_id, dr.reason_name, dr.reason_time, dr.reason_color,
+                       c.clinicname
+                FROM doctorsreasons dr
+                LEFT JOIN clinics c ON c.id = dr.clinic_id
+                WHERE dr.doctor_id = ? AND dr.clinic_id = ?
+                ORDER BY dr.reason_name ASC
+            ");
+            $stmt->execute([$doctorId, $clinicId]);
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT dr.id, dr.reason_id, dr.doctor_id, dr.clinic_id, dr.reason_name, dr.reason_time, dr.reason_color,
+                       c.clinicname
+                FROM doctorsreasons dr
+                LEFT JOIN clinics c ON c.id = dr.clinic_id
+                WHERE dr.doctor_id = ?
+                ORDER BY dr.clinic_id ASC, dr.reason_name ASC
+            ");
+            $stmt->execute([$doctorId]);
+        }
         Response::success($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
@@ -391,24 +408,22 @@ class DoctorController {
         if (!$doctor) Response::notFound('لم يتم العثور على حساب الطبيب.');
         $doctorId = $doctor['id'];
 
-        // Determine clinic_id (clinic_id is NOT NULL in schema)
+        // Determine clinic_id (must be specific to the chosen clinic)
         $clinicId = trim($data['clinic_id'] ?? '');
         if (empty($clinicId)) {
-            $stmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND UPPER(status) IN ('APPROVED','ACCEPTED') LIMIT 1");
+            $stmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND UPPER(status) IN ('APPROVED','ACCEPTED') ORDER BY is_owner DESC LIMIT 1");
             $stmt->execute([$doctorId]);
             $clinicId = $stmt->fetchColumn();
         }
         if (empty($clinicId)) {
-            $stmt = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? LIMIT 1");
-            $stmt->execute([$doctorId]);
-            $clinicId = $stmt->fetchColumn();
+            Response::error('يرجى تحديد العيادة المراد إضافة أسباب الاستشارة إليها.', 422);
         }
-        if (empty($clinicId)) {
-            $stmt = $pdo->query("SELECT id FROM clinics LIMIT 1");
-            $clinicId = $stmt->fetchColumn();
-        }
-        if (empty($clinicId)) {
-            Response::error('يجب ربط الطبيب بعيادة أولاً لإضافة أسباب الاستشارة.', 422);
+
+        // Verify doctor is associated with this clinic
+        $checkRel = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+        $checkRel->execute([$doctorId, $clinicId]);
+        if (!$checkRel->fetch()) {
+            Response::error('أنت لست مسجلاً في هذه العيادة لإضافة أسباب استشارة لها.', 403);
         }
 
         // Support bulk items or single item
@@ -425,9 +440,10 @@ class DoctorController {
             Response::error('يرجى تحديد أو إدخال سبب استشارة واحد على الأقل.', 422);
         }
 
+        // Check duplicate within the same clinic
         $checkStmt = $pdo->prepare("
             SELECT id FROM doctorsreasons 
-            WHERE doctor_id = ? AND (reason_name = ? OR (reason_id IS NOT NULL AND reason_id = ?))
+            WHERE doctor_id = ? AND clinic_id = ? AND (reason_name = ? OR (reason_id IS NOT NULL AND reason_id = ?))
             LIMIT 1
         ");
 
@@ -448,10 +464,10 @@ class DoctorController {
                     : (isset($data['reason_time']) && (int)$data['reason_time'] > 0 ? (int)$data['reason_time'] : 30);
                 $reasonColor = isset($item['reason_color']) ? (int)$item['reason_color'] : 0;
 
-                // Check duplicate
-                $checkStmt->execute([$doctorId, $reasonName, $reasonId]);
+                // Check duplicate for this clinic
+                $checkStmt->execute([$doctorId, $clinicId, $reasonName, $reasonId]);
                 if ($checkStmt->fetch()) {
-                    continue; // Skip if already exists for this doctor
+                    continue; // Skip if already exists for this doctor in this clinic
                 }
 
                 $newId = UUIDHelper::generate();
@@ -860,15 +876,30 @@ class DoctorController {
         }
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT id, specialtie_id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id, specialtie_id, pricing FROM doctors WHERE user_id = ? LIMIT 1");
         $stmt->execute([$session['user_id']]);
         $doctor = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$doctor) Response::notFound('لم يتم العثور على حساب الطبيب.');
 
         $doctorId = $doctor['id'];
+        $requestedClinicId = isset($_GET['clinic_id']) && !empty($_GET['clinic_id']) ? trim($_GET['clinic_id']) : null;
 
-        // Find clinic owned by this doctor
-        $stmt = $pdo->prepare("
+        // Fetch all affiliated clinics
+        $affilStmt = $pdo->prepare("
+            SELECT c.id, c.clinicname, c.address, c.phone, c.latitude, c.longitude, c.email, c.fax, c.aboutclinic, c.services,
+                   cd.is_owner, cd.status,
+                   cd.pricing as clinic_pricing,
+                   COALESCE(cd.pricing, ?) as effective_pricing
+            FROM clinics c
+            JOIN clinicsdoctors cd ON cd.clinic_id = c.id
+            WHERE cd.doctor_id = ? AND UPPER(cd.status) IN ('APPROVED', 'ACCEPTED')
+            ORDER BY cd.is_owner DESC, c.clinicname ASC
+        ");
+        $affilStmt->execute([$doctor['pricing'] ?? null, $doctorId]);
+        $affiliatedClinics = $affilStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Find clinic owned by this doctor (private clinic)
+        $ownedStmt = $pdo->prepare("
             SELECT c.* 
             FROM clinics c
             WHERE c.owner_doctor_id = ? 
@@ -877,24 +908,62 @@ class DoctorController {
             ORDER BY c.createdat DESC
             LIMIT 1
         ");
-        $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
-        $clinic = $stmt->fetch(PDO::FETCH_ASSOC);
+        $ownedStmt->execute([$doctorId, $session['user_id'], $doctorId]);
+        $ownedClinic = $ownedStmt->fetch(PDO::FETCH_ASSOC);
+        $hasPrivateClinic = !empty($ownedClinic);
 
-        if (!$clinic) {
-            Response::success(null, 'لا توجد عيادة مرتبطة بهذا الطبيب حتى الآن.');
+        // Filter out owned clinic from affiliated clinics so it is never duplicated
+        if ($ownedClinic) {
+            $affiliatedClinics = array_values(array_filter($affiliatedClinics, function($c) use ($ownedClinic) {
+                return $c['id'] !== $ownedClinic['id'] && empty($c['is_owner']);
+            }));
+        } else {
+            $affiliatedClinics = array_values(array_filter($affiliatedClinics, function($c) {
+                return empty($c['is_owner']);
+            }));
+        }
+
+        $selectedClinic = null;
+        if ($requestedClinicId) {
+            if ($ownedClinic && $ownedClinic['id'] === $requestedClinicId) {
+                $selectedClinic = $ownedClinic;
+            } else {
+                $cStmt = $pdo->prepare("SELECT * FROM clinics WHERE id = ? LIMIT 1");
+                $cStmt->execute([$requestedClinicId]);
+                $selectedClinic = $cStmt->fetch(PDO::FETCH_ASSOC);
+            }
+        } else {
+            if ($ownedClinic) {
+                $selectedClinic = $ownedClinic;
+            } elseif (!empty($affiliatedClinics)) {
+                $firstAffId = $affiliatedClinics[0]['id'];
+                $cStmt = $pdo->prepare("SELECT * FROM clinics WHERE id = ? LIMIT 1");
+                $cStmt->execute([$firstAffId]);
+                $selectedClinic = $cStmt->fetch(PDO::FETCH_ASSOC);
+            }
+        }
+
+        if (!$selectedClinic) {
+            Response::success([
+                'has_private_clinic' => false,
+                'private_clinic_id' => null,
+                'affiliated_clinics' => $affiliatedClinics
+            ], 'لا توجد عيادة مرتبطة بهذا الطبيب حتى الآن.');
             return;
         }
 
-        // If owner_doctor_id wasn't set, auto-link it now
-        if (empty($clinic['owner_doctor_id'])) {
+        $isOwner = ($ownedClinic && $ownedClinic['id'] === $selectedClinic['id']) ||
+                   (!empty($selectedClinic['owner_doctor_id']) && $selectedClinic['owner_doctor_id'] === $doctorId);
+
+        if ($isOwner && empty($selectedClinic['owner_doctor_id'])) {
             $pdo->prepare("UPDATE clinics SET owner_doctor_id = ? WHERE id = ?")
-                ->execute([$doctorId, $clinic['id']]);
-            $clinic['owner_doctor_id'] = $doctorId;
+                ->execute([$doctorId, $selectedClinic['id']]);
+            $selectedClinic['owner_doctor_id'] = $doctorId;
         }
 
         // Format Logo
-        if (!empty($clinic['logo'])) {
-            $clinic['logo'] = base64_encode($clinic['logo']);
+        if (!empty($selectedClinic['logo'])) {
+            $selectedClinic['logo'] = base64_encode($selectedClinic['logo']);
         }
 
         // Fetch Doctor's Appointment Settings for this Clinic
@@ -903,8 +972,8 @@ class DoctorController {
             WHERE doctor_id = ? AND clinic_id = ? 
             LIMIT 1
         ");
-        $sStmt->execute([$doctorId, $clinic['id']]);
-        $clinic['appointment_settings'] = $sStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $sStmt->execute([$doctorId, $selectedClinic['id']]);
+        $selectedClinic['appointment_settings'] = $sStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         // Fetch Doctor's Off-Hours for this Clinic
         $ohStmt = $pdo->prepare("
@@ -915,22 +984,31 @@ class DoctorController {
             WHERE doctor_id = ? AND clinic_id = ? 
             ORDER BY day ASC, timebegin ASC
         ");
-        $ohStmt->execute([$doctorId, $clinic['id']]);
-        $clinic['off_hours'] = $ohStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $ohStmt->execute([$doctorId, $selectedClinic['id']]);
+        $selectedClinic['off_hours'] = $ohStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         // Fetch Doctor's Consultation Reasons for this Clinic
         $rStmt = $pdo->prepare("
-            SELECT id, reason_name, price, countreason, colorreason, timereason 
+            SELECT id, reason_name, reason_time, reason_color
             FROM doctorsreasons 
-            WHERE doctor_id = ? AND (clinic_id = ? OR clinic_id IS NULL)
+            WHERE doctor_id = ? AND clinic_id = ?
             ORDER BY reason_name ASC
         ");
-        $rStmt->execute([$doctorId, $clinic['id']]);
-        $clinic['reasons'] = $rStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rStmt->execute([$doctorId, $selectedClinic['id']]);
+        $selectedClinic['reasons'] = $rStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        $clinic['is_owner'] = true;
+        // Fetch Doctor's Consultation Pricing for this Clinic
+        $cdStmt = $pdo->prepare("SELECT pricing FROM clinicsdoctors WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+        $cdStmt->execute([$doctorId, $selectedClinic['id']]);
+        $cdPricing = $cdStmt->fetchColumn();
+        $selectedClinic['pricing'] = ($cdPricing !== false && $cdPricing !== null) ? (float)$cdPricing : (!empty($doctor['pricing']) ? (float)$doctor['pricing'] : null);
 
-        Response::success($clinic);
+        $selectedClinic['has_private_clinic'] = $hasPrivateClinic;
+        $selectedClinic['private_clinic_id'] = $ownedClinic ? $ownedClinic['id'] : null;
+        $selectedClinic['affiliated_clinics'] = $affiliatedClinics;
+        $selectedClinic['is_owner'] = $isOwner;
+
+        Response::success($selectedClinic);
     }
 
     // POST /api/doctors/clinic
@@ -1024,18 +1102,20 @@ class DoctorController {
                 $logoBinary
             ]);
 
-            // Link doctor to clinic in clinicsdoctors with is_owner = 1 and status = APPROVED
+            // Link doctor to clinic in clinicsdoctors with is_owner = 1, status = APPROVED, and clinic pricing
             $specId = !empty($doctor['specialtie_id']) ? $doctor['specialtie_id'] : ($pdo->query("SELECT id FROM specialties ORDER BY id LIMIT 1")->fetchColumn() ?: null);
+            $clinicPricing = (isset($data['pricing']) && $data['pricing'] !== '' && $data['pricing'] !== null) ? (float)$data['pricing'] : null;
             $insRelation = $pdo->prepare("
                 INSERT INTO clinicsdoctors (
-                    id, clinic_id, doctor_id, specialtie_id, status, requestedby, is_owner
-                ) VALUES (?, ?, ?, ?, 'APPROVED', 'DOCTOR', 1)
+                    id, clinic_id, doctor_id, specialtie_id, status, requestedby, is_owner, pricing
+                ) VALUES (?, ?, ?, ?, 'APPROVED', 'DOCTOR', 1, ?)
             ");
             $insRelation->execute([
                 $relationId,
                 $clinicId,
                 $doctorId,
-                $specId
+                $specId,
+                $clinicPricing
             ]);
 
             // Initialize default schedule settings if not yet present
@@ -1148,6 +1228,13 @@ class DoctorController {
         $upd = $pdo->prepare("UPDATE clinics SET $setSql WHERE id = ?");
         $upd->execute($params);
 
+        // Update clinic-specific pricing if provided
+        if (isset($data['pricing'])) {
+            $clinicPricing = ($data['pricing'] !== '' && $data['pricing'] !== null) ? (float)$data['pricing'] : null;
+            $pdo->prepare("UPDATE clinicsdoctors SET pricing = ? WHERE doctor_id = ? AND clinic_id = ?")
+                ->execute([$clinicPricing, $doctorId, $clinicId]);
+        }
+
         Response::success(['clinic_id' => $clinicId], 'تم تحديث بيانات العيادة بنجاح.');
     }
 
@@ -1164,22 +1251,36 @@ class DoctorController {
         $doctorId = $stmt->fetchColumn();
         if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
 
-        // Find clinic owned by this doctor
-        $stmt = $pdo->prepare("
-            SELECT id FROM clinics 
-            WHERE owner_doctor_id = ? 
-               OR (user_id = ? AND owner_doctor_id IS NULL)
-               OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
-            LIMIT 1
-        ");
-        $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
-        $clinicId = $stmt->fetchColumn();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        if (!$clinicId) {
-            Response::notFound('لم يتم العثور على عيادة خاصة بك.');
+        // Check if a specific target clinic_id is provided
+        $targetClinicId = !empty($data['clinic_id']) ? trim($data['clinic_id']) : null;
+        $clinicId = null;
+
+        if ($targetClinicId) {
+            $checkRel = $pdo->prepare("SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+            $checkRel->execute([$doctorId, $targetClinicId]);
+            if ($checkRel->fetch()) {
+                $clinicId = $targetClinicId;
+            }
         }
 
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        if (!$clinicId) {
+            // Find clinic owned by this doctor
+            $stmt = $pdo->prepare("
+                SELECT id FROM clinics 
+                WHERE owner_doctor_id = ? 
+                   OR (user_id = ? AND owner_doctor_id IS NULL)
+                   OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1)
+                LIMIT 1
+            ");
+            $stmt->execute([$doctorId, $session['user_id'], $doctorId]);
+            $clinicId = $stmt->fetchColumn();
+        }
+
+        if (!$clinicId) {
+            Response::notFound('لم يتم العثور على العيادة المطلوبة.');
+        }
 
         $pdo->beginTransaction();
         try {
@@ -1244,6 +1345,210 @@ class DoctorController {
             $pdo->rollBack();
             Response::serverError('حدث خطأ أثناء تحديث إعدادات العيادة: ' . $e->getMessage());
         }
+    }
+
+    // PUT /api/doctors/clinics/{clinic_id}/pricing
+    // Body: { pricing: 2500 }
+    public static function updateClinicPricing(string $clinicId): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pricing = (isset($data['pricing']) && $data['pricing'] !== '' && $data['pricing'] !== null) 
+            ? (float)$data['pricing'] 
+            : null;
+
+        // Verify doctor belongs to this clinic
+        $checkRel = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+        $checkRel->execute([$doctorId, $clinicId]);
+        if (!$checkRel->fetch()) {
+            Response::error('أنت لست مسجلاً في هذه العيادة لتعديل تسعيرتها.', 403);
+        }
+
+        $stmt = $pdo->prepare("
+            UPDATE clinicsdoctors 
+            SET pricing = ? 
+            WHERE doctor_id = ? AND clinic_id = ?
+        ");
+        $stmt->execute([$pricing, $doctorId, $clinicId]);
+
+        Response::success(['pricing' => $pricing], 'تم تحديث تسعيرة الكشف الأساسية لهذه العيادة بنجاح.');
+    }
+
+    // GET /api/doctors/clinic/{clinic_id}/doctors
+    public static function getClinicDoctors(string $clinicId): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        // Verify if doctor owns this clinic or is a member
+        $ownerStmt = $pdo->prepare("
+            SELECT id FROM clinics 
+            WHERE id = ? AND (owner_doctor_id = ? OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1))
+            LIMIT 1
+        ");
+        $ownerStmt->execute([$clinicId, $doctorId, $doctorId]);
+        $isOwner = (bool)$ownerStmt->fetch();
+
+        // Check membership
+        $memberStmt = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE clinic_id = ? AND doctor_id = ? AND UPPER(status) IN ('APPROVED', 'ACCEPTED') LIMIT 1");
+        $memberStmt->execute([$clinicId, $doctorId]);
+        if (!$isOwner && !$memberStmt->fetch()) {
+            Response::error('ليس لديك صلاحية الوصول إلى أطباء هذا المقر.', 403);
+        }
+
+        $docStmt = $pdo->prepare("
+            SELECT 
+                d.id AS doctor_id,
+                d.fullname,
+                d.phone,
+                d.email,
+                d.pricing AS default_pricing,
+                cd.id AS relation_id,
+                cd.status AS relation_status,
+                cd.is_owner,
+                cd.pricing AS clinic_pricing,
+                COALESCE(s.namear, s.namefr, '') AS specialty_name,
+                CASE WHEN d.photoprofile IS NOT NULL AND LENGTH(d.photoprofile) > 0 THEN 1 ELSE 0 END AS has_photo
+            FROM clinicsdoctors cd
+            JOIN doctors d ON d.id = cd.doctor_id
+            LEFT JOIN specialties s ON s.id = cd.specialtie_id
+            WHERE cd.clinic_id = ? AND UPPER(cd.status) IN ('APPROVED', 'ACCEPTED')
+            ORDER BY cd.is_owner DESC, d.fullname ASC
+        ");
+        $docStmt->execute([$clinicId]);
+        $doctors = $docStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        Response::success([
+            'is_owner' => $isOwner,
+            'clinic_id' => $clinicId,
+            'doctors'  => $doctors
+        ]);
+    }
+
+    // DELETE /api/doctors/clinic/{clinic_id}/doctors/{target_doctor_id}
+    public static function removeDoctorFromClinic(string $clinicId, string $targetDoctorId): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        // Must be the owner of the clinic
+        $ownerStmt = $pdo->prepare("
+            SELECT id FROM clinics 
+            WHERE id = ? AND (owner_doctor_id = ? OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1))
+            LIMIT 1
+        ");
+        $ownerStmt->execute([$clinicId, $doctorId, $doctorId]);
+        if (!$ownerStmt->fetch()) {
+            Response::error('فقط مالك العيادة يمكنه إزالة الأطباء من العيادة.', 403);
+        }
+
+        // Cannot remove oneself if owner
+        if ($targetDoctorId === $doctorId) {
+            Response::error('لا يمكنك إزالة نفسك كمالك للعيادة.', 422);
+        }
+
+        $delStmt = $pdo->prepare("DELETE FROM clinicsdoctors WHERE clinic_id = ? AND doctor_id = ? AND is_owner = 0");
+        $delStmt->execute([$clinicId, $targetDoctorId]);
+
+        Response::success(null, 'تم فك ارتباط الطبيب وإزالته من العيادة بنجاح.');
+    }
+
+    // GET /api/doctors/clinic/search-doctors?clinic_id=...&q=...
+    public static function searchDoctorsForClinic(): void {
+        $session = AuthMiddleware::authenticate();
+        if ((int)$session['usertype'] !== 1) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$session['user_id']]);
+        $doctorId = $stmt->fetchColumn();
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $clinicId = trim($_GET['clinic_id'] ?? '');
+        $q = trim($_GET['q'] ?? '');
+
+        if (!$clinicId) {
+            Response::error('معرف العيادة مطلوب.', 422);
+        }
+
+        $sql = "
+            SELECT 
+                d.id, d.fullname, d.email, d.phone, d.pricing,
+                COALESCE(s.namear, s.namefr, '') AS specialty_name,
+                CASE WHEN d.photoprofile IS NOT NULL AND LENGTH(d.photoprofile) > 0 THEN 1 ELSE 0 END AS has_photo,
+                (
+                    SELECT cd.status 
+                    FROM clinicsdoctors cd 
+                    WHERE cd.clinic_id = ? AND cd.doctor_id = d.id 
+                    LIMIT 1
+                ) AS relation_status,
+                (
+                    SELECT cd.requestedby 
+                    FROM clinicsdoctors cd 
+                    WHERE cd.clinic_id = ? AND cd.doctor_id = d.id 
+                    LIMIT 1
+                ) AS requested_by,
+                (
+                    SELECT cd.is_owner 
+                    FROM clinicsdoctors cd 
+                    WHERE cd.clinic_id = ? AND cd.doctor_id = d.id 
+                    LIMIT 1
+                ) AS is_clinic_owner
+            FROM doctors d
+            LEFT JOIN specialties s ON s.id = d.specialtie_id
+            WHERE d.status = 'APPROVED' 
+              AND (d.is_frozen = 0 OR d.is_frozen IS NULL)
+              AND d.id != ?
+        ";
+        $params = [$clinicId, $clinicId, $clinicId, $doctorId];
+
+        if ($q !== '') {
+            $sql .= " AND (d.fullname LIKE ? OR s.namear LIKE ? OR s.namefr LIKE ? OR d.phone LIKE ?)";
+            $wild = "%$q%";
+            $params[] = $wild;
+            $params[] = $wild;
+            $params[] = $wild;
+            $params[] = $wild;
+        }
+
+        $sql .= " ORDER BY d.fullname ASC LIMIT 30";
+        $sStmt = $pdo->prepare($sql);
+        $sStmt->execute($params);
+        $list = $sStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($list as &$item) {
+            $relStatus = strtoupper($item['relation_status'] ?? '');
+            $item['is_member'] = in_array($relStatus, ['ACCEPTED', 'APPROVED']);
+            $item['is_pending'] = ($relStatus === 'PENDING');
+            $item['can_invite'] = !$item['is_member'] && !$item['is_pending'];
+        }
+
+        Response::success($list);
     }
 }
 

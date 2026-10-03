@@ -24,9 +24,31 @@ class RelationController {
         $doctor_id = '';
 
         if ($user['usertype'] == 1) { // DOCTOR
-            $senderType = 'DOCTOR';
-            $doctor_id = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
-            $clinicid = $targetid;
+            $doctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            $clinicParam = $data['clinic_id'] ?? null;
+            if (!empty($clinicParam)) {
+                // Check if this doctor owns $clinicParam
+                $stmtOwner = $pdo->prepare("
+                    SELECT id FROM clinics 
+                    WHERE id = ? AND (owner_doctor_id = ? OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1))
+                    LIMIT 1
+                ");
+                $stmtOwner->execute([$clinicParam, $doctorId, $doctorId]);
+                if ($stmtOwner->fetch()) {
+                    // Doctor is acting as Clinic Owner inviting target doctor
+                    $senderType = 'CLINIC';
+                    $clinicid = $clinicParam;
+                    $doctor_id = $targetid;
+                } else {
+                    $senderType = 'DOCTOR';
+                    $doctor_id = $doctorId;
+                    $clinicid = $targetid;
+                }
+            } else {
+                $senderType = 'DOCTOR';
+                $doctor_id = $doctorId;
+                $clinicid = $targetid;
+            }
         } else if ($user['usertype'] == 2) { // CLINIC
             $senderType = 'CLINIC';
             $clinicid = $user['clinic_id'] ?? self::getClinicId($user['user_id']);
@@ -91,6 +113,47 @@ class RelationController {
         $user = AuthMiddleware::authenticate();
         $pdo = Database::getInstance();
 
+        $clinicParam = $_GET['clinic_id'] ?? null;
+        if ($user['usertype'] == 1 && !empty($clinicParam)) {
+            $myDoctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
+            // Verify ownership
+            $stmtOwner = $pdo->prepare("
+                SELECT id FROM clinics 
+                WHERE id = ? AND (owner_doctor_id = ? OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1))
+                LIMIT 1
+            ");
+            $stmtOwner->execute([$clinicParam, $myDoctorId, $myDoctorId]);
+            if ($stmtOwner->fetch()) {
+                // Return requests for this owned clinic
+                $stmt = $pdo->prepare("
+                    SELECT r.id, r.clinic_id, r.doctor_id, r.status, r.requestedby as SenderType,
+                           d.fullname as targetname, d.phone, d.address,
+                           COALESCE(s.namear, s.namefr, '') as specialty_name,
+                           '2025-01-01 00:00:00' as createdat
+                    FROM clinicsdoctors r
+                    JOIN doctors d ON d.id = r.doctor_id
+                    LEFT JOIN specialties s ON s.id = COALESCE(r.specialtie_id, d.specialtie_id)
+                    WHERE r.clinic_id = ? AND r.status IN ('pending', 'accepted', 'rejected', 'APPROVED')
+                      AND r.is_owner = 0
+                    ORDER BY CASE WHEN UPPER(r.status) = 'PENDING' THEN 1 ELSE 2 END, r.id DESC
+                ");
+                $stmt->execute([$clinicParam]);
+                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($results as &$r) {
+                    $r['photo'] = null;
+                    if (strtolower($r['status']) === 'accepted' || strtoupper($r['status']) === 'APPROVED') {
+                        $r['status'] = 'ACCEPTED';
+                    } else if (strtolower($r['status']) === 'rejected') {
+                        $r['status'] = 'REJECTED';
+                    } else {
+                        $r['status'] = 'PENDING';
+                    }
+                }
+                Response::success($results);
+                return;
+            }
+        }
+
         if ($user['usertype'] == 1) { // DOCTOR looking at clinics
             $myId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
             $stmt = $pdo->prepare("
@@ -102,6 +165,7 @@ class RelationController {
                 JOIN clinics c ON c.id = r.clinic_id
                 LEFT JOIN specialties s ON s.id = r.specialtie_id
                 WHERE r.doctor_id = ? AND r.status IN ('pending', 'accepted', 'rejected', 'APPROVED')
+                  AND r.is_owner = 0
                 ORDER BY CASE WHEN UPPER(r.status) = 'PENDING' THEN 1 ELSE 2 END, r.id DESC
             ");
             $stmt->execute([$myId]);
@@ -190,7 +254,24 @@ class RelationController {
 
         if ($user['usertype'] == 1) { // Doctor
             $myDoctorId = $user['doctor_id'] ?? self::getDoctorId($user['user_id']);
-            if ($req['doctor_id'] !== $myDoctorId || strtoupper($req['requestedby']) !== 'CLINIC') {
+            // Case A: Doctor responding to an invitation from a clinic
+            $isDoctorTarget = ($req['doctor_id'] === $myDoctorId && strtoupper($req['requestedby']) === 'CLINIC');
+            
+            // Case B: Doctor is owner of the clinic and responding to another doctor who requested to join
+            $isClinicOwner = false;
+            $stmtOwner = $pdo->prepare("
+                SELECT id FROM clinics 
+                WHERE id = ? AND (owner_doctor_id = ? OR id IN (SELECT clinic_id FROM clinicsdoctors WHERE doctor_id = ? AND is_owner = 1))
+                LIMIT 1
+            ");
+            $stmtOwner->execute([$req['clinic_id'], $myDoctorId, $myDoctorId]);
+            if ($stmtOwner->fetch()) {
+                if (strtoupper($req['requestedby']) === 'DOCTOR' || in_array($action, ['reject', 'rejected'])) {
+                    $isClinicOwner = true;
+                }
+            }
+
+            if (!$isDoctorTarget && !$isClinicOwner) {
                 Response::error('لا تملك الصلاحية للرد على هذا الطلب.', 403);
             }
         } else if ($user['usertype'] == 2) { // Clinic
