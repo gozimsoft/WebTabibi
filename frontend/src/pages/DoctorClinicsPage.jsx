@@ -1,14 +1,13 @@
 // frontend/src/pages/DoctorClinicsPage.jsx
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Building2, ArrowRight, ArrowLeft, User, Calendar, ShieldCheck, Check } from "lucide-react";
-import { Spinner, useToast, Btn } from "../components/SharedUI";
+import { Building2, User, Calendar } from "lucide-react";
+import { Spinner, useToast } from "../components/SharedUI";
 import DoctorClinicManager from "../components/DoctorClinicManager";
 import { api as defaultApi } from "../api/client";
 
 export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
-  const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === "ar";
+  const { t } = useTranslation();
   const { show, Toast } = useToast();
 
   const activeApi = api || defaultApi;
@@ -55,7 +54,9 @@ export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
       maxWidth: 1240,
       margin: "0 auto",
       padding: isMobile ? "14px 12px 60px" : "24px 20px 80px",
-      minHeight: "80vh"
+      minHeight: "80vh",
+      width: "100%",
+      boxSizing: "border-box"
     }}>
       {Toast}
 
@@ -71,31 +72,6 @@ export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
         borderBottom: "1.5px solid var(--border, #e2e8f0)"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-          <button
-            type="button"
-            onClick={() => navigate?.(-1)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: "var(--card-bg, #ffffff)",
-              border: "1.5px solid var(--border, #e2e8f0)",
-              cursor: "pointer",
-              color: "var(--text-secondary)",
-              transition: "all 0.2s ease",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
-              flexShrink: 0
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--brand, #0891b2)"; e.currentTarget.style.color = "var(--brand, #0891b2)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border, #e2e8f0)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-            title={t("back", "رجوع")}
-          >
-            {isRtl ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
-          </button>
-
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{
@@ -165,7 +141,7 @@ export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
               padding: "9px 16px",
               borderRadius: 12,
               border: "none",
-              background: "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)",
+              background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)",
               color: "#ffffff",
               fontSize: 13,
               fontWeight: 800,

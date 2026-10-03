@@ -318,7 +318,7 @@ export const PasswordInput = ({ label, error, showStrength = false, ...p }) => {
 
 export const Btn = ({ children, variant = "primary", style = {}, loading: ld, disabled, ...p }) => {
   const variants = {
-    primary: { background: "linear-gradient(135deg,var(--brand),var(--brand-dark))", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
+    primary: { background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)", color: "#fff", boxShadow: "0 4px 12px rgba(8,145,178,0.25)" },
     secondary: { background: "#f3f4f6", color: "#374151", border: "1px solid #0891b2" },
     danger: { background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" },
     ghost: { background: "transparent", color: "var(--brand)", border: "1px solid var(--brand)" },

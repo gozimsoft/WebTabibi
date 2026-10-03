@@ -11,10 +11,10 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.tabibi.app"
+    namespace = "com.tabibi_dz.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.tabibi.app"
+        applicationId "com.tabibi_dz.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

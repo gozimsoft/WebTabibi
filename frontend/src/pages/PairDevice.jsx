@@ -315,7 +315,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             style={{
               width: "100%", padding: "14px",
               borderRadius: 12, border: "none",
-              background: "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)",
+              background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)",
               color: "#fff", fontWeight: 800, fontSize: 15,
               cursor: "pointer",
               boxShadow: "0 4px 14px rgba(8, 145, 178, 0.3)"

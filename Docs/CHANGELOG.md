@@ -2,6 +2,66 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-10-03
+
+### Fixed / Internationalization & UI
+- **إصلاح إغلاق القائمة المنسدلة عند النقر خارجها وعنونة شريط التنقل المختصرة (Navbar Dropdown & UX)**:
+  - **سبب عدم إغلاق القائمة عند النقر خارجها**: كان المكون يعتمد على عنصر خلفية ملء الشاشة بصيغة `<div style={{ position: "fixed", inset: 0, zIndex: -1 }}>`، وبسبب `zIndex: -1` كان العنصر يقع خلف جميع عناصر الصفحة ولا يستقبل أي نقرات. تم استبداله بـ `useRef(menuRef)` مع مستمع أحداث عالمي (`mousedown` و `touchstart`) يغلق القائمة فوراً عند النقر خارجها بالتناغم مع قائمة الإشعارات.
+  - **اختصار عناوين أزرار شريط التنقل (Navbar Compact Titles)**:
+    - تحويل "عيادتي ومقرات العمل" في شريط التنقل إلى **"عيادتي"** (`nav_my_clinic`) لتوفير مساحة جمالية.
+    - تحويل "إدارة المواعيد" و"Agenda de la clinique" إلى **"المواعيد"** (`nav_appointments` / "Appointments" / "Rendez-vous").
+    - تحويل "إدارة الحسابات" للإدارة إلى **"الحسابات"** (`nav_accounts` / "Accounts" / "Comptes").
+  - **التعريب والترجمة الشاملة لجميع عناصر القوائم والموقع (Complete i18n Synchronization)**:
+    - ترجمة الزر الثاني (`my_clinic_tab`): "عيادتي ومقرات العمل" / "Mes cliniques & cabinets" / "My Clinics & Workplaces".
+    - ترجمة الزر الثالث (`pair_desktop_nav`): "ربط تطبيق العيادة" / "Associer l'application bureau" / "Pair Desktop App".
+    - ترجمة القوائم الفرعية للخصوصية والمعلومات القانونية (`menu_privacy_data`, `menu_my_consents`, `menu_my_data_rights`, `menu_download_data`, `menu_delete_account`, `footer_terms`, `footer_privacy`, `footer_legal`).
+  - **الفحص الشامل لكامل واجهات المنصة**:
+    - سد كافة الفجوات اللغوية (1,517 مفتاحاً لكل لغة): إضافة 71 مفتاحاً كانت مفقودة في الفرنسية و 9 مفاتيح كانت مفقودة في الإنجليزية من شاشات الحجز والمواعيد والملف الشخصي.
+    - ترجمة كافة شاشات ربط الجهاز المكتبي للعيادات ([`PairDevice.jsx`](file:///c:/xampp/htdocs/tabibi/frontend/src/pages/PairDevice.jsx))، وإدارة الحسابات الإدارية ([`SuperAdminAccountManagement.jsx`](file:///c:/xampp/htdocs/tabibi/frontend/src/pages/SuperAdminAccountManagement.jsx))، وجداول الأطباء والعيادات.
+    - تحقيق نسبة مطابقة 100% بين ملفات اللغات الثلاث: [`ar.json`](file:///c:/xampp/htdocs/tabibi/frontend/src/locales/ar.json)، [`fr.json`](file:///c:/xampp/htdocs/tabibi/frontend/src/locales/fr.json)، و[`en.json`](file:///c:/xampp/htdocs/tabibi/frontend/src/locales/en.json) بدون أي مفتاح مفقود.
+
+- **محاذاة عرض صفحات العيادات وحذف زر الرجوع (Clinic Pages Width Alignment & Header Cleanup)**:
+  - ضبط حاوية نموذج وإدارة العيادات في [`DoctorClinicManager.jsx`](file:///c:/xampp/htdocs/tabibi/frontend/src/components/DoctorClinicManager.jsx) بـ `width: "100%"` بدلاً من القيود الثابتة (`maxWidth: 880` و `maxWidth: 1040`) لملء كامل عرض الحاوية وتطابقها تماماً مع شريط التنقل.
+- **توحيد خلفية الأزرار (Unified Button Background Gradient)**:
+  - اعتماد التنسيق الموحد `background: linear-gradient(135deg, var(--brand, #0891b2), #0891b2)` لجميع أزرار المنصة الأساسية والتفاعلية عبر مكون الأزرار المشترك [`SharedUI.jsx`](file:///c:/xampp/htdocs/tabibi/frontend/src/components/SharedUI.jsx) وفي صفحات العيادات والمواعيد وإدارة الأوقات وتطبيق الربط والملف الشخصي ودليل المستخدم، مع إزالة أي درجات معتمة أو غير متناسقة.
+
+### Files Changed
+- `frontend/src/components/SharedUI.jsx`
+- `frontend/src/pages/DoctorClinicsPage.jsx`
+- `frontend/src/components/DoctorClinicManager.jsx`
+- `frontend/src/components/DoctorOffHoursSettings.jsx`
+- `frontend/src/pages/PairDevice.jsx`
+- `frontend/src/pages/UserGuide.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/locales/ar.json`
+- `frontend/src/locales/fr.json`
+- `frontend/src/locales/en.json`
+- `Docs/CHANGELOG.md`
+
+## 2026-09-27
+
+### Modified / Android & Workflow
+- **تحديث معرف التطبيق للأندرويد إلى `com.tabibi_dz.app` وإصلاح توافقية الحزم**:
+  - تحديث `appId` في `frontend/capacitor.config.json` إلى `com.tabibi_dz.app`.
+  - تحديث `namespace` و `applicationId` في `frontend/android/app/build.gradle` إلى `com.tabibi_dz.app`.
+  - نقل ملف النشاط الرئيسي `MainActivity.java` من الحزمة القديمة `com.tabibi.app` إلى المسار والحزمة الجديدة `frontend/android/app/src/main/java/com/tabibi_dz/app/MainActivity.java` لتفادي خطأ انهيار التطبيق (`ActivityNotFoundException` / `ClassNotFoundException`) عند الإقلاع.
+  - تحديث قيم `package_name` و `custom_url_scheme` في `frontend/android/app/src/main/res/values/strings.xml` لتتطابق مع المعرف الجديد.
+  - إضافة ملف `package.json` في جذر المشروع يحتوي على توجيه تلقائي للأوامر (`npm run dev`, `npm run build`, `npm run android:build`) إلى مجلد `frontend` لحل خطأ `ENOENT: no such file or directory, open 'C:\xampp\htdocs\tabibi\package.json'`.
+  - إعادة بناء وتجميع تطبيق الأندرويد Release بنجاح وتوليد ملف `app-release.apk` الموقع.
+  - توليد وتوقيع حزمة متجر التطبيقات (Google Play Store AAB Bundle) بصيغة `app-release.aab` عبر الأمر `npm run android:bundle`.
+  - تشغيل خادم الواجهة الخلفية PHP (المنفذ 8000) وخادم تطوير الواجهة الأمامية Vite (المنفذ 81).
+
+### Files Changed
+- `package.json`
+- `frontend/capacitor.config.json`
+- `frontend/android/app/build.gradle`
+- `frontend/android/app/src/main/res/values/strings.xml`
+- `frontend/android/app/src/main/java/com/tabibi_dz/app/MainActivity.java`
+- `Docs/CHANGELOG.md`
+
+### Documentation Updated
+Yes
+
 ## 2026-09-22
 
 ### Fixed / Data Integrity

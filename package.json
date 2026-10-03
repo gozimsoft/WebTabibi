@@ -1,0 +1,21 @@
+{
+  "name": "tabibi-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "منظومة طبيبي لإدارة العيادات الطبية - جذر المشروع",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "android:sync": "npm --prefix frontend run android:sync",
+    "android:build": "npm --prefix frontend run android:build",
+    "android:bundle": "npm --prefix frontend run android:bundle",
+    "server:backend": "cd backend && php -S localhost:8000"
+  },
+  "keywords": [
+    "tabibi",
+    "clinic-management"
+  ],
+  "author": "Tabibi Team",
+  "license": "UNLICENSED"
+}

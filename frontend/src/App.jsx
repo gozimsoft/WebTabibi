@@ -583,6 +583,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const notifRef = useRef(null);
+  const menuRef = useRef(null);
   const isMobile = useIsMobile();
   const name = user?.profile?.fullname?.split(" ")[0] || user?.profile?.clinicname?.split(" ")[0] || user?.username || "U";
   const animClass = useRandomAnimation(30);
@@ -904,12 +905,13 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
     }
   };
 
-  // ── إغلاق قائمة الإشعارات عند الضغط خارجها
+  // ── إغلاق القوائم المنسدلة عند الضغط خارجها
   useEffect(() => {
     const onClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
     };
-    if (notifOpen) {
+    if (notifOpen || open) {
       document.addEventListener("mousedown", onClickOutside);
       document.addEventListener("touchstart", onClickOutside);
     }
@@ -917,7 +919,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("touchstart", onClickOutside);
     };
-  }, [notifOpen]);
+  }, [notifOpen, open]);
 
   // ── تحديد إشعار واحد كمقروء
   const markAsRead = async (id, isRead) => {
@@ -1069,10 +1071,10 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
 
   const navLinks = [
     { label: t("search"), icon: <Search size={18} />, path: "/search" },
-    ...(user?.user_type === 0 ? [{ label: t("my_appointments"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
+    ...(user?.user_type === 0 ? [{ label: t("nav_appointments", "المواعيد"), icon: <Calendar size={18} />, path: "/appointments", private: true }] : []),
     { label: t("messages"), icon: <MessageSquare size={18} />, path: "/tickets", private: true, badge: unreadTicketsCount },
     ...(Number(user?.user_type) === 3 ? [{
-      label: t("account_management_nav", "Gestion des comptes"),
+      label: t("nav_accounts", "الحسابات"),
       icon: <ShieldCheck size={18} />,
       path: "/admin/accounts",
       private: true
@@ -1085,11 +1087,11 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       iconOnly: true
     }] : []),
     ...(user?.user_type === 1 ? [
-      { label: t("my_clinic_tab", "عيادتي ومقرات العمل"), icon: <Building2 size={18} />, path: "/clinics", private: true },
-      { label: t("appt_mgr_title", "إدارة المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
+      { label: t("nav_my_clinic", "عيادتي"), icon: <Building2 size={18} />, path: "/clinics", private: true },
+      { label: t("nav_appointments", "المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
     ] : []),
     ...(user?.user_type === 2 ? [
-      { label: t("clinic_agenda_nav", "Agenda de la clinique"), icon: <Calendar size={18} />, path: "/clinic/appointments", private: true }
+      { label: t("nav_appointments", "المواعيد"), icon: <Calendar size={18} />, path: "/clinic/appointments", private: true }
     ] : [])
   ];
 
@@ -1475,8 +1477,8 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
             </div>
           )}
           {user ? (
-            <div style={{ position: "relative" }}>
-              <button onClick={() => setOpen(!open)} style={{
+            <div ref={menuRef} style={{ position: "relative" }}>
+              <button onClick={() => { setOpen(prev => !prev); setNotifOpen(false); }} style={{
                 display: "flex", alignItems: "center", gap: 10,
                 background: "var(--bg)", border: "1px solid #0891b2",
                 borderRadius: 50, padding: isMobile ? 4 : (i18n.language === 'ar' ? "6px 6px 6px 14px" : "6px 14px 6px 6px"), cursor: "pointer",
@@ -1494,17 +1496,15 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
               </button>
 
               {open && (
-                <>
-                  <div style={{ position: "fixed", inset: 0, zIndex: -1 }} onClick={() => setOpen(false)} />
-                  <div style={{
-                    position: "absolute",
-                    left: i18n.language === 'ar' ? 0 : 'auto',
-                    right: i18n.language === 'ar' ? 'auto' : 0,
-                    top: "calc(100% + 12px)",
-                    background: "var(--card-bg)", border: "1px solid #0891b2",
-                    borderRadius: 16, boxShadow: "var(--shadow-lg)",
-                    minWidth: 240, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
-                  }}>
+                <div style={{
+                  position: "absolute",
+                  left: i18n.language === 'ar' ? 0 : 'auto',
+                  right: i18n.language === 'ar' ? 'auto' : 0,
+                  top: "calc(100% + 12px)",
+                  background: "var(--card-bg)", border: "1px solid #0891b2",
+                  borderRadius: 16, boxShadow: "var(--shadow-lg)",
+                  minWidth: 240, maxWidth: "calc(100vw - 32px)", overflow: "hidden", zIndex: 1001,
+                }}>
                     <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-main)" }}>{user.profile?.fullname || user.profile?.clinicname || user.username}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</div>
@@ -1725,7 +1725,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                       </button>
                     </div>
                   </div>
-                </>
               )}
             </div>
           ) : !isMobile && (
@@ -3669,7 +3668,7 @@ function SearchPage({ navigate, qs, user }) {
                         onClick={() => setCurrentPage(i + 1)}
                         style={{
                           width: 40, height: 40, borderRadius: 12,
-                          background: currentPage === i + 1 ? "linear-gradient(135deg, var(--brand), var(--brand-dark))" : "#fff",
+                          background: currentPage === i + 1 ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "#fff",
                           color: currentPage === i + 1 ? "#fff" : "#64748b",
                           border: currentPage === i + 1 ? "none" : "1.5px solid var(--border)",
                           fontWeight: 800, fontSize: 15, cursor: "pointer", transition: "all 0.2s",
@@ -8466,7 +8465,7 @@ function AdminDashboardPage({ navigate, user, qs, fullWidth: propFullWidth, togg
             onClick={() => handleTabChange(tTab.key)}
             style={{
               padding: '11px 22px', borderRadius: 14, fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-              background: tab === tTab.key ? 'linear-gradient(135deg,var(--brand),#0c4a6e)' : 'var(--card-bg, #ffffff)',
+              background: tab === tTab.key ? 'linear-gradient(135deg, var(--brand, #0891b2), #0891b2)' : 'var(--card-bg, #ffffff)',
               color: tab === tTab.key ? '#ffffff' : '#64748b',
               boxShadow: tab === tTab.key ? '0 4px 14px rgba(8,145,178,0.25)' : '0 1px 4px rgba(0,0,0,0.04)',
               border: tab === tTab.key ? 'none' : '1px solid var(--border, #e2e8f0)',
@@ -10914,7 +10913,7 @@ function ConsentsAndDataRightsSection({
       <Card style={{ border: "1.5px solid #e0f2fe", boxShadow: "0 4px 16px rgba(8, 145, 178, 0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ background: "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)", borderRadius: 12, padding: 8, display: "flex", color: "#fff" }}>
+            <div style={{ background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)", borderRadius: 12, padding: 8, display: "flex", color: "#fff" }}>
               <ShieldCheck size={20} />
             </div>
             <div>
@@ -12351,7 +12350,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: doctorActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: doctorActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: doctorActiveTab === "profile" ? "#ffffff" : "#64748b",
               fontWeight: doctorActiveTab === "profile" ? 800 : 600,
               fontSize: 14,
@@ -12377,7 +12376,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: doctorActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: doctorActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: doctorActiveTab === "security" ? "#ffffff" : "#64748b",
               fontWeight: doctorActiveTab === "security" ? 800 : 600,
               fontSize: 14,
@@ -12417,7 +12416,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: patientActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: patientActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: patientActiveTab === "profile" ? "#ffffff" : "#64748b",
               fontWeight: patientActiveTab === "profile" ? 800 : 600,
               fontSize: 14,
@@ -12442,7 +12441,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: patientActiveTab === "attending_doctor" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: patientActiveTab === "attending_doctor" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: patientActiveTab === "attending_doctor" ? "#ffffff" : "#64748b",
               fontWeight: patientActiveTab === "attending_doctor" ? 800 : 600,
               fontSize: 14,
@@ -12467,7 +12466,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: patientActiveTab === "emergency" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: patientActiveTab === "emergency" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: patientActiveTab === "emergency" ? "#ffffff" : "#64748b",
               fontWeight: patientActiveTab === "emergency" ? 800 : 600,
               fontSize: 14,
@@ -12492,7 +12491,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: patientActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: patientActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: patientActiveTab === "security" ? "#ffffff" : "#64748b",
               fontWeight: patientActiveTab === "security" ? 800 : 600,
               fontSize: 14,
@@ -12541,7 +12540,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: clinicActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: clinicActiveTab === "profile" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: clinicActiveTab === "profile" ? "#ffffff" : "#64748b",
               fontWeight: clinicActiveTab === "profile" ? 800 : 600,
               fontSize: 14,
@@ -12566,7 +12565,7 @@ function ProfilePage({ user, navigate, qs }) {
               padding: "11px 18px",
               borderRadius: 12,
               border: "none",
-              background: clinicActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)" : "transparent",
+              background: clinicActiveTab === "security" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
               color: clinicActiveTab === "security" ? "#ffffff" : "#64748b",
               fontWeight: clinicActiveTab === "security" ? 800 : 600,
               fontSize: 14,
@@ -12623,7 +12622,7 @@ function ProfilePage({ user, navigate, qs }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <div style={{
                     display: "inline-flex", alignItems: "center", gap: 8,
-                    background: "linear-gradient(135deg, #0891b2, #0c4a6e)", color: "#fff",
+                    background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)", color: "#fff",
                     padding: "6px 14px", borderRadius: 12, fontWeight: 800, fontSize: 15,
                     boxShadow: "0 4px 12px rgba(8,145,178,0.2)"
                   }}>
@@ -13005,7 +13004,7 @@ function ProfilePage({ user, navigate, qs }) {
           <div id="doctor-credentials-section">
           <Card style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+              <div style={{ background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)", borderRadius: 10, padding: 8, display: "flex" }}>
                 <Lock size={16} color="#fff" />
               </div>
               <div>
@@ -13304,7 +13303,7 @@ function ProfilePage({ user, navigate, qs }) {
           <div id="patient-credentials-section">
           <Card>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+              <div style={{ background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)", borderRadius: 10, padding: 8, display: "flex" }}>
                 <Lock size={16} color="#fff" />
               </div>
               <div>
@@ -13702,7 +13701,7 @@ function ProfilePage({ user, navigate, qs }) {
           <div id="clinic-credentials-section">
           <Card style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{ background: "linear-gradient(135deg,#0891b2,#0c4a6e)", borderRadius: 10, padding: 8, display: "flex" }}>
+              <div style={{ background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)", borderRadius: 10, padding: 8, display: "flex" }}>
                 <Lock size={16} color="#fff" />
               </div>
               <div>

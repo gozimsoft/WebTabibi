@@ -201,7 +201,7 @@ export default function DoctorOffHoursSettings({ doctor, showToast, isMobile }) 
               display: "flex",
               alignItems: "center",
               gap: 8,
-              background: "linear-gradient(135deg, var(--brand, #0891b2), #0c4a6e)",
+              background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)",
               boxShadow: "0 2px 8px rgba(8, 145, 178, 0.25)"
             }}
           >
