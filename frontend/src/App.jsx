@@ -15693,8 +15693,9 @@ function MainApp() {
         return <LegalNoticePage navigate={navigate} />;
       case "/app":
         return <AppDownloadPage key="app_download" navigate={navigate} user={user} />;
+      case "/install":
       case "/instal":
-        return <InstallPage key="instal" navigate={navigate} />;
+        return <InstallPage key="install" navigate={navigate} />;
       case "/appointments":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         if (user.user_type === 1) { setTimeout(() => navigate("/appointmanager"), 0); return null; }

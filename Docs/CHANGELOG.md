@@ -2,6 +2,28 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-10-05
+
+### Added / Internationalization & UI
+- **ترجمة وتعريب وتطوير صفحة التحميل والتثبيت (InstallPage Redesign, Multilingual & Route /install)**:
+  - استبدال المسار والربط من `/instal` إلى `/install` مع الحفاظ على التوافقية العكسية وإعادة التوجيه التلقائي في [`frontend/src/hooks/useRoute.js`](file:///c:/xampp/htdocs/tabibi/frontend/src/hooks/useRoute.js) و[`frontend/src/App.jsx`](file:///c:/xampp/htdocs/tabibi/frontend/src/App.jsx).
+  - اعتماد تصميم بطاقات تحميل عصري وأنيق (Clean Card UI) متوازن ومباشر بدون صور إضافية.
+  - استبدال مصطلح `MySQL` بالكامل بـ `SERVEUR TABIBI` (سيرفر طبيبي) في كافة العناوين، والأزرار، والأوصاف، وشارات التثبيت وخطوات الإعداد باللغات الثلاث.
+  - الالتزام التام باتجاه القراءة (`LTR` و `RTL`): دعم المحاذاة والاتجاه الصحيح في اللغات اللاتينية (الفرنسية والإنجليزية) واللغة العربية مع ملاءمة شاشات الهواتف.
+  - استخراج جميع النصوص وتوفير الترجمات باللغات الثلاث (العربية والفرنسية والإنجليزية) في [`fr.json`](file:///c:/xampp/htdocs/tabibi/frontend/src/locales/fr.json)، [`ar.json`](file:///c:/xampp/htdocs/tabibi/frontend/src/locales/ar.json)، و[`en.json`](file:///c:/xampp/htdocs/tabibi/frontend/src/locales/en.json).
+
+### Files Changed
+- `frontend/src/App.jsx`
+- `frontend/src/hooks/useRoute.js`
+- `frontend/src/pages/InstallPage.jsx`
+- `frontend/src/locales/fr.json`
+- `frontend/src/locales/ar.json`
+- `frontend/src/locales/en.json`
+- `Docs/CHANGELOG.md`
+
+### Documentation Updated
+Yes
+
 ## 2026-10-03
 
 ### Fixed / Internationalization & UI
