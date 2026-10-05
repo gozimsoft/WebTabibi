@@ -225,8 +225,8 @@ export const Card = ({ children, style = {}, onClick }) => (
   }}>{children}</div>
 );
 
-export const Input = ({ label, error, tooltip, helpText, ...p }) => (
-  <div style={{ marginBottom: 16 }}>
+export const Input = ({ label, error, tooltip, helpText, containerStyle, ...p }) => (
+  <div style={{ marginBottom: 16, ...containerStyle }}>
     {label && (
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#374151" }}>{label}</label>

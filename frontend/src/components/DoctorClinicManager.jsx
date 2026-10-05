@@ -2618,39 +2618,9 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                       value={newReason.reason_name}
                       onChange={e => setNewReason(r => ({ ...r, reason_name: e.target.value, reason_id: null }))}
                       required
+                      containerStyle={{ marginBottom: 0 }}
+                      style={{ height: 42 }}
                     />
-
-                    {/* Quick Suggestions from specialty */}
-                    {standardReasons.length > 0 && (
-                      <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                          {isRtl ? "أسباب شائعة للتخصص:" : "Suggestions :"}
-                        </span>
-                        {standardReasons.slice(0, 5).map(sr => (
-                          <button
-                            key={sr.id}
-                            type="button"
-                            onClick={() => setNewReason(r => ({
-                              ...r,
-                              reason_name: isRtl ? (sr.namear || sr.name) : (sr.namefr || sr.name),
-                              reason_id: sr.id
-                            }))}
-                            style={{
-                              background: "var(--card-bg)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 6,
-                              padding: "2px 8px",
-                              fontSize: 11,
-                              color: "var(--brand)",
-                              cursor: "pointer",
-                              fontWeight: 600
-                            }}
-                          >
-                            + {isRtl ? (sr.namear || sr.name) : (sr.namefr || sr.name)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   <div>
@@ -2662,12 +2632,14 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                       onChange={e => setNewReason(r => ({ ...r, reason_time: parseInt(e.target.value, 10) }))}
                       style={{
                         width: "100%",
+                        height: 42,
                         padding: "9px 12px",
-                        borderRadius: 8,
+                        borderRadius: 10,
                         border: "1.5px solid var(--border)",
                         background: "var(--card-bg)",
                         color: "var(--heading-color)",
-                        fontSize: 13
+                        fontSize: 13,
+                        boxSizing: "border-box"
                       }}
                     >
                       <option value={10}>10 {isRtl ? "د" : "min"}</option>
@@ -2680,12 +2652,44 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                   </div>
 
                   <div>
-                    <Btn type="submit" loading={addingReason} style={{ padding: "10px 18px", fontSize: 13, height: 42 }}>
+                    <Btn type="submit" loading={addingReason} style={{ padding: "10px 18px", fontSize: 13, height: 42, display: "flex", alignItems: "center", gap: 6 }}>
                       <Plus size={16} />
                       {isRtl ? "إضافة" : "Ajouter"}
                     </Btn>
                   </div>
                 </div>
+
+                {/* Quick Suggestions from specialty */}
+                {standardReasons.length > 0 && (
+                  <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      {isRtl ? "أسباب شائعة للتخصص:" : "Suggestions :"}
+                    </span>
+                    {standardReasons.slice(0, 5).map(sr => (
+                      <button
+                        key={sr.id}
+                        type="button"
+                        onClick={() => setNewReason(r => ({
+                          ...r,
+                          reason_name: isRtl ? (sr.namear || sr.name) : (sr.namefr || sr.name),
+                          reason_id: sr.id
+                        }))}
+                        style={{
+                          background: "var(--card-bg)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 6,
+                          padding: "3px 9px",
+                          fontSize: 11,
+                          color: "var(--brand)",
+                          cursor: "pointer",
+                          fontWeight: 600
+                        }}
+                      >
+                        + {isRtl ? (sr.namear || sr.name) : (sr.namefr || sr.name)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </form>
 
               {/* Reasons List */}
@@ -2767,71 +2771,84 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
               </div>
 
               {/* Add Off-hour Bar */}
-              <div style={{
+              <form onSubmit={e => { e.preventDefault(); addOffHour(); }} style={{
                 background: "var(--bg)",
-                border: "1px solid var(--border)",
+                border: "1.5px solid var(--border)",
                 borderRadius: 14,
                 padding: 16,
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr 1fr auto",
-                gap: 12,
-                alignItems: "center",
-                marginBottom: 20
+                marginBottom: 24
               }}>
-                <div>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
-                    {isRtl ? "اليوم" : "Jour"}
-                  </span>
-                  <select
-                    value={newOffHour.day}
-                    onChange={e => setNewOffHour(o => ({ ...o, day: parseInt(e.target.value, 10) }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      border: "1px solid var(--border)",
-                      background: "var(--card-bg)",
-                      color: "var(--heading-color)",
-                      fontSize: 13
-                    }}
-                  >
-                    {WEEK_DAYS.map(d => (
-                      <option key={d.index} value={d.index}>
-                        {isRtl ? d.labelAr : d.labelFr}
-                      </option>
-                    ))}
-                  </select>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "var(--heading-color)", marginBottom: 12 }}>
+                  {isRtl ? "إضافة فترة استراحة جديدة لهذا المقر:" : "Ajouter une période de pause :"}
                 </div>
 
-                <div>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
-                    {isRtl ? "من الساعة" : "De"}
-                  </span>
-                  <Input
-                    type="time"
-                    value={newOffHour.timebegin}
-                    onChange={e => setNewOffHour(o => ({ ...o, timebegin: e.target.value }))}
-                  />
-                </div>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr 1fr auto",
+                  gap: 12,
+                  alignItems: "end"
+                }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--heading-color)", marginBottom: 4 }}>
+                      {isRtl ? "اليوم" : "Jour"}
+                    </label>
+                    <select
+                      value={newOffHour.day}
+                      onChange={e => setNewOffHour(o => ({ ...o, day: parseInt(e.target.value, 10) }))}
+                      style={{
+                        width: "100%",
+                        height: 42,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        border: "1.5px solid var(--border)",
+                        background: "var(--card-bg)",
+                        color: "var(--heading-color)",
+                        fontSize: 13,
+                        boxSizing: "border-box"
+                      }}
+                    >
+                      {WEEK_DAYS.map(d => (
+                        <option key={d.index} value={d.index}>
+                          {isRtl ? d.labelAr : d.labelFr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
-                    {isRtl ? "إلى الساعة" : "À"}
-                  </span>
-                  <Input
-                    type="time"
-                    value={newOffHour.timeend}
-                    onChange={e => setNewOffHour(o => ({ ...o, timeend: e.target.value }))}
-                  />
-                </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--heading-color)", marginBottom: 4 }}>
+                      {isRtl ? "من الساعة" : "De"}
+                    </label>
+                    <Input
+                      type="time"
+                      value={newOffHour.timebegin}
+                      onChange={e => setNewOffHour(o => ({ ...o, timebegin: e.target.value }))}
+                      containerStyle={{ marginBottom: 0 }}
+                      style={{ height: 42 }}
+                    />
+                  </div>
 
-                <div style={{ alignSelf: "end" }}>
-                  <Btn type="button" onClick={addOffHour} style={{ padding: "10px 16px", fontSize: 13, height: 42 }}>
-                    <Plus size={16} />
-                    {isRtl ? "إضافة فترة" : "Ajouter"}
-                  </Btn>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--heading-color)", marginBottom: 4 }}>
+                      {isRtl ? "إلى الساعة" : "À"}
+                    </label>
+                    <Input
+                      type="time"
+                      value={newOffHour.timeend}
+                      onChange={e => setNewOffHour(o => ({ ...o, timeend: e.target.value }))}
+                      containerStyle={{ marginBottom: 0 }}
+                      style={{ height: 42 }}
+                    />
+                  </div>
+
+                  <div>
+                    <Btn type="submit" style={{ padding: "10px 18px", fontSize: 13, height: 42, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Plus size={16} />
+                      {isRtl ? "إضافة" : "Ajouter"}
+                    </Btn>
+                  </div>
                 </div>
-              </div>
+              </form>
 
               {/* Off-hours List */}
               {offHours.length === 0 ? (
