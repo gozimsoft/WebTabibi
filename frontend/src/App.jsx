@@ -7685,7 +7685,7 @@ function RegisterDoctorPage({ navigate, qs }) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 20, alignItems: 'start' }}>
             <Input
               label={isRtl ? 'اسم العيادة / المقر' : 'Nom du cabinet'}
               placeholder={isRtl ? 'مثال: عيادة د. محمد أمين' : 'Ex: Cabinet Dr. Mohamed'}
@@ -7694,7 +7694,7 @@ function RegisterDoctorPage({ navigate, qs }) {
                 setClinicNameTouched(true);
                 set('clinicname', e.target.value);
               }}
-              helpText={isRtl ? 'يقترح تلقائياً ويمكنك تعديله لأي اسم مهني تفضله' : 'Suggéré automatiquement, modifiable'}
+              tooltip={isRtl ? 'يقترح تلقائياً ويمكنك تعديله لأي اسم مهني تفضله' : 'Suggéré automatiquement, modifiable'}
             />
             <Input
               label={isRtl ? 'هاتف العيادة / الاستقبال' : 'Téléphone du cabinet'}
