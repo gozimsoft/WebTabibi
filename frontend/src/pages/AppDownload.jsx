@@ -67,7 +67,7 @@ export default function AppDownloadPage({ navigate }) {
   const baseUrl = import.meta.env.BASE_URL || "/";
 
   // App download URLs
-  const LOCAL_APK_URL = `${baseUrl}tabibi.apk`;
+  const DIRECT_APK_URL = "https://stellarsoft.dz/download/Tabibi.apk";
   const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=dz.tabibi.app";
   const APP_STORE_URL = "https://apps.apple.com/app/tabibi/id";
 
@@ -93,13 +93,6 @@ export default function AppDownloadPage({ navigate }) {
 
   const handleDownloadApk = () => {
     show(t("app_download_started", "Téléchargement de Tabibi (APK) en cours..."), "info");
-    const link = document.createElement("a");
-    link.href = LOCAL_APK_URL;
-    link.setAttribute("download", "Tabibi.apk");
-    link.setAttribute("target", "_blank");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const langs = [
@@ -310,9 +303,13 @@ export default function AppDownloadPage({ navigate }) {
             {/* Action Buttons Container */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 500 }}>
               {/* Primary: Direct APK Button */}
-              <motion.button
+              <motion.a
                 whileHover={{ scale: 1.015 }}
                 whileTap={{ scale: 0.985 }}
+                href={DIRECT_APK_URL}
+                download="Tabibi.apk"
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={handleDownloadApk}
                 style={{
                   background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
@@ -326,7 +323,8 @@ export default function AppDownloadPage({ navigate }) {
                   cursor: "pointer",
                   boxShadow: "0 10px 25px rgba(16,185,129,0.35)",
                   transition: "all 0.2s ease",
-                  gap: 8
+                  gap: 8,
+                  textDecoration: "none"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
@@ -364,7 +362,7 @@ export default function AppDownloadPage({ navigate }) {
                 }}>
                   <Download size={18} />
                 </div>
-              </motion.button>
+              </motion.a>
 
               {/* Secondary Row: Google Play & App Store */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

@@ -29,6 +29,7 @@ import analytics from "./utils/analytics";
 import AppointmentManager from "./pages/AppointmentManager";
 import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
+import InstallPage from "./pages/InstallPage";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
 import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
@@ -15692,6 +15693,8 @@ function MainApp() {
         return <LegalNoticePage navigate={navigate} />;
       case "/app":
         return <AppDownloadPage key="app_download" navigate={navigate} user={user} />;
+      case "/instal":
+        return <InstallPage key="instal" navigate={navigate} />;
       case "/appointments":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         if (user.user_type === 1) { setTimeout(() => navigate("/appointmanager"), 0); return null; }
