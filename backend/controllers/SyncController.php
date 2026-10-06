@@ -656,8 +656,12 @@ class SyncController {
                 INDEX `idx_code` (`code`),
                 INDEX `idx_status` (`status`),
                 INDEX `idx_expires` (`expires_at`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        try {
+            $pdo->exec("ALTER TABLE `sync_device_pairings` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch (\Throwable $e) {}
 
         try {
             $pdo->exec("ALTER TABLE `sync_device_pairings` MODIFY `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING'");
@@ -995,7 +999,7 @@ class SyncController {
 
         // Check if doctor is ALREADY linked to this clinic
         $stmtAlready = $pdo->prepare("
-            SELECT `id`, `paired_at`, `created_at` 
+            SELECT `id`, `token`, `paired_at`, `created_at` 
             FROM `sync_device_pairings` 
             WHERE `doctor_id` = ? AND `clinic_id` = ? AND `status` = 'APPROVED'
             LIMIT 1
@@ -1003,8 +1007,20 @@ class SyncController {
         $stmtAlready->execute([$doctor['id'], $clinicId]);
         $alreadyLinked = $stmtAlready->fetch();
 
+        $forceRelink = !empty($input['force_relink']) || !empty($input['replace_existing']);
+
         if ($alreadyLinked) {
-            Response::error('أنت مرتبط سابقاً بهذه العيادة. يرجى فصل الارتباط القديم أولاً من قائمة العيادات المرتبطة قبل إعادة الربط.', 409);
+            if ($forceRelink) {
+                // Invalidate previous session and revoke previous pairing cleanly
+                if (!empty($alreadyLinked['token'])) {
+                    $stmtDel = $pdo->prepare("DELETE FROM `sessions` WHERE `token` = ?");
+                    $stmtDel->execute([$alreadyLinked['token']]);
+                }
+                $stmtRev = $pdo->prepare("UPDATE `sync_device_pairings` SET `status` = 'REVOKED' WHERE `id` = ?");
+                $stmtRev->execute([$alreadyLinked['id']]);
+            } else {
+                Response::error('أنت مرتبط سابقاً بهذه العيادة. يرجى فصل الارتباط القديم أولاً من قائمة العيادات المرتبطة قبل إعادة الربط.', 409);
+            }
         }
 
         // Generate persistent desktop token in sessions table
@@ -1052,27 +1068,46 @@ class SyncController {
         $doctor = $stmtDoc->fetch();
         if (!$doctor) Response::notFound('ملف الطبيب غير موجود.');
 
-        $stmt = $pdo->prepare("
-            SELECT 
-                p.`id`,
-                p.`clinic_id`,
-                p.`status`,
-                p.`device_name`,
-                p.`paired_at`,
-                p.`created_at`,
-                c.`clinicname`,
-                c.`address`,
-                c.`wilaya`,
-                c.`phone`,
-                cd.`is_owner`
-            FROM `sync_device_pairings` p
-            LEFT JOIN `clinics` c ON c.`id` = p.`clinic_id`
-            LEFT JOIN `clinicsdoctors` cd ON cd.`clinic_id` = p.`clinic_id` AND cd.`doctor_id` = p.`doctor_id`
-            WHERE p.`doctor_id` = ? AND p.`status` = 'APPROVED'
-            ORDER BY COALESCE(p.`paired_at`, p.`created_at`) DESC
-        ");
-        $stmt->execute([$doctor['id']]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $pdo->prepare("
+                SELECT 
+                    p.`id`,
+                    p.`clinic_id`,
+                    p.`status`,
+                    p.`device_name`,
+                    p.`paired_at`,
+                    p.`created_at`,
+                    c.`clinicname`,
+                    c.`address`,
+                    COALESCE(w.`namear`, w.`namefr`, '') AS `wilaya`,
+                    c.`phone`,
+                    cd.`is_owner`
+                FROM `sync_device_pairings` p
+                LEFT JOIN `clinics` c ON c.`id` = p.`clinic_id`
+                LEFT JOIN `wilayas` w ON (w.`num` = c.`wilaya_id`)
+                LEFT JOIN `clinicsdoctors` cd ON cd.`clinic_id` = p.`clinic_id` AND cd.`doctor_id` = p.`doctor_id`
+                WHERE p.`doctor_id` = ? AND p.`status` = 'APPROVED'
+                ORDER BY COALESCE(p.`paired_at`, p.`created_at`) DESC
+            ");
+            $stmt->execute([$doctor['id']]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            // Defensive fallback if complex join encounters schema differences
+            $stmt = $pdo->prepare("
+                SELECT 
+                    p.`id`,
+                    p.`clinic_id`,
+                    p.`status`,
+                    p.`device_name`,
+                    p.`paired_at`,
+                    p.`created_at`
+                FROM `sync_device_pairings` p
+                WHERE p.`doctor_id` = ? AND p.`status` = 'APPROVED'
+                ORDER BY COALESCE(p.`paired_at`, p.`created_at`) DESC
+            ");
+            $stmt->execute([$doctor['id']]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
 
         $list = array_map(function($r) {
             return [

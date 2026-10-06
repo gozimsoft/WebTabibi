@@ -49,7 +49,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
 
   // Fetch doctor's currently linked devices & clinics from database
   const fetchLinkedPairings = async () => {
-    if (!token || user?.user_type !== 1) return;
+    if (!token || (user && Number(user?.user_type) !== 1)) return;
     setLoadingPairings(true);
     try {
       const res = await fetch("/api/sync/device/list", {
@@ -105,7 +105,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
 
   // Load doctor's affiliated clinics (both owned and visiting)
   useEffect(() => {
-    if (!token || user?.user_type !== 1) return;
+    if (!token || (user && Number(user?.user_type) !== 1)) return;
     if (api?.doctor?.profile) {
       api.doctor.profile().then(res => {
         if (res?.data?.clinics && Array.isArray(res.data.clinics)) {
@@ -125,7 +125,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
 
   // Fetch details if code is present
   useEffect(() => {
-    if (!code || !token || user?.user_type !== 1) return;
+    if (!code || !token || (user && Number(user?.user_type) !== 1)) return;
 
     setLoadingDetails(true);
     setErrorMsg("");
@@ -156,7 +156,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
       .finally(() => setLoadingDetails(false));
   }, [code, sessionId, token, user]);
 
-  const handleApprove = async () => {
+  const handleApprove = async (forceRelink = false) => {
     if (!code.trim()) {
       show(t("code_required", "يرجى إدخال رمز الربط المكون من 6 أرقام"), "error");
       return;
@@ -176,7 +176,8 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
         body: JSON.stringify({
           code: code.trim(),
           session_id: sessionId,
-          clinic_id: selectedClinicId || details?.clinic_id
+          clinic_id: selectedClinicId || details?.clinic_id,
+          force_relink: Boolean(forceRelink)
         })
       });
 
@@ -188,6 +189,8 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
       } else {
         setErrorMsg(json.message || t("pairing_failed", "فشلت عملية الموافقة على الربط"));
         show(json.message || t("pairing_failed", "فشلت عملية الموافقة"), "error");
+        // Always refresh linked list on error in case doctor was already linked
+        fetchLinkedPairings();
       }
     } catch (err) {
       setErrorMsg(t("network_error", "تعذر الاتصال بالخادم"));
@@ -1061,30 +1064,52 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
                   date: activePairingForSelected?.paired_at ? new Date(activePairingForSelected.paired_at).toLocaleDateString(isRtl ? "ar-EG" : "fr-FR", { year: "numeric", month: "short", day: "numeric" }) : ""
                 })}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById("linked-clinics-section");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                style={{
-                  marginTop: 10,
-                  background: "#d97706",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "6px 14px",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <span>{t("go_to_linked_list", "الانتقال لقائمة العيادات المرتبطة")}</span>
-                <ArrowDown size={14} />
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => handleApprove(true)}
+                  disabled={approving || !code || code.length !== 6}
+                  style={{
+                    background: "#d97706",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 14px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: (approving || !code || code.length !== 6) ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                >
+                  <RefreshCw size={13} className={approving ? "animate-spin" : ""} />
+                  <span>{t("replace_and_pair_now", "فصل الارتباط القديم وربط هذا الجهاز الآن")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById("linked-clinics-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  style={{
+                    background: "#fef3c7",
+                    color: "#b45309",
+                    border: "1px solid #fde68a",
+                    borderRadius: 8,
+                    padding: "6px 14px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                >
+                  <span>{t("go_to_linked_list", "الانتقال لقائمة العيادات المرتبطة")}</span>
+                  <ArrowDown size={14} />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1094,32 +1119,86 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             padding: "12px 14px", borderRadius: 12,
             background: "#fef2f2", border: "1px solid #fecaca",
             color: "#dc2626", fontSize: 13, fontWeight: 600,
-            display: "flex", alignItems: "center", gap: 8,
+            display: "flex", flexDirection: "column", gap: 10,
             marginBottom: 20
           }}>
-            <AlertCircle size={18} flexShrink={0} />
-            <span>{errorMsg}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <AlertCircle size={18} flexShrink={0} />
+              <span>{errorMsg}</span>
+            </div>
+            {errorMsg.includes("مرتبط") && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                <button
+                  type="button"
+                  onClick={() => handleApprove(true)}
+                  disabled={approving || !code || code.length !== 6}
+                  style={{
+                    background: "#dc2626",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: (approving || !code || code.length !== 6) ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                >
+                  <RefreshCw size={13} className={approving ? "animate-spin" : ""} />
+                  <span>{t("replace_and_pair_now", "فصل الارتباط القديم وتأكيد الربط فوراً")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById("linked-clinics-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  style={{
+                    background: "#fee2e2",
+                    color: "#b91c1c",
+                    border: "1px solid #fca5a5",
+                    borderRadius: 8,
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                >
+                  <span>{t("go_to_linked_list", "الانتقال لقائمة العيادات المرتبطة")}</span>
+                  <ArrowDown size={13} />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Action Button */}
         <button
           type="button"
-          onClick={handleApprove}
-          disabled={approving || !code || code.length !== 6 || isSelectedClinicPaired}
+          onClick={() => handleApprove(isSelectedClinicPaired)}
+          disabled={approving || !code || code.length !== 6}
           style={{
             width: "100%",
             padding: "15px",
             borderRadius: 14,
             border: "none",
-            background: (code.length === 6 && !approving && !isSelectedClinicPaired)
-              ? "linear-gradient(135deg, #10b981, #059669)"
+            background: (code.length === 6 && !approving)
+              ? (isSelectedClinicPaired 
+                  ? "linear-gradient(135deg, #d97706, #b45309)"
+                  : "linear-gradient(135deg, #10b981, #059669)")
               : "#94a3b8",
             color: "#ffffff",
             fontSize: 16,
             fontWeight: 800,
-            cursor: (code.length === 6 && !approving && !isSelectedClinicPaired) ? "pointer" : "not-allowed",
-            boxShadow: (code.length === 6 && !isSelectedClinicPaired) ? "0 4px 16px rgba(16, 185, 129, 0.35)" : "none",
+            cursor: (code.length === 6 && !approving) ? "pointer" : "not-allowed",
+            boxShadow: (code.length === 6)
+              ? (isSelectedClinicPaired ? "0 4px 16px rgba(217, 119, 6, 0.35)" : "0 4px 16px rgba(16, 185, 129, 0.35)")
+              : "none",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             transition: "all 0.2s ease"
           }}
@@ -1131,8 +1210,8 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             </>
           ) : isSelectedClinicPaired ? (
             <>
-              <AlertCircle size={20} />
-              <span>{t("already_paired_btn", "العيادة مرتبطة بالفعل (افصل القديم أولاً)")}</span>
+              <RefreshCw size={20} />
+              <span>{t("replace_and_pair_btn", "فصل الارتباط السابق وتأكيد الربط الآن")}</span>
             </>
           ) : (
             <>
