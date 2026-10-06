@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { 
   Laptop, ShieldCheck, CheckCircle2, AlertCircle, 
   ArrowRight, ArrowLeft, RefreshCw, Building2, Check, Lock,
-  QrCode, Camera, X, Upload
+  QrCode, Camera, X, Upload, Unlink, Calendar, MapPin, ArrowDown
 } from "lucide-react";
 import jsQR from "jsqr";
 import { Spinner, useToast } from "../components/SharedUI";
@@ -28,6 +28,12 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   const [approved, setApproved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Linked Clinics / Devices States
+  const [linkedPairings, setLinkedPairings] = useState([]);
+  const [loadingPairings, setLoadingPairings] = useState(false);
+  const [unlinkingId, setUnlinkingId] = useState(null);
+  const [confirmUnlinkModal, setConfirmUnlinkModal] = useState(null);
+
   // QR Scanner States
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -40,6 +46,62 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   const animationFrameId = useRef(null);
 
   const token = localStorage.getItem("tabibi_token") || localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+  // Fetch doctor's currently linked devices & clinics from database
+  const fetchLinkedPairings = async () => {
+    if (!token || user?.user_type !== 1) return;
+    setLoadingPairings(true);
+    try {
+      const res = await fetch("/api/sync/device/list", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        }
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.pairings)) {
+        setLinkedPairings(json.data.pairings);
+      }
+    } catch (err) {
+      console.error("Failed to fetch linked pairings:", err);
+    } finally {
+      setLoadingPairings(false);
+    }
+  };
+
+  // Unlink / Disconnect a device from clinic
+  const handleUnlink = async (pairing) => {
+    if (!pairing?.id) return;
+    setUnlinkingId(pairing.id);
+    try {
+      const res = await fetch("/api/sync/device/unlink", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ pairing_id: pairing.id })
+      });
+      const json = await res.json();
+      if (json.success) {
+        show(t("pairing_unlinked_success", "تم فصل ارتباط العيادة بنجاح وإلغاء صلاحية المزامنة."), "success");
+        setConfirmUnlinkModal(null);
+        fetchLinkedPairings();
+      } else {
+        show(json.message || t("unlink_failed", "فشل فصل الارتباط، يرجى المحاولة مرة أخرى."), "error");
+      }
+    } catch (err) {
+      show(t("network_error", "تعذر الاتصال بالخادم"), "error");
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
+
+  // Load doctor's active pairings on mount
+  useEffect(() => {
+    fetchLinkedPairings();
+  }, [token, user]);
 
   // Load doctor's affiliated clinics (both owned and visiting)
   useEffect(() => {
@@ -122,6 +184,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
       if (json.success) {
         setApproved(true);
         show(t("pairing_success_toast", "تمت الموافقة وربط جهاز العيادة بنجاح!"), "success");
+        fetchLinkedPairings();
       } else {
         setErrorMsg(json.message || t("pairing_failed", "فشلت عملية الموافقة على الربط"));
         show(json.message || t("pairing_failed", "فشلت عملية الموافقة"), "error");
@@ -384,14 +447,330 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     );
   }
 
+  const isSelectedClinicPaired = linkedPairings.some(p => p.clinic_id === selectedClinicId && p.status === 'APPROVED');
+  const activePairingForSelected = linkedPairings.find(p => p.clinic_id === selectedClinicId && p.status === 'APPROVED');
+
+  const renderLinkedClinicsSection = () => (
+    <div id="linked-clinics-section" style={{
+      marginTop: 28,
+      background: "var(--card-bg, #ffffff)",
+      borderRadius: 24,
+      padding: isMobile ? "24px 18px" : "30px 24px",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+      border: "1px solid var(--border, #e2e8f0)"
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 20,
+        paddingBottom: 14,
+        borderBottom: "1px solid #f1f5f9",
+        flexWrap: "wrap",
+        gap: 12
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 12,
+            background: "#eff6ff", color: "#0284c7",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0
+          }}>
+            <Building2 size={22} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 900, color: "var(--heading-color, #0f172a)" }}>
+              {t("linked_clinics_title", "الأماكن والعيادات المرتبط بها حالياً")}
+            </h3>
+            <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)" }}>
+              {t("linked_clinics_subtitle", "قائمة بالعيادات المرتبطة ببرنامج العيادة المكتبي المصرح لها بالمزامنة")}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={fetchLinkedPairings}
+          disabled={loadingPairings}
+          style={{
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+            padding: "7px 12px",
+            cursor: "pointer",
+            color: "#475569",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 12,
+            fontWeight: 700,
+            transition: "all 0.15s ease"
+          }}
+        >
+          <RefreshCw size={13} className={loadingPairings ? "animate-spin" : ""} />
+          <span>{t("refresh", "تحديث")}</span>
+        </button>
+      </div>
+
+      {/* Body: Loading / Empty / List */}
+      {loadingPairings && linkedPairings.length === 0 ? (
+        <div style={{ padding: "36px 16px", textAlign: "center", color: "#64748b" }}>
+          <Spinner size={28} />
+          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 10 }}>
+            {t("loading", "جارٍ التحميل...")}
+          </div>
+        </div>
+      ) : linkedPairings.length === 0 ? (
+        <div style={{
+          padding: "36px 20px",
+          textAlign: "center",
+          background: "#f8fafc",
+          borderRadius: 16,
+          border: "1.5px dashed #cbd5e1"
+        }}>
+          <Laptop size={36} color="#94a3b8" style={{ margin: "0 auto 12px" }} />
+          <div style={{ fontSize: 14.5, fontWeight: 800, color: "#334155", marginBottom: 6 }}>
+            {t("no_linked_clinics", "لا توجد أجهزة أو عيادات مرتبطة حالياً.")}
+          </div>
+          <p style={{ fontSize: 12.5, color: "#64748b", margin: 0, lineHeight: 1.6, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>
+            {t("no_linked_clinics_desc", "عند تأكيد عملية الربط من البرنامج المحلي، ستظهر العيادات والأجهزة المرتبطة هنا ويمكنك فصلها في أي وقت.")}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {linkedPairings.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                background: "#ffffff",
+                borderRadius: 16,
+                border: "1.5px solid #e2e8f0",
+                padding: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+                transition: "all 0.2s ease"
+              }}
+            >
+              {/* Header row */}
+              <div style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap"
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: "#ecfdf5", color: "#059669",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0, marginTop: 2
+                  }}>
+                    <Building2 size={18} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{
+                      fontSize: 14.5, fontWeight: 900, color: "#0f172a",
+                      display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap"
+                    }}>
+                      <span>{item.clinic_name}</span>
+                      <span style={{
+                        padding: "2px 8px", borderRadius: 6,
+                        background: "#dcfce7", color: "#15803d",
+                        fontSize: 11, fontWeight: 800,
+                        display: "inline-flex", alignItems: "center", gap: 4
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
+                        {t("active_paired_status", "مرتبط ومفعّل")}
+                      </span>
+                      {item.is_owner ? (
+                        <span style={{
+                          padding: "2px 7px", borderRadius: 6,
+                          background: "#e0f2fe", color: "#0369a1",
+                          fontSize: 11, fontWeight: 800
+                        }}>
+                          {t("owner_clinic", "عيادتي - مالك")}
+                        </span>
+                      ) : (
+                        <span style={{
+                          padding: "2px 7px", borderRadius: 6,
+                          background: "#f1f5f9", color: "#475569",
+                          fontSize: 11, fontWeight: 700
+                        }}>
+                          {t("visiting_doctor", "طبيب ممارس")}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Meta info */}
+                    <div style={{
+                      marginTop: 6,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 12,
+                      fontSize: 12,
+                      color: "#64748b"
+                    }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Laptop size={13} color="#0891b2" />
+                        <span>{item.device_name || t("desktop_app_paired", "البرنامج المكتبي للعيادة")}</span>
+                      </span>
+
+                      {item.paired_at && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Calendar size={13} color="#64748b" />
+                          <span>
+                            {t("paired_since", "تاريخ الربط")}: {new Date(item.paired_at).toLocaleDateString(isRtl ? "ar-EG" : "fr-FR", { year: "numeric", month: "short", day: "numeric" })}
+                          </span>
+                        </span>
+                      )}
+
+                      {item.wilaya && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <MapPin size={13} color="#64748b" />
+                          <span>{item.wilaya} {item.address ? `— ${item.address}` : ""}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Unlink Action Button */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnlinkModal(item)}
+                  disabled={unlinkingId === item.id}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fecdd3",
+                    background: "#fff1f2",
+                    color: "#e11d48",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flexShrink: 0,
+                    transition: "all 0.15s ease"
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "#ffe4e6";
+                    e.currentTarget.style.borderColor = "#fda4af";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "#fff1f2";
+                    e.currentTarget.style.borderColor = "#fecdd3";
+                  }}
+                >
+                  <Unlink size={13} />
+                  <span>{t("unlink_device_btn", "فصل الارتباط")}</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderUnlinkModal = () => {
+    if (!confirmUnlinkModal) return null;
+    return (
+      <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(15, 23, 42, 0.72)",
+        backdropFilter: "blur(6px)",
+        zIndex: 10000,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16
+      }}>
+        <div style={{
+          background: "var(--card-bg, #ffffff)",
+          borderRadius: 22,
+          maxWidth: 440,
+          width: "100%",
+          padding: "28px 24px",
+          boxShadow: "0 20px 45px rgba(0,0,0,0.25)",
+          border: "1px solid var(--border, #e2e8f0)",
+          textAlign: "center"
+        }}>
+          <div style={{
+            width: 58, height: 58, borderRadius: "50%",
+            background: "#fee2e2", color: "#dc2626",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            marginBottom: 16
+          }}>
+            <Unlink size={28} />
+          </div>
+
+          <h3 style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", margin: "0 0 10px" }}>
+            {t("unlink_confirm_title", "تأكيد فصل الارتباط")}
+          </h3>
+
+          <p style={{ fontSize: 13.5, color: "#64748b", lineHeight: 1.6, margin: "0 0 24px" }}>
+            {t("unlink_confirm_desc", "هل أنت متأكد من رغبتك في فصل ارتباط هذا الجهاز بعيادة «{{name}}»؟ سيتوقف البرنامج المكتبي عن مزامنة المواعيد فورياً حتى تتم إعادة ربطه من جديد.", {
+              name: confirmUnlinkModal.clinic_name
+            })}
+          </p>
+
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <button
+              type="button"
+              disabled={unlinkingId === confirmUnlinkModal.id}
+              onClick={() => handleUnlink(confirmUnlinkModal)}
+              style={{
+                flex: 1, padding: "12px", borderRadius: 12,
+                border: "none", background: "#dc2626", color: "#ffffff",
+                fontWeight: 800, fontSize: 14, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                boxShadow: "0 4px 12px rgba(220, 38, 38, 0.25)"
+              }}
+            >
+              {unlinkingId === confirmUnlinkModal.id ? (
+                <>
+                  <RefreshCw size={16} className="animate-spin" />
+                  <span>{t("unlinking", "جارٍ فصل الارتباط...")}</span>
+                </>
+              ) : (
+                <>
+                  <Unlink size={16} />
+                  <span>{t("confirm_unlink", "نعم، فصل الارتباط الآن")}</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={unlinkingId === confirmUnlinkModal.id}
+              onClick={() => setConfirmUnlinkModal(null)}
+              style={{
+                padding: "12px 20px", borderRadius: 12,
+                border: "1px solid #cbd5e1", background: "#f8fafc",
+                color: "#475569", fontWeight: 700, fontSize: 14, cursor: "pointer"
+              }}
+            >
+              {t("cancel", "إلغاء")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Success State
   if (approved) {
     return (
-      <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
+      <div style={{ maxWidth: 540, margin: "30px auto", padding: "0 16px" }}>
         {Toast}
         <div style={{
           background: "var(--card-bg, #ffffff)",
-          borderRadius: 24, padding: "40px 24px",
+          borderRadius: 24, padding: isMobile ? "30px 20px" : "40px 24px",
           textAlign: "center",
           boxShadow: "0 12px 30px rgba(16, 185, 129, 0.12)",
           border: "1.5px solid #a7f3d0"
@@ -422,26 +801,55 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             {clinicsList.find(c => c.id === selectedClinicId)?.name || details?.clinic_name || user?.profile?.fullname || t("my_clinic", "عيادتك")}
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate?.("/appointmanager")}
-            style={{
-              width: "100%", padding: "13px",
-              borderRadius: 12, border: "none",
-              background: "#16a34a", color: "#fff",
-              fontWeight: 800, fontSize: 15, cursor: "pointer",
-              boxShadow: "0 4px 12px rgba(22, 163, 74, 0.3)"
-            }}
-          >
-            {t("go_to_appointments", "الذهاب إلى جدول المواعيد")}
-          </button>
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => navigate?.("/appointmanager")}
+              style={{
+                flex: 1, padding: "13px",
+                borderRadius: 12, border: "none",
+                background: "#16a34a", color: "#fff",
+                fontWeight: 800, fontSize: 14.5, cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(22, 163, 74, 0.3)"
+              }}
+            >
+              {t("go_to_appointments", "الذهاب إلى جدول المواعيد")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setApproved(false);
+                setCode("");
+                setSessionId("");
+                setDetails(null);
+                fetchLinkedPairings();
+              }}
+              style={{
+                padding: "13px 18px",
+                borderRadius: 12,
+                border: "1px solid #cbd5e1",
+                background: "#f8fafc",
+                color: "#334155",
+                fontWeight: 800, fontSize: 14, cursor: "pointer"
+              }}
+            >
+              {t("pair_another_clinic", "ربط عيادة أخرى")}
+            </button>
+          </div>
         </div>
+
+        {/* Linked Clinics Section */}
+        {renderLinkedClinicsSection()}
+
+        {/* Unlink Confirmation Modal */}
+        {renderUnlinkModal()}
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: "30px auto", padding: "0 16px" }}>
+    <div style={{ maxWidth: 540, margin: "30px auto", padding: "0 16px" }}>
       {Toast}
 
       <div style={{
@@ -507,22 +915,31 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
                   onChange={e => setSelectedClinicId(e.target.value)}
                   style={{
                     width: "100%", padding: "7px 10px", borderRadius: 8,
-                    border: "1.5px solid #0284c7", background: "#fff",
+                    border: isSelectedClinicPaired ? "1.5px solid #f59e0b" : "1.5px solid #0284c7", 
+                    background: "#fff",
                     fontSize: 12.5, fontWeight: 700, color: "#0f172a",
                     cursor: "pointer"
                   }}
                 >
-                  {clinicsList.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.is_owner ? `(${t("owner_clinic", "عيادتي الخاصة - مالك")})` : `(${t("visiting_doctor", "طبيب ممارس")})`}
-                    </option>
-                  ))}
+                  {clinicsList.map(c => {
+                    const isPaired = linkedPairings.some(p => p.clinic_id === c.id && p.status === 'APPROVED');
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.is_owner ? `(${t("owner_clinic", "عيادتي الخاصة - مالك")})` : `(${t("visiting_doctor", "طبيب ممارس")})`} {isPaired ? `⚠️ [${t("currently_paired", "مرتبط حالياً")}]` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             ) : (
               <div style={{ fontSize: 12.5, color: "#0d9488", fontWeight: 600, marginTop: 3 }}>
                 {clinicsList[0]?.name || details?.clinic_name || t("main_clinic", "العيادة الرئيسية")}
                 {clinicsList[0]?.is_owner ? ` (${t("owner_clinic", "مالك")})` : (clinicsList.length === 1 ? ` (${t("doctor_member", "طبيب ممارس")})` : "")}
+                {isSelectedClinicPaired && (
+                  <span style={{ display: "inline-block", marginInlineStart: 8, padding: "2px 8px", borderRadius: 6, background: "#fef3c7", color: "#b45309", fontSize: 11, fontWeight: 800 }}>
+                    ⚠️ {t("currently_paired", "مرتبط حالياً")}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -618,6 +1035,60 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
           )}
         </div>
 
+        {/* Already Paired Warning Box */}
+        {isSelectedClinicPaired && (
+          <div style={{
+            padding: "14px 16px",
+            borderRadius: 14,
+            background: "#fffbeb",
+            border: "1.5px solid #fde68a",
+            color: "#92400e",
+            fontSize: 13,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            marginBottom: 20,
+            lineHeight: 1.55
+          }}>
+            <AlertCircle size={20} style={{ color: "#d97706", flexShrink: 0, marginTop: 2 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: "#b45309", marginBottom: 3 }}>
+                {t("already_paired_warning_title", "أنت مرتبط سابقاً بهذه العيادة")}
+              </div>
+              <div>
+                {t("already_paired_warning_desc", "هذه العيادة مرتبطة بجهاز مكتبي نشط بالفعل منذ {{date}}. إذا كنت ترغب في ربط جهاز جديد لنفس العيادة، يمكنك فصل الارتباط القديم أولاً من القائمة أدناه.", {
+                  date: activePairingForSelected?.paired_at ? new Date(activePairingForSelected.paired_at).toLocaleDateString(isRtl ? "ar-EG" : "fr-FR", { year: "numeric", month: "short", day: "numeric" }) : ""
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById("linked-clinics-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                style={{
+                  marginTop: 10,
+                  background: "#d97706",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6
+                }}
+              >
+                <span>{t("go_to_linked_list", "الانتقال لقائمة العيادات المرتبطة")}</span>
+                <ArrowDown size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {errorMsg && (
           <div style={{
             padding: "12px 14px", borderRadius: 12,
@@ -635,20 +1106,20 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
         <button
           type="button"
           onClick={handleApprove}
-          disabled={approving || !code || code.length !== 6}
+          disabled={approving || !code || code.length !== 6 || isSelectedClinicPaired}
           style={{
             width: "100%",
             padding: "15px",
             borderRadius: 14,
             border: "none",
-            background: (code.length === 6 && !approving)
+            background: (code.length === 6 && !approving && !isSelectedClinicPaired)
               ? "linear-gradient(135deg, #10b981, #059669)"
               : "#94a3b8",
             color: "#ffffff",
             fontSize: 16,
             fontWeight: 800,
-            cursor: (code.length === 6 && !approving) ? "pointer" : "not-allowed",
-            boxShadow: code.length === 6 ? "0 4px 16px rgba(16, 185, 129, 0.35)" : "none",
+            cursor: (code.length === 6 && !approving && !isSelectedClinicPaired) ? "pointer" : "not-allowed",
+            boxShadow: (code.length === 6 && !isSelectedClinicPaired) ? "0 4px 16px rgba(16, 185, 129, 0.35)" : "none",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             transition: "all 0.2s ease"
           }}
@@ -657,6 +1128,11 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             <>
               <RefreshCw size={18} className="animate-spin" />
               <span>{t("approving", "جارٍ تأكيد الربط...")}</span>
+            </>
+          ) : isSelectedClinicPaired ? (
+            <>
+              <AlertCircle size={20} />
+              <span>{t("already_paired_btn", "العيادة مرتبطة بالفعل (افصل القديم أولاً)")}</span>
             </>
           ) : (
             <>
@@ -673,6 +1149,12 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
           {t("pairing_security_note", "هذه العملية تمنح البرنامج المكتبي بالعيادة صلاحية مزامنة المواعيد وأوقات العمل.")}
         </p>
       </div>
+
+      {/* Linked Clinics Section */}
+      {renderLinkedClinicsSection()}
+
+      {/* Unlink Confirmation Modal */}
+      {renderUnlinkModal()}
 
       {/* QR Scanner Modal */}
       {scannerOpen && (

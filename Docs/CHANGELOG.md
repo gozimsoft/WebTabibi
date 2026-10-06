@@ -4,6 +4,21 @@
 
 ## 2026-10-06
 
+### Added / Doctor Desktop Device Pairing Management & Multi-Clinic Sync
+- **حفظ ربط الأجهزة والعيادات وإدارتها وفصلها من الموقع (Persistent Clinic Pairing & Multi-Clinic Support)**:
+  - **حفظ دائم في قاعدة البيانات**: تم تعديل جدول `sync_device_pairings` لإلغاء الحذف التلقائي للجلسات المعتمدة (`status = 'APPROVED'`) بعد ساعة، وقصر التنظيف فقط على طلبات الربط المؤقتة المنتهية الصلاحية (`PENDING`)، مع دعم حقول `device_name` و `paired_at` وتحديث نوع الحالة لدعم حالة الفصل `REVOKED`.
+  - **منع تكرار الربط لنفس العيادة (Duplicate Pairing Prevention)**:
+    - فحص خلفي في [`SyncController::approveDevicePairing`](file:///d:/Application%20Web/WebTabibi/backend/controllers/SyncController.php) يرفض ربط جهاز جديد بنفس العيادة إذا كانت مرتبطة حالياً برمز خطأ 409 مع توجيه الطبيب لفصل الارتباط القديم أولاً.
+    - فحص واجهة المستخدم في [`PairDevice.jsx`](file:///d:/Application%20Web/WebTabibi/frontend/src/pages/PairDevice.jsx) يظهر شارة `⚠️ [مرتبط حالياً]` في قائمة الاختيار وتنبيه تحذيري فوري مع زر للانتقال لقائمة العيادات المرتبطة، وتعطيل زر الاعتماد.
+  - **قائمة الأماكن والعيادات المرتبطة (Linked Clinics & Devices List)**:
+    - إضافة مسار API جديد `GET /api/sync/device/list` لجلب قائمة العيادات المرتبطة بالطبيب مع بيانات العيادة (الاسم، العنوان، الولاية، الهاتف، وصفة المالك/الممارس).
+    - تصميم واجهة تفاعلية في [`PairDevice.jsx`](file:///d:/Application%20Web/WebTabibi/frontend/src/pages/PairDevice.jsx) تعرض بطاقات الأماكن المرتبطة بحالة النشاط، الجهاز المكتبي، وتاريخ الارتباط مع زر التحديث.
+  - **فصل الارتباط وإلغاء صلاحية المزامنة (Unlink & Token Invalidation)**:
+    - إضافة مسار API جديد `POST /api/sync/device/unlink` يقوم فورياً بحذف توكن الجلسة من جدول `sessions` مما يوقف مزامنة البرنامج المكتبي فوراً، وتحديث سجل الارتباط إلى `REVOKED` لتحرير العيادة لإعادة ربطها مستقبلاً.
+    - إضافة نافذة تأكيد منبثقة تفاعلية قبل الفصل لمنع الفصل غير المقصود.
+  - **دعم الربط في أكثر من عيادة**: إمكانية ربط الطبيب لأكثر من عيادة مختلفة في نفس الوقت، حيث يمتلك كل ربط سجلاً وتوكناً مستقلاً.
+  - تحديث ملفات اللغات [`ar.json`](file:///d:/Application%20Web/WebTabibi/frontend/src/locales/ar.json)، [`fr.json`](file:///d:/Application%20Web/WebTabibi/frontend/src/locales/fr.json)، و[`en.json`](file:///d:/Application%20Web/WebTabibi/frontend/src/locales/en.json).
+
 ### Fixed / Android & Mobile Camera Permissions
 - **إصلاح زر مسح رمز QR وطلب إذن الكاميرا على تطبيق الأندرويد (Camera Permissions & QR Scanner Fix)**:
   - **السبب الجذري**: يعتمد تطبيق الأندرويد على Capacitor في تغليف تطبيق React، وتقوم شاشة ربط الجهاز [`PairDevice.jsx`](file:///d:/Application%20Web/WebTabibi/frontend/src/pages/PairDevice.jsx) بفتح الكاميرا المباشرة عبر واجهة المتصفح البرمجية `navigator.mediaDevices.getUserMedia` ليقوم كلاس `BridgeWebChromeClient` بطلب إذن الأندرويد `android.permission.CAMERA`. ولكن ملف البيان [`AndroidManifest.xml`](file:///d:/Application%20Web/WebTabibi/frontend/android/app/src/main/AndroidManifest.xml) كان يفتقر تماماً إلى تصريح الكاميرا، وبحسب قواعد نظام أندرويد فإن أي تصريح يتم طلبه وقت التشغيل (Runtime Permission) بدون أن يكون معرّفاً ومصرّحاً به في `AndroidManifest.xml` يُرفض فورياً من قبل النظام دون حتى إظهار نافذة إذن الكاميرا للمستخدم، مما يؤدي إلى فشل العملية فوراً وظهور رسالة الخطأ.

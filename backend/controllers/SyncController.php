@@ -632,27 +632,25 @@ class SyncController {
     }
 
     // ============================================================
+    // ============================================================
     // Device Pairing (QR Code & 6-Digit Mobile Pairing)
     // ============================================================
 
     /**
-     * POST /api/sync/device/init
-     * Initiates a pairing session requested by the desktop app.
-     * Unauthenticated endpoint.
+     * Ensure sync_device_pairings schema is up-to-date and supports persistent links
      */
-    public static function initDevicePairing(): void {
-        $pdo = Database::getInstance();
-
-        // Ensure table exists
+    private static function ensureSyncPairingSchema(PDO $pdo): void {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS `sync_device_pairings` (
                 `id` CHAR(36) NOT NULL PRIMARY KEY,
                 `code` VARCHAR(6) NOT NULL,
-                `status` ENUM('PENDING', 'APPROVED', 'EXPIRED') NOT NULL DEFAULT 'PENDING',
+                `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
                 `doctor_id` CHAR(36) NULL,
                 `user_id` CHAR(36) NULL,
                 `clinic_id` CHAR(36) NULL,
                 `token` VARCHAR(128) NULL,
+                `device_name` VARCHAR(150) NULL DEFAULT 'البرنامج المكتبي للعيادة',
+                `paired_at` DATETIME NULL,
                 `expires_at` DATETIME NOT NULL,
                 `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
                 INDEX `idx_code` (`code`),
@@ -661,8 +659,33 @@ class SyncController {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
-        // Clean expired sessions
-        $pdo->exec("DELETE FROM `sync_device_pairings` WHERE `expires_at` < NOW() OR (`status` = 'APPROVED' AND `created_at` < DATE_SUB(NOW(), INTERVAL 1 HOUR))");
+        try {
+            $pdo->exec("ALTER TABLE `sync_device_pairings` MODIFY `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING'");
+        } catch (\Throwable $e) {}
+
+        try {
+            $pdo->exec("ALTER TABLE `sync_device_pairings` ADD COLUMN `device_name` VARCHAR(150) NULL DEFAULT 'البرنامج المكتبي للعيادة' AFTER `token`");
+        } catch (\Throwable $e) {}
+
+        try {
+            $pdo->exec("ALTER TABLE `sync_device_pairings` ADD COLUMN `paired_at` DATETIME NULL AFTER `device_name`");
+        } catch (\Throwable $e) {}
+    }
+
+    /**
+     * POST /api/sync/device/init
+     * Initiates a pairing session requested by the desktop app.
+     * Unauthenticated endpoint.
+     */
+    public static function initDevicePairing(): void {
+        $pdo = Database::getInstance();
+        self::ensureSyncPairingSchema($pdo);
+
+        // Clean only expired PENDING sessions. NEVER delete APPROVED pairings!
+        $pdo->exec("DELETE FROM `sync_device_pairings` WHERE `status` = 'PENDING' AND `expires_at` < NOW()");
+
+        $rawInput = json_decode(file_get_contents('php://input'), true) ?? [];
+        $deviceName = trim((string)($rawInput['device_name'] ?? 'البرنامج المكتبي للعيادة'));
 
         $sessionId = UUIDHelper::generate();
         $code = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
@@ -676,10 +699,10 @@ class SyncController {
         }
 
         $stmt = $pdo->prepare("
-            INSERT INTO `sync_device_pairings` (`id`, `code`, `status`, `expires_at`)
-            VALUES (?, ?, 'PENDING', DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+            INSERT INTO `sync_device_pairings` (`id`, `code`, `status`, `device_name`, `expires_at`)
+            VALUES (?, ?, 'PENDING', ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
         ");
-        $stmt->execute([$sessionId, $code]);
+        $stmt->execute([$sessionId, $code, $deviceName]);
 
         $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'tabibi.dz');
         if (strpos($baseUrl, 'localhost') === false && strpos($baseUrl, '127.0.0.1') === false) {
@@ -701,6 +724,7 @@ class SyncController {
      */
     public static function checkDevicePairing(): void {
         $pdo = Database::getInstance();
+        self::ensureSyncPairingSchema($pdo);
         $sessionId = trim((string)($_GET['session_id'] ?? ''));
         $code = trim((string)($_GET['code'] ?? ''));
 
@@ -727,7 +751,7 @@ class SyncController {
             Response::error('Session introuvable ou expirée', 404);
         }
 
-        if (strtotime($pairing['expires_at']) < time()) {
+        if ($pairing['status'] === 'PENDING' && strtotime($pairing['expires_at']) < time()) {
             Response::json(['success' => false, 'status' => 'EXPIRED', 'message' => 'Session expirée']);
             return;
         }
@@ -795,6 +819,11 @@ class SyncController {
             return;
         }
 
+        if ($pairing['status'] === 'REVOKED') {
+            Response::json(['success' => false, 'status' => 'REVOKED', 'message' => 'Liaison révoquée']);
+            return;
+        }
+
         Response::error('Statut inconnu', 400);
     }
 
@@ -806,6 +835,7 @@ class SyncController {
     public static function getDevicePairingDetails(): void {
         $session = AuthMiddleware::doctorOnly();
         $pdo = Database::getInstance();
+        self::ensureSyncPairingSchema($pdo);
         $code = trim((string)($_GET['code'] ?? ''));
         $sessionId = trim((string)($_GET['session_id'] ?? ''));
 
@@ -839,6 +869,7 @@ class SyncController {
 
         // Fetch doctor clinics (both owned and working in)
         $clinics = [];
+        $pairedClinicMap = [];
         if ($doctor) {
             $stmtC = $pdo->prepare("
                 SELECT cd.`clinic_id`, c.`clinicname`, cd.`is_owner`
@@ -849,22 +880,42 @@ class SyncController {
             ");
             $stmtC->execute([$doctor['id']]);
             $clinics = $stmtC->fetchAll(PDO::FETCH_ASSOC);
+
+            // Fetch already active pairings for this doctor
+            $stmtPaired = $pdo->prepare("
+                SELECT `clinic_id`, `paired_at`, `created_at`
+                FROM `sync_device_pairings`
+                WHERE `doctor_id` = ? AND `status` = 'APPROVED'
+            ");
+            $stmtPaired->execute([$doctor['id']]);
+            $pairedRows = $stmtPaired->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($pairedRows as $pr) {
+                $pairedClinicMap[$pr['clinic_id']] = $pr['paired_at'] ?: $pr['created_at'];
+            }
         }
 
         $primaryClinic = !empty($clinics) ? $clinics[0] : null;
+        $primaryClinicId = $primaryClinic ? $primaryClinic['clinic_id'] : 'clinic-main';
 
         Response::success([
             'session_id' => $pairing['id'],
             'code' => $pairing['code'],
             'status' => $pairing['status'],
+            'device_name' => $pairing['device_name'] ?: 'البرنامج المكتبي للعيادة',
             'doctor_name' => $doctor ? $doctor['fullname'] : 'Docteur',
-            'clinic_id' => $primaryClinic ? $primaryClinic['clinic_id'] : 'clinic-main',
+            'clinic_id' => $primaryClinicId,
             'clinic_name' => $primaryClinic ? $primaryClinic['clinicname'] : 'Mon Cabinet',
-            'clinics' => array_map(function($c) {
+            'is_already_paired' => isset($pairedClinicMap[$primaryClinicId]),
+            'paired_at' => $pairedClinicMap[$primaryClinicId] ?? null,
+            'clinics' => array_map(function($c) use ($pairedClinicMap) {
+                $cid = $c['clinic_id'];
+                $isPaired = isset($pairedClinicMap[$cid]);
                 return [
-                    'id' => $c['clinic_id'],
+                    'id' => $cid,
                     'name' => $c['clinicname'],
-                    'is_owner' => (bool)$c['is_owner']
+                    'is_owner' => (bool)$c['is_owner'],
+                    'is_already_paired' => $isPaired,
+                    'paired_at' => $isPaired ? $pairedClinicMap[$cid] : null
                 ];
             }, $clinics)
         ]);
@@ -878,6 +929,7 @@ class SyncController {
     public static function approveDevicePairing(): void {
         $session = AuthMiddleware::doctorOnly();
         $pdo = Database::getInstance();
+        self::ensureSyncPairingSchema($pdo);
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
         $code = trim((string)($input['code'] ?? ''));
         $sessionId = trim((string)($input['session_id'] ?? ''));
@@ -941,24 +993,157 @@ class SyncController {
         $clinicId = $selectedClinic ? $selectedClinic['clinic_id'] : 'clinic-main';
         $clinicName = $selectedClinic ? $selectedClinic['clinicname'] : 'Cabinet Médical';
 
+        // Check if doctor is ALREADY linked to this clinic
+        $stmtAlready = $pdo->prepare("
+            SELECT `id`, `paired_at`, `created_at` 
+            FROM `sync_device_pairings` 
+            WHERE `doctor_id` = ? AND `clinic_id` = ? AND `status` = 'APPROVED'
+            LIMIT 1
+        ");
+        $stmtAlready->execute([$doctor['id'], $clinicId]);
+        $alreadyLinked = $stmtAlready->fetch();
+
+        if ($alreadyLinked) {
+            Response::error('أنت مرتبط سابقاً بهذه العيادة. يرجى فصل الارتباط القديم أولاً من قائمة العيادات المرتبطة قبل إعادة الربط.', 409);
+        }
+
         // Generate persistent desktop token in sessions table
         $token = bin2hex(random_bytes(32));
         $stmtS = $pdo->prepare("INSERT INTO `sessions` (`user_id`, `token`, `created_at`) VALUES (?, ?, NOW())");
         $stmtS->execute([$session['user_id'], $token]);
 
-        // Update pairing record
+        $deviceName = trim((string)($input['device_name'] ?? ($pairing['device_name'] ?? 'البرنامج المكتبي للعيادة')));
+
+        // Update pairing record permanently
         $stmtUp = $pdo->prepare("
             UPDATE `sync_device_pairings` 
-            SET `status` = 'APPROVED', `doctor_id` = ?, `user_id` = ?, `clinic_id` = ?, `token` = ?
+            SET `status` = 'APPROVED', 
+                `doctor_id` = ?, 
+                `user_id` = ?, 
+                `clinic_id` = ?, 
+                `token` = ?,
+                `device_name` = ?,
+                `paired_at` = NOW()
             WHERE `id` = ?
         ");
-        $stmtUp->execute([$doctor['id'], $session['user_id'], $clinicId, $token, $pairing['id']]);
+        $stmtUp->execute([$doctor['id'], $session['user_id'], $clinicId, $token, $deviceName, $pairing['id']]);
 
         Response::success([
             'status' => 'APPROVED',
+            'pairing_id' => $pairing['id'],
             'doctor_name' => $doctor['fullname'],
-            'clinic_name' => $clinicName
-        ], 'Liaison avec le logiciel du cabinet autorisée avec succès !');
+            'clinic_id' => $clinicId,
+            'clinic_name' => $clinicName,
+            'paired_at' => date('Y-m-d H:i:s')
+        ], 'تم ربط البرنامج المكتبي للعيادة بنجاح وحفظه في حسابك.');
+    }
+
+    /**
+     * GET /api/sync/device/list
+     * جلب جميع العيادات والأجهزة المرتبط بها حساب الطبيب حالياً
+     */
+    public static function listDevicePairings(): void {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo = Database::getInstance();
+        self::ensureSyncPairingSchema($pdo);
+
+        $stmtDoc = $pdo->prepare("SELECT `id` FROM `doctors` WHERE `user_id` = ? LIMIT 1");
+        $stmtDoc->execute([$session['user_id']]);
+        $doctor = $stmtDoc->fetch();
+        if (!$doctor) Response::notFound('ملف الطبيب غير موجود.');
+
+        $stmt = $pdo->prepare("
+            SELECT 
+                p.`id`,
+                p.`clinic_id`,
+                p.`status`,
+                p.`device_name`,
+                p.`paired_at`,
+                p.`created_at`,
+                c.`clinicname`,
+                c.`address`,
+                c.`wilaya`,
+                c.`phone`,
+                cd.`is_owner`
+            FROM `sync_device_pairings` p
+            LEFT JOIN `clinics` c ON c.`id` = p.`clinic_id`
+            LEFT JOIN `clinicsdoctors` cd ON cd.`clinic_id` = p.`clinic_id` AND cd.`doctor_id` = p.`doctor_id`
+            WHERE p.`doctor_id` = ? AND p.`status` = 'APPROVED'
+            ORDER BY COALESCE(p.`paired_at`, p.`created_at`) DESC
+        ");
+        $stmt->execute([$doctor['id']]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $list = array_map(function($r) {
+            return [
+                'id' => $r['id'],
+                'clinic_id' => $r['clinic_id'],
+                'clinic_name' => $r['clinicname'] ?: 'عيادة غير محددة',
+                'address' => $r['address'] ?? '',
+                'wilaya' => $r['wilaya'] ?? '',
+                'phone' => $r['phone'] ?? '',
+                'is_owner' => (bool)($r['is_owner'] ?? false),
+                'device_name' => $r['device_name'] ?: 'البرنامج المكتبي للعيادة',
+                'paired_at' => $r['paired_at'] ?: $r['created_at'],
+                'status' => $r['status']
+            ];
+        }, $rows);
+
+        Response::success(['pairings' => $list]);
+    }
+
+    /**
+     * POST /api/sync/device/unlink
+     * فصل ارتباط جهاز/عيادة معينة وإلغاء صلاحية المزامنة فورياً
+     */
+    public static function unlinkDevicePairing(): void {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo = Database::getInstance();
+        self::ensureSyncPairingSchema($pdo);
+
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pairingId = trim((string)($input['pairing_id'] ?? ''));
+        $clinicId = trim((string)($input['clinic_id'] ?? ''));
+
+        if (empty($pairingId) && empty($clinicId)) {
+            Response::error('معرف الارتباط أو العيادة مطلوب لفصل الارتباط', 422);
+        }
+
+        $stmtDoc = $pdo->prepare("SELECT `id` FROM `doctors` WHERE `user_id` = ? LIMIT 1");
+        $stmtDoc->execute([$session['user_id']]);
+        $doctor = $stmtDoc->fetch();
+        if (!$doctor) Response::notFound('ملف الطبيب غير موجود.');
+
+        $query = "SELECT `id`, `token`, `clinic_id` FROM `sync_device_pairings` WHERE `doctor_id` = ? AND `status` = 'APPROVED' AND ";
+        $params = [$doctor['id']];
+        if (!empty($pairingId)) {
+            $query .= "`id` = ?";
+            $params[] = $pairingId;
+        } else {
+            $query .= "`clinic_id` = ?";
+            $params[] = $clinicId;
+        }
+        $query .= " LIMIT 1";
+
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $pairing = $stmt->fetch();
+
+        if (!$pairing) {
+            Response::error('سجل الارتباط غير موجود أو تم فصله مسبقاً', 404);
+        }
+
+        // 1. Invalidate session token from sessions table
+        if (!empty($pairing['token'])) {
+            $stmtDelToken = $pdo->prepare("DELETE FROM `sessions` WHERE `token` = ?");
+            $stmtDelToken->execute([$pairing['token']]);
+        }
+
+        // 2. Mark pairing as REVOKED
+        $stmtRevoke = $pdo->prepare("UPDATE `sync_device_pairings` SET `status` = 'REVOKED' WHERE `id` = ?");
+        $stmtRevoke->execute([$pairing['id']]);
+
+        Response::success(null, 'تم فصل الارتباط بنجاح وإلغاء صلاحية المزامنة لهذا الجهاز.');
     }
 
     /**
