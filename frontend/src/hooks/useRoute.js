@@ -26,14 +26,26 @@ export function useRoute() {
       // 2. Accès direct via '/app'
       rawPath = "/app";
       qs = window.location.search.slice(1) || "";
+    } else if (p === "/install" || p === "/instal") {
+      // 2b. Accès direct via '/install' ou ancien '/instal'
+      rawPath = "/install";
+      qs = window.location.search.slice(1) || "";
+      if (p === "/instal") {
+        try {
+          const cleanUrl = "/install" + (qs ? `?${qs}` : "");
+          window.history.replaceState(null, "", cleanUrl);
+        } catch (_) {}
+      }
     } else if (h) {
       // 3. Routage standard par hash (ex: '#/search', '#/login')
       const [pathPart, qsPart] = h.split("?");
       rawPath = pathPart.startsWith("/") ? pathPart : "/" + pathPart;
+      if (rawPath === "/instal") rawPath = "/install";
       qs = qsPart || "";
     } else if (p && p !== "/") {
       // 4. Tout autre chemin direct (fallback)
       rawPath = p;
+      if (rawPath === "/instal") rawPath = "/install";
       qs = window.location.search.slice(1) || "";
     }
 
@@ -71,8 +83,18 @@ export function useRoute() {
       } catch (_) {}
     }
 
-    // 2. Navigation vers '/' depuis '/app'
-    if (targetPath === "/" && window.location.pathname === "/app") {
+    // 1b. Navigation vers '/install' sans hash
+    if (targetPath === "/install" || targetPath === "/instal") {
+      try {
+        window.history.pushState(null, "", "/install" + queryString);
+        setLoc(parse());
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      } catch (_) {}
+    }
+
+    // 2. Navigation vers '/' depuis '/app' ou '/install'
+    if (targetPath === "/" && (window.location.pathname === "/app" || window.location.pathname === "/install" || window.location.pathname === "/instal")) {
       try {
         window.history.pushState(null, "", "/" + queryString);
         setLoc(parse());
@@ -81,8 +103,8 @@ export function useRoute() {
       } catch (_) {}
     }
 
-    // 3. Si on quitte '/app' vers une autre route, réinitialiser le pathname pour éviter '/app#/route'
-    if (window.location.pathname === "/app") {
+    // 3. Si on quitte '/app' ou '/install' vers une autre route, réinitialiser le pathname pour éviter '/app#/route'
+    if (window.location.pathname === "/app" || window.location.pathname === "/install" || window.location.pathname === "/instal") {
       try {
         const hashTarget = target.startsWith("#") ? target : "#" + (target.startsWith("/") ? target : "/" + target);
         window.history.pushState(null, "", "/" + hashTarget);
