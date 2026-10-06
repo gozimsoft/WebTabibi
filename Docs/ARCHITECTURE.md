@@ -97,3 +97,11 @@ class AppointmentController {
     }
 }
 ```
+
+### 3. معمارية تطبيق الجوال ومسح رموز QR (Mobile & QR Scanner Architecture)
+- يعتمد تطبيق الجوال على تغليف بيئة الـ React عبر **Capacitor Android** داخل WebView مهيأة بـ Bridge أصيل.
+- يتم مسح رموز QR المباشرة (مثل ربط الأجهزة بالعيادات `PairDevice.jsx`) باستخدام دفق كاميرا HTML5 عبر `navigator.mediaDevices.getUserMedia` ومكتبة تحليل البكسلات `jsQR`.
+- **صلاحيات الأندرويد (Permissions)**:
+  - عند طلب تدفق الفيديو من الـ WebView، يقوم كلاس `BridgeWebChromeClient` بالتقاط الحدث وطلب تصريح `android.permission.CAMERA` من نظام التشغيل أندرويد.
+  - يشترط نظام أندرويد التصريح المسبق في ملف `AndroidManifest.xml` بالصلاحية `<uses-permission android:name="android.permission.CAMERA" />` وميزات العتاد الاختيارية (`required="false"`) حتى يظهر للمستخدم مربع حوار منح الإذن بنجاح وبدون أي رفض تلقائي.
+

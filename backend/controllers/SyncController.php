@@ -759,6 +759,23 @@ class SyncController {
                 }
             }
 
+            // All clinics where this doctor works (owned + affiliated)
+            $stmtAll = $pdo->prepare("
+                SELECT cd.`clinic_id`, c.`clinicname`, cd.`is_owner`
+                FROM `clinicsdoctors` cd
+                JOIN `clinics` c ON c.`id` = cd.`clinic_id`
+                WHERE cd.`doctor_id` = ? AND UPPER(cd.`status`) IN ('APPROVED', 'ACCEPTED')
+                ORDER BY cd.`is_owner` DESC, c.`clinicname` ASC
+            ");
+            $stmtAll->execute([$pairing['doctor_id']]);
+            $allClinics = array_map(function($c) {
+                return [
+                    'id' => $c['clinic_id'],
+                    'name' => $c['clinicname'],
+                    'is_owner' => (bool)$c['is_owner']
+                ];
+            }, $stmtAll->fetchAll(PDO::FETCH_ASSOC));
+
             Response::json([
                 'success' => true,
                 'status' => 'APPROVED',
@@ -770,6 +787,8 @@ class SyncController {
                     'clinicId' => $pairing['clinic_id'] ?: 'clinic-main',
                     'clinicName' => $clinicName,
                     'isOwner' => $isOwner,
+                    'clinics' => $allClinics,
+                    'clinicSelected' => !empty($pairing['clinic_id']),
                     'serverUrl' => 'https://tabibi.dz'
                 ]
             ]);
@@ -940,6 +959,40 @@ class SyncController {
             'doctor_name' => $doctor['fullname'],
             'clinic_name' => $clinicName
         ], 'Liaison avec le logiciel du cabinet autorisée avec succès !');
+    }
+
+    /**
+     * GET /api/sync/clinics
+     * جلب جميع العيادات التي يعمل بها الطبيب (سواء كان مالكاً أو طبيباً متعاوناً)
+     */
+    public static function clinics(): void {
+        $session = AuthMiddleware::doctorOnly();
+        $pdo = Database::getInstance();
+
+        $stmtDoc = $pdo->prepare("SELECT `id` FROM `doctors` WHERE `user_id` = ? LIMIT 1");
+        $stmtDoc->execute([$session['user_id']]);
+        $doctor = $stmtDoc->fetch();
+        if (!$doctor) Response::notFound('ملف الطبيب غير موجود.');
+
+        // جلب جميع العيادات المعتمدة التي ينتمي إليها الطبيب
+        $stmt = $pdo->prepare("
+            SELECT cd.`clinic_id`, c.`clinicname`, cd.`is_owner`
+            FROM `clinicsdoctors` cd
+            JOIN `clinics` c ON c.`id` = cd.`clinic_id`
+            WHERE cd.`doctor_id` = ? AND UPPER(cd.`status`) IN ('APPROVED', 'ACCEPTED')
+            ORDER BY cd.`is_owner` DESC, c.`clinicname` ASC
+        ");
+        $stmt->execute([$doctor['id']]);
+
+        $clinics = array_map(function($c) {
+            return [
+                'id'       => $c['clinic_id'],
+                'name'     => $c['clinicname'],
+                'is_owner' => (bool)$c['is_owner']
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        Response::success(['clinics' => $clinics]);
     }
 
 }

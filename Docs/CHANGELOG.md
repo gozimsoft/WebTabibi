@@ -2,6 +2,35 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-10-06
+
+### Fixed / Android & Mobile Camera Permissions
+- **إصلاح زر مسح رمز QR وطلب إذن الكاميرا على تطبيق الأندرويد (Camera Permissions & QR Scanner Fix)**:
+  - **السبب الجذري**: يعتمد تطبيق الأندرويد على Capacitor في تغليف تطبيق React، وتقوم شاشة ربط الجهاز [`PairDevice.jsx`](file:///d:/Application%20Web/WebTabibi/frontend/src/pages/PairDevice.jsx) بفتح الكاميرا المباشرة عبر واجهة المتصفح البرمجية `navigator.mediaDevices.getUserMedia` ليقوم كلاس `BridgeWebChromeClient` بطلب إذن الأندرويد `android.permission.CAMERA`. ولكن ملف البيان [`AndroidManifest.xml`](file:///d:/Application%20Web/WebTabibi/frontend/android/app/src/main/AndroidManifest.xml) كان يفتقر تماماً إلى تصريح الكاميرا، وبحسب قواعد نظام أندرويد فإن أي تصريح يتم طلبه وقت التشغيل (Runtime Permission) بدون أن يكون معرّفاً ومصرّحاً به في `AndroidManifest.xml` يُرفض فورياً من قبل النظام دون حتى إظهار نافذة إذن الكاميرا للمستخدم، مما يؤدي إلى فشل العملية فوراً وظهور رسالة الخطأ.
+  - **التعديلات المطبقة**:
+    - إضافة تصريح الكاميرا الصريح في ملف [`AndroidManifest.xml`](file:///d:/Application%20Web/WebTabibi/frontend/android/app/src/main/AndroidManifest.xml):
+      - `<uses-permission android:name="android.permission.CAMERA" />`
+      - إضافة تعريف ميزات الكاميرا الاختيارية `<uses-feature android:name="android.hardware.camera" android:required="false" />` وميزتي التركيز التلقائي والكاميرا الأمامية مع ضبط `required="false"` لضمان عدم حجب التطبيق عن أي جهاز أو متجر Google Play.
+    - تحسين منطق تشغيل الكاميرا في [`PairDevice.jsx`](file:///d:/Application%20Web/WebTabibi/frontend/src/pages/PairDevice.jsx):
+      - فحص جاهزية واجهة `navigator.mediaDevices.getUserMedia` قبل الاستدعاء.
+      - إضافة بديل احتياطي (Fallback) في حال فشل قيد اتجاه الكاميرا `facingMode: { ideal: facing }` في بعض أجهزة وموديلات الأندرويد القديمة إلى دفق الفيديو البسيط `{ video: true, audio: false }`.
+      - ضبط خاصية `video.muted = true` و `video.setAttribute("autoplay", "true")` برمجياً قبل بدء التشغيل لتفادي حظر التشغيل التلقائي للفيديو من قِبل محرك Android WebView.
+      - إضافة زر تفاعلي "إعادة المحاولة" في واجهة نافذة مسح QR في حال تعذر فتح الكاميرا، بجانب زر رفع صورة الرمز، لتسهيل إعادة المحاولة فور منح الإذن من الإعدادات دون الحاجة لإعادة فتح النافذة.
+    - تحديث ملفات الترجمة [`ar.json`](file:///d:/Application%20Web/WebTabibi/frontend/src/locales/ar.json)، [`en.json`](file:///d:/Application%20Web/WebTabibi/frontend/src/locales/en.json)، و[`fr.json`](file:///d:/Application%20Web/WebTabibi/frontend/src/locales/fr.json) لتوجيه المستخدمين بوضوح لمنح صلاحية الكاميرا للتطبيق في إعدادات الهاتف، وإضافة ترجمات زر إعادة المحاولة.
+    - تحديث ملف التوثيق المعماري [`Docs/ARCHITECTURE.md`](file:///d:/Application%20Web/WebTabibi/Docs/ARCHITECTURE.md) لتوثيق معمارية تطبيق الموبايل ودورة حياة تصاريح الكاميرا في WebView.
+
+### Files Changed
+- `frontend/android/app/src/main/AndroidManifest.xml`
+- `frontend/src/pages/PairDevice.jsx`
+- `frontend/src/locales/ar.json`
+- `frontend/src/locales/en.json`
+- `frontend/src/locales/fr.json`
+- `Docs/ARCHITECTURE.md`
+- `Docs/CHANGELOG.md`
+
+### Documentation Updated
+Yes
+
 ## 2026-10-03
 
 ### Fixed / Internationalization & UI

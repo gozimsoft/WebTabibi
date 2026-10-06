@@ -32,4 +32,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- تصريح الوصول إلى الكاميرا لمسح رموز QR لربط الأجهزة والعيادات -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- ميزات الكاميرا (تم ضبط required=false لضمان إمكانية تثبيت التطبيق على جميع الأجهزة دون قيود متجر Google Play) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 </manifest>

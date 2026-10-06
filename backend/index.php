@@ -516,6 +516,10 @@ try {
         require_once __DIR__ . '/controllers/SyncController.php';
         SyncController::approveDevicePairing();
     }
+    if ($uri === '/sync/clinics' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/SyncController.php';
+        SyncController::clinics();
+    }
 
     if ($uri === '/sync/upload' && $method === 'POST') {
         require_once __DIR__ . '/controllers/SyncController.php';

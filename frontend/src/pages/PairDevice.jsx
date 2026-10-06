@@ -196,6 +196,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     animationFrameId.current = requestAnimationFrame(scanFrame);
   };
 
+  // بدء تشغيل الكاميرا المباشرة لمسح رمز QR مع دعم متوافق لبيئة الأندرويد Capacitor
   const startCamera = async (facing = "environment") => {
     setCameraError("");
     setScannerOpen(true);
@@ -203,16 +204,36 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     try {
       if (currentStreamRef.current) {
         currentStreamRef.current.getTracks().forEach(t => t.stop());
+        currentStreamRef.current = null;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: facing } },
-        audio: false
-      });
+
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("MEDIA_DEVICES_NOT_SUPPORTED");
+      }
+
+      // محاولة فتح الكاميرا بالاتجاه المطلوب (الخلفية تلقائياً لمسح الرموز)
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facing } },
+          audio: false
+        });
+      } catch (facingErr) {
+        // بديل احتياطي في حال رفض قيد facingMode في بعض بيئات WebView للأندرويد
+        console.warn("Facing constraint failed, falling back to simple video:", facingErr);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
       currentStreamRef.current = stream;
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.setAttribute("playsinline", "true");
+          videoRef.current.setAttribute("autoplay", "true");
+          videoRef.current.muted = true;
           videoRef.current.play().then(() => {
             setCameraLoading(false);
             if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
@@ -226,7 +247,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     } catch (err) {
       console.error("Camera access error:", err);
       setCameraLoading(false);
-      setCameraError(t("camera_permission_denied", "تعذر فتح الكاميرا. يرجى التأكد من منح الإذن للمتصفح أو رفع صورة QR مباشرة."));
+      setCameraError(t("camera_permission_denied", "تعذر فتح الكاميرا. يرجى التأكد من منح صلاحية الكاميرا للتطبيق في إعدادات الهاتف، أو رفع صورة QR مباشرة."));
     }
   };
 
@@ -732,16 +753,30 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
               {cameraError && (
                 <div style={{ position: "absolute", padding: 20, textAlign: "center", color: "#f87171", fontSize: 13, fontWeight: 600 }}>
                   <AlertCircle size={32} style={{ margin: "0 auto 8px" }} />
-                  <p style={{ margin: "0 0 12px" }}>{cameraError}</p>
-                  <label style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    background: "rgba(255,255,255,0.15)", padding: "8px 14px",
-                    borderRadius: 8, cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700
-                  }}>
-                    <Upload size={15} />
-                    <span>{t("choose_qr_image", "اختيار صورة تحتوي على QR")}</span>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
-                  </label>
+                  <p style={{ margin: "0 0 12px", lineHeight: 1.5 }}>{cameraError}</p>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => startCamera(cameraFacing)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        background: "#0891b2", padding: "8px 14px", border: "none",
+                        borderRadius: 8, cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700
+                      }}
+                    >
+                      <RefreshCw size={14} />
+                      <span>{t("retry", "إعادة المحاولة")}</span>
+                    </button>
+                    <label style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      background: "rgba(255,255,255,0.15)", padding: "8px 14px",
+                      borderRadius: 8, cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700
+                    }}>
+                      <Upload size={15} />
+                      <span>{t("choose_qr_image", "اختيار صورة تحتوي على QR")}</span>
+                      <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+                    </label>
+                  </div>
                 </div>
               )}
 
