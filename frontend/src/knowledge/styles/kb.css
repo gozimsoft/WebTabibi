@@ -1,0 +1,1187 @@
+/* ==========================================================================
+   TABIBI Knowledge Base — Internal Documentation Stylesheet
+   Strict TABIBI Design System Architecture (Cairo Font + Medical Turquoise)
+   ========================================================================== */
+
+:root {
+  /* TABIBI CORE BRAND TOKENS (Source: TABIBI_DESIGN_SYSTEM.md) */
+  --tabibi-primary-dark:    #0D7996;  /* Deep Turquoise - Hover, Active */
+  --tabibi-primary:         #0A91B2;  /* Medical Turquoise - Main Brand Accent */
+  --tabibi-primary-light:   #ECF6F9;  /* Soft Ice Cyan - Selected States, Badges */
+  --tabibi-primary-ghost:   rgba(10, 145, 178, 0.08); /* 8% Tint */
+
+  /* Navy & Slate Typography Tokens */
+  --tabibi-navy:            #0C4A6E;  /* Deep Slate Navy - Headings, Emphasized Labels */
+  --tabibi-text:            #172033;  /* Charcoal Dark Navy - Primary Body Text */
+  --tabibi-text-secondary:  #64748B;  /* Slate Gray - Supporting Details, Metadata */
+  --tabibi-text-muted:      #94A3B8;  /* Muted Gray - Placeholders, Inactive */
+
+  /* Canvas & Surface Tokens */
+  --tabibi-background:      #F8FAFC;  /* Application Canvas - Soft Blue/Gray */
+  --tabibi-surface:         #FFFFFF;  /* Card Surfaces, Headers, Modals */
+  --tabibi-surface-soft:    #F1F5F9;  /* Sub-panels, Table Stripes, Hover Rows */
+  --tabibi-surface-active:  #ECF6F9;  /* Selected List Items */
+
+  /* Borders & Dividers */
+  --tabibi-border:          #E2E8F0;  /* Standard Card & Input Outlines */
+  --tabibi-border-subtle:   #F1F5F9;  /* Table Dividers */
+  --tabibi-border-focus:    #0A91B2;  /* Focus Outline */
+
+  /* Functional Status Accents */
+  --tabibi-success:         #10B981;  /* Validé, Normal */
+  --tabibi-success-light:   #ECFDF5;
+  --tabibi-warning:         #F59E0B;  /* En attente, Avertissement */
+  --tabibi-warning-light:   #FFFBEB;
+  --tabibi-danger:          #EF4444;  /* Alerte, Erreur */
+  --tabibi-danger-light:    #FEF2F2;
+
+  /* Support Level Tokens */
+  --kb-l1-color:            #059669;
+  --kb-l1-bg:               #ECFDF5;
+  --kb-l2-color:            #0284C7;
+  --kb-l2-bg:               #F0F9FF;
+  --kb-l3-color:            #7C3AED;
+  --kb-l3-bg:               #F5F3FF;
+
+  /* Typography: CAIRO FONT (Baseline everywhere) */
+  --kb-font-sans:           'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --kb-font-mono:           'JetBrains Mono', monospace;
+
+  --kb-sidebar-width:       325px;
+  --kb-header-height:       68px;
+  --kb-radius-sm:           8px;
+  --kb-radius-md:           14px;
+  --kb-radius-lg:           20px;
+  --kb-radius-pill:         999px;
+
+  --tabibi-shadow:          0 4px 18px rgba(12, 74, 110, 0.05);
+  --tabibi-shadow-hover:    0 8px 24px rgba(12, 74, 110, 0.09);
+  --tabibi-shadow-card:     0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--kb-font-sans);
+  background-color: var(--tabibi-background);
+  color: var(--tabibi-text);
+  line-height: 1.65;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* RTL Layout Native Rules */
+[dir="rtl"] {
+  text-align: right;
+  font-family: var(--kb-font-sans);
+}
+
+[dir="rtl"] .kb-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--tabibi-border);
+}
+
+[dir="rtl"] .kb-search-shortcut {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .kb-list {
+  margin: 8px 24px 16px 0;
+}
+
+[dir="rtl"] .kb-task-item {
+  margin-left: 0;
+  margin-right: -14px;
+}
+
+[dir="rtl"] .kb-table td,
+[dir="rtl"] .kb-table th {
+  text-align: right;
+}
+
+/* App Shell */
+.kb-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header — Pure White TABIBI Aesthetic (70px height) */
+.kb-header {
+  height: var(--kb-header-height);
+  background: var(--tabibi-surface);
+  border-bottom: 1px solid var(--tabibi-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: relative;
+  z-index: 40;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  flex-shrink: 0;
+}
+
+.kb-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kb-sidebar-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--kb-radius-md);
+  border: 1px solid var(--tabibi-border);
+  background: var(--tabibi-surface);
+  color: var(--tabibi-navy);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.kb-sidebar-toggle-btn:hover {
+  background: var(--tabibi-surface-soft);
+  border-color: var(--tabibi-primary);
+  color: var(--tabibi-primary);
+}
+
+.kb-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* ══════════════════════════════════════════
+   TRANSPARENT 3D FLIPPING LOGO (Identical to TABIBI)
+   ══════════════════════════════════════════ */
+@keyframes tabibiLogoFlip3D {
+  0% {
+    transform: rotateY(0deg);
+  }
+  /* Idle and static for ~32 seconds */
+  91.5% {
+    transform: rotateY(0deg);
+  }
+  /* Smooth 3D flip over ~2.8 seconds */
+  95.7% {
+    transform: rotateY(180deg) scale(1.12);
+  }
+  100% {
+    transform: rotateY(360deg) scale(1);
+  }
+}
+
+.tabibi-flipping-logo {
+  animation: tabibiLogoFlip3D 35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-style: preserve-3d;
+  backface-visibility: visible;
+  filter: drop-shadow(0 2px 6px rgba(10, 145, 178, 0.2));
+  transition: transform 0.3s ease, filter 0.3s ease;
+  cursor: pointer;
+}
+
+.kb-brand-logo-wrap:hover .tabibi-flipping-logo,
+.tabibi-flipping-logo:hover {
+  transform: scale(1.12) rotate(4deg);
+  filter: drop-shadow(0 4px 12px rgba(10, 145, 178, 0.45));
+}
+
+.kb-brand-logo-wrap {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  flex-shrink: 0;
+  perspective: 1000px;
+}
+
+.kb-brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+  display: block;
+}
+
+.kb-brand-lamp-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.45);
+  z-index: 2;
+  pointer-events: none;
+}
+
+[dir="rtl"] .kb-brand-lamp-badge {
+  right: auto;
+  left: -5px;
+}
+
+.kb-lamp-icon {
+  color: #ffffff;
+}
+
+.kb-brand-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--tabibi-primary), var(--tabibi-primary-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 900;
+  font-size: 18px;
+  box-shadow: 0 3px 8px rgba(10, 145, 178, 0.25);
+}
+
+.kb-brand-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tabibi-navy);
+  letter-spacing: -0.01em;
+}
+
+.kb-brand-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--tabibi-primary-light);
+  color: var(--tabibi-primary-dark);
+  padding: 3px 10px;
+  border-radius: var(--kb-radius-pill);
+  margin-left: 8px;
+  border: 1px solid rgba(10, 145, 178, 0.15);
+  text-transform: uppercase;
+}
+
+[dir="rtl"] .kb-brand-badge {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+.kb-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Multi-lingual Selector — Tabibi Pill Shape */
+.kb-lang-group {
+  display: flex;
+  align-items: center;
+  background: var(--tabibi-surface-soft);
+  padding: 3px;
+  border-radius: var(--kb-radius-pill);
+  border: 1px solid var(--tabibi-border);
+}
+
+.kb-lang-btn {
+  background: none;
+  border: none;
+  font-family: var(--kb-font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: var(--kb-radius-pill);
+  cursor: pointer;
+  color: var(--tabibi-text-secondary);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kb-lang-btn:hover {
+  color: var(--tabibi-text);
+}
+
+.kb-lang-btn.active {
+  background: var(--tabibi-surface);
+  color: var(--tabibi-primary);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+.kb-internal-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tabibi-warning-light);
+  border: 1px solid #FDE68A;
+  color: #B45309;
+  padding: 5px 12px;
+  border-radius: var(--kb-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kb-search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--tabibi-background);
+  border: 1px solid var(--tabibi-border);
+  padding: 0 16px;
+  height: 38px;
+  box-sizing: border-box;
+  border-radius: var(--kb-radius-pill);
+  color: var(--tabibi-text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-width: 280px;
+  white-space: nowrap;
+}
+
+.kb-search-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-search-trigger:hover {
+  border-color: var(--tabibi-primary);
+  background: var(--tabibi-surface);
+  box-shadow: 0 0 0 3px rgba(10, 145, 178, 0.1);
+}
+
+.kb-search-shortcut {
+  font-family: var(--kb-font-mono);
+  font-size: 11px;
+  background: var(--tabibi-border);
+  color: #475569;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+/* Layout container */
+.kb-body-layout {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: calc(100vh - var(--kb-header-height));
+  overflow: hidden;
+  position: relative;
+}
+
+/* Sidebar — Clean, Airy, Tabibi Medical Navigation */
+.kb-sidebar {
+  width: var(--kb-sidebar-width);
+  background: var(--tabibi-surface);
+  border-inline-end: 1px solid var(--tabibi-border);
+  overflow-y: auto;
+  height: 100%;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex-shrink: 0;
+  position: relative;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+[dir="rtl"] .kb-sidebar {
+  border-inline-end: 1px solid var(--tabibi-border);
+}
+
+.kb-sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kb-sidebar-group-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tabibi-navy);
+  padding: 0 10px 8px 10px;
+  opacity: 0.85;
+}
+
+.kb-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--kb-radius-md);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tabibi-text);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+}
+
+.kb-nav-item:hover {
+  background: var(--tabibi-surface-soft);
+  color: var(--tabibi-primary);
+}
+
+.kb-nav-item.active {
+  background: var(--tabibi-primary-light);
+  border-color: rgba(10, 145, 178, 0.2);
+  color: var(--tabibi-primary);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(10, 145, 178, 0.06);
+}
+
+.kb-nav-item-icon-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-nav-item-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--tabibi-surface-soft);
+  color: var(--tabibi-text-secondary);
+  padding: 1px 7px;
+  border-radius: var(--kb-radius-pill);
+}
+
+.kb-nav-item.active .kb-nav-item-badge {
+  background: var(--tabibi-primary);
+  color: white;
+}
+
+.kb-nav-item.placeholder {
+  opacity: 0.65;
+  color: var(--tabibi-text-muted);
+}
+
+.kb-nav-item.placeholder:hover {
+  opacity: 1;
+}
+
+.kb-nav-placeholder-tag {
+  font-size: 10px;
+  font-weight: 700;
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Main Content Canvas — Fully flexible and centered across all screen resolutions */
+.kb-main-content {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 36px 48px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-main-content > * {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+/* Article Card — Tabibi Pure White Surface */
+.kb-article-container {
+  background: var(--tabibi-surface);
+  border: 1px solid var(--tabibi-border);
+  border-radius: var(--kb-radius-lg);
+  padding: 38px 44px;
+  box-shadow: var(--tabibi-shadow);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.kb-article-meta-header {
+  border-bottom: 1px solid var(--tabibi-border);
+  padding-bottom: 24px;
+  margin-bottom: 30px;
+}
+
+.kb-article-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.kb-badge-category {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--tabibi-primary);
+  background: var(--tabibi-primary-light);
+  border: 1px solid rgba(10, 145, 178, 0.2);
+  padding: 3px 12px;
+  border-radius: var(--kb-radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kb-badge-status {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.kb-badge-status.valide {
+  background: var(--tabibi-success-light);
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.kb-badge-status.obsolete {
+  background: var(--tabibi-danger-light);
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.kb-badge-status.a-verifier {
+  background: var(--tabibi-warning-light);
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.kb-badge-version {
+  font-family: var(--kb-font-mono);
+  font-size: 11px;
+  color: var(--tabibi-text-secondary);
+  background: var(--tabibi-surface-soft);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--tabibi-border);
+}
+
+.kb-article-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--tabibi-navy);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+
+.kb-article-details-strip {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: 13.5px;
+  color: var(--tabibi-text-secondary);
+  flex-wrap: wrap;
+}
+
+.kb-article-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Level Tabs (Niveau 1, Niveau 2, Niveau 3) */
+.kb-levels-banner {
+  background: var(--tabibi-background);
+  border: 1px solid var(--tabibi-border);
+  border-radius: var(--kb-radius-md);
+  padding: 14px 18px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kb-levels-list {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kb-level-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--kb-radius-pill);
+}
+
+.kb-level-chip.l1 {
+  background: var(--kb-l1-bg);
+  color: var(--kb-l1-color);
+  border: 1px solid #A7F3D0;
+}
+
+.kb-level-chip.l2 {
+  background: var(--kb-l2-bg);
+  color: var(--kb-l2-color);
+  border: 1px solid #BAE6FD;
+}
+
+.kb-level-chip.l3 {
+  background: var(--kb-l3-bg);
+  color: var(--kb-l3-color);
+  border: 1px solid #DDD6FE;
+}
+
+/* Symptoms Doctor Calls box */
+.kb-symptoms-box {
+  background: var(--tabibi-warning-light);
+  border: 1px solid #FDE68A;
+  border-radius: var(--kb-radius-md);
+  padding: 18px 22px;
+  margin-bottom: 28px;
+}
+
+.kb-symptoms-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #92400E;
+  margin-bottom: 10px;
+}
+
+.kb-symptom-tag {
+  display: inline-block;
+  background: #FFFFFF;
+  border: 1px solid #FEF08A;
+  color: #78350F;
+  font-size: 12.5px;
+  font-style: italic;
+  padding: 4px 12px;
+  border-radius: var(--kb-radius-pill);
+  margin: 4px 8px 4px 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+[dir="rtl"] .kb-symptom-tag {
+  margin: 4px 0 4px 8px;
+}
+
+/* Markdown Rendered Typography */
+.kb-markdown-body {
+  font-size: 15.5px;
+  color: var(--tabibi-text);
+  line-height: 1.75;
+}
+
+.kb-h1 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 34px 0 16px 0;
+  color: var(--tabibi-navy);
+  border-bottom: 1px solid var(--tabibi-border);
+  padding-bottom: 8px;
+}
+
+.kb-h2 {
+  font-size: 19px;
+  font-weight: 800;
+  margin: 28px 0 12px 0;
+  color: var(--tabibi-navy);
+}
+
+.kb-h3 {
+  font-size: 16.5px;
+  font-weight: 700;
+  margin: 20px 0 8px 0;
+  color: var(--tabibi-text);
+}
+
+.kb-h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 16px 0 6px 0;
+  color: var(--tabibi-text-secondary);
+}
+
+.kb-p {
+  margin-bottom: 16px;
+}
+
+.kb-list {
+  margin: 10px 0 18px 24px;
+}
+
+.kb-list li {
+  margin-bottom: 7px;
+}
+
+.kb-task-item {
+  list-style: none;
+  margin-left: -14px;
+  margin-bottom: 7px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kb-task-item.checked {
+  color: #15803D;
+}
+
+.kb-checkbox {
+  font-size: 15px;
+}
+
+/* Callouts — Tabibi Colored Boxes */
+.kb-callout {
+  border-radius: var(--kb-radius-md);
+  padding: 18px 20px;
+  margin: 22px 0;
+}
+
+.kb-callout-phone {
+  background: var(--tabibi-success-light);
+  border: 1px solid #BBF7D0;
+  color: #166534;
+}
+
+.kb-callout-phone .kb-callout-header {
+  font-weight: 800;
+  font-size: 14.5px;
+  margin-bottom: 6px;
+}
+
+.kb-callout-phone .kb-callout-body {
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.kb-callout-link {
+  background: var(--tabibi-primary-light);
+  border: 1px solid rgba(10, 145, 178, 0.2);
+  color: var(--tabibi-navy);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.kb-callout-warn {
+  background: var(--tabibi-warning-light);
+  border: 1px solid #FED7AA;
+  color: #9A3412;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Code & Tables */
+.kb-code-block {
+  background: #0B192C;
+  color: #F8FAFC;
+  padding: 18px 22px;
+  border-radius: var(--kb-radius-md);
+  font-family: var(--kb-font-mono);
+  font-size: 13px;
+  overflow-x: auto;
+  margin: 18px 0;
+  direction: ltr;
+  text-align: left;
+}
+
+.kb-inline-code {
+  font-family: var(--kb-font-mono);
+  font-size: 13px;
+  background: var(--tabibi-surface-soft);
+  color: var(--tabibi-primary-dark);
+  padding: 2px 6px;
+  border-radius: 4px;
+  direction: ltr;
+  display: inline-block;
+  border: 1px solid var(--tabibi-border);
+}
+
+.kb-table-wrap {
+  overflow-x: auto;
+  margin: 22px 0;
+  border-radius: var(--kb-radius-md);
+  border: 1px solid var(--tabibi-border);
+}
+
+.kb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.kb-table td,
+.kb-table th {
+  border: 1px solid var(--tabibi-border);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.kb-table tr:first-child td {
+  background: var(--tabibi-surface-soft);
+  font-weight: 800;
+  color: var(--tabibi-navy);
+}
+
+.kb-table tr:hover td {
+  background: var(--tabibi-background);
+}
+
+.kb-link {
+  color: var(--tabibi-primary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.kb-link:hover {
+  color: var(--tabibi-primary-dark);
+}
+
+/* Search Modal */
+.kb-search-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding-top: 100px;
+}
+
+.kb-search-modal {
+  width: 680px;
+  max-width: 90vw;
+  background: var(--tabibi-surface);
+  border-radius: var(--kb-radius-lg);
+  box-shadow: 0 25px 45px -8px rgba(12, 74, 110, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+  overflow: hidden;
+  border: 1px solid var(--tabibi-border);
+}
+
+.kb-search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--tabibi-border);
+}
+
+.kb-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--tabibi-text);
+  background: transparent;
+}
+
+.kb-search-results {
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kb-search-item {
+  padding: 14px 16px;
+  border-radius: var(--kb-radius-md);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
+}
+
+.kb-search-item:hover,
+.kb-search-item.selected {
+  background: var(--tabibi-surface-soft);
+  border-color: var(--tabibi-border);
+}
+
+.kb-search-item-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--tabibi-navy);
+  margin-bottom: 4px;
+}
+
+.kb-search-item-snippet {
+  font-size: 13px;
+  color: var(--tabibi-text-secondary);
+  line-height: 1.45;
+}
+
+.kb-search-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Escaler L2/L3 Box */
+.kb-escalation-alert {
+  background: #FDF2F8;
+  border: 1px solid #FBCFE8;
+  color: #9D174D;
+  padding: 14px 18px;
+  border-radius: var(--kb-radius-md);
+  font-size: 13.5px;
+  margin: 22px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE LAYOUT BREAKPOINTS
+   ══════════════════════════════════════════════════════════ */
+
+/* 1. Large Laptops / Screens <= 1280px */
+@media screen and (max-width: 1280px) {
+  :root {
+    --kb-sidebar-width: 290px;
+  }
+  .kb-main-content {
+    padding: 28px 32px;
+  }
+  .kb-article-container {
+    padding: 32px 34px;
+  }
+  .kb-search-trigger {
+    min-width: 230px;
+  }
+}
+
+/* 2. Tablets & Small Desktops <= 1024px */
+@media screen and (max-width: 1024px) {
+  :root {
+    --kb-sidebar-width: 260px;
+    --kb-header-height: 64px;
+  }
+  .kb-header {
+    padding: 0 18px;
+    height: var(--kb-header-height);
+  }
+  .kb-search-trigger {
+    min-width: 200px;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .kb-main-content {
+    padding: 24px 24px;
+  }
+  .kb-article-container {
+    padding: 26px 26px;
+  }
+  .kb-article-title {
+    font-size: 24px;
+  }
+}
+
+/* 3. Tablets Portrait & Mobile <= 860px (Sidebar collapses to off-canvas drawer) */
+@media screen and (max-width: 860px) {
+  .kb-header {
+    padding: 0 16px;
+    gap: 10px;
+  }
+  .kb-brand-title {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .kb-brand-badge {
+    display: none;
+  }
+  .kb-header-actions {
+    gap: 8px;
+  }
+  .kb-search-trigger {
+    min-width: 0;
+    max-width: 190px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+  }
+  .kb-search-shortcut {
+    display: none;
+  }
+  .kb-internal-pill span {
+    display: none;
+  }
+  .kb-internal-pill {
+    padding: 6px 8px;
+  }
+  .kb-sidebar-toggle-btn {
+    display: inline-flex;
+  }
+  .kb-sidebar {
+    position: fixed;
+    top: var(--kb-header-height);
+    bottom: 0;
+    left: 0;
+    width: 300px;
+    max-width: 85vw;
+    height: calc(100vh - var(--kb-header-height));
+    z-index: 100;
+    transform: translateX(-100%);
+    box-shadow: none;
+    border-inline-end: 1px solid var(--tabibi-border);
+    background: var(--tabibi-surface);
+  }
+  [dir="rtl"] .kb-sidebar {
+    left: auto;
+    right: 0;
+    transform: translateX(100%);
+  }
+  .kb-sidebar.open {
+    transform: translateX(0);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.22);
+  }
+  .kb-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    top: var(--kb-header-height);
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 95;
+    animation: fadeInBackdrop 0.2s ease;
+  }
+  @keyframes fadeInBackdrop {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .kb-main-content {
+    padding: 20px 16px;
+  }
+  .kb-article-container {
+    padding: 22px 18px;
+    border-radius: var(--kb-radius-md);
+  }
+  .kb-article-title {
+    font-size: 21px;
+    line-height: 1.35;
+  }
+  .kb-article-details-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .kb-levels-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* 4. Small Mobile Phones <= 640px */
+@media screen and (max-width: 640px) {
+  .kb-header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .kb-brand-title {
+    font-size: 15px;
+  }
+  .kb-brand-badge {
+    display: none;
+  }
+  .kb-search-trigger {
+    min-width: 0;
+    flex: 1;
+    max-width: 180px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .kb-search-shortcut {
+    display: none;
+  }
+  .kb-internal-pill span {
+    display: none;
+  }
+  .kb-internal-pill {
+    padding: 5px 8px;
+  }
+  .kb-lang-btn {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+  .kb-main-content {
+    padding: 12px 10px;
+  }
+  .kb-article-container {
+    padding: 16px 14px;
+    border-radius: var(--kb-radius-sm);
+  }
+  .kb-article-title {
+    font-size: 18px;
+  }
+  .kb-article-badge-row {
+    gap: 6px;
+  }
+  .kb-h1 {
+    font-size: 19px;
+  }
+  .kb-h2 {
+    font-size: 17px;
+  }
+  .kb-h3 {
+    font-size: 15px;
+  }
+  .kb-callout {
+    padding: 12px 14px;
+  }
+  .kb-code-block {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+}
+
+/* Printable / PDF Export View */
+@media print {
+  .kb-header,
+  .kb-sidebar,
+  .kb-levels-banner,
+  .kb-search-backdrop {
+    display: none !important;
+  }
+  .kb-body-layout {
+    display: block !important;
+  }
+  .kb-main-content {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .kb-article-container {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+}

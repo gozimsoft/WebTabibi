@@ -41,6 +41,7 @@ import DoctorClinicsPage from "./pages/DoctorClinicsPage";
 import { useRoute } from "./hooks/useRoute";
 import AvatarCropModal from "./components/AvatarCropModal";
 import { AccountSecurityPill, AccountSecurityCard } from "./components/AccountSecuritySummary";
+import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -15664,6 +15665,8 @@ function MainApp() {
         return <RegisterPage key="register" onRegister={register} onRegisterConfirm={registerConfirm} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/search":
         return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
+      case "/knowledge":
+        return <KnowledgeBasePage key="knowledge" />;
       case "/about":
         return <AboutPage navigate={navigate} />;
       case "/contact":
@@ -15816,11 +15819,11 @@ function MainApp() {
           ::-webkit-scrollbar-track { background:#f3f4f6; }
           ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
         `}</style>
-      {route !== "/app" && (
+      {route !== "/app" && route !== "/knowledge" && (
         <Navbar user={user} navigate={navigate} onLogout={logout} theme={theme} toggleTheme={toggleTheme} fullWidth={fullWidth} toggleFullWidth={toggleFullWidth} show={show} />
       )}
       <BackgroundDecoration />
-      <div style={{ flex: 1, paddingBottom: route === "/app" ? 0 : 80, position: "relative", zIndex: 1 }}>
+      <div style={{ flex: 1, paddingBottom: (route === "/app" || route === "/knowledge") ? 0 : 80, position: "relative", zIndex: 1 }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={route}
@@ -15834,7 +15837,7 @@ function MainApp() {
           </motion.div>
         </AnimatePresence>
       </div>
-      {route !== "/app" && (
+      {route !== "/app" && route !== "/knowledge" && (
         <Footer navigate={navigate} show={show} user={user} />
       )}
 
