@@ -125,17 +125,17 @@
 
 ---
 
-## 📅 4. الـ Endpoints الخاصة بالمواعيد (Appointments)
+## 📅 4. الـ Endpoints الخاصة بالمواعيد وقائمة الدور (Appointments & Queue)
 
-### 3.1. جلب الأوقات المتاحة للحجز (Available Slots)
-- **الوصف:** حساب وإرجاع فترات الحجز المتاحة لطبيب معين في عيادة محددة خلال يوم.
+### 4.1. جلب الأوقات أو فترات الطابور المتاحة للحجز (Available Slots / Shifts)
+- **الوصف:** إرجاع الخيارات المتاحة للحجز حسب نظام عمل الطبيب (مواعيد محددة بالساعة أو قائمة دور بتذاكر رقمية).
 - **المسار (URL):** `/appointments/available-slots`
 - **الطريقة (Method):** `GET`
-- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>` (يجب أن يكون مريض).
+- **الترويسات (Headers):** `Authorization: Bearer <Your_Token>` (أو بدون مصادقة للبحث العام).
 - **المعلمات (Query Parameters):**
   - `clinics_doctor_id` (إلزامي): الـ UUID الخاص بارتباط الطبيب بالعيادة.
   - `date` (إلزامي): التاريخ بصيغة `YYYY-MM-DD`.
-- **الاستجابة الناجحة (Success Response):**
+- **الاستجابة الناجحة في نمط المواعيد بالساعة (`booking_mode: 0`):**
   ```json
   {
     "success": true,
@@ -143,15 +143,52 @@
     "message": "الأوقات المتاحة"
   }
   ```
+- **الاستجابة الناجحة في نمط قائمة الدور والأرقام (`booking_mode: 1`):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "booking_mode": "queue",
+      "shift_mode": 2,
+      "shifts": [
+        {
+          "type": "morning",
+          "label": "الفترة الصباحية",
+          "start_time": "08:00",
+          "end_time": "13:00",
+          "capacity": 25,
+          "booked_count": 14,
+          "remaining": 11,
+          "next_token": 15,
+          "estimated_time_for_next": "10:45",
+          "is_full": false
+        },
+        {
+          "type": "evening",
+          "label": "الفترة المسائية",
+          "start_time": "14:00",
+          "end_time": "18:00",
+          "capacity": 15,
+          "booked_count": 0,
+          "remaining": 15,
+          "next_token": 1,
+          "estimated_time_for_next": "14:00",
+          "is_full": false
+        }
+      ]
+    },
+    "message": "فترات الدور المتاحة للحجز"
+  }
+  ```
 
-### 3.2. حجز موعد جديد (Book Appointment)
-- **الوصف:** إنشاء موعد جديد للمريض في فترة زمنية معينة.
+### 4.2. حجز موعد جديد (Book Appointment)
+- **الوصف:** إنشاء موعد جديد للمريض في فترة زمنية محددة أو أخذ تذكرة دور تتابعية.
 - **المسار (URL):** `/appointments`
 - **الطريقة (Method):** `POST`
 - **الترويسات (Headers):** 
   - `Content-Type: application/json`
   - `Authorization: Bearer <Your_Token>`
-- **الجسم (Request Body):**
+- **الجسم لنظام المواعيد بالساعة:**
   ```json
   {
     "clinics_doctor_id": "ea49ae02-ee22-4e7f-97b8-d2a8289e93aa",
@@ -161,9 +198,72 @@
     "note": "أعاني من آلام في الظهر"
   }
   ```
-- **حالات الخطأ المحتملة (Error Handling):**
-  - إذا كان الموعد محجوزاً مسبقاً (Conflict): يرجع `success: false` مع كود `409 Conflict`.
-  - إذا كان الطبيب في عطلة (OffHours): يرجع `success: false` برسالة توضيحية.
+- **الجسم لنظام قائمة الدور والأرقام:**
+  ```json
+  {
+    "clinics_doctor_id": "ea49ae02-ee22-4e7f-97b8-d2a8289e93aa",
+    "doctors_reason_id": "1b2a977a-33e2-4c9e-94bc-4462956a04f5",
+    "date": "2026-05-01",
+    "shift_type": "morning",
+    "note": "كشف عام"
+  }
+  ```
+- **استجابة حجز تذكرة الدور الناجحة:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "uuid-appointment-1",
+      "token_number": 15,
+      "shift_type": "morning",
+      "estimated_time": "10:45:00",
+      "queue_status": "waiting",
+      "message": "تم تأكيد حجزك بنجاح! رقم دورك هو 15 والوقت التقريبي للكشف 10:45"
+    }
+  }
+  ```
+
+### 4.3. الاستعلام المباشر عن حالة الطابور وشاشة الانتظار (Live Queue Status)
+- **الوصف:** جلب الحالة اللحظية لطابور العيادة (من هو المريض المفحوص حالياً، من هو المريض التالي، وعدد المنتظرين).
+- **المسار (URL):** `/appointments/live-queue-status`
+- **الطريقة (Method):** `GET`
+- **المعلمات (Query Parameters):**
+  - `clinic_id` (أو `clinics_doctor_id`): معرف العيادة أو ارتباط الطبيب.
+  - `date`: تاريخ اليوم `YYYY-MM-DD`.
+  - `shift_type`: `'morning'` أو `'evening'` (اختياري).
+- **الاستجابة:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "current_serving": { "token_number": 12, "patientname": "محمد علي", "queue_status": "in_consultation" },
+      "next_waiting": { "token_number": 13, "patientname": "فاطمة الزهراء", "queue_status": "waiting" },
+      "waiting_count": 8,
+      "completed_count": 11,
+      "absent_count": 1,
+      "total_in_queue": 20
+    }
+  }
+  ```
+
+### 4.4. تحديث حالة المريض في الطابور (Update Queue Status)
+- **الوصف:** التحكم في سير الطابور من قبل السكرتيرة أو الطبيب (إدخال المريض لقاعة الكشف، إنهاء الاستشارة، تسجيل غياب).
+- **المسار (URL):** `/appointments/:id/queue-status`
+- **الطريقة (Method):** `PUT`
+- **الجسم (Request Body):**
+  ```json
+  {
+    "queue_status": "in_consultation"
+  }
+  ```
+  *(الحالات المدعومة: `waiting`, `in_consultation`, `completed`, `absent`, `cancelled`)*
+
+### 4.5. إعدادات فترات ومواعيد الطبيب (Doctor Appointment Settings)
+- **المسارات:**
+  - `GET /doctors/appointment-settings`: جلب قائمة إعدادات فترات العمل للطبيب.
+  - `POST /doctors/appointment-settings`: إنشاء إعداد يوم جديد.
+  - `PUT /doctors/appointment-settings/:id`: تعديل إعداد اليوم (تغيير النمط بين مواعيد وطابور، تعديل السعة الصباحية/المسائية، تفعيل الطوارئ).
+- **الحقول المدعومة:** `day`, `timescale`, `booking_mode`, `shift_mode`, `morning_start`, `morning_end`, `morning_capacity`, `evening_start`, `evening_end`, `evening_capacity`, `allow_overbooking`.
 
 ---
 
