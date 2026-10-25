@@ -379,7 +379,104 @@ class AppointmentController
         $dayIndex = ($w + 6) % 7;
 
         if (strlen($workingdays) > $dayIndex && $workingdays[$dayIndex] === '0') {
-            Response::success(['date' => $date, 'slots' => [], 'timescale' => $timescale]);
+            Response::success(['booking_mode' => 'slots', 'date' => $date, 'slots' => [], 'timescale' => $timescale]);
+            return;
+        }
+
+        $bookingMode = (int)($settings['booking_mode'] ?? 0);
+        if ($bookingMode === 1) {
+            // ── Queue / Numbered booking mode ──────────────────────────
+            $shiftMode        = (int)($settings['shift_mode'] ?? 1); // 1 = Single shift, 2 = Double shift
+            $morningStart     = self::extractTime($settings['morning_start'] ?? '', '08:30');
+            $morningEnd       = self::extractTime($settings['morning_end'] ?? '', '12:30');
+            $morningCap       = max(1, (int)($settings['morning_capacity'] ?? 25));
+            $eveningStart     = self::extractTime($settings['evening_start'] ?? '', '14:00');
+            $eveningEnd       = self::extractTime($settings['evening_end'] ?? '', '17:30');
+            $eveningCap       = max(1, (int)($settings['evening_capacity'] ?? 15));
+            $allowOverbooking = (int)($settings['allow_overbooking'] ?? 1);
+
+            // Fetch booked count and max token per shift for this doctor & date
+            $stmt = $pdo->prepare("
+                SELECT shift_type, COUNT(*) as booked_count, COALESCE(MAX(token_number), 0) as max_token
+                FROM apointements
+                WHERE clinicsdoctor_id IN (
+                    SELECT id FROM clinicsdoctors WHERE doctor_id = ?
+                )
+                  AND DATE(apointementdate) = ?
+                  AND status != 1
+                GROUP BY shift_type
+            ");
+            $stmt->execute([$doctor_id, $date]);
+            $shiftCounts = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $st = $row['shift_type'] ?: 'morning';
+                $shiftCounts[$st] = [
+                    'booked_count' => (int)$row['booked_count'],
+                    'max_token'    => (int)$row['max_token']
+                ];
+            }
+
+            $shifts = [];
+
+            // 1. Morning Shift (or Full Day if single shift)
+            $mBooked    = $shiftCounts['morning']['booked_count'] ?? ($shiftCounts['full_day']['booked_count'] ?? 0);
+            $mMaxTok    = $shiftCounts['morning']['max_token'] ?? ($shiftCounts['full_day']['max_token'] ?? 0);
+            $mRemaining = max(0, $morningCap - $mBooked);
+            $mNextToken = $mMaxTok + 1;
+
+            $mStartMins = (int)substr($morningStart, 0, 2) * 60 + (int)substr($morningStart, 3, 2);
+            $mNextMins  = $mStartMins + (($mNextToken - 1) * $timescale);
+            $mEstH      = floor($mNextMins / 60) % 24;
+            $mEstM      = $mNextMins % 60;
+            $mEstTime   = sprintf('%02d:%02d', $mEstH, $mEstM);
+
+            $shifts[] = [
+                'shift_type'              => $shiftMode === 1 ? 'full_day' : 'morning',
+                'label'                   => $shiftMode === 1 ? 'قائمة اليوم' : 'الفترة الصباحية',
+                'start_time'              => $morningStart,
+                'end_time'                => $morningEnd,
+                'capacity'                => $morningCap,
+                'booked_count'            => $mBooked,
+                'remaining'               => $mRemaining,
+                'is_full'                 => ($mRemaining === 0 && !$allowOverbooking),
+                'next_token'              => $mNextToken,
+                'estimated_time_for_next' => $mEstTime
+            ];
+
+            // 2. Evening Shift (if shiftMode == 2)
+            if ($shiftMode === 2) {
+                $eBooked    = $shiftCounts['evening']['booked_count'] ?? 0;
+                $eMaxTok    = $shiftCounts['evening']['max_token'] ?? 0;
+                $eRemaining = max(0, $eveningCap - $eBooked);
+                $eNextToken = $eMaxTok + 1;
+
+                $eStartMins = (int)substr($eveningStart, 0, 2) * 60 + (int)substr($eveningStart, 3, 2);
+                $eNextMins  = $eStartMins + (($eNextToken - 1) * $timescale);
+                $eEstH      = floor($eNextMins / 60) % 24;
+                $eEstM      = $eNextMins % 60;
+                $eEstTime   = sprintf('%02d:%02d', $eEstH, $eEstM);
+
+                $shifts[] = [
+                    'shift_type'              => 'evening',
+                    'label'                   => 'الفترة المسائية',
+                    'start_time'              => $eveningStart,
+                    'end_time'                => $eveningEnd,
+                    'capacity'                => $eveningCap,
+                    'booked_count'            => $eBooked,
+                    'remaining'               => $eRemaining,
+                    'is_full'                 => ($eRemaining === 0 && !$allowOverbooking),
+                    'next_token'              => $eNextToken,
+                    'estimated_time_for_next' => $eEstTime
+                ];
+            }
+
+            Response::success([
+                'booking_mode' => 'queue',
+                'date'         => $date,
+                'timescale'    => $timescale,
+                'shift_mode'   => $shiftMode,
+                'shifts'       => $shifts
+            ]);
             return;
         }
 
@@ -437,9 +534,10 @@ class AppointmentController
         }));
 
         Response::success([
-            'date' => $date,
-            'slots' => $available,
-            'timescale' => $timescale
+            'booking_mode' => 'slots',
+            'date'         => $date,
+            'slots'        => $available,
+            'timescale'    => $timescale
         ]);
     }
 
