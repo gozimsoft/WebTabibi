@@ -1520,6 +1520,7 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         user?.user_type === 1 ? { icon: <Laptop size={16} />, label: t("pair_desktop_nav", "ربط تطبيق العيادة"), path: "/pair" } : null,
                         user?.user_type === 0 ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                         user?.user_type === 1 ? { icon: <Calendar size={16} />, label: t("appt_mgr_title", "إدارة المواعيد"), path: "/appointmanager" } : null,
+                        user?.user_type === 1 ? { icon: <Sliders size={16} />, label: t("appointment_settings_nav", "إعدادات المواعيد وقائمة الدور"), path: "/profile?tab=appointment_settings" } : null,
                         user?.user_type === 2 ? { icon: <Calendar size={16} />, label: t("clinic_agenda_nav", "Agenda de la clinique"), path: "/clinic/appointments" } : null,
                         (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
                         { icon: <MessageSquare size={16} />, label: t("messages", "الرسائل"), path: "/tickets", badge: unreadTicketsCount },
@@ -11507,7 +11508,14 @@ function ProfilePage({ user, navigate, qs }) {
   const initialTab = qs ? new URLSearchParams(qs).get("tab") : null;
   const initialSecurity = initialTab === "security";
   const initialClinic = initialTab === "clinic";
-  const [doctorActiveTab, setDoctorActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
+  const initialSettings = initialTab === "appointment_settings" || initialTab === "settings";
+  const initialOffHours = initialTab === "off_hours";
+  const [doctorActiveTab, setDoctorActiveTab] = useState(
+    initialSecurity ? "security" :
+    initialSettings ? "appointment_settings" :
+    initialOffHours ? "off_hours" :
+    "profile"
+  ); // 'profile' | 'appointment_settings' | 'off_hours' | 'security'
   const [patientActiveTab, setPatientActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
   const [clinicActiveTab, setClinicActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
   const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
@@ -11539,6 +11547,10 @@ function ProfilePage({ user, navigate, qs }) {
         setClinicActiveTab("security");
         setAdminActiveTab("security");
         setDoctorActiveTab("security");
+      } else if (tab === "appointment_settings" || tab === "settings") {
+        setDoctorActiveTab("appointment_settings");
+      } else if (tab === "off_hours") {
+        setDoctorActiveTab("off_hours");
       } else if (tab === "clinic") {
         if (user?.user_type === 1 && navigate) {
           navigate("/clinics");
@@ -12365,6 +12377,56 @@ function ProfilePage({ user, navigate, qs }) {
             {t("profile_info_tab", "الملف الشخصي")}
           </button>
 
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("appointment_settings")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "appointment_settings" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
+              color: doctorActiveTab === "appointment_settings" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "appointment_settings" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Calendar size={17} />
+            {t("appointment_settings_tab", "إعدادات المواعيد وقائمة الدور")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDoctorActiveTab("off_hours")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 12,
+              border: "none",
+              background: doctorActiveTab === "off_hours" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
+              color: doctorActiveTab === "off_hours" ? "#ffffff" : "#64748b",
+              fontWeight: doctorActiveTab === "off_hours" ? 800 : 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Clock size={17} />
+            {t("off_hours_tab", "أوقات الراحة والعطل")}
+          </button>
+
 
           <button
             type="button"
@@ -12952,6 +13014,16 @@ function ProfilePage({ user, navigate, qs }) {
             <FileText size={18} style={{ [i18n.language === 'ar' ? "marginLeft" : "marginRight"]: 8 }} /> {t("save_changes")}
           </Btn>
         </form>
+      )}
+
+      {/* 3. Doctor Appointment Settings Tab */}
+      {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
+        <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
+      )}
+
+      {/* 4. Doctor Off-Hours Settings Tab */}
+      {user?.user_type === 1 && doctorActiveTab === "off_hours" && (
+        <DoctorOffHoursSettings doctor={form} showToast={show} isMobile={isMobile} />
       )}
 
       {/* 5. Doctor Security & Privacy Tab */}
@@ -15715,6 +15787,12 @@ function MainApp() {
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ProfilePage key={route} user={user} navigate={navigate} qs={qs} />;
+      case "/appointment-settings":
+      case "/doctor/settings":
+      case "/doctor/appointment-settings":
+        if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
+        if (Number(user.user_type) !== 1) { setTimeout(() => navigate("/"), 0); return null; }
+        return <ProfilePage key="/profile?tab=appointment_settings" user={user} navigate={navigate} qs="tab=appointment_settings" />;
       case "/family":
         if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
         return <FamilyPage navigate={navigate} user={user} />;

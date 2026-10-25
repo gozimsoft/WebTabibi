@@ -7,7 +7,7 @@ import {
   Activity, ClipboardList, Plus, X, FileText,
   LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin,
   Maximize, Minimize, ArrowUpDown, Check,
-  Hash, Sun, Moon, Bell, Volume2, Zap, Users
+  Hash, Sun, Moon, Bell, Volume2, Zap, Users, Sliders
 } from "lucide-react";
 import { Btn, Spinner, useToast } from "../components/SharedUI";
 
@@ -1340,6 +1340,26 @@ export default function AppointmentManager({ navigate, user }) {
                     }}
                   >
                     <Plus size={14} /> إضافة مريض حاضر
+                  </button>
+                  <button
+                    onClick={() => navigate("/profile?tab=appointment_settings")}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.16)",
+                      color: "#ffffff",
+                      border: "1px solid rgba(255, 255, 255, 0.3)",
+                      padding: "7px 14px",
+                      borderRadius: 12,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      transition: "all 0.2s"
+                    }}
+                    title="ضبط نظام المواعيد (ساعات أو طابور مرقم)"
+                  >
+                    <Sliders size={14} /> إعدادات فترات العمل والدور
                   </button>
                 </div>
               </div>
