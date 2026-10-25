@@ -546,10 +546,10 @@ class AppointmentController
         $session = AuthMiddleware::patientOnly();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        foreach (['clinics_doctor_id', 'date', 'time'] as $f) {
-            if (empty($data[$f]))
-                // رسالة بشرية: بيانات الحجز ناقصة
-                Response::error("يرجى تحديد الطبيب والتاريخ والوقت لإتمام الحجز.", 422);
+        foreach (['clinics_doctor_id', 'date'] as $f) {
+            if (empty($data[$f])) {
+                Response::error("يرجى تحديد الطبيب والتاريخ لإتمام الحجز.", 422);
+            }
         }
 
         // التحقق من الموافقة الصريحة على معالجة البيانات الصحية (القانون 18-07 المادتين 8 و 9)
@@ -588,6 +588,17 @@ class AppointmentController
             }
         }
 
+        // Fetch doctor appointment settings to check booking mode
+        $settingsStmt = $pdo->prepare("SELECT * FROM doctorssettingapointements WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+        $settingsStmt->execute([$cd['doctor_id'], $cd['clinic_id']]);
+        $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$settings) {
+            $settingsStmt = $pdo->prepare("SELECT * FROM doctorssettingapointements WHERE doctor_id = ? LIMIT 1");
+            $settingsStmt->execute([$cd['doctor_id']]);
+            $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC);
+        }
+        $bookingMode = (int)($settings['booking_mode'] ?? 0);
+
         // Support booking for a family member
         $patientId = $patient['id'];
         $patientname = $patient['fullname'];
@@ -611,7 +622,6 @@ class AppointmentController
         $reasonId = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
         $reasonName = 'consultation';
         if ($reasonId) {
-            // Check if reason belongs to this doctor (any clinic) — reasons may be cross-clinic
             $stmt = $pdo->prepare(
                 "SELECT dr.* FROM doctorsreasons dr
                  JOIN clinicsdoctors cd ON cd.doctor_id = dr.doctor_id
@@ -624,7 +634,6 @@ class AppointmentController
             if ($reasonRow) {
                 $reasonName = $reasonRow['reason_name'] ?? 'consultation';
             } else {
-                // Fallback: check global reasons table
                 $stmt = $pdo->prepare(
                     "SELECT * FROM reasons WHERE id = ? AND specialtie_id = (SELECT specialtie_id FROM clinicsdoctors WHERE id = ? LIMIT 1)"
                 );
@@ -637,46 +646,126 @@ class AppointmentController
             }
         }
 
-
-
-        $time = preg_replace('/[^0-9:]/', '', trim($data['time']));
-        if (!preg_match('/^\d{2}:\d{2}$/', $time))
-            // رسالة بشرية: تنسيق وقت غير صحيح عند الحجز
-            Response::error("صيغة الوقت غير صحيحة. يرجى اختيار وقت الحجز من الخيارات المتاحة.", 422);
-
-        $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
-
-        if (strtotime($appointmentDatetime) <= time()) {
-            Response::error('لا يمكن حجز موعد في وقت أو تاريخ سابق.', 422);
-        }
-
-        // Check for double-booking (new schema: clinicsdoctor_id, status != 0)
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) FROM apointements
-            WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
-              AND apointementdate = ?
-              AND status != 1
-        ");
-        $stmt->execute([$cd['doctor_id'], $appointmentDatetime]);
-        if ($stmt->fetchColumn() > 0)
-            Response::error('هذا الوقت محجوز بالفعل لدى الطبيب. يرجى اختيار وقت آخر.', 409);
-
+        $tokenNumber   = null;
+        $shiftType     = null;
+        $estimatedTime = null;
+        $isEmergency   = !empty($data['is_emergency']) ? 1 : 0;
         $appointmentId = UUIDHelper::generate();
-        $pdo->prepare("
-            INSERT INTO apointements
-                (id, apointementdate, note, patientname, clinicsdoctor_id,
-                 reason_id, patient_id, phone, status, consent_health, consent_at, updatedat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, NOW(), NOW())
-        ")->execute([
-                    $appointmentId,
-                    $appointmentDatetime,
-                    $data['note'] ?? '',
-                    $patientname,
-                    $cdId,
-                    $reasonId,
-                    $patientId,
-                    $patient['phone'] ?? ''
-                ]);
+
+        if ($bookingMode === 1) {
+            // ── Queue / Numbered Mode ──────────────────────────────────
+            $shiftMode = (int)($settings['shift_mode'] ?? 1);
+            if ($shiftMode === 1) {
+                $shiftType = 'full_day';
+                $capacity  = max(1, (int)($settings['morning_capacity'] ?? 25));
+            } else {
+                $shiftType = (!empty($data['shift_type']) && in_array($data['shift_type'], ['morning', 'evening'])) 
+                             ? $data['shift_type'] : 'morning';
+                $capacity  = ($shiftType === 'evening') 
+                             ? max(1, (int)($settings['evening_capacity'] ?? 15))
+                             : max(1, (int)($settings['morning_capacity'] ?? 25));
+            }
+
+            // Atomic Lock & Number Reservation
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) as active_count, COALESCE(MAX(token_number), 0) as max_token
+                FROM apointements
+                WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                  AND DATE(apointementdate) = ?
+                  AND shift_type = ?
+                  AND status != 1
+                FOR UPDATE
+            ");
+            $stmt->execute([$cd['doctor_id'], $data['date'], $shiftType]);
+            $qInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+            $activeCount = (int)($qInfo['active_count'] ?? 0);
+            $maxToken    = (int)($qInfo['max_token'] ?? 0);
+
+            if ($activeCount >= $capacity && !$isEmergency) {
+                $pdo->rollBack();
+                Response::error('عذراً، اكتملت قائمة هذه الفترة بالكامل. يرجى اختيار فترة أخرى أو موعد في يوم آخر.', 409);
+            }
+
+            $tokenNumber = $maxToken + 1;
+            $timescale = max(5, (int)($settings['timescale'] ?? 15));
+            $shiftStart = ($shiftType === 'evening') 
+                          ? self::extractTime($settings['evening_start'] ?? '', '14:00') 
+                          : self::extractTime($settings['morning_start'] ?? '', '08:30');
+            $startMins = (int)substr($shiftStart, 0, 2) * 60 + (int)substr($shiftStart, 3, 2);
+            $estMins   = $startMins + (($tokenNumber - 1) * $timescale);
+            $estH      = floor($estMins / 60) % 24;
+            $estM      = $estMins % 60;
+            $estimatedTime = sprintf('%02d:%02d:00', $estH, $estM);
+            $appointmentDatetime = $data['date'] . ' ' . $estimatedTime;
+
+            $pdo->prepare("
+                INSERT INTO apointements
+                    (id, apointementdate, note, patientname, clinicsdoctor_id,
+                     reason_id, patient_id, phone, status, consent_health, consent_at, updatedat,
+                     token_number, shift_type, estimated_time, is_emergency, queue_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, NOW(), NOW(), ?, ?, ?, ?, 'waiting')
+            ")->execute([
+                $appointmentId,
+                $appointmentDatetime,
+                $data['note'] ?? '',
+                $patientname,
+                $cdId,
+                $reasonId,
+                $patientId,
+                $patient['phone'] ?? '',
+                $tokenNumber,
+                $shiftType,
+                $estimatedTime,
+                $isEmergency
+            ]);
+            $pdo->commit();
+
+        } else {
+            // ── Time Slots Mode ────────────────────────────────────────
+            if (empty($data['time'])) {
+                Response::error("يرجى اختيار وقت الحجز لإتمام الموعد.", 422);
+            }
+            $time = preg_replace('/[^0-9:]/', '', trim($data['time']));
+            if (!preg_match('/^\d{2}:\d{2}$/', $time)) {
+                Response::error("صيغة الوقت غير صحيحة. يرجى اختيار وقت الحجز من الخيارات المتاحة.", 422);
+            }
+
+            $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
+
+            if (strtotime($appointmentDatetime) <= time()) {
+                Response::error('لا يمكن حجز موعد في وقت أو تاريخ سابق.', 422);
+            }
+
+            // Check for double-booking
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) FROM apointements
+                WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                  AND apointementdate = ?
+                  AND status != 1
+            ");
+            $stmt->execute([$cd['doctor_id'], $appointmentDatetime]);
+            if ($stmt->fetchColumn() > 0) {
+                Response::error('هذا الوقت محجوز بالفعل لدى الطبيب. يرجى اختيار وقت آخر.', 409);
+            }
+
+            $pdo->prepare("
+                INSERT INTO apointements
+                    (id, apointementdate, note, patientname, clinicsdoctor_id,
+                     reason_id, patient_id, phone, status, consent_health, consent_at, updatedat,
+                     token_number, shift_type, estimated_time, is_emergency, queue_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, NOW(), NOW(), NULL, NULL, NULL, 0, 'waiting')
+            ")->execute([
+                $appointmentId,
+                $appointmentDatetime,
+                $data['note'] ?? '',
+                $patientname,
+                $cdId,
+                $reasonId,
+                $patientId,
+                $patient['phone'] ?? ''
+            ]);
+        }
 
         // تسجيل الموافقة على البيانات الصحية في consent_logs وفقاً للقانون 18-07
         require_once __DIR__ . '/../helpers/ConsentHelper.php';
@@ -749,9 +838,12 @@ class AppointmentController
 
         Response::success([
             'appointment_id' => $appointmentId,
-            'date' => $appointmentDatetime,
-            'reason' => $reasonName,
-            'patient_name' => $patientname,
+            'date'           => $appointmentDatetime,
+            'token_number'   => $tokenNumber,
+            'shift_type'     => $shiftType,
+            'estimated_time' => !empty($estimatedTime) ? substr($estimatedTime, 0, 5) : null,
+            'reason'         => $reasonName,
+            'patient_name'   => $patientname,
         ], 'Rendez-vous confirmé! email de confirmation envoyé.', 201);
     }
 
