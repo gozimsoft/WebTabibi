@@ -327,21 +327,48 @@ class DoctorController {
             }
 
             // 6. Appointment settings
-            if (array_key_exists('time_scale', $data)) {
+            if (array_key_exists('time_scale', $data) || array_key_exists('timescale', $data)) {
                 $stmt = $pdo->prepare("SELECT id FROM doctorssettingapointements WHERE doctor_id=? AND clinic_id=? LIMIT 1");
                 $stmt->execute([$doctorId,$clinicId]);
                 $sId = $stmt->fetchColumn();
-                $sVals = [
-                    $data['time_scale']??30, $data['daytime_start']??null, $data['daytime_end']??null,
-                    $data['week_begin_day']??0, $data['working_days']??'1111111',
-                    $data['count_days']??30, isset($data['is_registered'])?($data['is_registered']?1:0):0,
-                ];
+                $bookingMode      = isset($data['booking_mode']) ? (int)$data['booking_mode'] : 0;
+                $shiftMode        = isset($data['shift_mode']) ? (int)$data['shift_mode'] : 1;
+                $morningStart     = trim($data['morning_start'] ?? '08:30:00');
+                $morningEnd       = trim($data['morning_end'] ?? '12:30:00');
+                $morningCapacity  = max(1, (int)($data['morning_capacity'] ?? 25));
+                $eveningStart     = trim($data['evening_start'] ?? '14:00:00');
+                $eveningEnd       = trim($data['evening_end'] ?? '17:30:00');
+                $eveningCapacity  = max(1, (int)($data['evening_capacity'] ?? 15));
+                $allowOverbooking = isset($data['allow_overbooking']) ? ((int)$data['allow_overbooking'] ? 1 : 0) : 1;
+                $timeScale        = $data['time_scale'] ?? ($data['timescale'] ?? 30);
+                $daytimeStart     = $data['daytime_start'] ?? ($data['daytimestart'] ?? null);
+                $daytimeEnd       = $data['daytime_end'] ?? ($data['daytimeend'] ?? null);
+                $weekBeginDay     = $data['week_begin_day'] ?? ($data['weekbeginday'] ?? 0);
+                $workingDays      = $data['working_days'] ?? ($data['workingdays'] ?? '1111111');
+                $countDays        = $data['count_days'] ?? ($data['countdays'] ?? 30);
+                $isRegistered     = isset($data['is_registered']) ? ($data['is_registered'] ? 1 : 0) : (isset($data['isregistered']) ? ($data['isregistered'] ? 1 : 0) : 0);
+
                 if ($sId) {
-                    $sVals[] = $sId;
-                    $pdo->prepare("UPDATE doctorssettingapointements SET timescale=?,daytimestart=?,daytimeend=?,weekbeginday=?,workingdays=?,countdays=?,isregistered=? WHERE id=?")->execute($sVals);
+                    $pdo->prepare("
+                        UPDATE doctorssettingapointements 
+                        SET timescale=?, daytimestart=?, daytimeend=?, weekbeginday=?, workingdays=?, countdays=?, isregistered=?,
+                            booking_mode=?, shift_mode=?, morning_start=?, morning_end=?, morning_capacity=?, evening_start=?, evening_end=?, evening_capacity=?, allow_overbooking=?
+                        WHERE id=?
+                    ")->execute([
+                        $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                        $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking,
+                        $sId
+                    ]);
                 } else {
-                    array_unshift($sVals, UUIDHelper::generate(), $doctorId, $clinicId);
-                    $pdo->prepare("INSERT INTO doctorssettingapointements (id,doctor_id,clinic_id,timescale,daytimestart,daytimeend,weekbeginday,workingdays,countdays,isregistered) VALUES (?,?,?,?,?,?,?,?,?,?)")->execute($sVals);
+                    $pdo->prepare("
+                        INSERT INTO doctorssettingapointements 
+                        (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered,
+                         booking_mode, shift_mode, morning_start, morning_end, morning_capacity, evening_start, evening_end, evening_capacity, allow_overbooking)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ")->execute([
+                        UUIDHelper::generate(), $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                        $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking
+                    ]);
                 }
             }
 
@@ -552,6 +579,10 @@ class DoctorController {
             } else {
                 $row['daytimeend_formatted'] = '16:00';
             }
+            $row['morning_start_formatted'] = !empty($row['morning_start']) ? substr($row['morning_start'], 0, 5) : '08:30';
+            $row['morning_end_formatted']   = !empty($row['morning_end'])   ? substr($row['morning_end'], 0, 5) : '12:30';
+            $row['evening_start_formatted'] = !empty($row['evening_start']) ? substr($row['evening_start'], 0, 5) : '14:00';
+            $row['evening_end_formatted']   = !empty($row['evening_end'])   ? substr($row['evening_end'], 0, 5) : '17:30';
         }
 
         Response::success($rows);
@@ -600,16 +631,28 @@ class DoctorController {
         $countDays = max(1, (int)($data['countdays'] ?? 30));
         $isRegistered = !empty($data['isregistered']) ? 1 : 0;
 
+        $bookingMode      = isset($data['booking_mode']) ? (int)$data['booking_mode'] : 0;
+        $shiftMode        = isset($data['shift_mode']) ? (int)$data['shift_mode'] : 1;
+        $morningStart     = trim($data['morning_start'] ?? '08:30:00');
+        $morningEnd       = trim($data['morning_end'] ?? '12:30:00');
+        $morningCapacity  = max(1, (int)($data['morning_capacity'] ?? 25));
+        $eveningStart     = trim($data['evening_start'] ?? '14:00:00');
+        $eveningEnd       = trim($data['evening_end'] ?? '17:30:00');
+        $eveningCapacity  = max(1, (int)($data['evening_capacity'] ?? 15));
+        $allowOverbooking = isset($data['allow_overbooking']) ? ((int)$data['allow_overbooking'] ? 1 : 0) : 1;
+
         require_once __DIR__ . '/../helpers/UUIDHelper.php';
         $id = UUIDHelper::generate();
 
         $ins = $pdo->prepare("
             INSERT INTO doctorssettingapointements 
-            (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered,
+             booking_mode, shift_mode, morning_start, morning_end, morning_capacity, evening_start, evening_end, evening_capacity, allow_overbooking)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $ins->execute([
-            $id, $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered
+            $id, $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+            $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking
         ]);
 
         Response::success(['id' => $id], 'تمت إضافة إعدادات المواعيد بنجاح.');
@@ -653,23 +696,39 @@ class DoctorController {
         $countDays = max(1, (int)($data['countdays'] ?? 30));
         $isRegistered = !empty($data['isregistered']) ? 1 : 0;
 
+        $bookingMode      = isset($data['booking_mode']) ? (int)$data['booking_mode'] : 0;
+        $shiftMode        = isset($data['shift_mode']) ? (int)$data['shift_mode'] : 1;
+        $morningStart     = trim($data['morning_start'] ?? '08:30:00');
+        $morningEnd       = trim($data['morning_end'] ?? '12:30:00');
+        $morningCapacity  = max(1, (int)($data['morning_capacity'] ?? 25));
+        $eveningStart     = trim($data['evening_start'] ?? '14:00:00');
+        $eveningEnd       = trim($data['evening_end'] ?? '17:30:00');
+        $eveningCapacity  = max(1, (int)($data['evening_capacity'] ?? 15));
+        $allowOverbooking = isset($data['allow_overbooking']) ? ((int)$data['allow_overbooking'] ? 1 : 0) : 1;
+
         if ($clinicId) {
             $upd = $pdo->prepare("
                 UPDATE doctorssettingapointements 
-                SET clinic_id = ?, timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                SET clinic_id = ?, timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?,
+                    booking_mode = ?, shift_mode = ?, morning_start = ?, morning_end = ?, morning_capacity = ?, evening_start = ?, evening_end = ?, evening_capacity = ?, allow_overbooking = ?
                 WHERE id = ? AND doctor_id = ?
             ");
             $upd->execute([
-                $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered, $id, $doctorId
+                $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking,
+                $id, $doctorId
             ]);
         } else {
             $upd = $pdo->prepare("
                 UPDATE doctorssettingapointements 
-                SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?,
+                    booking_mode = ?, shift_mode = ?, morning_start = ?, morning_end = ?, morning_capacity = ?, evening_start = ?, evening_end = ?, evening_capacity = ?, allow_overbooking = ?
                 WHERE id = ? AND doctor_id = ?
             ");
             $upd->execute([
-                $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered, $id, $doctorId
+                $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking,
+                $id, $doctorId
             ]);
         }
 
