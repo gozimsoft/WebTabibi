@@ -132,6 +132,15 @@ export const api = {
       notifyAppointmentSync({ action: 'status_update', id, status });
       return res;
     },
+    updateQueueStatus: async (id, queue_status) => {
+      const res = await request('PUT', `/appointments/${id}/queue-status`, { queue_status });
+      notifyAppointmentSync({ action: 'queue_status_update', id, queue_status });
+      return res;
+    },
+    getLiveQueueStatus: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/appointments/live-queue-status${qs ? '?' + qs : ''}`);
+    },
     getAppointmentSettings: () => request('GET', '/doctors/appointment-settings'),
     createAppointmentSetting: (body) => request('POST', '/doctors/appointment-settings', body),
     updateAppointmentSetting: (id, body) => request('PUT', `/doctors/appointment-settings/${id}`, body),
@@ -173,6 +182,15 @@ export const api = {
     cancel: async (id) => {
       const res = await request('DELETE', `/appointments/${id}`);
       notifyAppointmentSync({ action: 'cancel', id });
+      return res;
+    },
+    getLiveQueueStatus: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/appointments/live-queue-status${qs ? '?' + qs : ''}`);
+    },
+    updateQueueStatus: async (id, queue_status) => {
+      const res = await request('PUT', `/appointments/${id}/queue-status`, { queue_status });
+      notifyAppointmentSync({ action: 'queue_status_update', id, queue_status });
       return res;
     },
   },
