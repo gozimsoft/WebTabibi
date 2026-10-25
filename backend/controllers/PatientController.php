@@ -274,7 +274,8 @@ class PatientController {
             SELECT 
                 a.id, a.apointementdate, a.note, a.patientname,
                 a.clinicsdoctor_id, a.reason_id, a.status,
-                cd.clinic_id as clinicid, cd.doctor_id, cd.specialtie_id,
+                a.token_number, a.shift_type, a.estimated_time, a.is_emergency, a.queue_status,
+                cd.clinic_id, cd.clinic_id as clinicid, cd.doctor_id, cd.specialtie_id,
                 d.fullname as doctorname, d.email as doctoremail, d.photoprofile,
                 c.clinicname, c.address as ClinicAddress,
                 COALESCE(dr.reason_name, r.name) as ReasonName,

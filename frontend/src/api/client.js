@@ -93,6 +93,7 @@ export const api = {
     // تغيير اسم المستخدم أو كلمة المرور — يتطلب كلمة المرور الحالية للتحقق من الهوية
     updateCredentials: (body) => request('PUT', '/patients/credentials', body),
     getAppointments: () => request('GET', '/patients/appointments'),
+    appointments: () => request('GET', '/patients/appointments'),
     getAttendingDoctor: () => request('GET', '/patients/attending-doctor'),
     setAttendingDoctor: (doctorId) => request('POST', '/patients/attending-doctor', { doctor_id: doctorId }),
     removeAttendingDoctor: () => request('DELETE', '/patients/attending-doctor'),
@@ -173,6 +174,7 @@ export const api = {
   baladiyas: (wilayaId) => request('GET', `/baladiyas${wilayaId ? `?wilaya_id=${encodeURIComponent(wilayaId)}` : ''}`),
   appointments: {
     getSlots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
+    slots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
     book: async (body) => {
       const res = await request('POST', '/appointments', body);
       notifyAppointmentSync({ action: 'book', body });
