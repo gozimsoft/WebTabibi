@@ -262,7 +262,139 @@ class AppointmentController
         Response::success(null, 'Statut mis à jour');
     }
 
-    // ── POST /appointments/manager/add — Add from web dashboard ────────
+    // ── PUT /api/appointments/:id/queue-status — Update live queue status ──
+    public static function updateQueueStatus(string $id): void
+    {
+        $session = AuthMiddleware::authenticate();
+        if (!in_array((int)$session['usertype'], [1, 2, 3], true)) {
+            Response::error('غير مسموح لك بالوصول.', 403);
+        }
+
+        $pdo = Database::getInstance();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $newQueueStatus = trim($data['queue_status'] ?? 'waiting');
+
+        $validStatuses = ['waiting', 'in_consultation', 'completed', 'absent'];
+        if (!in_array($newQueueStatus, $validStatuses, true)) {
+            Response::error('حالة الطابور غير صالحة. الحالات المقبولة: waiting, in_consultation, completed, absent', 422);
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM apointements WHERE id = ? LIMIT 1");
+        $stmt->execute([$id]);
+        $appt = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$appt) {
+            Response::notFound('الموعد غير موجود.');
+        }
+
+        $newStatus = (int)$appt['status'];
+        if ($newQueueStatus === 'completed') {
+            $newStatus = 2;
+        } elseif ($newQueueStatus === 'waiting' && $newStatus === 2) {
+            $newStatus = 0;
+        }
+
+        $upd = $pdo->prepare("
+            UPDATE apointements 
+            SET queue_status = ?, status = ?, updatedat = NOW() 
+            WHERE id = ?
+        ");
+        $upd->execute([$newQueueStatus, $newStatus, $id]);
+
+        Response::success([
+            'id' => $id,
+            'queue_status' => $newQueueStatus,
+            'status' => $newStatus
+        ], 'تم تحديث حالة الطابور بنجاح.');
+    }
+
+    // ── GET /api/appointments/live-queue-status — Lightweight live TV/tracker display ──
+    public static function getLiveQueueStatus(): void
+    {
+        $pdo = Database::getInstance();
+        $cdId = trim($_GET['clinics_doctor_id'] ?? '');
+        $date = trim($_GET['date'] ?? date('Y-m-d'));
+        $shiftType = trim($_GET['shift_type'] ?? '');
+
+        if (!$cdId) {
+            Response::error('clinics_doctor_id مطلوب.', 422);
+        }
+
+        $shiftSql = "";
+        $params = [$cdId, $date];
+        if ($shiftType && in_array($shiftType, ['morning', 'evening', 'full_day'], true)) {
+            $shiftSql = " AND shift_type = ?";
+            $params[] = $shiftType;
+        }
+
+        // 1. Current serving patient (in_consultation)
+        $stmt = $pdo->prepare("
+            SELECT id, token_number, patientname, estimated_time, shift_type, updatedat
+            FROM apointements
+            WHERE clinicsdoctor_id = ?
+              AND DATE(apointementdate) = ?
+              AND queue_status = 'in_consultation'
+              AND status != 1
+              $shiftSql
+            ORDER BY updatedat DESC
+            LIMIT 1
+        ");
+        $stmt->execute($params);
+        $currentServing = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        // 2. Next waiting patient
+        $stmt = $pdo->prepare("
+            SELECT id, token_number, patientname, estimated_time, shift_type
+            FROM apointements
+            WHERE clinicsdoctor_id = ?
+              AND DATE(apointementdate) = ?
+              AND queue_status = 'waiting'
+              AND status != 1
+              $shiftSql
+            ORDER BY token_number ASC
+            LIMIT 1
+        ");
+        $stmt->execute($params);
+        $nextWaiting = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        // 3. Queue statistics
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total_count,
+                SUM(CASE WHEN queue_status = 'waiting' AND status != 1 THEN 1 ELSE 0 END) as waiting_count,
+                SUM(CASE WHEN queue_status = 'completed' OR status = 2 THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN queue_status = 'absent' THEN 1 ELSE 0 END) as absent_count,
+                MAX(token_number) as max_token
+            FROM apointements
+            WHERE clinicsdoctor_id = ?
+              AND DATE(apointementdate) = ?
+              $shiftSql
+        ");
+        $stmt->execute($params);
+        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        Response::success([
+            'date'            => $date,
+            'current_serving' => $currentServing ? [
+                'token_number'   => (int)$currentServing['token_number'],
+                'patientname'    => $currentServing['patientname'],
+                'estimated_time' => !empty($currentServing['estimated_time']) ? substr($currentServing['estimated_time'], 0, 5) : null,
+                'shift_type'     => $currentServing['shift_type']
+            ] : null,
+            'next_waiting'    => $nextWaiting ? [
+                'token_number'   => (int)$nextWaiting['token_number'],
+                'patientname'    => $nextWaiting['patientname'],
+                'estimated_time' => !empty($nextWaiting['estimated_time']) ? substr($nextWaiting['estimated_time'], 0, 5) : null,
+                'shift_type'     => $nextWaiting['shift_type']
+            ] : null,
+            'waiting_count'   => (int)($stats['waiting_count'] ?? 0),
+            'completed_count' => (int)($stats['completed_count'] ?? 0),
+            'absent_count'    => (int)($stats['absent_count'] ?? 0),
+            'total_today'     => (int)($stats['total_count'] ?? 0),
+            'max_token'       => (int)($stats['max_token'] ?? 0)
+        ]);
+    }
+
+    // ── POST /appointments/manager/add — Add from web dashboard / Walk-in desk ────────
     public static function addFromDashboard(): void
     {
         $session = AuthMiddleware::doctorOnly();
@@ -281,31 +413,72 @@ class AppointmentController
         $time             = trim($data['time'] ?? '');
         $patientname      = trim($data['patientname'] ?? '');
 
-        if (!$clinicsdoctor_id || !$date || !$time)
-            Response::error('clinics_doctor_id, date et time sont requis', 422);
+        if (!$clinicsdoctor_id || !$date)
+            Response::error('clinics_doctor_id et date sont requis', 422);
 
         // Verify this clinicsdoctor belongs to the doctor
-        $stmt = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE id = ? AND doctor_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id, clinic_id FROM clinicsdoctors WHERE id = ? AND doctor_id = ? LIMIT 1");
         $stmt->execute([$clinicsdoctor_id, $doctorId]);
-        if (!$stmt->fetch()) Response::error('clinics_doctor_id invalide', 403);
+        $cdRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cdRow) Response::error('clinics_doctor_id invalide', 403);
 
-        $reasonId   = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
-        $note       = trim($data['note'] ?? '');
-        $phone      = trim($data['phone'] ?? '');
-        $color      = (int)($data['apointementcolor'] ?? 0);
-        $appointmentDatetime = $date . ' ' . preg_replace('/[^0-9:]/', '', $time) . ':00';
-
-        if (strtotime($appointmentDatetime) <= time()) {
-            Response::error('لا يمكن حجز موعد في وقت أو تاريخ سابق.', 422);
+        // Check if queue mode
+        $settingsStmt = $pdo->prepare("SELECT * FROM doctorssettingapointements WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+        $settingsStmt->execute([$doctorId, $cdRow['clinic_id']]);
+        $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$settings) {
+            $settingsStmt = $pdo->prepare("SELECT * FROM doctorssettingapointements WHERE doctor_id = ? LIMIT 1");
+            $settingsStmt->execute([$doctorId]);
+            $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC);
         }
+        $bookingMode = (int)($settings['booking_mode'] ?? 0);
+
+        $shiftType     = !empty($data['shift_type']) ? trim($data['shift_type']) : 'morning';
+        $isEmergency   = !empty($data['is_emergency']) ? 1 : 0;
+        $tokenNumber   = null;
+        $estimatedTime = null;
+
+        if ($bookingMode === 1) {
+            $shiftMode = (int)($settings['shift_mode'] ?? 1);
+            if ($shiftMode === 1) $shiftType = 'full_day';
+
+            $stmt = $pdo->prepare("
+                SELECT COALESCE(MAX(token_number), 0) as max_token
+                FROM apointements
+                WHERE clinicsdoctor_id = ? AND DATE(apointementdate) = ? AND shift_type = ?
+            ");
+            $stmt->execute([$clinicsdoctor_id, $date, $shiftType]);
+            $maxTok = (int)$stmt->fetchColumn();
+            $tokenNumber = $maxTok + 1;
+
+            $timescale = max(5, (int)($settings['timescale'] ?? 15));
+            $shiftStart = ($shiftType === 'evening') 
+                          ? self::extractTime($settings['evening_start'] ?? '', '14:00') 
+                          : self::extractTime($settings['morning_start'] ?? '', '08:30');
+            $startMins = (int)substr($shiftStart, 0, 2) * 60 + (int)substr($shiftStart, 3, 2);
+            $estMins = $startMins + (($tokenNumber - 1) * $timescale);
+            $estimatedTime = sprintf('%02d:%02d:00', floor($estMins / 60) % 24, $estMins % 60);
+            $appointmentDatetime = $date . ' ' . $estimatedTime;
+        } else {
+            if (!$time) {
+                Response::error('time est requis pour le mode par créneaux', 422);
+            }
+            $appointmentDatetime = $date . ' ' . preg_replace('/[^0-9:]/', '', $time) . ':00';
+        }
+
+        $reasonId = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
+        $note     = trim($data['note'] ?? '');
+        $phone    = trim($data['phone'] ?? '');
+        $color    = (int)($data['apointementcolor'] ?? 0);
 
         $appointmentId = UUIDHelper::generate();
 
         $pdo->prepare("
             INSERT INTO apointements
                 (id, clinicsdoctor_id, apointementdate, patientname, phone, reason_id,
-                 note, status, apointementcolor, updatedat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, NOW())
+                 note, status, apointementcolor, updatedat,
+                 token_number, shift_type, estimated_time, is_emergency, queue_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NOW(), ?, ?, ?, ?, 'waiting')
         ")->execute([
             $appointmentId,
             $clinicsdoctor_id,
@@ -315,9 +488,19 @@ class AppointmentController
             $reasonId,
             $note,
             $color,
+            $tokenNumber,
+            $shiftType,
+            $estimatedTime,
+            $isEmergency
         ]);
 
-        Response::success(['appointment_id' => $appointmentId], 'Rendez-vous ajouté', 201);
+        Response::success([
+            'appointment_id' => $appointmentId,
+            'token_number'   => $tokenNumber,
+            'shift_type'     => $shiftType,
+            'estimated_time' => $estimatedTime ? substr($estimatedTime, 0, 5) : null,
+            'datetime'       => $appointmentDatetime
+        ], 'Rendez-vous ajouté', 201);
     }
 
     public static function getAvailableSlots(): void

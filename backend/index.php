@@ -444,6 +444,16 @@ try {
         require_once __DIR__ . '/controllers/AppointmentController.php';
         AppointmentController::addFromDashboard();
     }
+    // GET /api/appointments/live-queue-status — Live Queue TV and tracking status
+    if ($uri === '/appointments/live-queue-status' && $method === 'GET') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::getLiveQueueStatus();
+    }
+    // PUT /api/appointments/:id/queue-status — Update live queue status
+    if (isset($parts[0]) && $parts[0] === 'appointments' && isset($parts[1]) && ($parts[2] ?? '') === 'queue-status' && $method === 'PUT') {
+        require_once __DIR__ . '/controllers/AppointmentController.php';
+        AppointmentController::updateQueueStatus($parts[1]);
+    }
     // PUT /api/appointments/:id/status — Update appointment status from web
     if (isset($parts[0]) && $parts[0] === 'appointments' && isset($parts[1]) && ($parts[2] ?? '') === 'status' && $method === 'PUT') {
         require_once __DIR__ . '/controllers/AppointmentController.php';
