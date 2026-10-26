@@ -712,7 +712,7 @@ export default function AppointmentManager({ navigate, user }) {
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const [liveQueue, setLiveQueue] = useState(null);
   const [clinics, setClinics] = useState([]);
-  const [selectedClinicId, setSelectedClinicId] = useState("all");
+  const [selectedClinicId, setSelectedClinicId] = useState("");
   const [shiftFilter, setShiftFilter] = useState("all"); // 'all' | 'morning' | 'evening'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doctorFullName, setDoctorFullName] = useState(() => user?.profile?.fullname || user?.fullname || "");
@@ -866,11 +866,11 @@ export default function AppointmentManager({ navigate, user }) {
         if (docClinics.length > 0) {
           setSelectedClinicId(docClinics[0].clinic_id);
         } else {
-          fetchAppointments(false, "all");
+          fetchAppointments(false, "");
         }
       })
       .catch(() => {
-        fetchAppointments(false, "all");
+        fetchAppointments(false, "");
       });
   }, [user]);
 
@@ -1262,6 +1262,270 @@ export default function AppointmentManager({ navigate, user }) {
                   )}
                   <span>{isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Merged Header & Filters Card */}
+          <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24, direction: i18n.language === "ar" ? "rtl" : "ltr" }}>
+            {/* Header section with Title and main Actions */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 16,
+              paddingBottom: 16,
+              marginBottom: 16,
+              borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))"
+            }}>
+              {/* Left: Title & Page Indicator */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "var(--brand-light, #ecfeff)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--brand, #0891b2)"
+                }}>
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--heading-color, #0c4a6e)", display: "block" }}>
+                    {t("appt_mgr_title")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Toggle Stats & Main Actions */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                {/* Toggle Stats Button */}
+                <button
+                  onClick={() => {
+                    const newVal = !showStats;
+                    setShowStats(newVal);
+                    localStorage.setItem("appt_show_stats", String(newVal));
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 12,
+                    border: showStats ? "1px solid var(--brand, #0891b2)" : "1px solid var(--border, #cffafe)",
+                    background: showStats ? "linear-gradient(135deg, #f0fdfa, #ecfeff)" : "var(--card-bg, #fff)",
+                    color: "var(--brand, #0891b2)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    boxShadow: showStats ? "none" : "rgba(8, 145, 178, 0.05) 0px 2px 6px"
+                  }}
+                >
+                  <Activity size={16} />
+                  {showStats ? t("appt_mgr_hide_stats") : t("appt_mgr_show_stats")}
+                </button>
+
+              </div>
+            </div>
+
+            {/* Stats Panel (conditionally rendered inside header/filters wrapper when showStats is true) */}
+            {showStats && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))" }}>
+                {[
+                  { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={20} />, color: "var(--stat-total-text, #0891b2)", bg: "var(--stat-total-bg, linear-gradient(135deg,#cffafe,#a5f3fc))" },
+                  { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={20} />, color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
+                  { title: t("appt_mgr_completed"), count: stats.done, icon: <CheckCircle size={20} />, color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
+                  { title: t("appt_mgr_cancelled"), count: stats.cancelled, icon: <XCircle size={20} />, color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: "var(--card-bg, #fff)", borderRadius: 16, padding: 16, display: "flex", alignItems: "center", gap: 12, boxShadow: "var(--shadow, 0 2px 8px rgba(0,0,0,0.02))", border: "1px solid var(--border, rgba(0,0,0,0.01))" }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text-main, #0f172a)", lineHeight: 1 }}>{s.count}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary, #64748b)", marginTop: 4 }}>{s.title}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Row 1 — Quick filter buttons & View Toggle */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+              {/* Quick filter buttons */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[
+                  { key: "", label: t("appt_mgr_all") },
+                  { key: "this_week", label: t("appt_mgr_this_week") },
+                  { key: "today", label: t("appt_mgr_today") },
+                  { key: "week", label: t("appt_mgr_next_week") },
+                  { key: "month", label: t("appt_mgr_next_month") },
+                  { key: "3months", label: t("appt_mgr_next_3months") },
+                ].map(({ key, label }) => {
+                  const active = quickFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => applyQuickFilter(key)}
+                      style={{
+                        padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700,
+                        border: active ? "none" : "1.5px solid var(--border, #e2e8f0)",
+                        background: active ? "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))" : "var(--card-bg, #fff)",
+                        color: active ? "#fff" : "var(--text-secondary, #475569)",
+                        cursor: "pointer",
+                        boxShadow: active ? "var(--shadow-brand, 0 4px 12px rgba(8,145,178,0.25))" : "none",
+                        transition: "all 0.18s",
+                      }}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+
+              {/* View Toggle & Full Screen */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {!isQueueMode && (
+                  <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
+                    {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
+                      <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                        borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                        background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
+                        color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
+                        boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
+                        transition: "all 0.18s",
+                      }}><Icon size={16} />{label}</button>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={toggleFullscreen}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 38, height: 38, borderRadius: 12, border: "1.5px solid var(--border, #e2e8f0)",
+                    background: "var(--card-bg, #fff)", color: "var(--text-secondary, #64748b)", cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                  title={isFullscreen ? t("appt_mgr_exit_fullscreen") : t("appt_mgr_enter_fullscreen")}
+                >
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2 — Search + Status + Date range */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Clinic Filter */}
+              {clinics.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--brand-light, #ecfeff)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--brand, #cffafe)" }}>
+                  <MapPin size={16} color="var(--brand, #0891b2)" />
+                  <select
+                    value={selectedClinicId || (clinics[0] ? clinics[0].clinic_id : "")}
+                    onChange={e => setSelectedClinicId(e.target.value)}
+                    style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {clinics.map(c => (
+                      <option key={c.id} value={c.clinic_id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Search */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flex: "1 1 240px" }}>
+                <Search size={16} color="var(--text-muted, #94a3b8)" />
+                <input
+                  type="text"
+                  placeholder={t("appt_mgr_search_placeholder")}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{ border: "none", outline: "none", width: "100%", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)" }}
+                />
+                {search && <XCircle size={15} color="var(--text-muted, #94a3b8)" style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => setSearch("")} />}
+              </div>
+
+              {/* Status filter */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
+                <Filter size={16} color="var(--text-muted, #94a3b8)" />
+                <select
+                  value={filter}
+                  onChange={e => setFilter(e.target.value)}
+                  style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
+                >
+                  <option value="all">{t("appt_mgr_all_status")}</option>
+                  <option value="booked">{t("appt_mgr_pending")}</option>
+                  <option value="done">{t("appt_mgr_completed")}</option>
+                  <option value="cancelled">{t("appt_mgr_cancelled")}</option>
+                </select>
+              </div>
+
+              {/* Sort Selector */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
+                <ArrowUpDown size={15} color="var(--brand, #0891b2)" />
+                <select
+                  value={sortBy}
+                  onChange={e => { setSortBy(e.target.value); localStorage.setItem("tabibi_appt_sort_by", e.target.value); }}
+                  style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
+                  title={t("appt_mgr_sort_by")}
+                >
+                  <option value="date_asc">{t("appt_mgr_sort_date_asc")}</option>
+                  <option value="date_desc">{t("appt_mgr_sort_date_desc")}</option>
+                  <option value="name_asc">{t("appt_mgr_sort_name_asc")}</option>
+                  <option value="status">{t("appt_mgr_sort_status")}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 3 — Dates on one side and the rest on the other side */}
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              {/* Date range */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "7px 12px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)", flexShrink: 0 }}>
+                <Calendar size={15} color="var(--brand, #0891b2)" />
+                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
+                  style={{ border: "none", outline: "none", fontSize: 12.5, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_to")}</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={e => { setDateTo(e.target.value); setQuickFilter(""); }}
+                  style={{ border: "none", outline: "none", fontSize: 12.5, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
+                />
+                {(dateFrom || dateTo) && (
+                  <button
+                    onClick={() => { setDateFrom(""); setDateTo(""); setQuickFilter(""); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
+                    title={t("appt_mgr_clear_filter")}
+                  >
+                    <XCircle size={15} color="#ef4444" />
+                  </button>
+                )}
+              </div>
+
+              {/* Active filters summary */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20 }}>
+                  {filtered.length} {t("appt_mgr_appointments_count")}
+                </span>
+                {selectedClinicId && (
+                  <span style={{ fontSize: 12, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
+                    <MapPin size={11} />
+                    {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
+                  </span>
+                )}
+                {(dateFrom || dateTo) && (
+                  <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", background: "var(--input-bg, #f1f5f9)", padding: "4px 10px", borderRadius: 20 }}>
+                    {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `${t("from")} ${dateFrom}` : `${t("to")} ${dateTo}`}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1667,271 +1931,6 @@ export default function AppointmentManager({ navigate, user }) {
               </div>
             </div>
           )}
-
-          {/* Merged Header & Filters Card */}
-          <div style={{ ...glassPanel, padding: "20px 24px", marginBottom: 24, direction: i18n.language === "ar" ? "rtl" : "ltr" }}>
-            {/* Header section with Title and main Actions */}
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 16,
-              paddingBottom: 16,
-              marginBottom: 16,
-              borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))"
-            }}>
-              {/* Left: Title & Page Indicator */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: "var(--brand-light, #ecfeff)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--brand, #0891b2)"
-                }}>
-                  <Calendar size={20} />
-                </div>
-                <div>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--heading-color, #0c4a6e)", display: "block" }}>
-                    {t("appt_mgr_title")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right: Toggle Stats & Main Actions */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                {/* Toggle Stats Button */}
-                <button
-                  onClick={() => {
-                    const newVal = !showStats;
-                    setShowStats(newVal);
-                    localStorage.setItem("appt_show_stats", String(newVal));
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderRadius: 12,
-                    border: showStats ? "1px solid var(--brand, #0891b2)" : "1px solid var(--border, #cffafe)",
-                    background: showStats ? "linear-gradient(135deg, #f0fdfa, #ecfeff)" : "var(--card-bg, #fff)",
-                    color: "var(--brand, #0891b2)",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    boxShadow: showStats ? "none" : "rgba(8, 145, 178, 0.05) 0px 2px 6px"
-                  }}
-                >
-                  <Activity size={16} />
-                  {showStats ? t("appt_mgr_hide_stats") : t("appt_mgr_show_stats")}
-                </button>
-
-              </div>
-            </div>
-
-            {/* Stats Panel (conditionally rendered inside header/filters wrapper when showStats is true) */}
-            {showStats && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border, rgba(0,0,0,0.05))" }}>
-                {[
-                  { title: t("appt_mgr_total_appointments"), count: stats.total, icon: <Activity size={20} />, color: "var(--stat-total-text, #0891b2)", bg: "var(--stat-total-bg, linear-gradient(135deg,#cffafe,#a5f3fc))" },
-                  { title: t("appt_mgr_pending"), count: stats.booked, icon: <Clock size={20} />, color: "var(--stat-booked-text, #92400e)", bg: "var(--stat-booked-bg, linear-gradient(135deg,#fef9c3,#fde68a))" },
-                  { title: t("appt_mgr_completed"), count: stats.done, icon: <CheckCircle size={20} />, color: "var(--stat-done-text, #059669)", bg: "var(--stat-done-bg, linear-gradient(135deg,#d1fae5,#a7f3d0))" },
-                  { title: t("appt_mgr_cancelled"), count: stats.cancelled, icon: <XCircle size={20} />, color: "var(--stat-cancelled-text, #991b1b)", bg: "var(--stat-cancelled-bg, linear-gradient(135deg,#fee2e2,#fca5a5))" },
-                ].map((s, i) => (
-                  <div key={i} style={{ background: "var(--card-bg, #fff)", borderRadius: 16, padding: 16, display: "flex", alignItems: "center", gap: 12, boxShadow: "var(--shadow, 0 2px 8px rgba(0,0,0,0.02))", border: "1px solid var(--border, rgba(0,0,0,0.01))" }}>
-                    <div style={{ width: 42, height: 42, borderRadius: 12, background: s.bg, color: s.color, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
-                    <div>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text-main, #0f172a)", lineHeight: 1 }}>{s.count}</div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary, #64748b)", marginTop: 4 }}>{s.title}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Row 1 — Quick filter buttons & View Toggle */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-              {/* Quick filter buttons */}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[
-                  { key: "", label: t("appt_mgr_all") },
-                  { key: "this_week", label: t("appt_mgr_this_week") },
-                  { key: "today", label: t("appt_mgr_today") },
-                  { key: "week", label: t("appt_mgr_next_week") },
-                  { key: "month", label: t("appt_mgr_next_month") },
-                  { key: "3months", label: t("appt_mgr_next_3months") },
-                ].map(({ key, label }) => {
-                  const active = quickFilter === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => applyQuickFilter(key)}
-                      style={{
-                        padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700,
-                        border: active ? "none" : "1.5px solid var(--border, #e2e8f0)",
-                        background: active ? "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))" : "var(--card-bg, #fff)",
-                        color: active ? "#fff" : "var(--text-secondary, #475569)",
-                        cursor: "pointer",
-                        boxShadow: active ? "var(--shadow-brand, 0 4px 12px rgba(8,145,178,0.25))" : "none",
-                        transition: "all 0.18s",
-                      }}
-                    >{label}</button>
-                  );
-                })}
-              </div>
-
-              {/* View Toggle & Full Screen */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {!isQueueMode && (
-                  <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
-                    {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
-                      <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
-                        display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                        borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                        background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
-                        color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
-                        boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
-                        transition: "all 0.18s",
-                      }}><Icon size={16} />{label}</button>
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  onClick={toggleFullscreen}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: 38, height: 38, borderRadius: 12, border: "1.5px solid var(--border, #e2e8f0)",
-                    background: "var(--card-bg, #fff)", color: "var(--text-secondary, #64748b)", cursor: "pointer",
-                    transition: "all 0.2s"
-                  }}
-                  title={isFullscreen ? t("appt_mgr_exit_fullscreen") : t("appt_mgr_enter_fullscreen")}
-                >
-                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Row 2 — Search + Status + Date range */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              {/* Clinic Filter */}
-              {clinics.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "var(--brand-light, #ecfeff)" : "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid var(--brand, #cffafe)" : "1px solid var(--border, #e2e8f0)" }}>
-                  <MapPin size={16} color={selectedClinicId !== "all" ? "var(--brand, #0891b2)" : "var(--text-muted, #94a3b8)"} />
-                  <select
-                    value={selectedClinicId}
-                    onChange={e => setSelectedClinicId(e.target.value)}
-                    style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
-                  >
-                    <option value="all">{t("appt_mgr_all_clinics")}</option>
-                    {clinics.map(c => (
-                      <option key={c.id} value={c.clinic_id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Search */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)", flex: "1 1 240px" }}>
-                <Search size={16} color="var(--text-muted, #94a3b8)" />
-                <input
-                  type="text"
-                  placeholder={t("appt_mgr_search_placeholder")}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{ border: "none", outline: "none", width: "100%", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)" }}
-                />
-                {search && <XCircle size={15} color="var(--text-muted, #94a3b8)" style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => setSearch("")} />}
-              </div>
-
-              {/* Status filter */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
-                <Filter size={16} color="var(--text-muted, #94a3b8)" />
-                <select
-                  value={filter}
-                  onChange={e => setFilter(e.target.value)}
-                  style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
-                >
-                  <option value="all">{t("appt_mgr_all_status")}</option>
-                  <option value="booked">{t("appt_mgr_pending")}</option>
-                  <option value="done">{t("appt_mgr_completed")}</option>
-                  <option value="cancelled">{t("appt_mgr_cancelled")}</option>
-                </select>
-              </div>
-
-              {/* Sort Selector */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--border, #e2e8f0)" }}>
-                <ArrowUpDown size={15} color="var(--brand, #0891b2)" />
-                <select
-                  value={sortBy}
-                  onChange={e => { setSortBy(e.target.value); localStorage.setItem("tabibi_appt_sort_by", e.target.value); }}
-                  style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
-                  title={t("appt_mgr_sort_by")}
-                >
-                  <option value="date_asc">{t("appt_mgr_sort_date_asc")}</option>
-                  <option value="date_desc">{t("appt_mgr_sort_date_desc")}</option>
-                  <option value="name_asc">{t("appt_mgr_sort_name_asc")}</option>
-                  <option value="status">{t("appt_mgr_sort_status")}</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Row 3 — Dates on one side and the rest on the other side */}
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              {/* Date range */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input-bg, #f8fafc)", padding: "7px 12px", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)", flexShrink: 0 }}>
-                <Calendar size={15} color="var(--brand, #0891b2)" />
-                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_from")}</span>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={e => { setDateFrom(e.target.value); setQuickFilter(""); }}
-                  style={{ border: "none", outline: "none", fontSize: 12.5, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
-                />
-                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_to")}</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom || undefined}
-                  onChange={e => { setDateTo(e.target.value); setQuickFilter(""); }}
-                  style={{ border: "none", outline: "none", fontSize: 12.5, color: "var(--text-main, #334155)", background: "transparent", cursor: "pointer" }}
-                />
-                {(dateFrom || dateTo) && (
-                  <button
-                    onClick={() => { setDateFrom(""); setDateTo(""); setQuickFilter(""); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
-                    title={t("appt_mgr_clear_filter")}
-                  >
-                    <XCircle size={15} color="#ef4444" />
-                  </button>
-                )}
-              </div>
-
-              {/* Active filters summary */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, color: "var(--text-muted, #94a3b8)", fontWeight: 600 }}>{t("appt_mgr_results")}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20 }}>
-                  {filtered.length} {t("appt_mgr_appointments_count")}
-                </span>
-                {selectedClinicId !== "all" && (
-                  <span style={{ fontSize: 12, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
-                    <MapPin size={11} />
-                    {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
-                  </span>
-                )}
-                {(dateFrom || dateTo) && (
-                  <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", background: "var(--input-bg, #f1f5f9)", padding: "4px 10px", borderRadius: 20 }}>
-                    {dateFrom && dateTo ? `${dateFrom} ← ${dateTo}` : dateFrom ? `${t("from")} ${dateFrom}` : `${t("to")} ${dateTo}`}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
 
           {loading && !refreshing ? (
             <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
