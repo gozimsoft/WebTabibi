@@ -1342,7 +1342,7 @@ export default function AppointmentManager({ navigate, user }) {
                     <Plus size={14} /> إضافة مريض حاضر
                   </button>
                   <button
-                    onClick={() => navigate("/profile?tab=appointment_settings")}
+                    onClick={() => navigate("/clinics?tab=appointment_settings")}
                     style={{
                       background: "rgba(255, 255, 255, 0.16)",
                       color: "#ffffff",

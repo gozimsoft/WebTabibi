@@ -7,7 +7,7 @@ import {
   Trash2, Upload, AlertTriangle, ShieldCheck, Stethoscope,
   Info, Sparkles, Navigation, CreditCard, ExternalLink,
   ChevronRight, ArrowRight, UserCheck, Layers, Eye,
-  Users, UserPlus, Search, UserMinus, Check, X, Send, RefreshCw
+  Users, UserPlus, Search, UserMinus, Check, X, Send, RefreshCw, Sliders
 } from "lucide-react";
 import { Btn, Card, Spinner, Input, Badge } from "./SharedUI";
 
@@ -21,7 +21,7 @@ const WEEK_DAYS = [
   { index: 6, labelAr: "الأحد", labelFr: "Dimanche" },
 ];
 
-export default function DoctorClinicManager({ api, doctor, showToast, isMobile, navigate }) {
+export default function DoctorClinicManager({ api, doctor, showToast, isMobile, navigate, onSwitchToAppointmentSettings }) {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
 
@@ -2481,6 +2481,68 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                     {isRtl ? "حدد الأيام وساعات العمل التي تستقبل فيها المرضى في هذا المقر تحديداً:" : "Sélectionnez vos jours et plages d'ouverture pour ce lieu :"}
                   </p>
                 </div>
+
+                {onSwitchToAppointmentSettings && (
+                  <div style={{
+                    background: "linear-gradient(135deg, rgba(8, 145, 178, 0.08), rgba(99, 102, 241, 0.08))",
+                    border: "1.5px solid rgba(8, 145, 178, 0.25)",
+                    borderRadius: 14,
+                    padding: "16px 20px",
+                    marginBottom: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 12
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        background: "rgba(8, 145, 178, 0.12)",
+                        color: "var(--brand, #0891b2)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0
+                      }}>
+                        <Sliders size={20} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: "var(--heading-color)" }}>
+                          {isRtl ? "نظام العمل (التوقيت الدقيق بالساعة / القوائم والتذاكر المرقمة)" : "Mode de travail (Créneaux précis / File d'attente)"}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                          {isRtl
+                            ? "يمكنك التبديل بين نظام التوقيت الدقيق أو نظام القوائم والتذاكر وضبط سقف المرضى لكل فترة دوام"
+                            : "Basculez entre créneaux fixes et tickets numérotés avec gestion des capacités"}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onSwitchToAppointmentSettings}
+                      style={{
+                        background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 10,
+                        padding: "9px 16px",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        boxShadow: "0 2px 8px rgba(8, 145, 178, 0.25)"
+                      }}
+                    >
+                      <Sliders size={15} />
+                      {isRtl ? "فتح تاب نظام العمل والمواعيد" : "Configurer le mode"}
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ marginBottom: 22 }}>
                   <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--heading-color)", marginBottom: 8 }}>

@@ -1520,7 +1520,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         user?.user_type === 1 ? { icon: <Laptop size={16} />, label: t("pair_desktop_nav", "ربط تطبيق العيادة"), path: "/pair" } : null,
                         user?.user_type === 0 ? { icon: <Calendar size={16} />, label: t("my_appointments"), path: "/appointments" } : null,
                         user?.user_type === 1 ? { icon: <Calendar size={16} />, label: t("appt_mgr_title", "إدارة المواعيد"), path: "/appointmanager" } : null,
-                        user?.user_type === 1 ? { icon: <Sliders size={16} />, label: t("appointment_settings_nav", "إعدادات المواعيد وقائمة الدور"), path: "/profile?tab=appointment_settings" } : null,
                         user?.user_type === 2 ? { icon: <Calendar size={16} />, label: t("clinic_agenda_nav", "Agenda de la clinique"), path: "/clinic/appointments" } : null,
                         (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
                         { icon: <MessageSquare size={16} />, label: t("messages", "الرسائل"), path: "/tickets", badge: unreadTicketsCount },
@@ -11512,10 +11511,9 @@ function ProfilePage({ user, navigate, qs }) {
   const initialOffHours = initialTab === "off_hours";
   const [doctorActiveTab, setDoctorActiveTab] = useState(
     initialSecurity ? "security" :
-    initialSettings ? "appointment_settings" :
     initialOffHours ? "off_hours" :
     "profile"
-  ); // 'profile' | 'appointment_settings' | 'off_hours' | 'security'
+  ); // 'profile' | 'off_hours' | 'security'
   const [patientActiveTab, setPatientActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
   const [clinicActiveTab, setClinicActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
   const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
@@ -11525,12 +11523,16 @@ function ProfilePage({ user, navigate, qs }) {
   const [loadingSystemStatus, setLoadingSystemStatus] = useState(false);
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
 
-  // If doctor enters profile with tab=clinic, redirect to dedicated /clinics page
+  // If doctor enters profile with tab=clinic or appointment_settings, redirect to dedicated /clinics page
   useEffect(() => {
-    if (user?.user_type === 1 && initialClinic) {
-      if (navigate) navigate("/clinics");
+    if (user?.user_type === 1) {
+      if (initialClinic) {
+        if (navigate) navigate("/clinics");
+      } else if (initialSettings) {
+        if (navigate) navigate("/clinics?tab=appointment_settings");
+      }
     }
-  }, [user, initialClinic, navigate]);
+  }, [user, initialClinic, initialSettings, navigate]);
 
   // --- حالة قسم الموافقات والخصوصية (Loi 18-07) ---
   const [consentData, setConsentData] = useState(null);
@@ -11548,7 +11550,9 @@ function ProfilePage({ user, navigate, qs }) {
         setAdminActiveTab("security");
         setDoctorActiveTab("security");
       } else if (tab === "appointment_settings" || tab === "settings") {
-        setDoctorActiveTab("appointment_settings");
+        if (user?.user_type === 1 && navigate) {
+          navigate("/clinics?tab=appointment_settings");
+        }
       } else if (tab === "off_hours") {
         setDoctorActiveTab("off_hours");
       } else if (tab === "clinic") {
@@ -12379,31 +12383,6 @@ function ProfilePage({ user, navigate, qs }) {
 
           <button
             type="button"
-            onClick={() => setDoctorActiveTab("appointment_settings")}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "11px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: doctorActiveTab === "appointment_settings" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
-              color: doctorActiveTab === "appointment_settings" ? "#ffffff" : "#64748b",
-              fontWeight: doctorActiveTab === "appointment_settings" ? 800 : 600,
-              fontSize: 14,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <Calendar size={17} />
-            {t("appointment_settings_tab", "إعدادات المواعيد وقائمة الدور")}
-          </button>
-
-          <button
-            type="button"
             onClick={() => setDoctorActiveTab("off_hours")}
             style={{
               flex: 1,
@@ -13016,12 +12995,7 @@ function ProfilePage({ user, navigate, qs }) {
         </form>
       )}
 
-      {/* 3. Doctor Appointment Settings Tab */}
-      {user?.user_type === 1 && doctorActiveTab === "appointment_settings" && (
-        <DoctorAppointmentSettings doctor={form} showToast={show} isMobile={isMobile} />
-      )}
-
-      {/* 4. Doctor Off-Hours Settings Tab */}
+      {/* 3. Doctor Off-Hours Settings Tab */}
       {user?.user_type === 1 && doctorActiveTab === "off_hours" && (
         <DoctorOffHoursSettings doctor={form} showToast={show} isMobile={isMobile} />
       )}
@@ -15783,7 +15757,7 @@ function MainApp() {
       case "/my-clinic":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         if (user.user_type !== 1) { setTimeout(() => navigate("/"), 0); return null; }
-        return <DoctorClinicsPage key="doctor_clinics" user={user} navigate={navigate} isMobile={isMobile} api={api} />;
+        return <DoctorClinicsPage key="doctor_clinics" user={user} navigate={navigate} isMobile={isMobile} api={api} qs={qs} />;
       case "/profile":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         return <ProfilePage key={route} user={user} navigate={navigate} qs={qs} />;
@@ -15792,7 +15766,7 @@ function MainApp() {
       case "/doctor/appointment-settings":
         if (!user) { setTimeout(() => navigate("/login"), 0); return null; }
         if (Number(user.user_type) !== 1) { setTimeout(() => navigate("/"), 0); return null; }
-        return <ProfilePage key="/profile?tab=appointment_settings" user={user} navigate={navigate} qs="tab=appointment_settings" />;
+        return <DoctorClinicsPage key="/clinics?tab=appointment_settings" user={user} navigate={navigate} isMobile={isMobile} api={api} qs="tab=appointment_settings" />;
       case "/family":
         if (!user || user.user_type !== 0) { setTimeout(() => navigate("/"), 0); return null; }
         return <FamilyPage navigate={navigate} user={user} />;

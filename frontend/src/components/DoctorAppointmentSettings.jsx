@@ -57,8 +57,24 @@ export default function DoctorAppointmentSettings({ doctor, showToast, isMobile 
 
   const [formData, setFormData] = useState(defaultForm);
 
+  const [internalClinics, setInternalClinics] = useState([]);
+
   const clinics = useMemo(() => {
-    return doctor?.clinics || [];
+    if (doctor?.clinics && doctor.clinics.length > 0) return doctor.clinics;
+    return internalClinics;
+  }, [doctor?.clinics, internalClinics]);
+
+  useEffect(() => {
+    if (!doctor?.clinics || doctor.clinics.length === 0) {
+      const fetchDoc = api.doctor?.profile || api.doctors?.get;
+      if (fetchDoc) {
+        fetchDoc()
+          .then(res => {
+            if (res?.clinics) setInternalClinics(res.clinics);
+          })
+          .catch(() => {});
+      }
+    }
   }, [doctor?.clinics]);
 
   // Fetch Settings
@@ -242,17 +258,19 @@ export default function DoctorAppointmentSettings({ doctor, showToast, isMobile 
             <h3 style={{
               margin: "0 0 4px",
               color: "#0c4a6e",
-              fontSize: 17,
-              fontWeight: 800,
+              fontSize: 18,
+              fontWeight: 900,
               display: "flex",
               alignItems: "center",
               gap: 8
             }}>
-              <CalendarDays size={20} color="var(--brand, #0891b2)" />
-              {t("appointment_settings_title", "إعدادات المواعيد وأوقات العمل")}
+              <Sliders size={22} color="var(--brand, #0891b2)" />
+              {t("appointment_settings_title", "إعدادات المواعيد ونظام العمل")}
             </h3>
             <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted, #64748b)" }}>
-              {t("appointment_settings_desc", "ضبط مدة الحصص، أوقات العمل اليومية، والأيام المتاحة للحجز")}
+              {isRtl
+                ? "حدد لكل عيادة أو مقر نظام العمل المناسب (نظام التوقيت الدقيق أو نظام القوائم والتذاكر) مع ضبط أوقات الدوام وطاقة الاستيعاب."
+                : "Configurez pour chaque lieu d'exercice le mode de travail (Créneaux horaires ou Tickets) avec vos horaires et capacités."}
             </p>
           </div>
 
@@ -260,9 +278,9 @@ export default function DoctorAppointmentSettings({ doctor, showToast, isMobile 
             type="button"
             onClick={handleOpenAdd}
             style={{
-              padding: "9px 20px",
+              padding: "10px 22px",
               fontSize: 14,
-              fontWeight: 700,
+              fontWeight: 800,
               display: "flex",
               alignItems: "center",
               gap: 8,
@@ -270,8 +288,88 @@ export default function DoctorAppointmentSettings({ doctor, showToast, isMobile 
             }}
           >
             <Plus size={18} />
-            {t("add_setting_btn", "إضافة إعداد")}
+            {t("add_setting_btn", "إضافة إعداد مقر")}
           </Btn>
+        </div>
+
+        {/* Work System Comparison Explainer Banner */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 12,
+          marginBottom: 16,
+          padding: "12px",
+          borderRadius: 14,
+          background: "linear-gradient(135deg, rgba(8, 145, 178, 0.04), rgba(124, 58, 237, 0.04))",
+          border: "1.5px solid rgba(8, 145, 178, 0.18)"
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: "10px 12px",
+            background: "#ffffff",
+            borderRadius: 10,
+            border: "1px solid #e0f2fe"
+          }}>
+            <div style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: "#e0f2fe",
+              color: "#0369a1",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0
+            }}>
+              <Clock size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#0369a1", marginBottom: 2 }}>
+                {isRtl ? "1. نظام التوقيت الدقيق" : "1. Système Créneaux Horaires"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                {isRtl
+                  ? "حجز الموعد بدقة بالساعة والدقيقة (مثلاً 09:00، 09:20). مناسب للعيادات ذات الكشوفات الطويلة والمواعيد المنضبطة."
+                  : "Rendez-vous à heure fixe (ex: 09h00, 09h20) basé sur une durée définie par consultation."}
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: "10px 12px",
+            background: "#ffffff",
+            borderRadius: 10,
+            border: "1px solid #ede9fe"
+          }}>
+            <div style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: "#ede9fe",
+              color: "#6d28d9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0
+            }}>
+              <Hash size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#6d28d9", marginBottom: 2 }}>
+                {isRtl ? "2. نظام القوائم والتذاكر" : "2. Système File d'attente & Tickets"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                {isRtl
+                  ? "تذكرة دور مرقمة (#01، #02) مع فترات عمل صباحية ومسائية، وتحديد سقف المرضى لكل فترة دوام ومعدل انتظار تقديري."
+                  : "Tickets numérotés (#01, #02) avec vacations matin/soir et quota de patients par vacation."}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Search Input (Matching SearchBox1 in Delphi) */}
@@ -578,7 +676,9 @@ export default function DoctorAppointmentSettings({ doctor, showToast, isMobile 
               {/* Action Buttons (Matching Delphi BtnEdit / BtnDelete) */}
               <div style={{
                 display: "flex",
-                justifyContent: "flex-end",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
                 gap: 8,
                 borderTop: "1px solid var(--border, #f1f5f9)",
                 paddingTop: 12
@@ -592,45 +692,71 @@ export default function DoctorAppointmentSettings({ doctor, showToast, isMobile 
                     gap: 6,
                     padding: "7px 14px",
                     borderRadius: 10,
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
-                    color: "#334155",
+                    border: "1.5px solid var(--brand, #0891b2)",
+                    background: "rgba(8, 145, 178, 0.08)",
+                    color: "var(--brand, #0891b2)",
                     fontSize: 12,
-                    fontWeight: 700,
+                    fontWeight: 800,
                     cursor: "pointer",
                     transition: "all 0.15s ease"
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand, #0891b2)"; e.currentTarget.style.color = "var(--brand, #0891b2)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.color = "#334155"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--brand, #0891b2)"; e.currentTarget.style.color = "#ffffff"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(8, 145, 178, 0.08)"; e.currentTarget.style.color = "var(--brand, #0891b2)"; }}
                 >
-                  <Edit2 size={14} />
-                  {t("edit_setting_btn", "تعديل")}
+                  <Sliders size={14} />
+                  {isRtl ? "تغيير نظام العمل / الساعات" : "Changer le mode / horaires"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(item.id)}
-                  disabled={deletingId === item.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "7px 14px",
-                    borderRadius: 10,
-                    border: "1px solid #fee2e2",
-                    background: "#fef2f2",
-                    color: "#ef4444",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease"
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#fee2e2"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "#fef2f2"; }}
-                >
-                  {deletingId === item.id ? <Spinner size={12} /> : <Trash2 size={14} />}
-                  {t("delete_setting_btn", "حذف")}
-                </button>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(item)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "7px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      color: "#334155",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand, #0891b2)"; e.currentTarget.style.color = "var(--brand, #0891b2)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.color = "#334155"; }}
+                  >
+                    <Edit2 size={13} />
+                    {t("edit_setting_btn", "تعديل")}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deletingId === item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "7px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #fee2e2",
+                      background: "#fef2f2",
+                      color: "#ef4444",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#fee2e2"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#fef2f2"; }}
+                  >
+                    {deletingId === item.id ? <Spinner size={12} /> : <Trash2 size={13} />}
+                    {t("delete_setting_btn", "حذف")}
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
