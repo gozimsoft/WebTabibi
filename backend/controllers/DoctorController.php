@@ -1354,6 +1354,17 @@ class DoctorController {
                 $countdays    = (int)($as['countdays'] ?? 5);
                 $isregistered = !empty($as['isregistered']) ? 1 : 0;
 
+                // Queue & working system parameters
+                $bookingMode      = isset($as['booking_mode']) ? (int)$as['booking_mode'] : 0;
+                $shiftMode        = isset($as['shift_mode']) ? (int)$as['shift_mode'] : 1;
+                $morningCapacity  = max(1, (int)($as['morning_capacity'] ?? 25));
+                $eveningCapacity  = max(1, (int)($as['evening_capacity'] ?? 15));
+                $allowOverbooking = isset($as['allow_overbooking']) ? ((int)$as['allow_overbooking'] ? 1 : 0) : 0;
+                $morningStart     = !empty($as['morning_start']) ? trim($as['morning_start']) : $daytimestart;
+                $morningEnd       = !empty($as['morning_end']) ? trim($as['morning_end']) : $daytimeend;
+                $eveningStart     = !empty($as['evening_start']) ? trim($as['evening_start']) : '14:00:00';
+                $eveningEnd       = !empty($as['evening_end']) ? trim($as['evening_end']) : '17:30:00';
+
                 // Normalize time format to full datetime
                 $startDt = (strpos($daytimestart, ':') !== false && strlen($daytimestart) <= 8) ? "2000-01-01 $daytimestart" : $daytimestart;
                 $endDt   = (strpos($daytimeend, ':') !== false && strlen($daytimeend) <= 8) ? "2000-01-01 $daytimeend" : $daytimeend;
@@ -1365,17 +1376,30 @@ class DoctorController {
                 if ($existingId) {
                     $updAs = $pdo->prepare("
                         UPDATE doctorssettingapointements 
-                        SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                        SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?,
+                            booking_mode = ?, shift_mode = ?, morning_capacity = ?, evening_capacity = ?, allow_overbooking = ?,
+                            morning_start = ?, morning_end = ?, evening_start = ?, evening_end = ?
                         WHERE id = ?
                     ");
-                    $updAs->execute([$timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered, $existingId]);
+                    $updAs->execute([
+                        $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered,
+                        $bookingMode, $shiftMode, $morningCapacity, $eveningCapacity, $allowOverbooking,
+                        $morningStart, $morningEnd, $eveningStart, $eveningEnd,
+                        $existingId
+                    ]);
                 } else {
                     $insAs = $pdo->prepare("
                         INSERT INTO doctorssettingapointements (
-                            id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered,
+                            booking_mode, shift_mode, morning_capacity, evening_capacity, allow_overbooking,
+                            morning_start, morning_end, evening_start, evening_end
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ");
-                    $insAs->execute([UUIDHelper::generate(), $doctorId, $clinicId, $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered]);
+                    $insAs->execute([
+                        UUIDHelper::generate(), $doctorId, $clinicId, $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered,
+                        $bookingMode, $shiftMode, $morningCapacity, $eveningCapacity, $allowOverbooking,
+                        $morningStart, $morningEnd, $eveningStart, $eveningEnd
+                    ]);
                 }
             }
 

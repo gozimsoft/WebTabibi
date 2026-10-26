@@ -7,7 +7,8 @@ import {
   Trash2, Upload, AlertTriangle, ShieldCheck, Stethoscope,
   Info, Sparkles, Navigation, CreditCard, ExternalLink,
   ChevronRight, ArrowRight, UserCheck, Layers, Eye,
-  Users, UserPlus, Search, UserMinus, Check, X, Send, RefreshCw, Sliders
+  Users, UserPlus, Search, UserMinus, Check, X, Send, RefreshCw, Sliders,
+  Hash, Sun, Moon
 } from "lucide-react";
 import { Btn, Card, Spinner, Input, Badge } from "./SharedUI";
 
@@ -21,7 +22,7 @@ const WEEK_DAYS = [
   { index: 6, labelAr: "الأحد", labelFr: "Dimanche" },
 ];
 
-export default function DoctorClinicManager({ api, doctor, showToast, isMobile, navigate, onSwitchToAppointmentSettings }) {
+export default function DoctorClinicManager({ api, doctor, showToast, isMobile, navigate, initialTab }) {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
 
@@ -31,8 +32,30 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
   const [selectedClinicId, setSelectedClinicId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // Sub-tabs: 'info' | 'pricing' | 'schedule' | 'reasons' | 'off_hours'
-  const [activeSubTab, setActiveSubTab] = useState("pricing");
+  // Sub-tabs: 'info' | 'pricing' | 'schedule' | 'booking_system' | 'reasons' | 'off_hours'
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    if (initialTab && ["info", "doctors", "requests", "pricing", "schedule", "booking_system", "reasons", "off_hours"].includes(initialTab)) {
+      return initialTab;
+    }
+    return "pricing";
+  });
+
+  useEffect(() => {
+    if (initialTab && ["info", "doctors", "requests", "pricing", "schedule", "booking_system", "reasons", "off_hours"].includes(initialTab)) {
+      setActiveSubTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Booking System state (Queue vs Time Slots, Shifts & Capacities)
+  const [bookingSystem, setBookingSystem] = useState({
+    booking_mode: 0,
+    shift_mode: 1,
+    morning_capacity: 25,
+    evening_capacity: 15,
+    allow_overbooking: false,
+    timescale: 20
+  });
+  const [savingBookingSystem, setSavingBookingSystem] = useState(false);
 
   // Wilayas & Baladiyas
   const [wilayasList, setWilayasList] = useState([]);
@@ -272,7 +295,7 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
         const activePrice = (res.pricing !== null && res.pricing !== undefined) ? res.pricing : "";
         setPricingInput(activePrice);
 
-        // Schedule
+        // Schedule & Booking System
         if (res.appointment_settings) {
           const s = res.appointment_settings;
           const formatTime = (t) => {
@@ -288,6 +311,14 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
             workingdays: s.workingdays || "1,2,3,4,5",
             isregistered: Boolean(s.isregistered)
           });
+          setBookingSystem({
+            booking_mode: s.booking_mode !== undefined && s.booking_mode !== null ? parseInt(s.booking_mode) : 0,
+            shift_mode: s.shift_mode !== undefined && s.shift_mode !== null ? parseInt(s.shift_mode) : 1,
+            morning_capacity: s.morning_capacity !== undefined && s.morning_capacity !== null ? parseInt(s.morning_capacity) : 25,
+            evening_capacity: s.evening_capacity !== undefined && s.evening_capacity !== null ? parseInt(s.evening_capacity) : 15,
+            allow_overbooking: Boolean(parseInt(s.allow_overbooking)),
+            timescale: s.timescale || 20
+          });
         } else {
           setSchedule({
             timescale: 20,
@@ -296,6 +327,14 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
             weekbeginday: 0,
             workingdays: "1,2,3,4,5",
             isregistered: true
+          });
+          setBookingSystem({
+            booking_mode: 0,
+            shift_mode: 1,
+            morning_capacity: 25,
+            evening_capacity: 15,
+            allow_overbooking: false,
+            timescale: 20
           });
         }
 
@@ -462,6 +501,29 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
       showToast?.(err.message || (isRtl ? "حدث خطأ أثناء حفظ أوقات العمل" : "Erreur"), "error");
     } finally {
       setSavingSchedule(false);
+    }
+  };
+
+  // 4b. Save Booking System (Queue vs Time Slots, Shifts & Capacities)
+  const handleSaveBookingSystem = async (e) => {
+    e?.preventDefault();
+    if (!selectedClinicId) return;
+    setSavingBookingSystem(true);
+    try {
+      await api.doctors.updateClinicSettings({
+        clinic_id: selectedClinicId,
+        appointment_settings: {
+          ...schedule,
+          ...bookingSystem,
+        },
+        off_hours: offHours
+      });
+      showToast?.(isRtl ? "تم حفظ نظام إدارة المواعيد لهذا المقر بنجاح" : "Mode de gestion des RDV enregistré avec succès", "success");
+      await loadClinic(selectedClinicId);
+    } catch (err) {
+      showToast?.(err.message || (isRtl ? "حدث خطأ أثناء حفظ نظام إدارة المواعيد" : "Erreur"), "error");
+    } finally {
+      setSavingBookingSystem(false);
     }
   };
 
@@ -1207,6 +1269,31 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
 
                 <button
                   type="button"
+                  onClick={() => setActiveSubTab("booking_system")}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: activeSubTab === "booking_system" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
+                    color: activeSubTab === "booking_system" ? "#fff" : "var(--text-secondary)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  <Sliders size={16} />
+                  {isRtl ? "نظام إدارة المواعيد" : "Mode des RDV"}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveSubTab("reasons")}
                   style={{
                     flex: 1,
@@ -1305,6 +1392,31 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                 >
                   <Clock size={16} />
                   {isRtl ? "أوقات العمل والمواعيد" : "Horaires & RDV"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab("booking_system")}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: activeSubTab === "booking_system" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
+                    color: activeSubTab === "booking_system" ? "#fff" : "var(--text-secondary)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  <Sliders size={16} />
+                  {isRtl ? "نظام إدارة المواعيد" : "Mode des RDV"}
                 </button>
 
                 <button
@@ -2482,68 +2594,6 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                   </p>
                 </div>
 
-                {onSwitchToAppointmentSettings && (
-                  <div style={{
-                    background: "linear-gradient(135deg, rgba(8, 145, 178, 0.08), rgba(99, 102, 241, 0.08))",
-                    border: "1.5px solid rgba(8, 145, 178, 0.25)",
-                    borderRadius: 14,
-                    padding: "16px 20px",
-                    marginBottom: 20,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: 12
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 10,
-                        background: "rgba(8, 145, 178, 0.12)",
-                        color: "var(--brand, #0891b2)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0
-                      }}>
-                        <Sliders size={20} />
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: "var(--heading-color)" }}>
-                          {isRtl ? "نظام العمل (التوقيت الدقيق بالساعة / القوائم والتذاكر المرقمة)" : "Mode de travail (Créneaux précis / File d'attente)"}
-                        </div>
-                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                          {isRtl
-                            ? "يمكنك التبديل بين نظام التوقيت الدقيق أو نظام القوائم والتذاكر وضبط سقف المرضى لكل فترة دوام"
-                            : "Basculez entre créneaux fixes et tickets numérotés avec gestion des capacités"}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onSwitchToAppointmentSettings}
-                      style={{
-                        background: "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 10,
-                        padding: "9px 16px",
-                        fontSize: 13,
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        boxShadow: "0 2px 8px rgba(8, 145, 178, 0.25)"
-                      }}
-                    >
-                      <Sliders size={15} />
-                      {isRtl ? "فتح تاب نظام العمل والمواعيد" : "Configurer le mode"}
-                    </button>
-                  </div>
-                )}
-
                 <div style={{ marginBottom: 22 }}>
                   <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--heading-color)", marginBottom: 8 }}>
                     {isRtl ? "الأيام المتاحة للحجز:" : "Jours d'ouverture :"}
@@ -2634,6 +2684,426 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                 <Btn type="submit" loading={savingSchedule} style={{ padding: "12px 28px", fontSize: 14, borderRadius: 10 }}>
                   <Save size={17} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} />
                   {isRtl ? "حفظ أوقات العمل لهذا المقر" : "Enregistrer les horaires"}
+                </Btn>
+              </form>
+            </Card>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────
+              TAB: BOOKING SYSTEM (نظام إدارة المواعيد)
+              ────────────────────────────────────────────────────────── */}
+          {activeSubTab === "booking_system" && (
+            <Card style={{ padding: isMobile ? 18 : 28, borderRadius: 18 }}>
+              <form onSubmit={handleSaveBookingSystem}>
+                {/* Header */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <Sliders size={22} color="var(--brand)" />
+                    <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--heading-color)", margin: 0 }}>
+                      {isRtl ? `نظام إدارة المواعيد في ${activeName}` : `Système de gestion des RDV - ${activeName}`}
+                    </h3>
+                  </div>
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+                    {isRtl
+                      ? "اختر طريقة استقبال وحجز المواعيد لمرضاك في هذا المقر (نظام التوقيت الدقيق أو نظام القوائم والتذاكر):"
+                      : "Sélectionnez le mode de réservation des consultations pour ce lieu :"}
+                  </p>
+                </div>
+
+                {/* Shared Notice Banner */}
+                <div style={{
+                  background: "linear-gradient(135deg, rgba(8, 145, 178, 0.07), rgba(99, 102, 241, 0.05))",
+                  border: "1px solid rgba(8, 145, 178, 0.2)",
+                  borderRadius: 12,
+                  padding: "12px 16px",
+                  marginBottom: 24,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12
+                }}>
+                  <Info size={18} color="var(--brand, #0891b2)" style={{ flexShrink: 0 }} />
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    <strong style={{ color: "var(--heading-color)" }}>
+                      {isRtl ? "ملاحظة:" : "Note :"}
+                    </strong>{" "}
+                    {isRtl
+                      ? "أيام وساعات العمل وأوقات الاستراحة هي إعدادات مشتركة وموحدة يتم ضبطها من تاب 'أوقات دوامي والمواعيد' و 'الاستراحة والعطل' بدون الحاجة لتكرارها."
+                      : "Les jours, horaires d'ouverture et heures de pause sont partagés et définis dans les onglets Horaires et Pauses sans duplication."}
+                  </div>
+                </div>
+
+                {/* Mode Selector Cards */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  gap: 14,
+                  marginBottom: 24
+                }}>
+                  {/* Mode 0: Time Slots */}
+                  <div
+                    onClick={() => setBookingSystem(prev => ({ ...prev, booking_mode: 0 }))}
+                    style={{
+                      padding: "18px 20px",
+                      borderRadius: 16,
+                      border: bookingSystem.booking_mode === 0
+                        ? "2px solid var(--brand, #0891b2)"
+                        : "1.5px solid var(--border, #e2e8f0)",
+                      background: bookingSystem.booking_mode === 0
+                        ? "linear-gradient(135deg, rgba(8, 145, 178, 0.09), rgba(12, 74, 110, 0.04))"
+                        : "var(--bg, #f8fafc)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      position: "relative"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        background: bookingSystem.booking_mode === 0 ? "var(--brand, #0891b2)" : "#cbd5e1",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}>
+                        <Clock size={22} />
+                      </div>
+                      {bookingSystem.booking_mode === 0 && (
+                        <span style={{
+                          background: "var(--brand, #0891b2)",
+                          color: "#fff",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}>
+                          <CheckCircle2 size={13} /> {isRtl ? "المفعل حالياً" : "Actif"}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: "var(--heading-color)", marginBottom: 4 }}>
+                      {isRtl ? "1. نظام التوقيت الدقيق" : "1. Créneaux Horaires Précis"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                      {isRtl
+                        ? "يحجز المريض موعداً محدداً بالساعة والدقيقة (مثلاً 09:00، 09:20). مناسب للمواعيد الفردية المبرمجة بدقة."
+                        : "Chaque patient réserve un créneau horaire fixe précis selon la durée de consultation."}
+                    </div>
+                  </div>
+
+                  {/* Mode 1: Queue Numbers */}
+                  <div
+                    onClick={() => setBookingSystem(prev => ({ ...prev, booking_mode: 1 }))}
+                    style={{
+                      padding: "18px 20px",
+                      borderRadius: 16,
+                      border: bookingSystem.booking_mode === 1
+                        ? "2px solid #7c3aed"
+                        : "1.5px solid var(--border, #e2e8f0)",
+                      background: bookingSystem.booking_mode === 1
+                        ? "linear-gradient(135deg, rgba(124, 58, 237, 0.09), rgba(109, 40, 217, 0.04))"
+                        : "var(--bg, #f8fafc)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      position: "relative"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        background: bookingSystem.booking_mode === 1 ? "#7c3aed" : "#cbd5e1",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}>
+                        <Hash size={22} />
+                      </div>
+                      {bookingSystem.booking_mode === 1 && (
+                        <span style={{
+                          background: "#7c3aed",
+                          color: "#fff",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}>
+                          <CheckCircle2 size={13} /> {isRtl ? "المفعل حالياً" : "Actif"}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: "var(--heading-color)", marginBottom: 4 }}>
+                      {isRtl ? "2. نظام القوائم والتذاكر" : "2. File d'attente & Tickets"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                      {isRtl
+                        ? "يتحصل المريض على تذكرة ورقم دور متسلسل (#01، #02) مع تحديد سقف المرضى لكل فترة دوام ومعدل انتظار تقديري."
+                        : "Tickets numérotés (#01, #02) avec quota maximal de patients par vacation."}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-parameters for Mode 0 (Time Slots) */}
+                {bookingSystem.booking_mode === 0 && (
+                  <div style={{
+                    background: "var(--bg, #f8fafc)",
+                    border: "1.5px solid var(--border, #e2e8f0)",
+                    borderRadius: 16,
+                    padding: isMobile ? "16px" : "22px",
+                    marginBottom: 24
+                  }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 800, color: "var(--heading-color)", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <Clock size={18} color="var(--brand)" />
+                      {isRtl ? "إعدادات نظام التوقيت الدقيق" : "Paramètres créneaux"}
+                    </h4>
+                    <div style={{ maxWidth: 360 }}>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--heading-color)", marginBottom: 6 }}>
+                        {isRtl ? "مدة الموعد لكل مريض:" : "Durée par consultation :"}
+                      </label>
+                      <select
+                        value={bookingSystem.timescale}
+                        onChange={e => {
+                          const val = parseInt(e.target.value, 10);
+                          setBookingSystem(prev => ({ ...prev, timescale: val }));
+                          setSchedule(prev => ({ ...prev, timescale: val }));
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          border: "1.5px solid var(--border)",
+                          background: "var(--card-bg)",
+                          color: "var(--heading-color)",
+                          fontSize: 14,
+                          outline: "none"
+                        }}
+                      >
+                        <option value={10}>10 {isRtl ? "دقائق" : "minutes"}</option>
+                        <option value={15}>15 {isRtl ? "دقيقة" : "minutes"}</option>
+                        <option value={20}>20 {isRtl ? "دقيقة" : "minutes"}</option>
+                        <option value={30}>30 {isRtl ? "دقيقة" : "minutes"}</option>
+                        <option value={45}>45 {isRtl ? "دقيقة" : "minutes"}</option>
+                        <option value={60}>60 {isRtl ? "دقيقة (ساعة كاملة)" : "minutes"}</option>
+                      </select>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                        {isRtl ? "تقسّم مواعيد اليوم آلياً بحسب ساعات العمل المعرفة في تاب أوقات الدوام." : "Les créneaux sont calculés selon les horaires définis."}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-parameters for Mode 1 (Queue Numbers & Shifts) */}
+                {bookingSystem.booking_mode === 1 && (
+                  <div style={{
+                    background: "var(--bg, #f8fafc)",
+                    border: "1.5px solid var(--border, #e2e8f0)",
+                    borderRadius: 16,
+                    padding: isMobile ? "16px" : "22px",
+                    marginBottom: 24
+                  }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 800, color: "var(--heading-color)", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <Hash size={18} color="#7c3aed" />
+                      {isRtl ? "إعدادات فترات وسقف نظام القوائم والتذاكر" : "Paramètres des tickets & vacations"}
+                    </h4>
+
+                    {/* Shift Mode Selector: 1 or 2 */}
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--heading-color)", marginBottom: 8 }}>
+                        {isRtl ? "نوع دوام الاستقبال:" : "Type de vacation :"}
+                      </label>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => setBookingSystem(prev => ({ ...prev, shift_mode: 1 }))}
+                          style={{
+                            padding: "9px 18px",
+                            borderRadius: 10,
+                            border: bookingSystem.shift_mode === 1 ? "1.5px solid #7c3aed" : "1.5px solid var(--border)",
+                            background: bookingSystem.shift_mode === 1 ? "rgba(124, 58, 237, 0.12)" : "var(--card-bg)",
+                            color: bookingSystem.shift_mode === 1 ? "#7c3aed" : "var(--text-secondary)",
+                            fontWeight: bookingSystem.shift_mode === 1 ? 800 : 600,
+                            fontSize: 13,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6
+                          }}
+                        >
+                          {bookingSystem.shift_mode === 1 && <CheckCircle2 size={14} />}
+                          {isRtl ? "فترة دوام واحدة باليوم" : "Vacation unique"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setBookingSystem(prev => ({ ...prev, shift_mode: 2 }))}
+                          style={{
+                            padding: "9px 18px",
+                            borderRadius: 10,
+                            border: bookingSystem.shift_mode === 2 ? "1.5px solid #7c3aed" : "1.5px solid var(--border)",
+                            background: bookingSystem.shift_mode === 2 ? "rgba(124, 58, 237, 0.12)" : "var(--card-bg)",
+                            color: bookingSystem.shift_mode === 2 ? "#7c3aed" : "var(--text-secondary)",
+                            fontWeight: bookingSystem.shift_mode === 2 ? 800 : 600,
+                            fontSize: 13,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6
+                          }}
+                        >
+                          {bookingSystem.shift_mode === 2 && <CheckCircle2 size={14} />}
+                          {isRtl ? "فترتان (صباحية + مسائية)" : "2 vacations (Matin + Soir)"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Capacities Grid */}
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr" : (bookingSystem.shift_mode === 2 ? "1fr 1fr" : "1fr"),
+                      gap: 16,
+                      marginBottom: 18
+                    }}>
+                      {/* Morning Capacity */}
+                      <div style={{
+                        background: "var(--card-bg)",
+                        padding: "14px 16px",
+                        borderRadius: 12,
+                        border: "1px solid var(--border)"
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "#d97706", fontWeight: 800, fontSize: 13 }}>
+                          <Sun size={15} />
+                          {bookingSystem.shift_mode === 2 ? (isRtl ? "سقف الفترة الصباحية" : "Quota Matin") : (isRtl ? "سقف المرضى اليومي" : "Quota journalier")}
+                        </div>
+                        <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                          {isRtl ? "أقصى عدد تذاكر/مرضى مسموح به:" : "Nombre max de tickets autorisés :"}
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={200}
+                          value={bookingSystem.morning_capacity}
+                          onChange={e => setBookingSystem(prev => ({ ...prev, morning_capacity: parseInt(e.target.value, 10) || 1 }))}
+                        />
+                      </div>
+
+                      {/* Evening Capacity (if shift_mode === 2) */}
+                      {bookingSystem.shift_mode === 2 && (
+                        <div style={{
+                          background: "var(--card-bg)",
+                          padding: "14px 16px",
+                          borderRadius: 12,
+                          border: "1px solid var(--border)"
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "#6366f1", fontWeight: 800, fontSize: 13 }}>
+                            <Moon size={15} />
+                            {isRtl ? "سقف الفترة المسائية" : "Quota Soir"}
+                          </div>
+                          <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                            {isRtl ? "أقصى عدد تذاكر/مرضى مسموح به:" : "Nombre max de tickets autorisés :"}
+                          </label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={200}
+                            value={bookingSystem.evening_capacity}
+                            onChange={e => setBookingSystem(prev => ({ ...prev, evening_capacity: parseInt(e.target.value, 10) || 1 }))}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Consultation avg duration & Overbooking */}
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, alignItems: "center" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--heading-color)", marginBottom: 6 }}>
+                          {isRtl ? "متوسط وقت الفحص لكل مريض:" : "Temps moyen par consultation :"}
+                        </label>
+                        <select
+                          value={bookingSystem.timescale}
+                          onChange={e => {
+                            const val = parseInt(e.target.value, 10);
+                            setBookingSystem(prev => ({ ...prev, timescale: val }));
+                            setSchedule(prev => ({ ...prev, timescale: val }));
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            border: "1.5px solid var(--border)",
+                            background: "var(--card-bg)",
+                            color: "var(--heading-color)",
+                            fontSize: 14,
+                            outline: "none"
+                          }}
+                        >
+                          <option value={10}>10 {isRtl ? "دقائق" : "min"}</option>
+                          <option value={15}>15 {isRtl ? "دقيقة" : "min"}</option>
+                          <option value={20}>20 {isRtl ? "دقيقة" : "min"}</option>
+                          <option value={30}>30 {isRtl ? "دقيقة" : "min"}</option>
+                        </select>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                          {isRtl ? "يُستخدم لحساب وقت الانتظار التقديري للمريض تلقائياً." : "Utilisé pour estimer le temps d'attente."}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label
+                          onClick={() => setBookingSystem(prev => ({ ...prev, allow_overbooking: !prev.allow_overbooking }))}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            cursor: "pointer",
+                            padding: "12px",
+                            background: "var(--card-bg)",
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            marginTop: isMobile ? 0 : 20
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(bookingSystem.allow_overbooking)}
+                            onChange={e => setBookingSystem(prev => ({ ...prev, allow_overbooking: e.target.checked }))}
+                            style={{ width: 18, height: 18, accentColor: "#7c3aed", cursor: "pointer" }}
+                          />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--heading-color)" }}>
+                              {isRtl ? "السماح بحالات الطوارئ بعد الامتلاء" : "Autoriser urgences après quota"}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                              {isRtl ? "إمكانية إدراج مريض طارئ حتى وإن اكتمل سقف التذاكر اليومي" : "Permet d'ajouter une urgence si le quota est atteint"}
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <Btn
+                  type="submit"
+                  loading={savingBookingSystem}
+                  style={{
+                    padding: "12px 30px",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    borderRadius: 12,
+                    background: bookingSystem.booking_mode === 1 ? "linear-gradient(135deg, #7c3aed, #6d28d9)" : "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)"
+                  }}
+                >
+                  <Save size={17} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} />
+                  {isRtl ? "حفظ نظام إدارة المواعيد لهذا المقر" : "Enregistrer le mode de gestion"}
                 </Btn>
               </form>
             </Card>
