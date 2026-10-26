@@ -2654,33 +2654,6 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24, maxWidth: 360 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--heading-color)", marginBottom: 6 }}>
-                    {isRtl ? "مدة الموعد لكل مريض" : "Durée par consultation"}
-                  </label>
-                  <select
-                    value={schedule.timescale}
-                    onChange={e => setSchedule(s => ({ ...s, timescale: parseInt(e.target.value, 10) }))}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: 10,
-                      border: "1.5px solid var(--border)",
-                      background: "var(--card-bg)",
-                      color: "var(--heading-color)",
-                      fontSize: 14,
-                      outline: "none"
-                    }}
-                  >
-                    <option value={10}>10 {isRtl ? "دقائق" : "minutes"}</option>
-                    <option value={15}>15 {isRtl ? "دقيقة" : "minutes"}</option>
-                    <option value={20}>20 {isRtl ? "دقيقة" : "minutes"}</option>
-                    <option value={30}>30 {isRtl ? "دقيقة" : "minutes"}</option>
-                    <option value={45}>45 {isRtl ? "دقيقة" : "minutes"}</option>
-                    <option value={60}>60 {isRtl ? "دقيقة (ساعة كاملة)" : "minutes"}</option>
-                  </select>
-                </div>
-
                 <Btn type="submit" loading={savingSchedule} style={{ padding: "12px 28px", fontSize: 14, borderRadius: 10 }}>
                   <Save size={17} style={{ [isRtl ? "marginLeft" : "marginRight"]: 6 }} />
                   {isRtl ? "حفظ أوقات العمل لهذا المقر" : "Enregistrer les horaires"}
