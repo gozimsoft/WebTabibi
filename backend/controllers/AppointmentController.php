@@ -312,8 +312,34 @@ class AppointmentController
     {
         $pdo = Database::getInstance();
         $cdId = trim($_GET['clinics_doctor_id'] ?? '');
+        $clinicId = trim($_GET['clinic_id'] ?? '');
         $date = trim($_GET['date'] ?? date('Y-m-d'));
         $shiftType = trim($_GET['shift_type'] ?? '');
+
+        if (!$cdId) {
+            try {
+                $session = AuthMiddleware::authenticate();
+                if ($session && !empty($session['user_id'])) {
+                    $doctorId = null;
+                    if ($session['user_type'] === 1) {
+                        $docStmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+                        $docStmt->execute([$session['user_id']]);
+                        $doctorId = $docStmt->fetchColumn();
+                    }
+                    if ($doctorId) {
+                        if ($clinicId && $clinicId !== 'all') {
+                            $cdStmt = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE clinic_id = ? AND doctor_id = ? LIMIT 1");
+                            $cdStmt->execute([$clinicId, $doctorId]);
+                            $cdId = $cdStmt->fetchColumn() ?: '';
+                        } else {
+                            $cdStmt = $pdo->prepare("SELECT id FROM clinicsdoctors WHERE doctor_id = ? ORDER BY id ASC LIMIT 1");
+                            $cdStmt->execute([$doctorId]);
+                            $cdId = $cdStmt->fetchColumn() ?: '';
+                        }
+                    }
+                }
+            } catch (Throwable $e) {}
+        }
 
         if (!$cdId) {
             Response::error('clinics_doctor_id مطلوب.', 422);

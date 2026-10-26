@@ -713,6 +713,7 @@ export default function AppointmentManager({ navigate, user }) {
   const [liveQueue, setLiveQueue] = useState(null);
   const [clinics, setClinics] = useState([]);
   const [selectedClinicId, setSelectedClinicId] = useState("all");
+  const [shiftFilter, setShiftFilter] = useState("all"); // 'all' | 'morning' | 'evening'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doctorFullName, setDoctorFullName] = useState(() => user?.profile?.fullname || user?.fullname || "");
   const [showStats, setShowStats] = useState(() => {
@@ -801,7 +802,7 @@ export default function AppointmentManager({ navigate, user }) {
     return true;
   };
 
-  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false) => {
+  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false, shift = shiftFilter) => {
     if (Number(user?.user_type) !== 1) return;
     if (!silent) {
       if (isRefresh) setRefreshing(true);
@@ -829,10 +830,14 @@ export default function AppointmentManager({ navigate, user }) {
       const isQueue = Number(res?.settings?.booking_mode) === 1 || incoming.some(a => a.token_number !== null && a.token_number !== undefined);
       if (isQueue) {
         try {
-          const lqRes = await api.doctor.getLiveQueueStatus({
+          const lqParams = {
             clinic_id: clinicId !== "all" ? clinicId : undefined,
             date: dateFrom || new Date().toISOString().slice(0, 10)
-          });
+          };
+          if (shift && shift !== "all") {
+            lqParams.shift_type = shift;
+          }
+          const lqRes = await api.doctor.getLiveQueueStatus(lqParams);
           if (lqRes?.status === "success" && lqRes?.data) {
             setLiveQueue(lqRes.data);
           }
@@ -874,6 +879,12 @@ export default function AppointmentManager({ navigate, user }) {
       fetchAppointments(false, selectedClinicId);
     }
   }, [selectedClinicId]);
+
+  useEffect(() => {
+    if (selectedClinicId) {
+      fetchAppointments(false, selectedClinicId, true, shiftFilter);
+    }
+  }, [shiftFilter]);
 
   // ── مزامنة ذكية شبه فورية في الخلفية (Real-Time Auto-Sync)
   useEffect(() => {
@@ -983,6 +994,7 @@ export default function AppointmentManager({ navigate, user }) {
   };
 
   const isQueueMode = Number(scheduleSettings?.booking_mode) === 1 || appointments.some(a => a.token_number !== null && a.token_number !== undefined);
+  const isDoubleShift = Number(scheduleSettings?.shift_mode) === 2;
 
   const STATUS_LABELS = {
     0: t("appt_mgr_status_booked"),
@@ -1008,11 +1020,27 @@ export default function AppointmentManager({ navigate, user }) {
     const apptDate = (a.apointementdate || a.date || "").slice(0, 10);
     const matchesFrom = !dateFrom || apptDate >= dateFrom;
     const matchesTo = !dateTo || apptDate <= dateTo;
-    return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a);
+    const matchesShift = !isQueueMode || !isDoubleShift || shiftFilter === "all" || (a.shift_type || "morning") === shiftFilter;
+    return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a) && matchesShift;
   });
 
   // ترتيب قائمة المواعيد المصفاة في وضع العرض كقائمة
   const sortedFiltered = [...filtered].sort((a, b) => {
+    if (isQueueMode) {
+      const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).setHours(0,0,0,0) || 0;
+      const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).setHours(0,0,0,0) || 0;
+      if (da !== db) return sortBy === "date_desc" ? db - da : da - db;
+      if (sortBy === "name_asc") {
+        return (a.patientname || "").localeCompare(b.patientname || "", i18n.language === "ar" ? "ar" : "fr");
+      }
+      if (sortBy === "status") {
+        return Number(a.status) - Number(b.status);
+      }
+      if (a.shift_type !== b.shift_type) {
+        return (a.shift_type === 'morning' ? -1 : 1);
+      }
+      return (Number(a.token_number) || 0) - (Number(b.token_number) || 0);
+    }
     if (sortBy === "date_asc") {
       const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).getTime() || 0;
       const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).getTime() || 0;
@@ -1342,7 +1370,7 @@ export default function AppointmentManager({ navigate, user }) {
                     <Plus size={14} /> إضافة مريض حاضر
                   </button>
                   <button
-                    onClick={() => navigate("/clinics?tab=appointment_settings")}
+                    onClick={() => navigate("/clinics?tab=booking_system")}
                     style={{
                       background: "rgba(255, 255, 255, 0.16)",
                       color: "#ffffff",
@@ -1363,6 +1391,65 @@ export default function AppointmentManager({ navigate, user }) {
                   </button>
                 </div>
               </div>
+
+              {/* Shift Selector Tabs for Double Shift Mode */}
+              {isDoubleShift && (
+                <div style={{
+                  display: "flex",
+                  gap: 8,
+                  background: "rgba(255, 255, 255, 0.12)",
+                  padding: "4px",
+                  borderRadius: 14,
+                  marginBottom: 16,
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)"
+                }}>
+                  {[
+                    { key: "all", label: isRtl ? "جميع الفترات (طوال اليوم)" : "Toutes les périodes", icon: <Users size={14} />, count: appointments.filter(clinicFilter).length },
+                    { key: "morning", label: isRtl ? "الفترة الصباحية" : "Période du matin", icon: <Sun size={14} />, count: appointments.filter(a => clinicFilter(a) && (a.shift_type || 'morning') === 'morning').length },
+                    { key: "evening", label: isRtl ? "الفترة المسائية" : "Période du soir", icon: <Moon size={14} />, count: appointments.filter(a => clinicFilter(a) && a.shift_type === 'evening').length },
+                  ].map(({ key, label, icon, count }) => {
+                    const active = shiftFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setShiftFilter(key)}
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          padding: "8px 12px",
+                          borderRadius: 10,
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          background: active ? "#ffffff" : "transparent",
+                          color: active ? "#6d28d9" : "#ffffff",
+                          boxShadow: active ? "0 4px 12px rgba(0,0,0,0.18)" : "none",
+                          transition: "all 0.18s ease"
+                        }}
+                      >
+                        {icon}
+                        <span>{label}</span>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 900,
+                          padding: "1px 6px",
+                          borderRadius: 12,
+                          background: active ? "rgba(109, 40, 217, 0.12)" : "rgba(255, 255, 255, 0.2)",
+                          color: active ? "#6d28d9" : "#ffffff"
+                        }}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Desk Interaction Grid: Serving Now vs Next in Line */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
@@ -1700,18 +1787,20 @@ export default function AppointmentManager({ navigate, user }) {
 
               {/* View Toggle & Full Screen */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
-                  {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
-                    <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
-                      display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                      borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                      background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
-                      color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
-                      boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
-                      transition: "all 0.18s",
-                    }}><Icon size={16} />{label}</button>
-                  ))}
-                </div>
+                {!isQueueMode && (
+                  <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
+                    {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
+                      <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                        borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                        background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
+                        color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
+                        boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
+                        transition: "all 0.18s",
+                      }}><Icon size={16} />{label}</button>
+                    ))}
+                  </div>
+                )}
 
                 <button
                   onClick={toggleFullscreen}
@@ -1846,7 +1935,7 @@ export default function AppointmentManager({ navigate, user }) {
 
           {loading && !refreshing ? (
             <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
-          ) : viewMode === "calendar" ? (
+          ) : (!isQueueMode && viewMode === "calendar") ? (
             <WeeklyScheduleView
               appointments={calendarAppointments}
               settings={scheduleSettings}
@@ -1860,10 +1949,16 @@ export default function AppointmentManager({ navigate, user }) {
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "80px 20px", background: "var(--card-bg, #fff)", borderRadius: 24, boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.02))", border: "1px solid var(--border, transparent)" }}>
               <Calendar size={64} color="var(--text-muted, #cbd5e1)" style={{ marginBottom: 16 }} />
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>{t("appt_mgr_no_appointments")}</h3>
-              <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>{t("appt_mgr_no_appointments_desc")}</p>
-              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <Plus size={16} /> {t("appt_mgr_register_first_appt")}
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>
+                {isQueueMode && shiftFilter !== "all"
+                  ? (shiftFilter === "morning" ? (isRtl ? "لا توجد تذاكر في الفترة الصباحية" : "Aucun ticket le matin") : (isRtl ? "لا توجد تذاكر في الفترة المسائية" : "Aucun ticket le soir"))
+                  : t("appt_mgr_no_appointments")}
+              </h3>
+              <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>
+                {isQueueMode ? (isRtl ? "يمكنك حجز تذكرة دور جديدة للمريض بالضغط على الزر أدناه" : "Enregistrez un ticket pour la file d'attente") : t("appt_mgr_no_appointments_desc")}
+              </p>
+              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: isQueueMode ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Plus size={16} /> {isQueueMode ? (isRtl ? "حجز تذكرة دور جديدة" : "Nouveau ticket") : t("appt_mgr_register_first_appt")}
               </button>
             </div>
           ) : (
