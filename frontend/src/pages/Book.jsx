@@ -147,7 +147,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
     try {
       const body = { clinics_doctor_id: doctor.clinicsdoctor_id, date };
       if (bookingMode === 'queue') {
-        body.shift_type = selectedShift?.type || 'morning';
+        body.shift_type = selectedShift?.shift_type || selectedShift?.type || 'morning';
       } else {
         body.time = selSlot;
       }

@@ -11,7 +11,8 @@ import {
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
   FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale, Laptop,
-  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink, Sliders
+  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink, Sliders,
+  Ticket, Hash
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -5212,6 +5213,11 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState([]);
   const [selSlot, setSlot] = useState("");
+  // Queue mode state
+  const [bookingMode, setBookingMode] = useState("slots"); // "slots" | "queue"
+  const [queueShifts, setQueueShifts] = useState([]);
+  const [selectedShift, setSelectedShift] = useState(null);
+  const [bookingResult, setBookingResult] = useState(null);
   const [loading, setL] = useState(false);
   const [slotsLoad, setSL] = useState(false);
   const [initLoad, setInitL] = useState(true);
@@ -5292,14 +5298,41 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   const fetchSlots = async (d) => {
     if (!doctor?.clinicsdoctor_id) return;
-    setSL(true); setSlots([]); setSlot("");
+    setSL(true);
+    setSlots([]);
+    setSlot("");
+    setQueueShifts([]);
+    setSelectedShift(null);
     try {
       const s = await api.appointments.slots({ clinics_doctor_id: doctor.clinicsdoctor_id, date: d });
-      setSlots(s.slots || []);
-      if (!(s.slots || []).length) show("لا توجد أوقات متاحة في هذا اليوم — جرب تاريخًا آخر", "error");
+      const mode = s.booking_mode || (s.shifts ? "queue" : "slots");
+      setBookingMode(mode);
 
-    } catch (e) { show(e.message, "error"); }
-    finally { setSL(false); }
+      if (mode === "queue") {
+        const shifts = s.shifts || [];
+        setQueueShifts(shifts);
+        const available = shifts.find(sh => !sh.is_full) || shifts[0];
+        if (available) {
+          setSelectedShift(available);
+          setSlot(available.estimated_time_for_next || available.start_time || "08:30");
+        }
+        if (!shifts.length) {
+          show(i18n.language === 'ar' ? "لا توجد فترات عمل متاحة في هذا اليوم — جرب تاريخاً آخر" : "Aucun créneau disponible ce jour — essayez une autre date", "error");
+        } else if (shifts.every(sh => sh.is_full)) {
+          show(i18n.language === 'ar' ? "اكتملت جميع قوائم الحجز لهذا اليوم — جرب تاريخاً آخر" : "Toutes les listes sont complètes pour ce jour — essayez une autre date", "error");
+        }
+      } else {
+        const availableSlots = s.slots || [];
+        setSlots(availableSlots);
+        if (!availableSlots.length) {
+          show(i18n.language === 'ar' ? "لا توجد أوقات متاحة في هذا اليوم — جرب تاريخاً آخر" : "Aucun horaire disponible ce jour — essayez une autre date", "error");
+        }
+      }
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setSL(false);
+    }
   };
 
   const confirmBook = async () => {
@@ -5308,13 +5341,19 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       const body = {
         clinics_doctor_id: doctor.clinicsdoctor_id,
         date,
-        time: selSlot,
         consent_health: agreed ? 1 : 0
       };
+      if (bookingMode === 'queue') {
+        body.shift_type = selectedShift?.shift_type || selectedShift?.type || 'morning';
+        body.time = selSlot || selectedShift?.estimated_time_for_next || '08:30';
+      } else {
+        body.time = selSlot;
+      }
       if (reason) body.doctors_reason_id = reason.id;
       if (activePat.id) body.patient_id = activePat.id;
       if (patientMessage) body.message = patientMessage;
-      await api.appointments.book(body);
+      const res = await api.appointments.book(body);
+      setBookingResult(res);
       analytics.track("booking_completed", { doctor_id, clinic_id: selectedClinicId, date });
       setStep(7);
     } catch (e) {
@@ -5816,12 +5855,157 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             )}
           </div>
 
-          {/* Time slots grid */}
-          {date && (
+          {/* Time slots / Queue shifts */}
+          {date ? (
             <div>
-              <label style={{ display: "block", marginBottom: 10, fontWeight: 700, fontSize: 13, color: "#374151" }}>{t("avail_times")}</label>
-              {slotsLoad ? <div style={{ padding: "20px 0" }}><Spinner /></div> : (
+              {slotsLoad ? (
+                <div style={{ padding: "30px 0", textAlign: "center" }}><Spinner /></div>
+              ) : bookingMode === 'queue' ? (
+                <div>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 16,
+                    padding: "12px 16px",
+                    borderRadius: 14,
+                    background: "linear-gradient(135deg, rgba(8, 145, 178, 0.08), rgba(14, 116, 144, 0.03))",
+                    border: "1px solid rgba(8, 145, 178, 0.2)"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        background: "var(--brand)", color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                      }}>
+                        <Ticket size={20} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: "var(--heading-color, #0c4a6e)" }}>
+                          {i18n.language === 'ar' ? "نظام الحجز بالتذاكر والقوائم (أسبقية الحضور)" : "Système de file d'attente (par ticket)"}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted, #64748b)", marginTop: 2 }}>
+                          {i18n.language === 'ar' ? "اختر الفترة ليتم حجز رقم تذكرتك وتحديد وقت تقديري للدخول" : "Sélectionnez votre période pour réserver votre numéro de passage"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {queueShifts.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 0", color: "#9ca3af", background: "var(--bg)", borderRadius: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                        <Mail size={44} color="#cbd5e1" />
+                      </div>
+                      <div style={{ fontWeight: 600 }}>{i18n.language === 'ar' ? "لا توجد فترات عمل متاحة في هذا اليوم" : "Aucune période disponible ce jour"}</div>
+                      <div style={{ fontSize: 12, marginTop: 4 }}>{i18n.language === 'ar' ? "يرجى تجربة تاريخ آخر من الأيام المتاحة أعلاه" : "Veuillez essayer une autre date ci-dessus"}</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {queueShifts.map((sh, idx) => {
+                        const isSelected = (selectedShift?.shift_type || selectedShift?.type) === (sh.shift_type || sh.type);
+                        const isFull = !!sh.is_full;
+                        const capacity = Number(sh.capacity) || 25;
+                        const booked = Number(sh.booked_count) || 0;
+                        const remaining = sh.remaining !== undefined ? Number(sh.remaining) : Math.max(0, capacity - booked);
+                        const percentBooked = capacity > 0 ? Math.min(100, Math.round((booked / capacity) * 100)) : 0;
+                        const isEvening = (sh.shift_type || sh.type) === 'evening';
+
+                        return (
+                          <div
+                            key={sh.shift_type || sh.type || idx}
+                            onClick={() => {
+                              if (!isFull) {
+                                setSelectedShift(sh);
+                                setSlot(sh.estimated_time_for_next || sh.start_time || "08:30");
+                              }
+                            }}
+                            style={{
+                              padding: "16px 20px",
+                              borderRadius: 16,
+                              border: isSelected ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
+                              background: isSelected ? "linear-gradient(135deg, rgba(8, 145, 178, 0.08), rgba(6, 182, 212, 0.03))" : isFull ? "var(--bg-card, #f8fafc)" : "var(--card-bg, #ffffff)",
+                              cursor: isFull ? "not-allowed" : "pointer",
+                              opacity: isFull ? 0.65 : 1,
+                              transition: "all 0.2s ease",
+                              boxShadow: isSelected ? "0 4px 18px rgba(8, 145, 178, 0.18)" : "none",
+                              transform: isSelected ? "scale(1.01)" : "none"
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={{
+                                  width: 38, height: 38, borderRadius: 12,
+                                  background: isSelected ? "var(--brand)" : "rgba(8, 145, 178, 0.12)",
+                                  color: isSelected ? "#fff" : "var(--brand)",
+                                  display: "flex", alignItems: "center", justifyContent: "center"
+                                }}>
+                                  {isEvening ? <Moon size={20} /> : <Sun size={20} />}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 800, fontSize: 15, color: isSelected ? "var(--brand)" : "var(--heading-color, #0c4a6e)" }}>
+                                    {sh.label || (isEvening ? (i18n.language === 'ar' ? 'الفترة المسائية' : 'Période du soir') : (i18n.language === 'ar' ? 'الفترة الصباحية' : 'Période du matin'))}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: "var(--text-muted, #64748b)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                                    <Clock size={13} />
+                                    <span>{sh.start_time?.slice(0, 5)} - {sh.end_time?.slice(0, 5)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                {isFull ? (
+                                  <span style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800 }}>
+                                    {i18n.language === 'ar' ? "القائمة مكتملة" : "Complet"}
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    background: isSelected ? "var(--brand)" : "rgba(8, 145, 178, 0.1)",
+                                    color: isSelected ? "#ffffff" : "var(--brand)",
+                                    padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800
+                                  }}>
+                                    {i18n.language === 'ar' ? `المتبقي: ${remaining} من ${capacity}` : `${remaining}/${capacity} places`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Capacity Progress Bar */}
+                            <div style={{ height: 6, width: "100%", background: "#e2e8f0", borderRadius: 4, overflow: "hidden", margin: "10px 0" }}>
+                              <div style={{
+                                height: "100%",
+                                width: `${percentBooked}%`,
+                                background: isFull ? "#ef4444" : isSelected ? "var(--brand)" : "#0ea5e9",
+                                borderRadius: 4,
+                                transition: "width 0.3s ease"
+                              }} />
+                            </div>
+
+                            {/* Next ticket and estimated time indicator */}
+                            {!isFull && (
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginTop: 6, flexWrap: "wrap", gap: 6 }}>
+                                <span style={{
+                                  color: isSelected ? "var(--brand)" : "#0c4a6e",
+                                  fontWeight: 800,
+                                  display: "flex", alignItems: "center", gap: 5,
+                                  background: "rgba(8, 145, 178, 0.08)",
+                                  padding: "3px 10px", borderRadius: 8
+                                }}>
+                                  <Hash size={13} /> {i18n.language === 'ar' ? "رقم التذكرة القادم:" : "Prochain ticket:"} <strong>#{sh.next_token || (booked + 1)}</strong>
+                                </span>
+                                <span style={{ color: "#475569", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                                  <Clock size={13} color="var(--brand)" /> {i18n.language === 'ar' ? "الوقت التقديري للدخول:" : "Heure estimée:"} <strong>~{sh.estimated_time_for_next || sh.start_time}</strong>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <>
+                  <label style={{ display: "block", marginBottom: 10, fontWeight: 700, fontSize: 13, color: "#374151" }}>{t("avail_times")}</label>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(76px,1fr))", gap: 8 }}>
                     {slots.map(s => (
                       <div key={s} onClick={() => setSlot(s)}
@@ -5850,19 +6034,20 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 </>
               )}
             </div>
-          )}
-          <div style={{ textAlign: "center", padding: "28px 0", color: "#9ca3af", background: "var(--bg)", borderRadius: 12 }}>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-              <Calendar size={34} color="#cbd5e1" />
+          ) : (
+            <div style={{ textAlign: "center", padding: "28px 0", color: "#9ca3af", background: "var(--bg)", borderRadius: 12 }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                <Calendar size={34} color="#cbd5e1" />
+              </div>
+              <div>{t("select_date_first")}</div>
             </div>
-            <div>{t("select_date_first")}</div>
-          </div>
+          )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); setQueueShifts([]); setSelectedShift(null); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn
               onClick={() => setStep(5)}
-              disabled={!selSlot || !date}
+              disabled={!date || (bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full) : !selSlot)}
               style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}
             >
               {t("next")}
@@ -5947,7 +6132,14 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               [<User size={18} />, t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
               [<ClipboardList size={18} />, t("step_reason"), (reason?.reason_name || reason?.Reason || reason?.reasons || reason?.motif) || "—"],
               [<Calendar size={18} />, t("date"), date],
-              [<Clock size={18} />, t("time"), selSlot],
+              ...(bookingMode === 'queue' ? [
+                [<Ticket size={18} />, i18n.language === 'ar' ? "نظام الحجز" : "Type de réservation", i18n.language === 'ar' ? "نظام التذاكر والقوائم (أسبقية الحضور)" : "File d'attente / Tickets"],
+                [<Sun size={18} />, i18n.language === 'ar' ? "الفترة" : "Période", selectedShift?.label || ((selectedShift?.shift_type || selectedShift?.type) === 'evening' ? (i18n.language === 'ar' ? 'الفترة المسائية' : 'Soir') : (i18n.language === 'ar' ? 'الفترة الصباحية' : 'Matin'))],
+                [<Hash size={18} />, i18n.language === 'ar' ? "رقم التذكرة المتوقع" : "Numéro de ticket prévu", `#${selectedShift?.next_token || '—'}`],
+                [<Clock size={18} />, i18n.language === 'ar' ? "الوقت التقديري للدخول" : "Heure estimée", `~ ${selSlot || selectedShift?.estimated_time_for_next || '08:30'}`],
+              ] : [
+                [<Clock size={18} />, t("time"), selSlot],
+              ]),
               ...(+doctor.pricing > 0 ? [[<CreditCard size={18} />, t("consultation_fee"), `${doctor.pricing} ${t("currency")}`]] : []),
               ...(patientMessage ? [[<MessageSquare size={18} />, i18n.language === 'ar' ? "الرسالة" : "Message", patientMessage]] : []),
               ...(attachment ? [[<Paperclip size={18} />, i18n.language === 'ar' ? "المرفقات" : "Pièce jointe", attachment.name]] : []),
@@ -6031,14 +6223,21 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           <h2 style={{ color: "#059669", fontSize: 24, fontWeight: 900, margin: "0 0 10px" }}>
             {t("success_title")}
           </h2>
-          <div style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.8, marginBottom: 28 }}>
+          <div style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.8, marginBottom: 20 }}>
             {t("success_msg")}{" "}
             <strong style={{ color: "#0c4a6e" }}>{doctor?.fullname || docInfo?.fullname}</strong>
             <br />
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, justifyContent: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Calendar size={16} color="#6b7280" />
-                <span>{t("day")} <strong style={{ color: "var(--brand)" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong> {t("at_time")} <strong style={{ color: "var(--brand)" }}>{selSlot}</strong></span>
+                <span>
+                  {t("day")} <strong style={{ color: "var(--brand)" }}>{new Date(date).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : (i18n.language === 'fr' ? 'fr-FR' : 'en-US'), { weekday: 'long' })} {date}</strong>
+                  {bookingMode === 'queue' ? (
+                    <> {i18n.language === 'ar' ? "— الوقت التقديري للدخول:" : "— Heure estimée:"} <strong style={{ color: "var(--brand)" }}>~{bookingResult?.estimated_time || selectedShift?.estimated_time_for_next || selSlot}</strong></>
+                  ) : (
+                    <> {t("at_time")} <strong style={{ color: "var(--brand)" }}>{selSlot}</strong></>
+                  )}
+                </span>
               </div>
               <GoogleCalendarButton
                 appointment={{
@@ -6053,6 +6252,48 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
               />
             </div>
           </div>
+
+          {/* Digital Queue Ticket Card if queue mode */}
+          {((bookingResult && bookingResult.token_number) || bookingMode === 'queue') && (
+            <div style={{
+              maxWidth: 420,
+              margin: "0 auto 26px",
+              background: "linear-gradient(135deg, #0c4a6e 0%, #0891b2 100%)",
+              borderRadius: 20,
+              padding: "24px 22px",
+              color: "#fff",
+              boxShadow: "0 12px 36px rgba(8, 145, 178, 0.35)",
+              position: "relative",
+              overflow: "hidden",
+              border: "2px dashed rgba(255, 255, 255, 0.4)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, borderBottom: "1px solid rgba(255, 255, 255, 0.2)", paddingBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "rgba(255, 255, 255, 0.9)" }}>
+                  <Ticket size={18} /> {i18n.language === 'ar' ? "تذكرة الحجز الإلكترونية" : "Ticket de rendez-vous"}
+                </div>
+                <span style={{ fontSize: 11, background: "rgba(255, 255, 255, 0.2)", padding: "2px 10px", borderRadius: 12, fontWeight: 700 }}>
+                  {(bookingResult?.shift_type || selectedShift?.shift_type) === 'evening' ? (i18n.language === 'ar' ? 'الفترة المسائية' : 'Période du soir') : (i18n.language === 'ar' ? 'الفترة الصباحية' : 'Période du matin')}
+                </span>
+              </div>
+
+              <div style={{ textAlign: "center", margin: "16px 0" }}>
+                <div style={{ fontSize: 13, color: "rgba(255, 255, 255, 0.8)", marginBottom: 4 }}>
+                  {i18n.language === 'ar' ? "رقم تذكرتك في العيادة" : "Votre numéro de passage"}
+                </div>
+                <div style={{ fontSize: 52, fontWeight: 900, letterSpacing: 2, textShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                  #{bookingResult?.token_number || selectedShift?.next_token || "1"}
+                </div>
+                <div style={{ fontSize: 13, color: "rgba(255, 255, 255, 0.9)", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Clock size={15} />
+                  <span>{i18n.language === 'ar' ? "الوقت التقديري للدخول:" : "Heure estimée:"} <strong>~{bookingResult?.estimated_time || selectedShift?.estimated_time_for_next || selSlot}</strong></span>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11, color: "rgba(255, 255, 255, 0.8)", textAlign: "center", borderTop: "1px solid rgba(255, 255, 255, 0.2)", paddingTop: 10, lineHeight: 1.5 }}>
+                {i18n.language === 'ar' ? "يرجى التواجد بالعيادة قبل الوقت التقديري ومتابعة رقمك على شاشة الانتظار" : "Veuillez vous présenter avant l'heure estimée et suivre votre numéro sur l'écran"}
+              </div>
+            </div>
+          )}
 
           {/* Mini summary badge */}
           <div style={{

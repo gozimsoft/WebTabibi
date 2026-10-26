@@ -573,11 +573,14 @@ class AppointmentController
         $weekBegin = (int) ($settings['weekbeginday'] ?? 0); // 0=Mon...6=Sun
         $countdays = (int) ($settings['countdays'] ?? 30);
 
+        $bookingMode = (int)($settings['booking_mode'] ?? 0);
+        $modeStr     = $bookingMode === 1 ? 'queue' : 'slots';
+
         // Check if date is within countdays range
         $today = date('Y-m-d');
         $maxDate = date('Y-m-d', strtotime("+$countdays days"));
         if ($date < $today || $date > $maxDate) {
-            Response::success(['date' => $date, 'slots' => [], 'timescale' => $timescale, 'message' => 'Date hors limite']);
+            Response::success(['booking_mode' => $modeStr, 'date' => $date, 'slots' => [], 'shifts' => [], 'timescale' => $timescale, 'message' => 'Date hors limite']);
             return;
         }
 
@@ -588,11 +591,10 @@ class AppointmentController
         $dayIndex = ($w + 6) % 7;
 
         if (strlen($workingdays) > $dayIndex && $workingdays[$dayIndex] === '0') {
-            Response::success(['booking_mode' => 'slots', 'date' => $date, 'slots' => [], 'timescale' => $timescale]);
+            Response::success(['booking_mode' => $modeStr, 'date' => $date, 'slots' => [], 'shifts' => [], 'timescale' => $timescale]);
             return;
         }
 
-        $bookingMode = (int)($settings['booking_mode'] ?? 0);
         if ($bookingMode === 1) {
             // ── Queue / Numbered booking mode ──────────────────────────
             $shiftMode        = (int)($settings['shift_mode'] ?? 1); // 1 = Single shift, 2 = Double shift
@@ -628,8 +630,8 @@ class AppointmentController
             $shifts = [];
 
             // 1. Morning Shift (or Full Day if single shift)
-            $mBooked    = $shiftCounts['morning']['booked_count'] ?? ($shiftCounts['full_day']['booked_count'] ?? 0);
-            $mMaxTok    = $shiftCounts['morning']['max_token'] ?? ($shiftCounts['full_day']['max_token'] ?? 0);
+            $mBooked    = ($shiftCounts['full_day']['booked_count'] ?? 0) + ($shiftCounts['morning']['booked_count'] ?? 0);
+            $mMaxTok    = max($shiftCounts['full_day']['max_token'] ?? 0, $shiftCounts['morning']['max_token'] ?? 0);
             $mRemaining = max(0, $morningCap - $mBooked);
             $mNextToken = $mMaxTok + 1;
 
@@ -867,26 +869,38 @@ class AppointmentController
             if ($shiftMode === 1) {
                 $shiftType = 'full_day';
                 $capacity  = max(1, (int)($settings['morning_capacity'] ?? 25));
+                $lockQuery = "
+                    SELECT COUNT(*) as active_count, COALESCE(MAX(token_number), 0) as max_token
+                    FROM apointements
+                    WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                      AND DATE(apointementdate) = ?
+                      AND (shift_type IN ('full_day', 'morning') OR shift_type IS NULL)
+                      AND status != 1
+                    FOR UPDATE
+                ";
+                $lockParams = [$cd['doctor_id'], $data['date']];
             } else {
                 $shiftType = (!empty($data['shift_type']) && in_array($data['shift_type'], ['morning', 'evening'])) 
                              ? $data['shift_type'] : 'morning';
                 $capacity  = ($shiftType === 'evening') 
                              ? max(1, (int)($settings['evening_capacity'] ?? 15))
                              : max(1, (int)($settings['morning_capacity'] ?? 25));
+                $lockQuery = "
+                    SELECT COUNT(*) as active_count, COALESCE(MAX(token_number), 0) as max_token
+                    FROM apointements
+                    WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                      AND DATE(apointementdate) = ?
+                      AND shift_type = ?
+                      AND status != 1
+                    FOR UPDATE
+                ";
+                $lockParams = [$cd['doctor_id'], $data['date'], $shiftType];
             }
 
             // Atomic Lock & Number Reservation
             $pdo->beginTransaction();
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) as active_count, COALESCE(MAX(token_number), 0) as max_token
-                FROM apointements
-                WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
-                  AND DATE(apointementdate) = ?
-                  AND shift_type = ?
-                  AND status != 1
-                FOR UPDATE
-            ");
-            $stmt->execute([$cd['doctor_id'], $data['date'], $shiftType]);
+            $stmt = $pdo->prepare($lockQuery);
+            $stmt->execute($lockParams);
             $qInfo = $stmt->fetch(PDO::FETCH_ASSOC);
             $activeCount = (int)($qInfo['active_count'] ?? 0);
             $maxToken    = (int)($qInfo['max_token'] ?? 0);
