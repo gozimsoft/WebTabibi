@@ -468,6 +468,27 @@ class AppointmentController
             $shiftMode = (int)($settings['shift_mode'] ?? 1);
             if ($shiftMode === 1) $shiftType = 'full_day';
 
+            if (!$isEmergency) {
+                $checkPhone = trim($data['phone'] ?? '');
+                if ($checkPhone !== '' || !empty($patientname)) {
+                    $dupStmt = $pdo->prepare("
+                        SELECT token_number FROM apointements
+                        WHERE clinicsdoctor_id = ? AND DATE(apointementdate) = ?
+                          AND status != 1
+                          AND (
+                              (phone = ? AND phone != '') 
+                              OR (LOWER(TRIM(patientname)) = LOWER(TRIM(?)) AND ? != '')
+                          )
+                        LIMIT 1
+                    ");
+                    $dupStmt->execute([$clinicsdoctor_id, $date, $checkPhone, $patientname, $patientname]);
+                    $dupTok = $dupStmt->fetchColumn();
+                    if ($dupTok) {
+                        Response::error("هذا المريض مسجل بالفعل في قائمة انتظار هذا اليوم (تذكرة رقم #{$dupTok}). لا يمكن تسجيل المريض أكثر من مرة.", 409);
+                    }
+                }
+            }
+
             $stmt = $pdo->prepare("
                 SELECT COALESCE(MAX(token_number), 0) as max_token
                 FROM apointements
@@ -595,6 +616,32 @@ class AppointmentController
             return;
         }
 
+        // Check if the patient is already booked on this date with this doctor
+        $patientId = trim($_GET['patient_id'] ?? '');
+        if (!$patientId) {
+            $userSession = AuthMiddleware::authenticate(false);
+            if ($userSession && ((int)($userSession['usertype'] ?? -1) === 0)) {
+                $pStmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
+                $pStmt->execute([$userSession['user_id']]);
+                $patientId = $pStmt->fetchColumn() ?: '';
+            }
+        }
+
+        $existingAppt = null;
+        if (!empty($patientId)) {
+            $chkStmt = $pdo->prepare("
+                SELECT id, token_number, shift_type, estimated_time, apointementdate
+                FROM apointements
+                WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                  AND DATE(apointementdate) = ?
+                  AND patient_id = ?
+                  AND status != 1
+                LIMIT 1
+            ");
+            $chkStmt->execute([$doctor_id, $date, $patientId]);
+            $existingAppt = $chkStmt->fetch(PDO::FETCH_ASSOC);
+        }
+
         if ($bookingMode === 1) {
             // ── Queue / Numbered booking mode ──────────────────────────
             $shiftMode        = (int)($settings['shift_mode'] ?? 1); // 1 = Single shift, 2 = Double shift
@@ -682,11 +729,13 @@ class AppointmentController
             }
 
             Response::success([
-                'booking_mode' => 'queue',
-                'date'         => $date,
-                'timescale'    => $timescale,
-                'shift_mode'   => $shiftMode,
-                'shifts'       => $shifts
+                'booking_mode'         => 'queue',
+                'date'                 => $date,
+                'timescale'            => $timescale,
+                'shift_mode'           => $shiftMode,
+                'shifts'               => $shifts,
+                'already_booked'       => !empty($existingAppt),
+                'existing_appointment' => $existingAppt ?: null,
             ]);
             return;
         }
@@ -745,10 +794,12 @@ class AppointmentController
         }));
 
         Response::success([
-            'booking_mode' => 'slots',
-            'date'         => $date,
-            'slots'        => $available,
-            'timescale'    => $timescale
+            'booking_mode'         => 'slots',
+            'date'                 => $date,
+            'slots'                => $available,
+            'timescale'            => $timescale,
+            'already_booked'       => !empty($existingAppt),
+            'existing_appointment' => $existingAppt ?: null,
         ]);
     }
 
@@ -854,6 +905,42 @@ class AppointmentController
                     Response::notFound('Motif introuvable pour ce médecin');
                 }
                 $reasonName = $reasonRow['name'] ?? 'consultation';
+            }
+        }
+
+        // منع المريض من التسجيل في القائمة أو حجز موعد أكثر من مرة في نفس اليوم لنفس الطبيب
+        if (!empty($patientId)) {
+            $existingApptStmt = $pdo->prepare("
+                SELECT id, apointementdate, token_number, shift_type, estimated_time
+                FROM apointements
+                WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                  AND DATE(apointementdate) = ?
+                  AND patient_id = ?
+                  AND status != 1
+                LIMIT 1
+            ");
+            $existingApptStmt->execute([$cd['doctor_id'], $data['date'], $patientId]);
+        } else {
+            $phone = trim($patient['phone'] ?? ($data['phone'] ?? ''));
+            $existingApptStmt = $pdo->prepare("
+                SELECT id, apointementdate, token_number, shift_type, estimated_time
+                FROM apointements
+                WHERE clinicsdoctor_id IN (SELECT id FROM clinicsdoctors WHERE doctor_id = ?)
+                  AND DATE(apointementdate) = ?
+                  AND phone = ? AND phone != ''
+                  AND status != 1
+                LIMIT 1
+            ");
+            $existingApptStmt->execute([$cd['doctor_id'], $data['date'], $phone]);
+        }
+        $existingAppt = $existingApptStmt->fetch(PDO::FETCH_ASSOC);
+        if ($existingAppt) {
+            if ($bookingMode === 1) {
+                $tok = !empty($existingAppt['token_number']) ? " (تذكرتك الحالية رقم #{$existingAppt['token_number']})" : "";
+                Response::error("أنت مسجل بالفعل في قائمة الانتظار لهذا اليوم لدى هذا الطبيب{$tok}. لا يمكن التسجيل في القائمة أكثر من مرة في نفس اليوم.", 409);
+            } else {
+                $timeFormatted = date('H:i', strtotime($existingAppt['apointementdate']));
+                Response::error("لديك موعد محجوز بالفعل في هذا اليوم لدى هذا الطبيب (الساعة {$timeFormatted}). لا يمكن حجز أكثر من موعد في نفس اليوم.", 409);
             }
         }
 

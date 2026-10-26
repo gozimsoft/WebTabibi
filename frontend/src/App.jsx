@@ -171,7 +171,7 @@ const api = {
   wilayas: () => req("GET", "/wilayas"),
   baladiyas: wilayaId => req("GET", `/baladiyas${wilayaId ? '?wilaya_id=' + encodeURIComponent(wilayaId) : ''}`),
   appointments: {
-    slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, false),
+    slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, true),
     book: b => req("POST", "/appointments", b),
     cancel: id => req("DELETE", `/appointments/${id}`),
   },
@@ -5218,6 +5218,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const [queueShifts, setQueueShifts] = useState([]);
   const [selectedShift, setSelectedShift] = useState(null);
   const [bookingResult, setBookingResult] = useState(null);
+  const [alreadyBooked, setAlreadyBooked] = useState(null);
   const [loading, setL] = useState(false);
   const [slotsLoad, setSL] = useState(false);
   const [initLoad, setInitL] = useState(true);
@@ -5303,10 +5304,29 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     setSlot("");
     setQueueShifts([]);
     setSelectedShift(null);
+    setAlreadyBooked(null);
     try {
-      const s = await api.appointments.slots({ clinics_doctor_id: doctor.clinicsdoctor_id, date: d });
+      const s = await api.appointments.slots({
+        clinics_doctor_id: doctor.clinicsdoctor_id,
+        date: d,
+        patient_id: activePat?.id || ""
+      });
       const mode = s.booking_mode || (s.shifts ? "queue" : "slots");
       setBookingMode(mode);
+
+      if (s.already_booked && s.existing_appointment) {
+        setAlreadyBooked(s.existing_appointment);
+        const tokMsg = s.existing_appointment.token_number
+          ? ` (تذكرة رقم #${s.existing_appointment.token_number})`
+          : "";
+        show(
+          i18n.language === 'ar'
+            ? `أنت مسجل بالفعل في قائمة هذا اليوم لدى هذا الطبيب${tokMsg}. لا يمكن التسجيل أكثر من مرة.`
+            : `Vous êtes déjà inscrit sur la liste de ce jour${tokMsg}.`,
+          "error"
+        );
+        return;
+      }
 
       if (mode === "queue") {
         const shifts = s.shifts || [];
@@ -5860,6 +5880,38 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             <div>
               {slotsLoad ? (
                 <div style={{ padding: "30px 0", textAlign: "center" }}><Spinner /></div>
+              ) : alreadyBooked ? (
+                <div style={{
+                  background: "linear-gradient(135deg, #fffbeb, #fef3c7)",
+                  border: "1.5px solid #f59e0b",
+                  borderRadius: 16,
+                  padding: "24px 22px",
+                  margin: "8px 0 20px",
+                  textAlign: "center"
+                }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: "50%",
+                    background: "#fde68a", color: "#b45309",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 12px"
+                  }}>
+                    <AlertCircle size={26} />
+                  </div>
+                  <h3 style={{ fontSize: 16, fontWeight: 900, color: "#92400e", margin: "0 0 8px" }}>
+                    {i18n.language === 'ar' ? "أنت مسجل بالفعل في هذا اليوم لدى الطبيب!" : "Vous êtes déjà inscrit pour ce jour !"}
+                  </h3>
+                  <p style={{ fontSize: 13, color: "#78350f", margin: "0 0 16px", lineHeight: 1.6 }}>
+                    {i18n.language === 'ar'
+                      ? `لديك حجز مسبق في تاريخ ${date} ${alreadyBooked.token_number ? `(تذكرة رقم #${alreadyBooked.token_number} — الوقت التقديري للدخول: ~${alreadyBooked.estimated_time || '—'})` : `(الساعة: ${alreadyBooked.apointementdate ? alreadyBooked.apointementdate.slice(11, 16) : '—'})`}. تمنع سياسة العيادة التسجيل في القائمة أكثر من مرة في نفس اليوم.`
+                      : `Vous avez déjà un rendez-vous enregistré à cette date ${alreadyBooked.token_number ? `(#${alreadyBooked.token_number})` : ''}.`}
+                  </p>
+                  <Btn
+                    onClick={() => navigate("/appointments")}
+                    style={{ background: "#d97706", color: "#fff", padding: "10px 22px", borderRadius: 10, fontSize: 13, display: "inline-flex", margin: "0 auto" }}
+                  >
+                    <Calendar size={15} style={{ marginLeft: 6 }} /> {i18n.language === 'ar' ? "عرض تذكرتي في مواعيدي" : "Voir mes rendez-vous"}
+                  </Btn>
+                </div>
               ) : bookingMode === 'queue' ? (
                 <div>
                   <div style={{
@@ -5931,7 +5983,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                               transform: isSelected ? "scale(1.01)" : "none"
                             }}
                           >
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "gap", gap: 8 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <div style={{
                                   width: 38, height: 38, borderRadius: 12,
@@ -6044,10 +6096,10 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
           )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); setQueueShifts([]); setSelectedShift(null); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
+            <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); setQueueShifts([]); setSelectedShift(null); setAlreadyBooked(null); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn
               onClick={() => setStep(5)}
-              disabled={!date || (bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full) : !selSlot)}
+              disabled={!date || alreadyBooked || (bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full) : !selSlot)}
               style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}
             >
               {t("next")}
