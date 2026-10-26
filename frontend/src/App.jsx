@@ -11,7 +11,7 @@ import {
   Lock, Shield, CheckCircle, AlertCircle, ThumbsUp,
   UserPlus, Building, Check, AlertTriangle, Send,
   FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale, Laptop,
-  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink
+  Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink, Sliders
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
