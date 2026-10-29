@@ -11,6 +11,7 @@ import {
   Hash, Sun, Moon
 } from "lucide-react";
 import { Btn, Card, Spinner, Input, Badge } from "./SharedUI";
+import DoctorLeavesManager from "./DoctorLeavesManager";
 
 const WEEK_DAYS = [
   { index: 0, labelAr: "الإثنين", labelFr: "Lundi" },
@@ -34,14 +35,14 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
 
   // Sub-tabs: 'info' | 'pricing' | 'schedule' | 'booking_system' | 'reasons' | 'off_hours'
   const [activeSubTab, setActiveSubTab] = useState(() => {
-    if (initialTab && ["info", "doctors", "requests", "pricing", "schedule", "booking_system", "reasons", "off_hours"].includes(initialTab)) {
+    if (initialTab && ["info", "doctors", "requests", "pricing", "schedule", "booking_system", "reasons", "off_hours", "leaves"].includes(initialTab)) {
       return initialTab;
     }
     return "pricing";
   });
 
   useEffect(() => {
-    if (initialTab && ["info", "doctors", "requests", "pricing", "schedule", "booking_system", "reasons", "off_hours"].includes(initialTab)) {
+    if (initialTab && ["info", "doctors", "requests", "pricing", "schedule", "booking_system", "reasons", "off_hours", "leaves"].includes(initialTab)) {
       setActiveSubTab(initialTab);
     }
   }, [initialTab]);
@@ -1319,6 +1320,31 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
 
                 <button
                   type="button"
+                  onClick={() => setActiveSubTab("leaves")}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: activeSubTab === "leaves" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
+                    color: activeSubTab === "leaves" ? "#fff" : "var(--text-secondary)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  <Calendar size={16} />
+                  {isRtl ? "الإجازات والطلعات الطارئة" : "Congés & Absences"}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveSubTab("off_hours")}
                   style={{
                     flex: 1,
@@ -1442,6 +1468,31 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                 >
                   <Stethoscope size={16} />
                   {isRtl ? "أسباب الاستشارة" : "Motifs de consultation"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab("leaves")}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: activeSubTab === "leaves" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
+                    color: activeSubTab === "leaves" ? "#fff" : "var(--text-secondary)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  <Calendar size={16} />
+                  {isRtl ? "الإجازات والطلعات الطارئة" : "Congés & Absences"}
                 </button>
 
                 <button
@@ -3411,6 +3462,23 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                 {isRtl ? "حفظ فترات الاستراحة لهذا المقر" : "Enregistrer les pauses"}
               </Btn>
             </Card>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────
+              TAB: DOCTOR LEAVES & EMERGENCY ABSENCES (الإجازات والطلعات)
+              ────────────────────────────────────────────────────────── */}
+          {activeSubTab === "leaves" && (
+            <DoctorLeavesManager
+              api={api}
+              selectedClinicId={selectedClinicId}
+              clinics={[
+                ...(clinicData?.is_owner && clinicData?.id ? [{ id: clinicData.id, clinic_id: clinicData.id, name: clinicData.clinicname, clinicname: clinicData.clinicname }] : []),
+                ...(Array.isArray(clinicData?.affiliated_clinics) ? clinicData.affiliated_clinics : [])
+              ]}
+              showToast={showToast}
+              isMobile={isMobile}
+              isRtl={isRtl}
+            />
           )}
 
           {/* ──────────────────────────────────────────────────────────

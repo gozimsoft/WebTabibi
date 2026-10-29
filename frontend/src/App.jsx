@@ -32,7 +32,6 @@ import UserGuide from "./pages/UserGuide";
 import AppDownloadPage from "./pages/AppDownload";
 import InstallPage from "./pages/InstallPage";
 import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
-import DoctorOffHoursSettings from "./components/DoctorOffHoursSettings";
 import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
 import { AdminSupportUserTicketsPage, AdminSupportBackoffice } from "./pages/AdminSupportTickets";
 import SuperAdminAccountManagement from "./pages/SuperAdminAccountManagement";
@@ -143,6 +142,14 @@ const api = {
     updateAppointmentSetting: (id, b) => req("PUT", `/doctors/appointment-settings/${id}`, b),
     deleteAppointmentSetting: id => req("DELETE", `/doctors/appointment-settings/${id}`),
     appointments: p => req("GET", `/doctor/appointments${p ? '?' + new URLSearchParams(p) : ''}`),
+    getUnavailabilities: (params = {}) => {
+      const p = { ...params, _t: Date.now() };
+      const qs = new URLSearchParams(p).toString();
+      return req("GET", `/doctor/unavailabilities${qs ? '?' + qs : ''}`);
+    },
+    checkUnavailabilityConflicts: b => req("POST", "/doctor/unavailabilities/check-conflicts", b),
+    addUnavailability: b => req("POST", "/doctor/unavailabilities", b),
+    deleteUnavailability: id => req("DELETE", `/doctor/unavailabilities/${encodeURIComponent(id)}`),
   },
   clinics: {
     search: p => req("GET", `/clinics?${new URLSearchParams(p)}`),
@@ -165,6 +172,14 @@ const api = {
     getClinicDoctors: clinicId => req("GET", `/doctors/clinic/${encodeURIComponent(clinicId)}/doctors`),
     removeDoctorFromClinic: (clinicId, doctorId) => req("DELETE", `/doctors/clinic/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}`),
     searchDoctorsForClinic: (clinicId, q = '') => req("GET", `/doctors/clinic/search-doctors?clinic_id=${encodeURIComponent(clinicId)}&q=${encodeURIComponent(q)}`),
+    getUnavailabilities: (params = {}) => {
+      const p = { ...params, _t: Date.now() };
+      const qs = new URLSearchParams(p).toString();
+      return req("GET", `/doctor/unavailabilities${qs ? '?' + qs : ''}`);
+    },
+    checkUnavailabilityConflicts: b => req("POST", "/doctor/unavailabilities/check-conflicts", b),
+    addUnavailability: b => req("POST", "/doctor/unavailabilities", b),
+    deleteUnavailability: id => req("DELETE", `/doctor/unavailabilities/${encodeURIComponent(id)}`),
   },
   specialties: () => req("GET", "/specialties"),
   reasons: specId => req("GET", `/reasons${specId ? '?specialty_id=' + specId : ''}`, null, false),
@@ -3546,9 +3561,27 @@ function SearchPage({ navigate, qs, user }) {
 
                       {/* Right Side: Content */}
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-                        <Badge color={specialtyColor} style={{ fontSize: 10, padding: "2px 6px", width: "fit-content", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {specialty || "\u00A0"}
-                        </Badge>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <Badge color={specialtyColor} style={{ fontSize: 10, padding: "2px 6px", width: "fit-content", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {specialty || "\u00A0"}
+                          </Badge>
+                          {isDoctor && r.active_unavailability && (
+                            <span style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              border: "1px solid #f59e0b",
+                              borderRadius: 20,
+                              padding: "2px 8px",
+                              fontSize: 10,
+                              fontWeight: 800
+                            }}>
+                              في عطلة حتى {r.active_unavailability.end_datetime?.slice(0, 10)}
+                            </span>
+                          )}
+                        </div>
 
                         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
                           <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}>
@@ -4400,6 +4433,22 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
                   >
                     <Calendar size={18} /> {t("book_appointment")}
                   </Btn>
+                  {(() => {
+                    const unavails = data?.unavailabilities || [];
+                    const now = new Date();
+                    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    const curLeave = unavails.find(u => {
+                      const s = u.start_datetime?.slice(0, 10);
+                      const e = u.end_datetime?.slice(0, 10);
+                      return todayStr >= s && todayStr <= e;
+                    });
+                    if (!curLeave) return null;
+                    return (
+                      <div style={{ fontSize: 11, color: "#d97706", fontWeight: 800, textAlign: "center", background: "#fef3c7", padding: "5px 10px", borderRadius: 8, border: "1px solid #fde68a" }}>
+                        في عطلة حتى {curLeave.end_datetime?.slice(0, 10)}
+                      </div>
+                    );
+                  })()}
                   <Btn
                     variant="secondary"
                     onClick={() => navigate(`/book/${selectedClinicId || 0}/${doctor_id}?relative=1`)}
@@ -4429,6 +4478,84 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
           </div>
         </div>
       </Card>
+
+      {/* Vacation / Leave Banner if Doctor is on leave or has upcoming leave */}
+      {(() => {
+        const unavails = data?.unavailabilities || [];
+        if (!unavails.length) return null;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        const activeOrUpcoming = unavails.find(u => {
+          const end = u.end_datetime?.slice(0, 10);
+          return end >= todayStr;
+        });
+
+        if (!activeOrUpcoming) return null;
+
+        const start = activeOrUpcoming.start_datetime?.slice(0, 10);
+        const end = activeOrUpcoming.end_datetime?.slice(0, 10);
+        const isCurrent = todayStr >= start && todayStr <= end;
+
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+        return (
+          <Card style={{
+            marginBottom: 20,
+            background: isCurrent ? "linear-gradient(135deg, #fef3c7, #fffbeb)" : "linear-gradient(135deg, #e0f2fe, #f0f9ff)",
+            border: isCurrent ? "1.5px solid #f59e0b" : "1.5px solid #0284c7",
+            padding: "18px 22px",
+            borderRadius: 16,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.04)"
+          }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: isCurrent ? "#92400e" : "#075985" }}>
+                    {isCurrent ? "تنبيه: الطبيب في عطلة حالياً" : "تنويه للمرضى: عطلة مبرمجة قادمة للطبيب"}
+                  </h3>
+                  <span style={{
+                    background: isCurrent ? "#fde68a" : "#bae6fd",
+                    color: isCurrent ? "#854d0e" : "#0369a1",
+                    padding: "3px 10px",
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 800
+                  }}>
+                    {diffDays > 1 ? `المدة: ${diffDays} أيام` : "المدة: يوم واحد"}
+                  </span>
+                  {activeOrUpcoming.leave_type === 'full_day' && (
+                    <span style={{
+                      background: isCurrent ? "#fee2e2" : "#f1f5f9",
+                      color: isCurrent ? "#991b1b" : "#475569",
+                      padding: "3px 10px",
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 700
+                    }}>
+                      عطلة كاملة
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: isCurrent ? "#78350f" : "#0c4a6e", lineHeight: 1.6, marginBottom: 4 }}>
+                  فترة العطلة: من <strong>{start}</strong> إلى غاية <strong>{end}</strong>
+                  {activeOrUpcoming.show_reason_to_patient && activeOrUpcoming.reason ? (
+                    <span> — السبب: <strong>{activeOrUpcoming.reason}</strong></span>
+                  ) : null}
+                </div>
+                <div style={{ fontSize: 12, color: isCurrent ? "#b45309" : "#0284c7", fontWeight: 700 }}>
+                  {isCurrent
+                    ? "⚠️ تنبيه: الحجز متوقف خلال فترة العطلة. يمكنك حجز موعد في الأيام المتاحة بعد استئناف العمل."
+                    : "ℹ️ لن تكون المواعيد متاحة خلال فترة العطلة أعلاه. يرجى اختيار تاريخ مناسب خارجها."}
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Virtual Doctor Claim Banner — shown when emailvalidation is not confirmed (NULL or 0) */}
       {!data.emailvalidation && (
@@ -5219,6 +5346,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
   const [selectedShift, setSelectedShift] = useState(null);
   const [bookingResult, setBookingResult] = useState(null);
   const [alreadyBooked, setAlreadyBooked] = useState(null);
+  const [dayUnavailable, setDayUnavailable] = useState(null);
   const [loading, setL] = useState(false);
   const [slotsLoad, setSL] = useState(false);
   const [initLoad, setInitL] = useState(true);
@@ -5305,12 +5433,17 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     setQueueShifts([]);
     setSelectedShift(null);
     setAlreadyBooked(null);
+    setDayUnavailable(null);
     try {
       const s = await api.appointments.slots({
         clinics_doctor_id: doctor.clinicsdoctor_id,
         date: d,
         patient_id: activePat?.id || ""
       });
+      if (s.day_unavailable) {
+        setDayUnavailable({ isUnavailable: true, reason: s.reason });
+        return;
+      }
       const mode = s.booking_mode || (s.shifts ? "queue" : "slots");
       setBookingMode(mode);
 
@@ -5399,6 +5532,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     const schedule = doctor?.Schedule || {};
     const countdays = parseInt(schedule.countdays || 30);
     const workingdays = schedule.workingdays || "1111111";
+    const unavails = doctor?.unavailabilities || docInfo?.unavailabilities || [];
 
     const dates = [];
 
@@ -5415,16 +5549,34 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       const dayIndex = (w + 6) % 7; // 0=Mon...6=Sun matching Delphi workingdays
 
       if (workingdays[dayIndex] === "1" || !schedule.workingdays) {
+        const isDayInLeave = unavails.some(u => {
+          if (u.leave_type !== 'full_day') return false;
+          const s = u.start_datetime?.slice(0, 10);
+          const e = u.end_datetime?.slice(0, 10);
+          return full >= s && full <= e;
+        });
         dates.push({
           full: full,
           day: d.getDate(),
           month: d.toLocaleDateString("ar-DZ", { month: "short" }),
           weekday: d.toLocaleDateString("ar-DZ", { weekday: "short" }),
+          isLeave: isDayInLeave,
         });
       }
     }
     return dates;
   };
+
+  useEffect(() => {
+    if (step === 4 && !date) {
+      const avail = getAvailableDates();
+      const firstAvailable = avail.find(d => !d.isLeave) || avail[0];
+      if (firstAvailable) {
+        setDate(firstAvailable.full);
+        fetchSlots(firstAvailable.full);
+      }
+    }
+  }, [step, doctor, docInfo, date]);
 
 
   // ─── Error / Loading guards ─────────────────────────────────
@@ -5514,6 +5666,37 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
       </button>
 
       <DoctorBanner />
+
+      {/* Doctor Vacation Alert Banner */}
+      {(() => {
+        const unavails = doctor?.unavailabilities || docInfo?.unavailabilities || [];
+        if (!unavails.length) return null;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const activeLeave = unavails.find(u => (u.end_datetime?.slice(0, 10) || '') >= todayStr);
+        if (!activeLeave) return null;
+        const s = activeLeave.start_datetime?.slice(0, 10);
+        const e = activeLeave.end_datetime?.slice(0, 10);
+        const isCurrent = todayStr >= s && todayStr <= e;
+        return (
+          <div style={{
+            background: isCurrent ? "linear-gradient(135deg, #fef3c7, #fffbeb)" : "linear-gradient(135deg, #e0f2fe, #f0f9ff)",
+            border: isCurrent ? "1.5px solid #f59e0b" : "1.5px solid #0284c7",
+            borderRadius: 14,
+            padding: "14px 18px",
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 12
+          }}>
+            <div style={{ fontSize: 13, color: isCurrent ? "#92400e" : "#075985", lineHeight: 1.5 }}>
+              <strong>{isCurrent ? (i18n.language === 'ar' ? "تنبيه للمريض:" : "Avis aux patients:") : (i18n.language === 'ar' ? "تنويه:" : "Information:")}</strong> {i18n.language === 'ar' ? "الطبيب في عطلة من" : "Le médecin est en congé du"} <strong>{s}</strong> {i18n.language === 'ar' ? "إلى غاية" : "au"} <strong>{e}</strong> {activeLeave.show_reason_to_patient && activeLeave.reason ? `(${activeLeave.reason})` : ""}.
+              {i18n.language === 'ar' ? " يرجى اختيار تاريخ عمل متاح بعد انتهاء العطلة لإتمام حجزك." : " Veuillez choisir une date de consultation après la fin du congé."}
+            </div>
+          </div>
+        );
+      })()}
+
       <Stepper />
 
       {/* ══════════ STEP 1 — Patient ══════════ */}
@@ -5853,17 +6036,20 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
                 return (
                   <div key={d.full} onClick={() => { setDate(d.full); fetchSlots(d.full); }}
                     style={{
-                      flexShrink: 0, width: 80, padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
-                      border: sel ? "2.5px solid var(--brand)" : "1.5px solid var(--border)",
-                      background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : "#fff",
+                      flexShrink: 0, width: 84, padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
+                      border: sel ? "2.5px solid var(--brand)" : d.isLeave ? "1.5px solid #fde68a" : "1.5px solid var(--border)",
+                      background: sel ? "linear-gradient(135deg,#ecfeff,#e0f7fa)" : d.isLeave ? "#fffbeb" : "#fff",
                       transition: "all 0.2s",
                       boxShadow: sel ? "0 4px 12px rgba(8,145,178,0.15)" : "none",
-                      transform: sel ? "translateY(-2px)" : "none"
+                      transform: sel ? "translateY(-2px)" : "none",
+                      position: "relative"
                     }}
                   >
-                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "var(--brand)" : "#9ca3af", marginBottom: 4 }}>{d.weekday}</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: sel ? "#0c4a6e" : "#374151" }}>{d.day}</div>
-                    <div style={{ fontSize: 11, color: sel ? "var(--brand)" : "#9ca3af" }}>{d.month}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "var(--brand)" : d.isLeave ? "#d97706" : "#9ca3af", marginBottom: 4 }}>{d.weekday}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: sel ? "#0c4a6e" : d.isLeave ? "#b45309" : "#374151" }}>{d.day}</div>
+                    <div style={{ fontSize: 11, fontWeight: d.isLeave ? 700 : 400, color: sel ? "var(--brand)" : d.isLeave ? "#d97706" : "#9ca3af" }}>
+                      {d.isLeave ? "عطلة" : d.month}
+                    </div>
                   </div>
                 );
               })}
@@ -5880,6 +6066,24 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             <div>
               {slotsLoad ? (
                 <div style={{ padding: "30px 0", textAlign: "center" }}><Spinner /></div>
+              ) : dayUnavailable?.isUnavailable ? (
+                <div style={{
+                  padding: "26px 22px",
+                  borderRadius: 16,
+                  background: "linear-gradient(135deg, #fef3c7, #fffbeb)",
+                  border: "1.5px solid #f59e0b",
+                  color: "#92400e",
+                  textAlign: "center",
+                  margin: "12px 0 20px"
+                }}>
+                  <AlertCircle size={36} color="#d97706" style={{ margin: "0 auto 8px", display: "block" }} />
+                  <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>
+                    {dayUnavailable.reason || "الطبيب في عطلة / غير متاح في هذا اليوم"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#b45309", lineHeight: 1.6 }}>
+                    يرجى اختيار يوم عمل آخر من شريط الأيام بالأعلى لإتمام حجزك.
+                  </div>
+                </div>
               ) : alreadyBooked ? (
                 <div style={{
                   background: "linear-gradient(135deg, #fffbeb, #fef3c7)",
@@ -6099,7 +6303,7 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
             <Btn variant="secondary" onClick={() => { setStep(3); setDate(""); setSlots([]); setSlot(""); setQueueShifts([]); setSelectedShift(null); setAlreadyBooked(null); }} style={{ flex: 1, justifyContent: "center", borderRadius: 10 }}>{t("prev")}</Btn>
             <Btn
               onClick={() => setStep(5)}
-              disabled={!date || alreadyBooked || (bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full) : !selSlot)}
+              disabled={!date || alreadyBooked || dayUnavailable?.isUnavailable || (bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full) : !selSlot)}
               style={{ flex: 2, justifyContent: "center", padding: 13, borderRadius: 10, fontSize: 14 }}
             >
               {t("next")}
@@ -6444,14 +6648,46 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
     api.patient.appointments().then(setAppts).catch(() => { }).finally(() => setL(false));
   }, []);
 
+  const [cancelingId, setCancelingId] = useState(null);
+
+  // Helper to determine if an appointment is genuinely in the past
+  const isApptPast = useCallback((a) => {
+    if (!a?.apointementdate) return false;
+    const d = new Date(a.apointementdate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const apptDay = new Date(d);
+    apptDay.setHours(0, 0, 0, 0);
+
+    // If appointment day was before today, it is past
+    if (apptDay < today) return true;
+
+    // If appointment is today:
+    // If it is completed (status === 2 or 3 or queue_status === 'completed'), it is past
+    if (apptDay.getTime() === today.getTime()) {
+      if (a.status == 2 || a.status == 3 || a.queue_status === 'completed') return true;
+      // If it is pending/waiting (status === 0), it is active today!
+      return false;
+    }
+
+    // Future date
+    return false;
+  }, []);
+
   const cancel = async (id) => {
-    if (!confirm(t("cancel_confirm"))) return;
+    const confirmMsg = t("cancel_confirm") || (isAr ? "هل أنت متأكد من رغبتك في إلغاء هذا الموعد؟" : "Êtes-vous sûr de vouloir annuler ce rendez-vous ?");
+    if (!window.confirm(confirmMsg)) return;
+    setCancelingId(id);
     try {
       await api.appointments.cancel(id);
       const updated = await api.patient.appointments();
-      setAppts(updated);
-      show(t("cancel_success"));
-    } catch (e) { show(e.message, "error"); }
+      setAppts(updated || []);
+      show(t("cancel_success") || (isAr ? "تم إلغاء الموعد بنجاح" : "Rendez-vous annulé avec succès"));
+    } catch (e) {
+      show(e.message || (isAr ? "فشل إلغاء الموعد" : "Échec de l'annulation"), "error");
+    } finally {
+      setCancelingId(null);
+    }
   };
 
   // Helper to extract beneficiary info (patient themselves vs family member)
@@ -6483,22 +6719,23 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
   const counts = React.useMemo(() => {
     return {
       all: appts.length,
-      upcoming: appts.filter(a => a.status != 1 && new Date(a.apointementdate) >= now).length,
-      past: appts.filter(a => a.status != 1 && new Date(a.apointementdate) < now).length,
+      upcoming: appts.filter(a => a.status != 1 && !isApptPast(a)).length,
+      past: appts.filter(a => a.status != 1 && isApptPast(a)).length,
       cancelled: appts.filter(a => a.status == 1).length,
       forMe: appts.filter(a => getBeneficiaryInfo(a).isForMe).length,
       family: appts.filter(a => !getBeneficiaryInfo(a).isForMe).length,
     };
-  }, [appts, now, getBeneficiaryInfo]);
+  }, [appts, isApptPast, getBeneficiaryInfo]);
 
   // Filtered & Sorted list
   const filtered = React.useMemo(() => {
     return appts.filter(a => {
+      const isPast = isApptPast(a);
       const d = new Date(a.apointementdate);
 
       // Status / Time tab filter
-      if (filter === "upcoming" && (a.status == 1 || d < now)) return false;
-      if (filter === "past" && (a.status == 1 || d >= now)) return false;
+      if (filter === "upcoming" && (a.status == 1 || isPast)) return false;
+      if (filter === "past" && (a.status == 1 || !isPast)) return false;
       if (filter === "cancelled" && a.status != 1) return false;
 
       // Beneficiary filter
@@ -7035,7 +7272,7 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
                 <tbody>
                   {filtered.map(a => {
                     const d = new Date(a.apointementdate);
-                    const isPast = d < now;
+                    const isPast = isApptPast(a);
                     const reasonText = getReasonText(a);
                     const specialty = getDoctorSpecialty(a);
 
@@ -7175,6 +7412,7 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
                               <>
                                 <button
                                   type="button"
+                                  disabled={cancelingId === a.id}
                                   onClick={() => cancel(a.id)}
                                   title={t("cancel_btn")}
                                   style={{
@@ -7184,16 +7422,21 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
                                     padding: "6px 10px",
                                     borderRadius: 8,
                                     border: "1px solid #fecaca",
-                                    background: "#fef2f2",
+                                    background: cancelingId === a.id ? "#fee2e2" : "#fef2f2",
                                     color: "#dc2626",
                                     fontSize: 12,
                                     fontWeight: 700,
-                                    cursor: "pointer",
+                                    cursor: cancelingId === a.id ? "not-allowed" : "pointer",
+                                    opacity: cancelingId === a.id ? 0.6 : 1,
                                     transition: "all 0.15s ease"
                                   }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = "#fee2e2"; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = "#fef2f2"; }}>
-                                  <Trash2 size={13} />
+                                  onMouseEnter={e => { if (cancelingId !== a.id) e.currentTarget.style.background = "#fee2e2"; }}
+                                  onMouseLeave={e => { if (cancelingId !== a.id) e.currentTarget.style.background = "#fef2f2"; }}>
+                                  {cancelingId === a.id ? (
+                                    <Spinner size={12} color="#dc2626" />
+                                  ) : (
+                                    <Trash2 size={13} />
+                                  )}
                                   <span>{t("cancel_btn")}</span>
                                 </button>
                                 <button
@@ -7295,7 +7538,7 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
             <div style={{ display: "flex", flexDirection: "column" }}>
               {filtered.map((a, idx) => {
                 const d = new Date(a.apointementdate);
-                const isPast = d < now;
+                const isPast = isApptPast(a);
                 const reasonText = getReasonText(a);
                 const specialty = getDoctorSpecialty(a);
 
@@ -7365,21 +7608,27 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
                         {!isPast && a.status != 1 && a.status != 2 && (
                           <button
                             type="button"
+                            disabled={cancelingId === a.id}
                             onClick={() => cancel(a.id)}
                             style={{
                               padding: "5px 9px",
                               borderRadius: 6,
                               border: "1px solid #fecaca",
-                              background: "#fef2f2",
+                              background: cancelingId === a.id ? "#fee2e2" : "#fef2f2",
                               color: "#dc2626",
                               fontSize: 11,
                               fontWeight: 700,
-                              cursor: "pointer",
+                              cursor: cancelingId === a.id ? "not-allowed" : "pointer",
+                              opacity: cancelingId === a.id ? 0.6 : 1,
                               display: "flex",
                               alignItems: "center",
                               gap: 3
                             }}>
-                            <Trash2 size={11} />
+                            {cancelingId === a.id ? (
+                              <Spinner size={11} color="#dc2626" />
+                            ) : (
+                              <Trash2 size={11} />
+                            )}
                             <span>{t("cancel_btn")}</span>
                           </button>
                         )}
@@ -7443,7 +7692,7 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
           gap: isMobile ? 12 : 16
         }}>
           {filtered.map(a => {
-            const isPast = new Date(a.apointementdate) < now;
+            const isPast = isApptPast(a);
             const d = new Date(a.apointementdate);
             return (
               <Card key={a.id} style={{
@@ -7542,8 +7791,25 @@ function AppointmentsPage({ navigate, user, fullWidth: propFullWidth, toggleFull
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     {!isPast && (a.status != 1 && a.status != 2) && (
                       <>
-                        <Btn variant="danger" onClick={() => cancel(a.id)} style={{ flex: 1, justifyContent: "center", padding: "8px", fontSize: 12, borderRadius: 8 }}>
-                          <Trash2 size={13} style={{ marginLeft: isAr ? 0 : 6, marginRight: isAr ? 6 : 0 }} /> {t("cancel_btn")}
+                        <Btn
+                          variant="danger"
+                          disabled={cancelingId === a.id}
+                          onClick={() => cancel(a.id)}
+                          style={{
+                            flex: 1,
+                            justifyContent: "center",
+                            padding: "8px",
+                            fontSize: 12,
+                            borderRadius: 8,
+                            opacity: cancelingId === a.id ? 0.6 : 1,
+                            cursor: cancelingId === a.id ? "not-allowed" : "pointer"
+                          }}>
+                          {cancelingId === a.id ? (
+                            <Spinner size={13} color="#fff" />
+                          ) : (
+                            <Trash2 size={13} style={{ marginLeft: isAr ? 0 : 6, marginRight: isAr ? 6 : 0 }} />
+                          )}
+                          {t("cancel_btn")}
                         </Btn>
                         <Btn variant="ghost" onClick={() => {
                           if (a.doctor_id) navigate(`/tickets/new?doctor_id=${a.doctor_id}`);
@@ -11803,10 +12069,8 @@ function ProfilePage({ user, navigate, qs }) {
   const initialSettings = initialTab === "appointment_settings" || initialTab === "settings";
   const initialOffHours = initialTab === "off_hours";
   const [doctorActiveTab, setDoctorActiveTab] = useState(
-    initialSecurity ? "security" :
-    initialOffHours ? "off_hours" :
-    "profile"
-  ); // 'profile' | 'off_hours' | 'security'
+    initialSecurity ? "security" : "profile"
+  ); // 'profile' | 'security'
   const [patientActiveTab, setPatientActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'attending_doctor' | 'emergency' | 'security'
   const [clinicActiveTab, setClinicActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'security'
   const [adminActiveTab, setAdminActiveTab] = useState(initialSecurity ? "security" : "profile"); // 'profile' | 'overview' | 'security'
@@ -11823,6 +12087,8 @@ function ProfilePage({ user, navigate, qs }) {
         if (navigate) navigate("/clinics");
       } else if (initialSettings) {
         if (navigate) navigate("/clinics?tab=appointment_settings");
+      } else if (initialOffHours) {
+        if (navigate) navigate("/clinics?tab=off_hours");
       }
     }
   }, [user, initialClinic, initialSettings, navigate]);
@@ -11847,7 +12113,9 @@ function ProfilePage({ user, navigate, qs }) {
           navigate("/clinics?tab=appointment_settings");
         }
       } else if (tab === "off_hours") {
-        setDoctorActiveTab("off_hours");
+        if (user?.user_type === 1 && navigate) {
+          navigate("/clinics?tab=off_hours");
+        }
       } else if (tab === "clinic") {
         if (user?.user_type === 1 && navigate) {
           navigate("/clinics");
@@ -12636,6 +12904,63 @@ function ProfilePage({ user, navigate, qs }) {
         </div>
       )}
 
+      {/* Doctor Active / Upcoming Leave Notification Banner */}
+      {user?.user_type === 1 && (() => {
+        const unavails = form?.unavailabilities || [];
+        if (!unavails.length) return null;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const activeLeave = unavails.find(u => (u.end_datetime?.slice(0, 10) || '') >= todayStr);
+        if (!activeLeave) return null;
+        const s = activeLeave.start_datetime?.slice(0, 10);
+        const e = activeLeave.end_datetime?.slice(0, 10);
+        const isCurrent = todayStr >= s && todayStr <= e;
+        return (
+          <div style={{
+            background: isCurrent ? "linear-gradient(135deg, #fef3c7, #fffbeb)" : "linear-gradient(135deg, #e0f2fe, #f0f9ff)",
+            border: isCurrent ? "1.5px solid #f59e0b" : "1.5px solid #0284c7",
+            borderRadius: 16,
+            padding: "16px 20px",
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: isCurrent ? "#92400e" : "#075985" }}>
+                  {isCurrent ? "أنت في فترة عطلة / غياب مسجل حالياً" : "لديك عطلة مبرمجة قادمة مسجلة"}
+                  {activeLeave.reason ? ` (${activeLeave.reason})` : ""}
+                </div>
+                <div style={{ fontSize: 13, color: isCurrent ? "#b45309" : "#0369a1", marginTop: 2 }}>
+                  الفترة: من <strong>{s}</strong> إلى غاية <strong>{e}</strong> {activeLeave.clinicname ? `• العيادة: ${activeLeave.clinicname}` : "• كافة العيادات"}
+                  {isCurrent ? " • الحجز متوقف للمرضى خلال هذه الفترة." : ""}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { if (navigate) navigate("/clinics?tab=leaves"); }}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                border: isCurrent ? "1px solid #d97706" : "1px solid #0284c7",
+                background: "#ffffff",
+                color: isCurrent ? "#b45309" : "#0284c7",
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: "pointer",
+                whiteSpace: "nowrap"
+              }}
+            >
+              إدارة الإجازات والطلعات
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Doctor Tabs Bar (when user_type === 1) */}
       {user?.user_type === 1 && (
         <div style={{
@@ -12674,30 +12999,7 @@ function ProfilePage({ user, navigate, qs }) {
             {t("profile_info_tab", "الملف الشخصي")}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setDoctorActiveTab("off_hours")}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "11px 18px",
-              borderRadius: 12,
-              border: "none",
-              background: doctorActiveTab === "off_hours" ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "transparent",
-              color: doctorActiveTab === "off_hours" ? "#ffffff" : "#64748b",
-              fontWeight: doctorActiveTab === "off_hours" ? 800 : 600,
-              fontSize: 14,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <Clock size={17} />
-            {t("off_hours_tab", "أوقات الراحة والعطل")}
-          </button>
+
 
 
           <button
@@ -13288,10 +13590,7 @@ function ProfilePage({ user, navigate, qs }) {
         </form>
       )}
 
-      {/* 3. Doctor Off-Hours Settings Tab */}
-      {user?.user_type === 1 && doctorActiveTab === "off_hours" && (
-        <DoctorOffHoursSettings doctor={form} showToast={show} isMobile={isMobile} />
-      )}
+
 
       {/* 5. Doctor Security & Privacy Tab */}
       {user?.user_type === 1 && doctorActiveTab === "security" && (

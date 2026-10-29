@@ -68,7 +68,7 @@ export default function AppDownloadPage({ navigate }) {
 
   // App download URLs
   const DIRECT_APK_URL = "https://stellarsoft.dz/download/Tabibi.apk";
-  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=dz.tabibi.app";
+  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.tabibi_dz.app";
   const APP_STORE_URL = "https://apps.apple.com/app/tabibi/id";
 
   // Official screenshot inside phone frame

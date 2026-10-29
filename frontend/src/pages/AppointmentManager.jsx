@@ -10,6 +10,7 @@ import {
   Hash, Sun, Moon, Bell, Volume2, Zap, Users, Sliders
 } from "lucide-react";
 import { Btn, Spinner, useToast } from "../components/SharedUI";
+import QuickEmergencyLeaveModal from "../components/QuickEmergencyLeaveModal";
 
 // ── New Appointment Modal ────────────────────────────────────────────────────
 function NewAppointmentModal({ onClose, onSuccess, show: visible, settings }) {
@@ -478,12 +479,16 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                       // فحص ما إذا كان الموعد في الماضي أو تم تأكيد إتمامه (مستخدم)
                       const apptDateStr = String(appt.apointementdate || appt.date || "").trim().replace(" ", "T");
                       const apptDateObj = new Date(apptDateStr);
-                      const isPastTime = !isNaN(apptDateObj.getTime()) && apptDateObj < new Date();
+                      const apptDay = new Date(apptDateObj.getFullYear(), apptDateObj.getMonth(), apptDateObj.getDate());
+                      const todayDate = new Date();
+                      todayDate.setHours(0, 0, 0, 0);
+                      // يعتبر اليوم منقضياً بالكامل فقط إذا كان تاريخ الموعد قبل اليوم الحالي (أمس أو ما قبله)
+                      const isEntireDayPassed = !isNaN(apptDay.getTime()) && apptDay < todayDate;
                       const isCompleted = Number(appt.status) === 2;
                       const isCancelled = Number(appt.status) === 1;
                       const isPending = Number(appt.status) === 0;
-                      // إذا انقضى وقت الموعد دون اتخاذ أي إجراء (المريض لم يحضر: غائب)
-                      const isAbsent = isPending && isPastTime;
+                      // يصنف غائب إذا انقضى اليوم بالكامل دون اتخاذ أي إجراء (وليس مجرد انقضاء وقت الموعد في نفس اليوم)
+                      const isAbsent = isPending && isEntireDayPassed;
                       const isUsed = isCompleted || isAbsent;
 
                       // تحديد الألوان: ملغي (أحمر)، مستخدم/مكتمل/غائب (رمادي)، موعد قادم قيد الانتظار (أصفر)
@@ -544,8 +549,8 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                             </div>
                           )}
                           {isPending && (
-                            isPastTime ? (
-                              // إذا انقضى الوقت دون إجراء: استبدال الزرين بزر تحذيري أصفر بنص ABSENT مع بقاء الإطار رمادياً
+                            isEntireDayPassed ? (
+                              // إذا تجاوز اليوم بالكامل دون إجراء: استبدال الزرين بزر تحذيري أصفر بنص ABSENT مع بقاء الإطار رمادياً
                               <div style={{ marginTop: 3 }}>
                                 <button
                                   type="button"
@@ -704,6 +709,8 @@ export default function AppointmentManager({ navigate, user }) {
   const [dateTo, setDateTo] = useState(defaultWeek.to);
   const [quickFilter, setQuickFilter] = useState("this_week"); // this_week by default
   const [showModal, setShowModal] = useState(false);
+  const [showEmergencyLeaveModal, setShowEmergencyLeaveModal] = useState(false);
+  const [doctorLeaves, setDoctorLeaves] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     const saved = localStorage.getItem("tabibi_appt_view_mode");
     return saved === "list" || saved === "calendar" ? saved : "calendar";
@@ -819,6 +826,17 @@ export default function AppointmentManager({ navigate, user }) {
         });
       }
       const incoming = Array.isArray(data) ? data : [];
+
+      // Fetch active doctor leaves / absences
+      try {
+        const docApi = api?.doctor || api?.doctors;
+        if (docApi?.getUnavailabilities) {
+          const lParams = clinicId && clinicId !== "all" ? { clinic_id: clinicId, _t: Date.now() } : { _t: Date.now() };
+          const lRes = await docApi.getUnavailabilities(lParams);
+          const lList = Array.isArray(lRes) ? lRes : (lRes?.data || []);
+          setDoctorLeaves(lList);
+        }
+      } catch (e) {}
       setAppointments(prev => {
         if (areAppointmentsEqual(prev, incoming)) {
           return prev;
@@ -1190,6 +1208,29 @@ export default function AppointmentManager({ navigate, user }) {
               </div>
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyLeaveModal(true)}
+                  title="تسجيل طلعة طارئة لإيقاف المواعيد اليوم"
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: 10,
+                    fontWeight: 800,
+                    fontSize: 13,
+                    border: "1.5px solid rgba(239, 68, 68, 0.35)",
+                    cursor: "pointer",
+                    transition: "0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "rgba(239, 68, 68, 0.12)",
+                    color: "#ef4444"
+                  }}
+                >
+                  <Clock size={16} />
+                  <span>⚡ طلعة طارئة</span>
+                </button>
+
                 <button
                   onClick={() => setShowModal(true)}
                   style={{
@@ -1932,6 +1973,57 @@ export default function AppointmentManager({ navigate, user }) {
             </div>
           )}
 
+          {/* Active Leave / Holiday Banner */}
+          {(() => {
+            const targetDay = dateFrom || new Date().toISOString().slice(0, 10);
+            const holiday = doctorLeaves.find(l => {
+              const s = (l.start_datetime || "").slice(0, 10);
+              const e = (l.end_datetime || "").slice(0, 10);
+              return targetDay >= s && targetDay <= e;
+            });
+            if (!holiday) return null;
+            return (
+              <div style={{
+                background: "linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.08))",
+                border: "1.5px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: 16,
+                padding: "16px 20px",
+                marginBottom: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 14
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12,
+                    background: "rgba(239, 68, 68, 0.15)",
+                    color: "#ef4444",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}>
+                    <Calendar size={22} />
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 900, fontSize: 15, color: "var(--heading-color, #1e293b)" }}>
+                        {holiday.reason || "عطلة / غياب مسجل للطبيب"}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: "rgba(239, 68, 68, 0.15)", color: "#ef4444" }}>
+                        الحجز متوقف
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+                      الفترة: من {holiday.start_datetime?.slice(0, 16)} إلى {holiday.end_datetime?.slice(0, 16)}
+                      {holiday.clinicname ? ` — مقر: ${holiday.clinicname}` : " — كافة المقرات"}
+                      {" (تمت معالجة المواعيد المتضاربة)"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {loading && !refreshing ? (
             <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
           ) : (!isQueueMode && viewMode === "calendar") ? (
@@ -1965,11 +2057,16 @@ export default function AppointmentManager({ navigate, user }) {
               {sortedFiltered.map(appt => {
                 const apptDateStr = String(appt.apointementdate || appt.date || "").trim().replace(" ", "T");
                 const d = new Date(apptDateStr);
-                const isPastTime = !isNaN(d.getTime()) && d < new Date();
+                const apptDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const todayDate = new Date();
+                todayDate.setHours(0, 0, 0, 0);
+                // يعتبر اليوم منقضياً بالكامل فقط إذا كان تاريخ الموعد قبل اليوم الحالي (أمس أو ما قبله)
+                const isEntireDayPassed = !isNaN(apptDay.getTime()) && apptDay < todayDate;
                 const isCompleted = Number(appt.status) === 2;
                 const isCancelled = Number(appt.status) === 1;
                 const isPending = Number(appt.status) === 0;
-                const isAbsent = isPending && isPastTime;
+                // يصنف غائب إذا انقضى اليوم بالكامل دون اتخاذ أي إجراء (وليس مجرد انقضاء وقت الموعد في نفس اليوم)
+                const isAbsent = isPending && isEntireDayPassed;
                 const isPast = isCompleted || isCancelled || isAbsent;
 
                 const statusStyle = isAbsent
@@ -2265,6 +2362,14 @@ export default function AppointmentManager({ navigate, user }) {
           )}
         </div>
       </div>
+
+      {/* Emergency Leave Modal */}
+      <QuickEmergencyLeaveModal
+        show={showEmergencyLeaveModal}
+        onClose={() => setShowEmergencyLeaveModal(false)}
+        onSuccess={() => fetchAppointments(true)}
+        clinicId={selectedClinicId}
+      />
 
       {/* Modal */}
       <NewAppointmentModal

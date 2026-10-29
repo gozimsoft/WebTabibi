@@ -150,11 +150,27 @@ export default function SearchPage({ navigate, qs }) {
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                           <Badge color="var(--brand)">
                             {specialty}
                           </Badge>
-                          {isDoctor && <AvailabilityPulse />}
+                          {isDoctor && !r.active_unavailability && <AvailabilityPulse />}
+                          {isDoctor && r.active_unavailability && (
+                            <span style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              border: "1px solid #f59e0b",
+                              borderRadius: 20,
+                              padding: "2px 8px",
+                              fontSize: 10,
+                              fontWeight: 800
+                            }}>
+                              في عطلة حتى {r.active_unavailability.end_datetime?.slice(0, 10)}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <Stars rating={Math.round(avgRating)} color="#0891b2" />

@@ -29,6 +29,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   const [loading, setL] = useState(false);
   const [slotsLoad, setSL] = useState(false);
+  const [dayUnavailable, setDayUnavailable] = useState(null);
   const [initLoad, setInitL] = useState(true);
   const [error, setError] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -102,9 +103,13 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   const fetchSlots = async (d) => {
     if (!doctor?.clinicsdoctor_id) return;
-    setSL(true); setSlots([]); setSlot(""); setQueueShifts([]); setSelectedShift(null);
+    setSL(true); setSlots([]); setSlot(""); setQueueShifts([]); setSelectedShift(null); setDayUnavailable(null);
     try {
       const s = await api.appointments.slots({ clinics_doctor_id: doctor.clinicsdoctor_id, date: d });
+      if (s.day_unavailable) {
+        setDayUnavailable({ isUnavailable: true, reason: s.reason });
+        return;
+      }
       if (s.booking_mode === 'queue') {
         setBookingMode('queue');
         const shifts = s.shifts || [];
@@ -183,6 +188,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
     const schedule = doctor?.Schedule || {};
     const countdays = parseInt(schedule.countdays || 30);
     const workingdays = schedule.workingdays || "1111111";
+    const unavails = doctor?.unavailabilities || [];
     const dates = [];
     for (let i = 0; i <= countdays; i++) {
       const d = new Date(); d.setDate(d.getDate() + i);
@@ -193,10 +199,17 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       const w = d.getDay(); // 0=Sun...6=Sat
       const dayIndex = (w + 6) % 7; // 0=Mon...6=Sun matching Delphi workingdays
       if (workingdays[dayIndex] === "1" || !schedule.workingdays) {
+        const isDayInLeave = unavails.some(u => {
+          if (u.leave_type !== 'full_day') return false;
+          const s = u.start_datetime?.slice(0, 10);
+          const e = u.end_datetime?.slice(0, 10);
+          return full >= s && full <= e;
+        });
         dates.push({
           full: full, day: d.getDate(),
           month: d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { month: "short" }),
           weekday: d.toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : i18n.language, { weekday: "short" }),
+          isLeave: isDayInLeave,
         });
       }
     }
@@ -206,7 +219,8 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
   useEffect(() => {
     if (step === 4 && !date) {
       const avail = getAvailableDates();
-      if (avail.length > 0) { setDate(avail[0].full); fetchSlots(avail[0].full); }
+      const firstAvailable = avail.find(d => !d.isLeave) || avail[0];
+      if (firstAvailable) { setDate(firstAvailable.full); fetchSlots(firstAvailable.full); }
     }
   }, [step, doctor, date]);
 
@@ -288,7 +302,42 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
         style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>{t("back_to_doctor")}</button>
 
-      <DoctorBanner /><Stepper />
+      <DoctorBanner />
+
+      {/* Vacation / Leave Warning for Patients */}
+      {(() => {
+        const unavails = doctor?.unavailabilities || [];
+        if (!unavails.length) return null;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const activeLeave = unavails.find(u => {
+          const end = u.end_datetime?.slice(0, 10);
+          return end >= todayStr;
+        });
+        if (!activeLeave) return null;
+        const s = activeLeave.start_datetime?.slice(0, 10);
+        const e = activeLeave.end_datetime?.slice(0, 10);
+        const isCurrent = todayStr >= s && todayStr <= e;
+        return (
+          <div style={{
+            background: isCurrent ? "linear-gradient(135deg, #fef3c7, #fffbeb)" : "linear-gradient(135deg, #e0f2fe, #f0f9ff)",
+            border: isCurrent ? "1.5px solid #f59e0b" : "1.5px solid #0284c7",
+            borderRadius: 14,
+            padding: "14px 18px",
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 12
+          }}>
+            <div style={{ fontSize: 13, color: isCurrent ? "#92400e" : "#075985", lineHeight: 1.5 }}>
+              <strong>{isCurrent ? "تنبيه للمريض:" : "تنويه:"}</strong> الطبيب في عطلة من <strong>{s}</strong> إلى <strong>{e}</strong> {activeLeave.show_reason_to_patient && activeLeave.reason ? `(${activeLeave.reason})` : ""}.
+              يرجى اختيار تاريخ عمل متاح بعد انتهاء العطلة لإتمام حجزك.
+            </div>
+          </div>
+        );
+      })()}
+
+      <Stepper />
 
       {step === 1 && (
         <Card style={{ padding: "26px 28px" }}>
@@ -403,12 +452,17 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
                 const sel = date === d.full;
                 return (
                   <div key={d.full} onClick={() => { setDate(d.full); fetchSlots(d.full); }} style={{
-                    flexShrink: 0, width: 80, padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
-                    border: sel ? "2.5px solid #0891b2" : "1.5px solid #e5e7eb", background: sel ? "#ecfeff" : "#fff", transform: sel ? "translateY(-2px)" : "none"
+                    flexShrink: 0, width: 84, padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
+                    border: sel ? "2.5px solid #0891b2" : d.isLeave ? "1.5px solid #fde68a" : "1.5px solid #e5e7eb",
+                    background: sel ? "#ecfeff" : d.isLeave ? "#fffbeb" : "#fff",
+                    transform: sel ? "translateY(-2px)" : "none",
+                    position: "relative"
                   }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "#0891b2" : "#9ca3af" }}>{d.weekday}</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: sel ? "#0c4a6e" : "#374151" }}>{d.day}</div>
-                    <div style={{ fontSize: 11, color: sel ? "#0891b2" : "#9ca3af" }}>{d.month}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "#0891b2" : d.isLeave ? "#d97706" : "#9ca3af" }}>{d.weekday}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: sel ? "#0c4a6e" : d.isLeave ? "#b45309" : "#374151" }}>{d.day}</div>
+                    <div style={{ fontSize: 11, fontWeight: d.isLeave ? 700 : 400, color: sel ? "#0891b2" : d.isLeave ? "#d97706" : "#9ca3af" }}>
+                      {d.isLeave ? "عطلة" : d.month}
+                    </div>
                   </div>
                 );
               })}
@@ -422,6 +476,24 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
               {slotsLoad ? (
                 <div style={{ padding: 24, textAlign: "center" }}><Spinner /></div>
+              ) : dayUnavailable?.isUnavailable ? (
+                <div style={{
+                  padding: "24px 20px",
+                  borderRadius: 16,
+                  background: "#fef3c7",
+                  border: "1.5px solid #f59e0b",
+                  color: "#92400e",
+                  textAlign: "center",
+                  margin: "8px 0"
+                }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>🛑</div>
+                  <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>
+                    {dayUnavailable.reason || "الطبيب في عطلة / غير متاح في هذا اليوم"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#b45309" }}>
+                    يرجى اختيار يوم عمل آخر من شريط الأيام بالأعلى لإتمام حجزك.
+                  </div>
+                </div>
               ) : bookingMode === 'queue' ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {queueShifts.length === 0 ? (
@@ -516,7 +588,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
             <Btn
               variant="primary"
               onClick={() => { trackNext("date_choice"); setStep(5); }}
-              disabled={bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full || !date) : (!selSlot || !date)}
+              disabled={dayUnavailable?.isUnavailable || (bookingMode === 'queue' ? (!selectedShift || selectedShift.is_full || !date) : (!selSlot || !date))}
               style={{ flex: 2, justifyContent: "center" }}
             >
               {t("next_date")}

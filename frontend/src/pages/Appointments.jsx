@@ -314,12 +314,15 @@ export default function AppointmentsPage({ navigate, user }) {
   }, [todayStr]);
 
   const cancel = async (id) => {
-    if (!confirm(t("cancel_confirm"))) return;
+    const confirmMsg = t("cancel_confirm") || (isAr ? "هل أنت متأكد من رغبتك في إلغاء هذا الموعد؟" : "Êtes-vous sûr de vouloir annuler ce rendez-vous ?");
+    if (!window.confirm(confirmMsg)) return;
     try {
       await api.appointments.cancel(id);
       setAppts(p => p.filter(a => a.id !== id));
-      show(t("cancel_success"));
-    } catch (e) { show(e.message, "error"); }
+      show(t("cancel_success") || (isAr ? "تم إلغاء الموعد بنجاح" : "Rendez-vous annulé avec succès"));
+    } catch (e) {
+      show(e.message || (isAr ? "فشل إلغاء الموعد" : "Échec de l'annulation"), "error");
+    }
   };
 
   const filtered = appts.filter(a => {

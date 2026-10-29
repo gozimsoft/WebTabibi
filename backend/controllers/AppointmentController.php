@@ -513,6 +513,14 @@ class AppointmentController
             $appointmentDatetime = $date . ' ' . preg_replace('/[^0-9:]/', '', $time) . ':00';
         }
 
+        $unavailConflict = self::checkUnavailabilityConflict($doctorId, $cdRow['clinic_id'], $appointmentDatetime, $shiftType);
+        if ($unavailConflict && empty($data['force_unavailability'])) {
+            $msg = (!empty($unavailConflict['show_reason_to_patient']) && !empty($unavailConflict['reason']))
+                ? "الطبيب لديه إجازة/عطلة مسجلة في هذا الوقت ({$unavailConflict['reason']})."
+                : "الطبيب لديه إجازة/عطلة مسجلة في هذا الوقت.";
+            Response::error($msg, 409);
+        }
+
         $reasonId = !empty($data['doctors_reason_id']) ? $data['doctors_reason_id'] : null;
         $note     = trim($data['note'] ?? '');
         $phone    = trim($data['phone'] ?? '');
@@ -614,6 +622,37 @@ class AppointmentController
         if (strlen($workingdays) > $dayIndex && $workingdays[$dayIndex] === '0') {
             Response::success(['booking_mode' => $modeStr, 'date' => $date, 'slots' => [], 'shifts' => [], 'timescale' => $timescale]);
             return;
+        }
+
+        // Check for Doctor Unavailabilities / Leaves on this date
+        $unavailStmt = $pdo->prepare("
+            SELECT * FROM doctor_unavailabilities
+            WHERE doctor_id = ?
+              AND (clinic_id = ? OR clinic_id IS NULL)
+              AND (
+                  (leave_type = 'full_day' AND ? >= DATE(start_datetime) AND ? <= DATE(end_datetime))
+                  OR (leave_type IN ('shift', 'partial_hours') AND ? = DATE(start_datetime))
+              )
+        ");
+        $unavailStmt->execute([$doctor_id, $clinicid, $date, $date, $date]);
+        $unavailabilities = $unavailStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($unavailabilities as $u) {
+            if ($u['leave_type'] === 'full_day') {
+                $reasonMsg = (!empty($u['show_reason_to_patient']) && !empty($u['reason']))
+                    ? $u['reason']
+                    : 'الطبيب في عطلة / غير متاح في هذا اليوم';
+                Response::success([
+                    'booking_mode'     => $modeStr,
+                    'date'             => $date,
+                    'slots'            => [],
+                    'shifts'           => [],
+                    'timescale'        => $timescale,
+                    'day_unavailable'  => true,
+                    'reason'           => $reasonMsg
+                ]);
+                return;
+            }
         }
 
         // Check if the patient is already booked on this date with this doctor
@@ -749,6 +788,7 @@ class AppointmentController
         $stmt->execute([$doctor_id, $clinicid]);
         $offHours = $stmt->fetchAll();
         $slots = self::filterOffHours($slots, $date, $dayIndex, $offHours);
+        $slots = self::filterUnavailabilities($slots, $date, $unavailabilities, $timescale);
 
         // Remove already-booked slots (use new schema: clinicsdoctor_id, status != 0)
         $stmt = $pdo->prepare("
@@ -984,6 +1024,14 @@ class AppointmentController
                 $lockParams = [$cd['doctor_id'], $data['date'], $shiftType];
             }
 
+            $unavailConflict = self::checkUnavailabilityConflict($cd['doctor_id'], $cd['clinic_id'], $data['date'] . ' 00:00:00', $shiftType);
+            if ($unavailConflict) {
+                $msg = (!empty($unavailConflict['show_reason_to_patient']) && !empty($unavailConflict['reason']))
+                    ? "الطبيب غير متاح في هذا اليوم/الفترة ({$unavailConflict['reason']})."
+                    : "عذراً، الطبيب غير متاح في هذا اليوم نظراً لوجود عطلة أو إجازة.";
+                Response::error($msg, 409);
+            }
+
             // Atomic Lock & Number Reservation
             $pdo->beginTransaction();
             $stmt = $pdo->prepare($lockQuery);
@@ -1042,6 +1090,14 @@ class AppointmentController
             }
 
             $appointmentDatetime = $data['date'] . ' ' . $time . ':00';
+
+            $unavailConflict = self::checkUnavailabilityConflict($cd['doctor_id'], $cd['clinic_id'], $appointmentDatetime, $shiftType);
+            if ($unavailConflict) {
+                $msg = (!empty($unavailConflict['show_reason_to_patient']) && !empty($unavailConflict['reason']))
+                    ? "الطبيب غير متاح في هذا التوقيت ({$unavailConflict['reason']})."
+                    : "عذراً، الطبيب غير متاح في هذا التوقيت نظراً لوجود عطلة أو طلعة عن العمل.";
+                Response::error($msg, 409);
+            }
 
             if (strtotime($appointmentDatetime) <= time()) {
                 Response::error('لا يمكن حجز موعد في وقت أو تاريخ سابق.', 422);
@@ -1213,8 +1269,22 @@ class AppointmentController
         if (!$appt)
             Response::notFound('Rendez-vous non trouvé');
 
-        if (strtotime($appt['apointementdate']) < time())
-            Response::error("Impossible d'annuler un rendez-vous passé", 400);
+        // لا يمكن إلغاء موعد في تاريخ سابق (أيام سابقة)
+        $apptDate = date('Y-m-d', strtotime($appt['apointementdate']));
+        $today = date('Y-m-d');
+        if ($apptDate < $today) {
+            Response::error("لا يمكن إلغاء موعد في تاريخ سابق", 400);
+        }
+
+        // لا يمكن إلغاء موعد تم إتمامه بالفعل
+        if ((int)$appt['status'] === 2 || (int)$appt['status'] === 3 || ($appt['queue_status'] ?? '') === 'completed') {
+            Response::error("لا يمكن إلغاء موعد تم إتمامه بالفعل", 400);
+        }
+
+        // إذا كان الموعد ملغى بالفعل
+        if ((int)$appt['status'] === 1 || ($appt['queue_status'] ?? '') === 'cancelled') {
+            Response::error("هذا الموعد ملغى بالفعل", 400);
+        }
 
         // إشعار الطبيب والعيادة والمريض عند إلغاء الموعد
         require_once __DIR__ . '/../helpers/NotificationHelper.php';
@@ -1252,9 +1322,9 @@ class AppointmentController
             error_log("Failed to send cancel notification: " . $e->getMessage());
         }
 
-        // Soft delete: status = 1 = annulé
+        // Soft delete: status = 1 = annulé, queue_status = 'cancelled'
         $pdo->prepare("
-            UPDATE apointements SET status = 1, updatedat = NOW() WHERE id = ?
+            UPDATE apointements SET status = 1, queue_status = 'cancelled', updatedat = NOW() WHERE id = ?
         ")->execute([$id]);
 
         $stmt = $pdo->prepare("SELECT * FROM patients WHERE id = ? LIMIT 1");
@@ -1436,5 +1506,55 @@ class AppointmentController
             }
             return true;
         });
+    }
+
+    public static function checkUnavailabilityConflict(string $doctorId, ?string $clinicId, string $appointmentDatetime, ?string $shiftType = null): ?array
+    {
+        $pdo = Database::getInstance();
+        $date = substr($appointmentDatetime, 0, 10);
+
+        $sql = "
+            SELECT id, reason, show_reason_to_patient, leave_type, start_datetime, end_datetime, shift_type
+            FROM doctor_unavailabilities
+            WHERE doctor_id = ?
+              AND (clinic_id = ? OR clinic_id IS NULL)
+              AND (
+                  (leave_type = 'full_day' AND DATE(?) >= DATE(start_datetime) AND DATE(?) <= DATE(end_datetime))
+                  OR (leave_type = 'shift' AND DATE(?) = DATE(start_datetime) AND (shift_type = ? OR shift_type = 'full_day' OR ? = 'full_day' OR shift_type IS NULL))
+                  OR (leave_type = 'partial_hours' AND ? >= start_datetime AND ? <= end_datetime)
+              )
+            LIMIT 1
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $doctorId,
+            $clinicId,
+            $date, $date,
+            $date, $shiftType, $shiftType,
+            $appointmentDatetime, $appointmentDatetime
+        ]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    private static function filterUnavailabilities(array $slots, string $date, array $unavailabilities, int $timescale): array
+    {
+        return array_values(array_filter($slots, function ($slot) use ($date, $unavailabilities, $timescale) {
+            $slotStart = strtotime("$date $slot:00");
+            $slotEnd   = $slotStart + ($timescale * 60);
+
+            foreach ($unavailabilities as $u) {
+                if ($u['leave_type'] === 'full_day') {
+                    return false;
+                }
+                if ($u['leave_type'] === 'partial_hours') {
+                    $uStart = strtotime($u['start_datetime']);
+                    $uEnd   = strtotime($u['end_datetime']);
+                    if ($slotStart < $uEnd && $slotEnd > $uStart) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }));
     }
 }

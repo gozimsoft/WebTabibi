@@ -190,6 +190,7 @@ export default function DoctorClinicsPage({ user, navigate, isMobile, api, qs })
           initialTab={initialSubTab}
         />
       )}
+      <Toast />
     </div>
   );
 }

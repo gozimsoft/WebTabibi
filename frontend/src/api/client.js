@@ -150,6 +150,13 @@ export const api = {
     createOffHour: (body) => request('POST', '/doctors/off-hours', body),
     updateOffHour: (id, body) => request('PUT', `/doctors/off-hours/${id}`, body),
     deleteOffHour: (id) => request('DELETE', `/doctors/off-hours/${id}`),
+    getUnavailabilities: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/doctor/unavailabilities${qs ? '?' + qs : ''}`);
+    },
+    checkUnavailabilityConflicts: (body) => request('POST', '/doctor/unavailabilities/check-conflicts', body),
+    addUnavailability: (body) => request('POST', '/doctor/unavailabilities', body),
+    deleteUnavailability: (id) => request('DELETE', `/doctor/unavailabilities/${encodeURIComponent(id)}`),
     getMyClinic: (clinicId) => request('GET', `/doctors/clinic${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     createClinic: (body) => request('POST', '/doctors/clinic', body),
     updateMyClinic: (body) => request('PUT', '/doctors/clinic', body),
