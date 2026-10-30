@@ -1,5 +1,6 @@
 // frontend/src/pages/PairDevice.jsx
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { 
   Laptop, ShieldCheck, CheckCircle2, AlertCircle, 
@@ -8,6 +9,9 @@ import {
 } from "lucide-react";
 import jsQR from "jsqr";
 import { Spinner, useToast } from "../components/SharedUI";
+
+const API_BASE = import.meta.env.VITE_API_URL || 'https://tabibi.dz';
+const BASE_URL = import.meta.env.DEV ? '/api' : `${API_BASE}/api`;
 
 export default function PairDevicePage({ user, navigate, isMobile, api }) {
   const { t, i18n } = useTranslation();
@@ -33,6 +37,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   const [loadingPairings, setLoadingPairings] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState(null);
   const [confirmUnlinkModal, setConfirmUnlinkModal] = useState(null);
+  const [unlinkModalError, setUnlinkModalError] = useState("");
 
   // QR Scanner States
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -52,10 +57,13 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     if (!token || (user && Number(user?.user_type) !== 1)) return;
     setLoadingPairings(true);
     try {
-      const res = await fetch("/api/sync/device/list", {
+      const res = await fetch(`${BASE_URL}/sync/device/list?_t=${Date.now()}`, {
+        cache: "no-store",
         headers: {
           "Authorization": `Bearer ${token}`,
-          "Accept": "application/json"
+          "Accept": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
         }
       });
       const json = await res.json();
@@ -73,26 +81,38 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   const handleUnlink = async (pairing) => {
     if (!pairing?.id) return;
     setUnlinkingId(pairing.id);
+    setUnlinkModalError("");
     try {
-      const res = await fetch("/api/sync/device/unlink", {
+      const res = await fetch(`${BASE_URL}/sync/device/unlink`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
-          "Accept": "application/json"
+          "Accept": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate"
         },
-        body: JSON.stringify({ pairing_id: pairing.id })
+        body: JSON.stringify({
+          pairing_id: pairing.id,
+          clinic_id: pairing.clinic_id
+        })
       });
       const json = await res.json();
       if (json.success) {
         show(t("pairing_unlinked_success", "تم فصل ارتباط العيادة بنجاح وإلغاء صلاحية المزامنة."), "success");
         setConfirmUnlinkModal(null);
-        fetchLinkedPairings();
+        // تحديث القائمة فورياً في الواجهة باستبعاد المعرّف والعيادة المفصولة
+        setLinkedPairings(prev => prev.filter(p => p.id !== pairing.id && p.clinic_id !== pairing.clinic_id));
+        // إعادة جلب القائمة المحدّثة من الخادم مع تجاوز الكاش
+        await fetchLinkedPairings();
       } else {
-        show(json.message || t("unlink_failed", "فشل فصل الارتباط، يرجى المحاولة مرة أخرى."), "error");
+        const msg = json.message || t("unlink_failed", "فشل فصل الارتباط، يرجى المحاولة مرة أخرى.");
+        setUnlinkModalError(msg);
+        show(msg, "error");
       }
     } catch (err) {
-      show(t("network_error", "تعذر الاتصال بالخادم"), "error");
+      const netErr = t("network_error", "تعذر الاتصال بالخادم");
+      setUnlinkModalError(netErr);
+      show(netErr, "error");
     } finally {
       setUnlinkingId(null);
     }
@@ -130,7 +150,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     setLoadingDetails(true);
     setErrorMsg("");
 
-    fetch(`/api/sync/device/details?code=${encodeURIComponent(code)}&session_id=${encodeURIComponent(sessionId)}`, {
+    fetch(`${BASE_URL}/sync/device/details?code=${encodeURIComponent(code)}&session_id=${encodeURIComponent(sessionId)}`, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Accept": "application/json"
@@ -166,7 +186,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/sync/device/approve", {
+      const res = await fetch(`${BASE_URL}/sync/device/approve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -371,7 +391,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   if (!user) {
     return (
       <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
-        {Toast}
+        <Toast />
         <div style={{
           background: "var(--card-bg, #ffffff)",
           borderRadius: 20,
@@ -419,7 +439,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   if (user.user_type !== 1) {
     return (
       <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
-        {Toast}
+        <Toast />
         <div style={{
           background: "var(--card-bg, #ffffff)",
           borderRadius: 20, padding: "36px 24px",
@@ -645,7 +665,10 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
                 {/* Unlink Action Button */}
                 <button
                   type="button"
-                  onClick={() => setConfirmUnlinkModal(item)}
+                  onClick={() => {
+                    setUnlinkModalError("");
+                    setConfirmUnlinkModal(item);
+                  }}
                   disabled={unlinkingId === item.id}
                   style={{
                     padding: "7px 12px",
@@ -683,26 +706,37 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   );
 
   const renderUnlinkModal = () => {
-    if (!confirmUnlinkModal) return null;
-    return (
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-        background: "rgba(15, 23, 42, 0.72)",
-        backdropFilter: "blur(6px)",
-        zIndex: 10000,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 16
-      }}>
-        <div style={{
-          background: "var(--card-bg, #ffffff)",
-          borderRadius: 22,
-          maxWidth: 440,
-          width: "100%",
-          padding: "28px 24px",
-          boxShadow: "0 20px 45px rgba(0,0,0,0.25)",
-          border: "1px solid var(--border, #e2e8f0)",
-          textAlign: "center"
-        }}>
+    if (!confirmUnlinkModal || typeof document === "undefined") return null;
+    return createPortal(
+      <div 
+        style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(15, 23, 42, 0.72)",
+          backdropFilter: "blur(6px)",
+          zIndex: 999999,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 16
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && unlinkingId !== confirmUnlinkModal.id) {
+            setConfirmUnlinkModal(null);
+            setUnlinkModalError("");
+          }
+        }}
+      >
+        <div 
+          style={{
+            background: "var(--card-bg, #ffffff)",
+            borderRadius: 22,
+            maxWidth: 440,
+            width: "100%",
+            padding: "28px 24px",
+            boxShadow: "0 20px 45px rgba(0,0,0,0.25)",
+            border: "1px solid var(--border, #e2e8f0)",
+            textAlign: "center"
+          }}
+          onClick={e => e.stopPropagation()}
+        >
           <div style={{
             width: 58, height: 58, borderRadius: "50%",
             background: "#fee2e2", color: "#dc2626",
@@ -716,11 +750,31 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             {t("unlink_confirm_title", "تأكيد فصل الارتباط")}
           </h3>
 
-          <p style={{ fontSize: 13.5, color: "#64748b", lineHeight: 1.6, margin: "0 0 24px" }}>
+          <p style={{ fontSize: 13.5, color: "#64748b", lineHeight: 1.6, margin: "0 0 20px" }}>
             {t("unlink_confirm_desc", "هل أنت متأكد من رغبتك في فصل ارتباط هذا الجهاز بعيادة «{{name}}»؟ سيتوقف البرنامج المكتبي عن مزامنة المواعيد فورياً حتى تتم إعادة ربطه من جديد.", {
-              name: confirmUnlinkModal.clinic_name
+              name: confirmUnlinkModal.clinic_name || ""
             })}
           </p>
+
+          {unlinkModalError && (
+            <div style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#dc2626",
+              borderRadius: 12,
+              padding: "10px 14px",
+              fontSize: 13,
+              fontWeight: 700,
+              marginBottom: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              textAlign: isRtl ? "right" : "left"
+            }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>{unlinkModalError}</span>
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
             <button
@@ -730,7 +784,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
               style={{
                 flex: 1, padding: "12px", borderRadius: 12,
                 border: "none", background: "#dc2626", color: "#ffffff",
-                fontWeight: 800, fontSize: 14, cursor: "pointer",
+                fontWeight: 800, fontSize: 14, cursor: unlinkingId === confirmUnlinkModal.id ? "not-allowed" : "pointer",
                 display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
                 boxShadow: "0 4px 12px rgba(220, 38, 38, 0.25)"
               }}
@@ -751,7 +805,10 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             <button
               type="button"
               disabled={unlinkingId === confirmUnlinkModal.id}
-              onClick={() => setConfirmUnlinkModal(null)}
+              onClick={() => {
+                setConfirmUnlinkModal(null);
+                setUnlinkModalError("");
+              }}
               style={{
                 padding: "12px 20px", borderRadius: 12,
                 border: "1px solid #cbd5e1", background: "#f8fafc",
@@ -762,7 +819,8 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
@@ -770,7 +828,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
   if (approved) {
     return (
       <div style={{ maxWidth: 540, margin: "30px auto", padding: "0 16px" }}>
-        {Toast}
+        <Toast />
         <div style={{
           background: "var(--card-bg, #ffffff)",
           borderRadius: 24, padding: isMobile ? "30px 20px" : "40px 24px",
@@ -853,7 +911,7 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
 
   return (
     <div style={{ maxWidth: 540, margin: "30px auto", padding: "0 16px" }}>
-      {Toast}
+      <Toast />
 
       <div style={{
         background: "var(--card-bg, #ffffff)",
@@ -1236,13 +1294,13 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
       {renderUnlinkModal()}
 
       {/* QR Scanner Modal */}
-      {scannerOpen && (
+      {scannerOpen && typeof document !== "undefined" && createPortal(
         <div style={{
           position: "fixed",
           top: 0, left: 0, right: 0, bottom: 0,
           background: "rgba(0, 0, 0, 0.82)",
           backdropFilter: "blur(8px)",
-          zIndex: 9999,
+          zIndex: 999999,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1400,7 +1458,8 @@ export default function PairDevicePage({ user, navigate, isMobile, api }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

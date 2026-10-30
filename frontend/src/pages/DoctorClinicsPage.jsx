@@ -6,13 +6,27 @@ import { Spinner, useToast } from "../components/SharedUI";
 import DoctorClinicManager from "../components/DoctorClinicManager";
 import { api as defaultApi } from "../api/client";
 
-export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
+export default function DoctorClinicsPage({ user, navigate, isMobile, api, qs }) {
   const { t } = useTranslation();
   const { show, Toast } = useToast();
 
   const activeApi = api || defaultApi;
   const [doctorProfile, setDoctorProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Extract initial sub-tab from query string if available
+  const initialSubTab = (() => {
+    try {
+      const search = qs ? (qs.startsWith("?") ? qs : "?" + qs) : window.location.search;
+      const params = new URLSearchParams(search);
+      const tabParam = params.get("tab");
+      if (tabParam === "appointment_settings" || tabParam === "settings" || tabParam === "booking_system" || tabParam === "work_system") {
+        return "booking_system";
+      }
+      return tabParam || null;
+    } catch (_) {}
+    return null;
+  })();
 
   useEffect(() => {
     let isMounted = true;
@@ -158,7 +172,7 @@ export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content: Doctor Clinic Manager */}
       {loading ? (
         <div style={{ textAlign: "center", padding: "80px 20px" }}>
           <Spinner size={36} color="var(--brand)" />
@@ -173,8 +187,10 @@ export default function DoctorClinicsPage({ user, navigate, isMobile, api }) {
           showToast={show}
           isMobile={isMobile}
           navigate={navigate}
+          initialTab={initialSubTab}
         />
       )}
+      <Toast />
     </div>
   );
 }

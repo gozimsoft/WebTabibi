@@ -26,9 +26,9 @@ export function useRoute() {
       // 2. Accès direct via '/app'
       rawPath = "/app";
       qs = window.location.search.slice(1) || "";
-    } else if (p === "/install" || p === "/instal") {
-      // 2b. Accès direct via '/install' ou ancien '/instal'
-      rawPath = "/install";
+    } else if (p === "/install" || p === "/instal" || p === "/knowledge") {
+      // 2b. Accès direct via '/install', '/instal', ou '/knowledge'
+      rawPath = p === "/instal" ? "/install" : p;
       qs = window.location.search.slice(1) || "";
       if (p === "/instal") {
         try {
@@ -83,18 +83,18 @@ export function useRoute() {
       } catch (_) {}
     }
 
-    // 1b. Navigation vers '/install' sans hash
-    if (targetPath === "/install" || targetPath === "/instal") {
+    // 1b. Navigation vers '/install' ou '/knowledge' sans hash
+    if (targetPath === "/install" || targetPath === "/instal" || targetPath === "/knowledge") {
       try {
-        window.history.pushState(null, "", "/install" + queryString);
+        window.history.pushState(null, "", targetPath + queryString);
         setLoc(parse());
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       } catch (_) {}
     }
 
-    // 2. Navigation vers '/' depuis '/app' ou '/install'
-    if (targetPath === "/" && (window.location.pathname === "/app" || window.location.pathname === "/install" || window.location.pathname === "/instal")) {
+    // 2. Navigation vers '/' depuis '/app', '/install' ou '/knowledge'
+    if (targetPath === "/" && (window.location.pathname === "/app" || window.location.pathname === "/install" || window.location.pathname === "/instal" || window.location.pathname === "/knowledge")) {
       try {
         window.history.pushState(null, "", "/" + queryString);
         setLoc(parse());
@@ -103,8 +103,8 @@ export function useRoute() {
       } catch (_) {}
     }
 
-    // 3. Si on quitte '/app' ou '/install' vers une autre route, réinitialiser le pathname pour éviter '/app#/route'
-    if (window.location.pathname === "/app" || window.location.pathname === "/install" || window.location.pathname === "/instal") {
+    // 3. Si on quitte une route directe vers une autre route, réinitialiser le pathname
+    if (window.location.pathname === "/app" || window.location.pathname === "/install" || window.location.pathname === "/instal" || window.location.pathname === "/knowledge") {
       try {
         const hashTarget = target.startsWith("#") ? target : "#" + (target.startsWith("/") ? target : "/" + target);
         window.history.pushState(null, "", "/" + hashTarget);

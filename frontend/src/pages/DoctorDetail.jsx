@@ -124,10 +124,104 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
             ) : (
               <Btn onClick={() => navigate("/login")}>{t("login_to_book")}</Btn>
             )}
+            {(() => {
+              const unavails = data.unavailabilities || [];
+              const now = new Date();
+              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              const curLeave = unavails.find(u => {
+                const s = u.start_datetime?.slice(0, 10);
+                const e = u.end_datetime?.slice(0, 10);
+                return todayStr >= s && todayStr <= e;
+              });
+              if (!curLeave) return null;
+              return (
+                <div style={{ fontSize: 11, color: "#d97706", fontWeight: 800, textAlign: "center", background: "#fef3c7", padding: "4px 8px", borderRadius: 8, border: "1px solid #fde68a" }}>
+                  في عطلة حتى {curLeave.end_datetime?.slice(0, 10)}
+                </div>
+              );
+            })()}
             <Btn variant="secondary" onClick={() => { navigate("/chat"); }} style={{ padding: "9px 24px", fontSize: 13 }}>{t("contact")}</Btn>
           </div>
         </div>
       </Card>
+
+      {/* Vacation / Leave Banner if Doctor is on leave or has upcoming leave */}
+      {(() => {
+        const unavails = data.unavailabilities || [];
+        if (!unavails.length) return null;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        const activeOrUpcoming = unavails.find(u => {
+          const end = u.end_datetime?.slice(0, 10);
+          return end >= todayStr;
+        });
+
+        if (!activeOrUpcoming) return null;
+
+        const start = activeOrUpcoming.start_datetime?.slice(0, 10);
+        const end = activeOrUpcoming.end_datetime?.slice(0, 10);
+        const isCurrent = todayStr >= start && todayStr <= end;
+
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+        return (
+          <Card style={{
+            marginBottom: 20,
+            background: isCurrent ? "linear-gradient(135deg, #fef3c7, #fffbeb)" : "linear-gradient(135deg, #e0f2fe, #f0f9ff)",
+            border: isCurrent ? "1.5px solid #f59e0b" : "1.5px solid #0284c7",
+            padding: "18px 22px",
+            borderRadius: 16,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.04)"
+          }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: isCurrent ? "#92400e" : "#075985" }}>
+                    {isCurrent ? "تنبيه: الطبيب في عطلة حالياً" : "تنويه للمرضى: عطلة مبرمجة قادمة للطبيب"}
+                  </h3>
+                  <span style={{
+                    background: isCurrent ? "#fde68a" : "#bae6fd",
+                    color: isCurrent ? "#854d0e" : "#0369a1",
+                    padding: "3px 10px",
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 800
+                  }}>
+                    {diffDays > 1 ? `المدة: ${diffDays} أيام` : "المدة: يوم واحد"}
+                  </span>
+                  {activeOrUpcoming.leave_type === 'full_day' && (
+                    <span style={{
+                      background: isCurrent ? "#fee2e2" : "#f1f5f9",
+                      color: isCurrent ? "#991b1b" : "#475569",
+                      padding: "3px 10px",
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 700
+                    }}>
+                      عطلة كاملة
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: isCurrent ? "#78350f" : "#0c4a6e", lineHeight: 1.6, marginBottom: 4 }}>
+                  فترة العطلة: من <strong>{start}</strong> إلى غاية <strong>{end}</strong>
+                  {activeOrUpcoming.show_reason_to_patient && activeOrUpcoming.reason ? (
+                    <span> — السبب: <strong>{activeOrUpcoming.reason}</strong></span>
+                  ) : null}
+                </div>
+                <div style={{ fontSize: 12, color: isCurrent ? "#b45309" : "#0284c7", fontWeight: 700 }}>
+                  {isCurrent
+                    ? "⚠️ تنبيه: الحجز متوقف خلال فترة العطلة. يمكنك حجز موعد في الأيام المتاحة بعد استئناف العمل."
+                    : "ℹ️ لن تكون المواعيد متاحة خلال فترة العطلة أعلاه. يرجى اختيار تاريخ مناسب خارجها."}
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Virtual Doctor Claim Banner — shown when emailvalidation is not confirmed (NULL or 0) */}
       {!data.emailvalidation && (

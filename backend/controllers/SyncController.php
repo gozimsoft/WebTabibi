@@ -1059,6 +1059,10 @@ class SyncController {
      * جلب جميع العيادات والأجهزة المرتبط بها حساب الطبيب حالياً
      */
     public static function listDevicePairings(): void {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
         $session = AuthMiddleware::doctorOnly();
         $pdo = Database::getInstance();
         self::ensureSyncPairingSchema($pdo);
@@ -1066,7 +1070,7 @@ class SyncController {
         $stmtDoc = $pdo->prepare("SELECT `id` FROM `doctors` WHERE `user_id` = ? LIMIT 1");
         $stmtDoc->execute([$session['user_id']]);
         $doctor = $stmtDoc->fetch();
-        if (!$doctor) Response::notFound('ملف الطبيب غير موجود.');
+        $doctorId = $doctor ? $doctor['id'] : null;
 
         try {
             $stmt = $pdo->prepare("
@@ -1081,15 +1085,16 @@ class SyncController {
                     c.`address`,
                     COALESCE(w.`namear`, w.`namefr`, '') AS `wilaya`,
                     c.`phone`,
-                    cd.`is_owner`
+                    COALESCE(MAX(cd.`is_owner`), 0) AS `is_owner`
                 FROM `sync_device_pairings` p
                 LEFT JOIN `clinics` c ON c.`id` = p.`clinic_id`
                 LEFT JOIN `wilayas` w ON (w.`num` = c.`wilaya_id`)
-                LEFT JOIN `clinicsdoctors` cd ON cd.`clinic_id` = p.`clinic_id` AND cd.`doctor_id` = p.`doctor_id`
-                WHERE p.`doctor_id` = ? AND p.`status` = 'APPROVED'
+                LEFT JOIN `clinicsdoctors` cd ON cd.`clinic_id` = p.`clinic_id` AND (cd.`doctor_id` = p.`doctor_id` OR cd.`doctor_id` = ?)
+                WHERE (p.`doctor_id` = ? OR p.`doctor_id` = ? OR p.`user_id` = ?) AND UPPER(p.`status`) = 'APPROVED'
+                GROUP BY p.`id`
                 ORDER BY COALESCE(p.`paired_at`, p.`created_at`) DESC
             ");
-            $stmt->execute([$doctor['id']]);
+            $stmt->execute([$doctorId, $doctorId, $session['user_id'], $session['user_id']]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\Throwable $e) {
             // Defensive fallback if complex join encounters schema differences
@@ -1102,10 +1107,11 @@ class SyncController {
                     p.`paired_at`,
                     p.`created_at`
                 FROM `sync_device_pairings` p
-                WHERE p.`doctor_id` = ? AND p.`status` = 'APPROVED'
+                WHERE (p.`doctor_id` = ? OR p.`doctor_id` = ? OR p.`user_id` = ?) AND UPPER(p.`status`) = 'APPROVED'
+                GROUP BY p.`id`
                 ORDER BY COALESCE(p.`paired_at`, p.`created_at`) DESC
             ");
-            $stmt->execute([$doctor['id']]);
+            $stmt->execute([$doctorId, $session['user_id'], $session['user_id']]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
@@ -1132,6 +1138,9 @@ class SyncController {
      * فصل ارتباط جهاز/عيادة معينة وإلغاء صلاحية المزامنة فورياً
      */
     public static function unlinkDevicePairing(): void {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+
         $session = AuthMiddleware::doctorOnly();
         $pdo = Database::getInstance();
         self::ensureSyncPairingSchema($pdo);
@@ -1147,38 +1156,72 @@ class SyncController {
         $stmtDoc = $pdo->prepare("SELECT `id` FROM `doctors` WHERE `user_id` = ? LIMIT 1");
         $stmtDoc->execute([$session['user_id']]);
         $doctor = $stmtDoc->fetch();
-        if (!$doctor) Response::notFound('ملف الطبيب غير موجود.');
+        $doctorId = $doctor ? $doctor['id'] : null;
 
-        $query = "SELECT `id`, `token`, `clinic_id` FROM `sync_device_pairings` WHERE `doctor_id` = ? AND `status` = 'APPROVED' AND ";
-        $params = [$doctor['id']];
-        if (!empty($pairingId)) {
-            $query .= "`id` = ?";
-            $params[] = $pairingId;
+        // Build conditions matching the doctor / user
+        $docConditions = "(p.`doctor_id` = ? OR p.`doctor_id` = ? OR p.`user_id` = ?)";
+        $docParams = [$doctorId, $session['user_id'], $session['user_id']];
+
+        $targetConditions = "";
+        $targetParams = [];
+        if (!empty($pairingId) && !empty($clinicId)) {
+            $targetConditions = "(p.`id` = ? OR p.`clinic_id` = ?)";
+            $targetParams = [$pairingId, $clinicId];
+        } elseif (!empty($pairingId)) {
+            $targetConditions = "p.`id` = ?";
+            $targetParams = [$pairingId];
         } else {
-            $query .= "`clinic_id` = ?";
-            $params[] = $clinicId;
-        }
-        $query .= " LIMIT 1";
-
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        $pairing = $stmt->fetch();
-
-        if (!$pairing) {
-            Response::error('سجل الارتباط غير موجود أو تم فصله مسبقاً', 404);
+            $targetConditions = "p.`clinic_id` = ?";
+            $targetParams = [$clinicId];
         }
 
-        // 1. Invalidate session token from sessions table
-        if (!empty($pairing['token'])) {
-            $stmtDelToken = $pdo->prepare("DELETE FROM `sessions` WHERE `token` = ?");
-            $stmtDelToken->execute([$pairing['token']]);
+        // 1. Find all active APPROVED pairings matching this request
+        $stmtFind = $pdo->prepare("
+            SELECT p.`id`, p.`token`, p.`clinic_id` 
+            FROM `sync_device_pairings` p
+            WHERE {$docConditions} AND {$targetConditions} AND UPPER(p.`status`) = 'APPROVED'
+        ");
+        $stmtFind->execute(array_merge($docParams, $targetParams));
+        $toRevoke = $stmtFind->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($toRevoke)) {
+            // Invalidate session tokens from sessions table
+            foreach ($toRevoke as $row) {
+                if (!empty($row['token'])) {
+                    $stmtDelToken = $pdo->prepare("DELETE FROM `sessions` WHERE `token` = ?");
+                    $stmtDelToken->execute([$row['token']]);
+                }
+            }
+
+            // Mark ALL matching approved pairings as REVOKED
+            $stmtRevoke = $pdo->prepare("
+                UPDATE `sync_device_pairings` p
+                SET p.`status` = 'REVOKED'
+                WHERE {$docConditions} AND {$targetConditions} AND UPPER(p.`status`) = 'APPROVED'
+            ");
+            $stmtRevoke->execute(array_merge($docParams, $targetParams));
+
+            Response::success([
+                'revoked_count' => count($toRevoke),
+                'clinic_id' => $clinicId
+            ], 'تم فصل الارتباط بنجاح وإلغاء صلاحية المزامنة لهذا الجهاز.');
         }
 
-        // 2. Mark pairing as REVOKED
-        $stmtRevoke = $pdo->prepare("UPDATE `sync_device_pairings` SET `status` = 'REVOKED' WHERE `id` = ?");
-        $stmtRevoke->execute([$pairing['id']]);
+        // If no APPROVED pairings matched, check if record was already unlinked/revoked
+        $stmtCheck = $pdo->prepare("
+            SELECT p.`id` FROM `sync_device_pairings` p
+            WHERE {$docConditions} AND {$targetConditions}
+            LIMIT 1
+        ");
+        $stmtCheck->execute(array_merge($docParams, $targetParams));
+        if ($stmtCheck->fetch()) {
+            Response::success([
+                'already_revoked' => true,
+                'clinic_id' => $clinicId
+            ], 'تم فصل ارتباط هذا الجهاز بنجاح مسبقاً.');
+        }
 
-        Response::success(null, 'تم فصل الارتباط بنجاح وإلغاء صلاحية المزامنة لهذا الجهاز.');
+        Response::error('سجل الارتباط غير موجود أو لا ينتمي لحسابك الطبي.', 404);
     }
 
     /**

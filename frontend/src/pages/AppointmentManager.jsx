@@ -6,18 +6,23 @@ import {
   XCircle, AlertCircle, RefreshCw, Filter, Search,
   Activity, ClipboardList, Plus, X, FileText,
   LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin,
-  Maximize, Minimize, ArrowUpDown, Check
+  Maximize, Minimize, ArrowUpDown, Check,
+  Hash, Sun, Moon, Bell, Volume2, Zap, Users, Sliders
 } from "lucide-react";
 import { Btn, Spinner, useToast } from "../components/SharedUI";
+import QuickEmergencyLeaveModal from "../components/QuickEmergencyLeaveModal";
 
 // ── New Appointment Modal ────────────────────────────────────────────────────
-function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
+function NewAppointmentModal({ onClose, onSuccess, show: visible, settings }) {
   const { t } = useTranslation();
   const { show } = useToast();
   const [saving, setSaving] = useState(false);
   const [clinics, setClinics] = useState([]);
   const [allReasons, setAllReasons] = useState([]);
   const [loadingClinics, setLoadingClinics] = useState(true);
+
+  const isQueueMode = Number(settings?.booking_mode) === 1;
+  const isDoubleShift = Number(settings?.shift_mode) === 2;
 
   const [form, setForm] = useState({
     clinics_doctor_id: "",
@@ -27,6 +32,8 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
     phone: "",
     note: "",
     doctors_reason_id: "",
+    shift_type: "morning",
+    is_emergency: false,
   });
 
   useEffect(() => {
@@ -53,8 +60,17 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
     if (!form.clinics_doctor_id) return show(t("appt_mgr_select_clinic_req"), "error");
     setSaving(true);
     try {
-      await api.doctor.addAppointment(form);
-      show(t("appt_mgr_save_success"), "success");
+      const payload = {
+        ...form,
+        is_emergency: form.is_emergency ? 1 : 0
+      };
+      if (isQueueMode) {
+        payload.time = form.shift_type === 'evening'
+          ? (settings?.evening_start?.slice(0, 5) || "14:00")
+          : (settings?.morning_start?.slice(0, 5) || "08:30");
+      }
+      await api.doctor.addAppointment(payload);
+      show(isQueueMode ? "تم تسجيل المريض وحجز رقم التذكرة بنجاح" : t("appt_mgr_save_success"), "success");
       onSuccess();
       onClose();
     } catch (err) {
@@ -90,12 +106,16 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Plus size={22} color="#fff" />
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: isQueueMode ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {isQueueMode ? <Hash size={22} color="#fff" /> : <Plus size={22} color="#fff" />}
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "var(--text-main, #0f172a)" }}>{t("appt_mgr_new_appointment")}</h2>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary, #64748b)" }}>{t("appt_mgr_new_appt_subtitle")}</p>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "var(--text-main, #0f172a)" }}>
+                {isQueueMode ? "تسجيل مريض جديد (تذكرة طابور)" : t("appt_mgr_new_appointment")}
+              </h2>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary, #64748b)" }}>
+                {isQueueMode ? "حجز مقعد بالرقم التسلسلي والأسبقية" : t("appt_mgr_new_appt_subtitle")}
+              </p>
             </div>
           </div>
           <button onClick={onClose} style={{ background: "var(--input-bg, #f1f5f9)", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -140,11 +160,9 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
               {(() => {
                 const selectedClinic = clinics.find(c => String(c.id) === String(form.clinics_doctor_id));
                 const targetClinicId = selectedClinic?.clinic_id;
-                // Show reasons matching the selected clinic, or all reasons if no match found
                 const filtered = targetClinicId
                   ? allReasons.filter(r => String(r.clinic_id) === String(targetClinicId))
                   : allReasons;
-                // Fallback: if filtered is empty, show all reasons
                 const toShow = filtered.length > 0 ? filtered : allReasons;
                 return toShow.map(r => (
                   <option key={r.id} value={r.id}>{r.reason_name}</option>
@@ -178,16 +196,109 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {/* Queue Shift Selector (if double shift) */}
+          {isQueueMode && isDoubleShift && (
+            <div>
+              <label style={lbl}>الفترة المطلوبة *</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => field("shift_type", "morning")}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: form.shift_type === "morning" ? "2px solid #7c3aed" : "1.5px solid #e2e8f0",
+                    background: form.shift_type === "morning" ? "rgba(124, 58, 237, 0.08)" : "#fff",
+                    color: form.shift_type === "morning" ? "#6d28d9" : "#475569",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6
+                  }}
+                >
+                  <Sun size={15} color="#d97706" /> الفترة الصباحية
+                </button>
+                <button
+                  type="button"
+                  onClick={() => field("shift_type", "evening")}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: form.shift_type === "evening" ? "2px solid #7c3aed" : "1.5px solid #e2e8f0",
+                    background: form.shift_type === "evening" ? "rgba(124, 58, 237, 0.08)" : "#fff",
+                    color: form.shift_type === "evening" ? "#6d28d9" : "#475569",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6
+                  }}
+                >
+                  <Moon size={15} color="#6366f1" /> الفترة المسائية
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Date & Time (Conditional for queue vs slots) */}
+          {isQueueMode ? (
             <div>
               <label style={lbl}><Calendar size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_date_label")}</label>
               <input type="date" min={new Date().toISOString().slice(0, 10)} value={form.date} onChange={e => field("date", e.target.value)} style={inp} required />
+              <div style={{ fontSize: 11, color: "#7c3aed", marginTop: 4, fontWeight: 600 }}>
+                💡 سيتم منح المريض رقم التذكرة التالي تلقائياً في قائمة اليوم المختار
+              </div>
             </div>
-            <div>
-              <label style={lbl}><Clock size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_time_label")}</label>
-              <input type="time" min={form.date === new Date().toISOString().slice(0, 10) ? `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` : undefined} value={form.time} onChange={e => field("time", e.target.value)} style={inp} required />
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={lbl}><Calendar size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_date_label")}</label>
+                <input type="date" min={new Date().toISOString().slice(0, 10)} value={form.date} onChange={e => field("date", e.target.value)} style={inp} required />
+              </div>
+              <div>
+                <label style={lbl}><Clock size={13} style={{ marginLeft: 4 }} /> {t("appt_mgr_time_label")}</label>
+                <input type="time" min={form.date === new Date().toISOString().slice(0, 10) ? `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` : undefined} value={form.time} onChange={e => field("time", e.target.value)} style={inp} required />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Emergency / Overbooking Toggle for Queue Mode */}
+          {isQueueMode && (
+            <div
+              onClick={() => field("is_emergency", !form.is_emergency)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                background: form.is_emergency ? "#fef2f2" : "#f8fafc",
+                borderRadius: 10,
+                border: form.is_emergency ? "1.5px solid #f87171" : "1px solid #e2e8f0",
+                cursor: "pointer"
+              }}
+            >
+              <input
+                type="checkbox"
+                id="modal_is_emergency"
+                checked={form.is_emergency}
+                onChange={e => field("is_emergency", e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: "#ef4444" }}
+              />
+              <div>
+                <label htmlFor="modal_is_emergency" style={{ fontSize: 12, fontWeight: 700, color: form.is_emergency ? "#991b1b" : "#334155", cursor: "pointer" }}>
+                  🚨 تسجيل كحالة طارئة (تجاوز سقف القائمة)
+                </label>
+                <div style={{ fontSize: 10, color: "#64748b" }}>
+                  السماح بإدراج المريض حتى لو كانت القائمة قد اكتملت بالكامل
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Note */}
           <div>
@@ -211,13 +322,13 @@ function NewAppointmentModal({ onClose, onSuccess, show: visible }) {
               disabled={saving || loadingClinics || clinics.length === 0}
               style={{
                 flex: 2, padding: "12px", borderRadius: 14, border: "none",
-                background: saving ? "var(--text-muted, #94a3b8)" : "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))",
+                background: saving ? "var(--text-muted, #94a3b8)" : isQueueMode ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))",
                 color: "#fff", fontWeight: 800, fontSize: 14, cursor: saving ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 transition: "opacity 0.2s",
               }}
             >
-              {saving ? <><Spinner size={16} /> {t("appt_mgr_saving")}</> : <><Plus size={16} /> {t("appt_mgr_register_btn")}</>}
+              {saving ? <><Spinner size={16} /> {t("appt_mgr_saving")}</> : isQueueMode ? <><Hash size={16} /> حجز تذكرة دور</> : <><Plus size={16} /> {t("appt_mgr_register_btn")}</>}
             </button>
           </div>
         </form>
@@ -368,12 +479,16 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                       // فحص ما إذا كان الموعد في الماضي أو تم تأكيد إتمامه (مستخدم)
                       const apptDateStr = String(appt.apointementdate || appt.date || "").trim().replace(" ", "T");
                       const apptDateObj = new Date(apptDateStr);
-                      const isPastTime = !isNaN(apptDateObj.getTime()) && apptDateObj < new Date();
+                      const apptDay = new Date(apptDateObj.getFullYear(), apptDateObj.getMonth(), apptDateObj.getDate());
+                      const todayDate = new Date();
+                      todayDate.setHours(0, 0, 0, 0);
+                      // يعتبر اليوم منقضياً بالكامل فقط إذا كان تاريخ الموعد قبل اليوم الحالي (أمس أو ما قبله)
+                      const isEntireDayPassed = !isNaN(apptDay.getTime()) && apptDay < todayDate;
                       const isCompleted = Number(appt.status) === 2;
                       const isCancelled = Number(appt.status) === 1;
                       const isPending = Number(appt.status) === 0;
-                      // إذا انقضى وقت الموعد دون اتخاذ أي إجراء (المريض لم يحضر: غائب)
-                      const isAbsent = isPending && isPastTime;
+                      // يصنف غائب إذا انقضى اليوم بالكامل دون اتخاذ أي إجراء (وليس مجرد انقضاء وقت الموعد في نفس اليوم)
+                      const isAbsent = isPending && isEntireDayPassed;
                       const isUsed = isCompleted || isAbsent;
 
                       // تحديد الألوان: ملغي (أحمر)، مستخدم/مكتمل/غائب (رمادي)، موعد قادم قيد الانتظار (أصفر)
@@ -434,8 +549,8 @@ function WeeklyScheduleView({ appointments, settings, weekStart, setWeekStart, S
                             </div>
                           )}
                           {isPending && (
-                            isPastTime ? (
-                              // إذا انقضى الوقت دون إجراء: استبدال الزرين بزر تحذيري أصفر بنص ABSENT مع بقاء الإطار رمادياً
+                            isEntireDayPassed ? (
+                              // إذا تجاوز اليوم بالكامل دون إجراء: استبدال الزرين بزر تحذيري أصفر بنص ABSENT مع بقاء الإطار رمادياً
                               <div style={{ marginTop: 3 }}>
                                 <button
                                   type="button"
@@ -594,14 +709,18 @@ export default function AppointmentManager({ navigate, user }) {
   const [dateTo, setDateTo] = useState(defaultWeek.to);
   const [quickFilter, setQuickFilter] = useState("this_week"); // this_week by default
   const [showModal, setShowModal] = useState(false);
+  const [showEmergencyLeaveModal, setShowEmergencyLeaveModal] = useState(false);
+  const [doctorLeaves, setDoctorLeaves] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     const saved = localStorage.getItem("tabibi_appt_view_mode");
     return saved === "list" || saved === "calendar" ? saved : "calendar";
   });
   const [calWeek, setCalWeek] = useState(defaultWeek.start);
   const [scheduleSettings, setScheduleSettings] = useState(null);
+  const [liveQueue, setLiveQueue] = useState(null);
   const [clinics, setClinics] = useState([]);
-  const [selectedClinicId, setSelectedClinicId] = useState("all");
+  const [selectedClinicId, setSelectedClinicId] = useState("");
+  const [shiftFilter, setShiftFilter] = useState("all"); // 'all' | 'morning' | 'evening'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doctorFullName, setDoctorFullName] = useState(() => user?.profile?.fullname || user?.fullname || "");
   const [showStats, setShowStats] = useState(() => {
@@ -676,6 +795,8 @@ export default function AppointmentManager({ navigate, user }) {
       if (
         a.id !== b.id ||
         a.status !== b.status ||
+        a.queue_status !== b.queue_status ||
+        a.token_number !== b.token_number ||
         a.apointementdate !== b.apointementdate ||
         a.patientname !== b.patientname ||
         a.phone !== b.phone ||
@@ -688,7 +809,7 @@ export default function AppointmentManager({ navigate, user }) {
     return true;
   };
 
-  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false) => {
+  const fetchAppointments = async (isRefresh = false, clinicId = selectedClinicId, silent = false, shift = shiftFilter) => {
     if (Number(user?.user_type) !== 1) return;
     if (!silent) {
       if (isRefresh) setRefreshing(true);
@@ -705,12 +826,41 @@ export default function AppointmentManager({ navigate, user }) {
         });
       }
       const incoming = Array.isArray(data) ? data : [];
+
+      // Fetch active doctor leaves / absences
+      try {
+        const docApi = api?.doctor || api?.doctors;
+        if (docApi?.getUnavailabilities) {
+          const lParams = clinicId && clinicId !== "all" ? { clinic_id: clinicId, _t: Date.now() } : { _t: Date.now() };
+          const lRes = await docApi.getUnavailabilities(lParams);
+          const lList = Array.isArray(lRes) ? lRes : (lRes?.data || []);
+          setDoctorLeaves(lList);
+        }
+      } catch (e) {}
       setAppointments(prev => {
         if (areAppointmentsEqual(prev, incoming)) {
           return prev;
         }
         return incoming;
       });
+
+      // Fetch live queue status if queue mode or token numbers present
+      const isQueue = Number(res?.settings?.booking_mode) === 1 || incoming.some(a => a.token_number !== null && a.token_number !== undefined);
+      if (isQueue) {
+        try {
+          const lqParams = {
+            clinic_id: clinicId !== "all" ? clinicId : undefined,
+            date: dateFrom || new Date().toISOString().slice(0, 10)
+          };
+          if (shift && shift !== "all") {
+            lqParams.shift_type = shift;
+          }
+          const lqRes = await api.doctor.getLiveQueueStatus(lqParams);
+          if (lqRes?.status === "success" && lqRes?.data) {
+            setLiveQueue(lqRes.data);
+          }
+        } catch (e) {}
+      }
     } catch (err) {
       if (!silent) show(err.message || t("error_occurred"), "error");
     } finally {
@@ -734,11 +884,11 @@ export default function AppointmentManager({ navigate, user }) {
         if (docClinics.length > 0) {
           setSelectedClinicId(docClinics[0].clinic_id);
         } else {
-          fetchAppointments(false, "all");
+          fetchAppointments(false, "");
         }
       })
       .catch(() => {
-        fetchAppointments(false, "all");
+        fetchAppointments(false, "");
       });
   }, [user]);
 
@@ -747,6 +897,12 @@ export default function AppointmentManager({ navigate, user }) {
       fetchAppointments(false, selectedClinicId);
     }
   }, [selectedClinicId]);
+
+  useEffect(() => {
+    if (selectedClinicId) {
+      fetchAppointments(false, selectedClinicId, true, shiftFilter);
+    }
+  }, [shiftFilter]);
 
   // ── مزامنة ذكية شبه فورية في الخلفية (Real-Time Auto-Sync)
   useEffect(() => {
@@ -845,6 +1001,19 @@ export default function AppointmentManager({ navigate, user }) {
     }
   };
 
+  const handleUpdateQueueStatus = async (id, queue_status) => {
+    try {
+      await api.doctor.updateQueueStatus(id, queue_status);
+      show("تم تحديث حالة دور المريض بنجاح", "success");
+      fetchAppointments(true);
+    } catch (err) {
+      show(err.message || "فشل تحديث الحالة", "error");
+    }
+  };
+
+  const isQueueMode = Number(scheduleSettings?.booking_mode) === 1 || appointments.some(a => a.token_number !== null && a.token_number !== undefined);
+  const isDoubleShift = Number(scheduleSettings?.shift_mode) === 2;
+
   const STATUS_LABELS = {
     0: t("appt_mgr_status_booked"),
     1: t("appt_mgr_status_cancelled"),
@@ -869,11 +1038,27 @@ export default function AppointmentManager({ navigate, user }) {
     const apptDate = (a.apointementdate || a.date || "").slice(0, 10);
     const matchesFrom = !dateFrom || apptDate >= dateFrom;
     const matchesTo = !dateTo || apptDate <= dateTo;
-    return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a);
+    const matchesShift = !isQueueMode || !isDoubleShift || shiftFilter === "all" || (a.shift_type || "morning") === shiftFilter;
+    return matchesFilter && matchesSearch && matchesFrom && matchesTo && clinicFilter(a) && matchesShift;
   });
 
   // ترتيب قائمة المواعيد المصفاة في وضع العرض كقائمة
   const sortedFiltered = [...filtered].sort((a, b) => {
+    if (isQueueMode) {
+      const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).setHours(0,0,0,0) || 0;
+      const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).setHours(0,0,0,0) || 0;
+      if (da !== db) return sortBy === "date_desc" ? db - da : da - db;
+      if (sortBy === "name_asc") {
+        return (a.patientname || "").localeCompare(b.patientname || "", i18n.language === "ar" ? "ar" : "fr");
+      }
+      if (sortBy === "status") {
+        return Number(a.status) - Number(b.status);
+      }
+      if (a.shift_type !== b.shift_type) {
+        return (a.shift_type === 'morning' ? -1 : 1);
+      }
+      return (Number(a.token_number) || 0) - (Number(b.token_number) || 0);
+    }
     if (sortBy === "date_asc") {
       const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).getTime() || 0;
       const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).getTime() || 0;
@@ -1023,6 +1208,29 @@ export default function AppointmentManager({ navigate, user }) {
               </div>
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyLeaveModal(true)}
+                  title="تسجيل طلعة طارئة لإيقاف المواعيد اليوم"
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: 10,
+                    fontWeight: 800,
+                    fontSize: 13,
+                    border: "1.5px solid rgba(239, 68, 68, 0.35)",
+                    cursor: "pointer",
+                    transition: "0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "rgba(239, 68, 68, 0.12)",
+                    color: "#ef4444"
+                  }}
+                >
+                  <Clock size={16} />
+                  <span>⚡ طلعة طارئة</span>
+                </button>
+
                 <button
                   onClick={() => setShowModal(true)}
                   style={{
@@ -1218,18 +1426,20 @@ export default function AppointmentManager({ navigate, user }) {
 
               {/* View Toggle & Full Screen */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
-                  {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
-                    <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
-                      display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                      borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                      background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
-                      color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
-                      boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
-                      transition: "all 0.18s",
-                    }}><Icon size={16} />{label}</button>
-                  ))}
-                </div>
+                {!isQueueMode && (
+                  <div style={{ display: "flex", background: "var(--input-bg, #f1f5f9)", borderRadius: 12, padding: 4, gap: 2 }}>
+                    {[{ key: "list", Icon: LayoutList, label: t("appt_mgr_list") }, { key: "calendar", Icon: CalendarDays, label: t("appt_mgr_calendar") }].map(({ key, Icon, label }) => (
+                      <button key={key} onClick={() => { setViewMode(key); localStorage.setItem("tabibi_appt_view_mode", key); }} style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                        borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                        background: viewMode === key ? "var(--card-bg, #fff)" : "transparent",
+                        color: viewMode === key ? "var(--brand, #0891b2)" : "var(--text-secondary, #64748b)",
+                        boxShadow: viewMode === key ? "var(--shadow, 0 2px 8px rgba(0,0,0,0.08))" : "none",
+                        transition: "all 0.18s",
+                      }}><Icon size={16} />{label}</button>
+                    ))}
+                  </div>
+                )}
 
                 <button
                   onClick={toggleFullscreen}
@@ -1250,14 +1460,13 @@ export default function AppointmentManager({ navigate, user }) {
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               {/* Clinic Filter */}
               {clinics.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, background: selectedClinicId !== "all" ? "var(--brand-light, #ecfeff)" : "var(--input-bg, #f8fafc)", padding: "9px 14px", borderRadius: 14, border: selectedClinicId !== "all" ? "1px solid var(--brand, #cffafe)" : "1px solid var(--border, #e2e8f0)" }}>
-                  <MapPin size={16} color={selectedClinicId !== "all" ? "var(--brand, #0891b2)" : "var(--text-muted, #94a3b8)"} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--brand-light, #ecfeff)", padding: "9px 14px", borderRadius: 14, border: "1px solid var(--brand, #cffafe)" }}>
+                  <MapPin size={16} color="var(--brand, #0891b2)" />
                   <select
-                    value={selectedClinicId}
+                    value={selectedClinicId || (clinics[0] ? clinics[0].clinic_id : "")}
                     onChange={e => setSelectedClinicId(e.target.value)}
                     style={{ border: "none", outline: "none", fontSize: 13, background: "transparent", color: "var(--text-main, #334155)", fontWeight: 700, cursor: "pointer" }}
                   >
-                    <option value="all">{t("appt_mgr_all_clinics")}</option>
                     {clinics.map(c => (
                       <option key={c.id} value={c.clinic_id}>{c.name}</option>
                     ))}
@@ -1347,7 +1556,7 @@ export default function AppointmentManager({ navigate, user }) {
                 <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20 }}>
                   {filtered.length} {t("appt_mgr_appointments_count")}
                 </span>
-                {selectedClinicId !== "all" && (
+                {selectedClinicId && (
                   <span style={{ fontSize: 12, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4 }}>
                     <MapPin size={11} />
                     {clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name || t("clinic")}
@@ -1362,9 +1571,462 @@ export default function AppointmentManager({ navigate, user }) {
             </div>
           </div>
 
+          {/* ── LIVE QUEUE DESK BANNER (Shown when Doctor is in Queue Mode) ── */}
+          {isQueueMode && (
+            <div style={{
+              background: "linear-gradient(135deg, #4c1d95 0%, #6d28d9 50%, #7c3aed 100%)",
+              borderRadius: 24,
+              padding: "24px 28px",
+              color: "#ffffff",
+              marginBottom: 24,
+              boxShadow: "0 12px 35px -8px rgba(109, 40, 217, 0.35)",
+              border: "1.5px solid rgba(255, 255, 255, 0.15)",
+              position: "relative",
+              overflow: "hidden"
+            }}>
+              {/* Decorative background glow */}
+              <div style={{
+                position: "absolute",
+                top: -60,
+                [isRtl ? "left" : "right"]: -60,
+                width: 240,
+                height: 240,
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.08)",
+                pointerEvents: "none"
+              }} />
+
+              {/* Top Header of Desk */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    background: "rgba(255, 255, 255, 0.18)",
+                    backdropFilter: "blur(6px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff"
+                  }}>
+                    <Hash size={24} />
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
+                        مكتب المناداة وإدارة الطابور اليومي
+                      </h2>
+                      <span style={{
+                        background: "rgba(16, 185, 129, 0.25)",
+                        color: "#6ee7b7",
+                        border: "1px solid rgba(110, 231, 183, 0.4)",
+                        padding: "2px 8px",
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                        مباشر (Live)
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>
+                      نظام القوائم والتذاكر بالأسبقية · سقف المرضى والتحديث التلقائي
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Counters Pills */}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ background: "rgba(255, 255, 255, 0.12)", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                    إجمالي القائمة: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.total_in_queue || appointments.filter(a => a.token_number).length}</strong>
+                  </div>
+                  <div style={{ background: "rgba(245, 158, 11, 0.25)", border: "1px solid rgba(245, 158, 11, 0.4)", color: "#fef08a", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                    في الانتظار: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.waiting_count ?? appointments.filter(a => a.queue_status === 'waiting' && Number(a.status) === 0).length}</strong>
+                  </div>
+                  <div style={{ background: "rgba(16, 185, 129, 0.25)", border: "1px solid rgba(16, 185, 129, 0.4)", color: "#a7f3d0", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                    تم الفحص: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.completed_count ?? appointments.filter(a => a.queue_status === 'completed' || Number(a.status) === 2).length}</strong>
+                  </div>
+                  {Number(liveQueue?.absent_count) > 0 && (
+                    <div style={{ background: "rgba(239, 68, 68, 0.25)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fecaca", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                      غائب: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.absent_count}</strong>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowModal(true)}
+                    style={{
+                      background: "#ffffff",
+                      color: "#6d28d9",
+                      border: "none",
+                      padding: "7px 14px",
+                      borderRadius: 12,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                    }}
+                  >
+                    <Plus size={14} /> إضافة مريض حاضر
+                  </button>
+                  <button
+                    onClick={() => navigate("/clinics?tab=booking_system")}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.16)",
+                      color: "#ffffff",
+                      border: "1px solid rgba(255, 255, 255, 0.3)",
+                      padding: "7px 14px",
+                      borderRadius: 12,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      transition: "all 0.2s"
+                    }}
+                    title="ضبط نظام المواعيد (ساعات أو طابور مرقم)"
+                  >
+                    <Sliders size={14} /> إعدادات فترات العمل والدور
+                  </button>
+                </div>
+              </div>
+
+              {/* Shift Selector Tabs for Double Shift Mode */}
+              {isDoubleShift && (
+                <div style={{
+                  display: "flex",
+                  gap: 8,
+                  background: "rgba(255, 255, 255, 0.12)",
+                  padding: "4px",
+                  borderRadius: 14,
+                  marginBottom: 16,
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)"
+                }}>
+                  {[
+                    { key: "all", label: isRtl ? "جميع الفترات (طوال اليوم)" : "Toutes les périodes", icon: <Users size={14} />, count: appointments.filter(clinicFilter).length },
+                    { key: "morning", label: isRtl ? "الفترة الصباحية" : "Période du matin", icon: <Sun size={14} />, count: appointments.filter(a => clinicFilter(a) && (a.shift_type || 'morning') === 'morning').length },
+                    { key: "evening", label: isRtl ? "الفترة المسائية" : "Période du soir", icon: <Moon size={14} />, count: appointments.filter(a => clinicFilter(a) && a.shift_type === 'evening').length },
+                  ].map(({ key, label, icon, count }) => {
+                    const active = shiftFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setShiftFilter(key)}
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          padding: "8px 12px",
+                          borderRadius: 10,
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          background: active ? "#ffffff" : "transparent",
+                          color: active ? "#6d28d9" : "#ffffff",
+                          boxShadow: active ? "0 4px 12px rgba(0,0,0,0.18)" : "none",
+                          transition: "all 0.18s ease"
+                        }}
+                      >
+                        {icon}
+                        <span>{label}</span>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 900,
+                          padding: "1px 6px",
+                          borderRadius: 12,
+                          background: active ? "rgba(109, 40, 217, 0.12)" : "rgba(255, 255, 255, 0.2)",
+                          color: active ? "#6d28d9" : "#ffffff"
+                        }}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Desk Interaction Grid: Serving Now vs Next in Line */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+                {/* ── CARD 1: Current Serving Patient ── */}
+                <div style={{
+                  background: "rgba(255, 255, 255, 0.12)",
+                  backdropFilter: "blur(10px)",
+                  borderRadius: 18,
+                  padding: "18px 20px",
+                  border: liveQueue?.current_serving ? "2px solid rgba(110, 231, 183, 0.6)" : "1px solid rgba(255, 255, 255, 0.15)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255, 255, 255, 0.8)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        🩺 المريض الحالي في غرفة الفحص
+                      </span>
+                      {liveQueue?.current_serving && (
+                        <span style={{
+                          background: "#10b981",
+                          color: "#ffffff",
+                          padding: "2px 8px",
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 800,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}>
+                          <Check size={12} strokeWidth={3} /> جاري الكشف
+                        </span>
+                      )}
+                    </div>
+
+                    {liveQueue?.current_serving ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "10px 0 16px" }}>
+                        <div style={{
+                          width: 58,
+                          height: 58,
+                          borderRadius: 16,
+                          background: "#10b981",
+                          color: "#ffffff",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
+                          flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>تذكرة</span>
+                          <span style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>#{liveQueue.current_serving.token_number}</span>
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 17, fontWeight: 900, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {liveQueue.current_serving.patientname}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, opacity: 0.85, marginTop: 4 }}>
+                            {liveQueue.current_serving.phone && <span>📞 {liveQueue.current_serving.phone}</span>}
+                            <span>{liveQueue.current_serving.shift_type === 'evening' ? '🌓 مسائي' : '☀️ صباحي'}</span>
+                            {liveQueue.current_serving.is_emergency == 1 && <span style={{ color: "#fca5a5", fontWeight: 800 }}>🚨 طارئ</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ padding: "24px 0", textAlign: "center", color: "rgba(255, 255, 255, 0.65)", fontSize: 14 }}>
+                        لا يوجد مريض حالياً داخل غرفة الكشف
+                      </div>
+                    )}
+                  </div>
+
+                  {liveQueue?.current_serving && (
+                    <button
+                      onClick={() => handleUpdateQueueStatus(liveQueue.current_serving.id, 'completed')}
+                      style={{
+                        width: "100%",
+                        padding: "10px 16px",
+                        borderRadius: 12,
+                        border: "none",
+                        background: "#10b981",
+                        color: "#ffffff",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        boxShadow: "0 4px 12px rgba(16, 185, 129, 0.35)",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      <Check size={16} strokeWidth={3} />
+                      إتمام الكشف وإنهاء الدور ✓
+                    </button>
+                  )}
+                </div>
+
+                {/* ── CARD 2: Next In Line Patient ── */}
+                <div style={{
+                  background: "rgba(255, 255, 255, 0.12)",
+                  backdropFilter: "blur(10px)",
+                  borderRadius: 18,
+                  padding: "18px 20px",
+                  border: liveQueue?.next_waiting ? "2px solid rgba(251, 191, 36, 0.6)" : "1px solid rgba(255, 255, 255, 0.15)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255, 255, 255, 0.8)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        ⏳ التالي في قاعة الانتظار
+                      </span>
+                      {liveQueue?.next_waiting && (
+                        <span style={{
+                          background: "#f59e0b",
+                          color: "#ffffff",
+                          padding: "2px 8px",
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 800
+                        }}>
+                          جاهز للدخول
+                        </span>
+                      )}
+                    </div>
+
+                    {liveQueue?.next_waiting ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "10px 0 16px" }}>
+                        <div style={{
+                          width: 58,
+                          height: 58,
+                          borderRadius: 16,
+                          background: "#f59e0b",
+                          color: "#ffffff",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 14px rgba(245, 158, 11, 0.4)",
+                          flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>تذكرة</span>
+                          <span style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>#{liveQueue.next_waiting.token_number}</span>
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 17, fontWeight: 900, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {liveQueue.next_waiting.patientname}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, opacity: 0.85, marginTop: 4 }}>
+                            {liveQueue.next_waiting.phone && <span>📞 {liveQueue.next_waiting.phone}</span>}
+                            {liveQueue.next_waiting.estimated_time && <span>⏰ {liveQueue.next_waiting.estimated_time.slice(0, 5)} (تقديري)</span>}
+                            <span>{liveQueue.next_waiting.shift_type === 'evening' ? '🌓 مسائي' : '☀️ صباحي'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ padding: "24px 0", textAlign: "center", color: "rgba(255, 255, 255, 0.65)", fontSize: 14 }}>
+                        لا يوجد مرضى في قائمة الانتظار حالياً
+                      </div>
+                    )}
+                  </div>
+
+                  {liveQueue?.next_waiting && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => handleUpdateQueueStatus(liveQueue.next_waiting.id, 'in_consultation')}
+                        style={{
+                          flex: 2,
+                          padding: "10px 14px",
+                          borderRadius: 12,
+                          border: "none",
+                          background: "#ffffff",
+                          color: "#5b21b6",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          boxShadow: "0 4px 14px rgba(0, 0, 0, 0.15)",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <Bell size={16} />
+                        مناداة المريض للدخول (#{liveQueue.next_waiting.token_number})
+                      </button>
+                      <button
+                        onClick={() => handleUpdateQueueStatus(liveQueue.next_waiting.id, 'absent')}
+                        title="تسجيل غياب المريض عن النداء"
+                        style={{
+                          flex: 1,
+                          padding: "10px 10px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255, 255, 255, 0.3)",
+                          background: "rgba(239, 68, 68, 0.25)",
+                          color: "#ffffff",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4
+                        }}
+                      >
+                        ✕ غائب
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Active Leave / Holiday Banner */}
+          {(() => {
+            const targetDay = dateFrom || new Date().toISOString().slice(0, 10);
+            const holiday = doctorLeaves.find(l => {
+              const s = (l.start_datetime || "").slice(0, 10);
+              const e = (l.end_datetime || "").slice(0, 10);
+              return targetDay >= s && targetDay <= e;
+            });
+            if (!holiday) return null;
+            return (
+              <div style={{
+                background: "linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.08))",
+                border: "1.5px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: 16,
+                padding: "16px 20px",
+                marginBottom: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 14
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12,
+                    background: "rgba(239, 68, 68, 0.15)",
+                    color: "#ef4444",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}>
+                    <Calendar size={22} />
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 900, fontSize: 15, color: "var(--heading-color, #1e293b)" }}>
+                        {holiday.reason || "عطلة / غياب مسجل للطبيب"}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: "rgba(239, 68, 68, 0.15)", color: "#ef4444" }}>
+                        الحجز متوقف
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+                      الفترة: من {holiday.start_datetime?.slice(0, 16)} إلى {holiday.end_datetime?.slice(0, 16)}
+                      {holiday.clinicname ? ` — مقر: ${holiday.clinicname}` : " — كافة المقرات"}
+                      {" (تمت معالجة المواعيد المتضاربة)"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {loading && !refreshing ? (
             <div style={{ display: "flex", justifyContent: "center", padding: 100 }}><Spinner size={40} /></div>
-          ) : viewMode === "calendar" ? (
+          ) : (!isQueueMode && viewMode === "calendar") ? (
             <WeeklyScheduleView
               appointments={calendarAppointments}
               settings={scheduleSettings}
@@ -1378,10 +2040,16 @@ export default function AppointmentManager({ navigate, user }) {
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "80px 20px", background: "var(--card-bg, #fff)", borderRadius: 24, boxShadow: "var(--shadow, 0 4px 20px rgba(0,0,0,0.02))", border: "1px solid var(--border, transparent)" }}>
               <Calendar size={64} color="var(--text-muted, #cbd5e1)" style={{ marginBottom: 16 }} />
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>{t("appt_mgr_no_appointments")}</h3>
-              <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>{t("appt_mgr_no_appointments_desc")}</p>
-              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <Plus size={16} /> {t("appt_mgr_register_first_appt")}
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-main, #334155)", margin: "0 0 8px 0" }}>
+                {isQueueMode && shiftFilter !== "all"
+                  ? (shiftFilter === "morning" ? (isRtl ? "لا توجد تذاكر في الفترة الصباحية" : "Aucun ticket le matin") : (isRtl ? "لا توجد تذاكر في الفترة المسائية" : "Aucun ticket le soir"))
+                  : t("appt_mgr_no_appointments")}
+              </h3>
+              <p style={{ color: "var(--text-secondary, #64748b)", margin: "0 0 20px 0" }}>
+                {isQueueMode ? (isRtl ? "يمكنك حجز تذكرة دور جديدة للمريض بالضغط على الزر أدناه" : "Enregistrez un ticket pour la file d'attente") : t("appt_mgr_no_appointments_desc")}
+              </p>
+              <button onClick={() => setShowModal(true)} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: isQueueMode ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "linear-gradient(135deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Plus size={16} /> {isQueueMode ? (isRtl ? "حجز تذكرة دور جديدة" : "Nouveau ticket") : t("appt_mgr_register_first_appt")}
               </button>
             </div>
           ) : (
@@ -1389,11 +2057,16 @@ export default function AppointmentManager({ navigate, user }) {
               {sortedFiltered.map(appt => {
                 const apptDateStr = String(appt.apointementdate || appt.date || "").trim().replace(" ", "T");
                 const d = new Date(apptDateStr);
-                const isPastTime = !isNaN(d.getTime()) && d < new Date();
+                const apptDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const todayDate = new Date();
+                todayDate.setHours(0, 0, 0, 0);
+                // يعتبر اليوم منقضياً بالكامل فقط إذا كان تاريخ الموعد قبل اليوم الحالي (أمس أو ما قبله)
+                const isEntireDayPassed = !isNaN(apptDay.getTime()) && apptDay < todayDate;
                 const isCompleted = Number(appt.status) === 2;
                 const isCancelled = Number(appt.status) === 1;
                 const isPending = Number(appt.status) === 0;
-                const isAbsent = isPending && isPastTime;
+                // يصنف غائب إذا انقضى اليوم بالكامل دون اتخاذ أي إجراء (وليس مجرد انقضاء وقت الموعد في نفس اليوم)
+                const isAbsent = isPending && isEntireDayPassed;
                 const isPast = isCompleted || isCancelled || isAbsent;
 
                 const statusStyle = isAbsent
@@ -1425,9 +2098,62 @@ export default function AppointmentManager({ navigate, user }) {
                       justifyContent: "space-between"
                     }}
                   >
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: isPast ? "var(--border, #cbd5e1)" : "linear-gradient(90deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))" }} />
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: isPast ? "var(--border, #cbd5e1)" : appt.token_number ? "linear-gradient(90deg, #7c3aed, #0891b2)" : "linear-gradient(90deg,var(--brand, #0891b2),var(--brand-dark, #0e7490))" }} />
 
                     <div>
+                      {/* Ticket Number & Shift Banner if queue mode */}
+                      {appt.token_number !== null && appt.token_number !== undefined && (
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 6,
+                          marginBottom: 8,
+                          paddingBottom: 6,
+                          borderBottom: "1px dashed var(--border, #e2e8f0)"
+                        }}>
+                          <span style={{
+                            background: "linear-gradient(135deg, #7c3aed, #5b21b6)",
+                            color: "#ffffff",
+                            fontWeight: 900,
+                            fontSize: 12,
+                            padding: "2px 8px",
+                            borderRadius: 6,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4
+                          }}>
+                            <Hash size={12} />
+                            تذكرة #{appt.token_number}
+                          </span>
+
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: "2px 6px",
+                              borderRadius: 6,
+                              background: appt.shift_type === 'evening' ? "#ede9fe" : "#fef3c7",
+                              color: appt.shift_type === 'evening' ? "#6d28d9" : "#b45309"
+                            }}>
+                              {appt.shift_type === 'evening' ? "🌓 مسائي" : "☀️ صباحي"}
+                            </span>
+                            {Boolean(Number(appt.is_emergency)) && (
+                              <span style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                padding: "2px 6px",
+                                borderRadius: 6,
+                                background: "#fee2e2",
+                                color: "#dc2626"
+                              }}>
+                                🚨 طارئ
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Top row: Avatar + Patient info + Status Badge */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
@@ -1435,8 +2161,8 @@ export default function AppointmentManager({ navigate, user }) {
                             width: 32,
                             height: 32,
                             borderRadius: 9,
-                            background: isPast ? "var(--input-bg, #f1f5f9)" : "var(--brand-light, #ecfeff)",
-                            color: isPast ? "var(--text-secondary, #64748b)" : "var(--brand, #0891b2)",
+                            background: isPast ? "var(--input-bg, #f1f5f9)" : appt.token_number ? "rgba(124, 58, 237, 0.12)" : "var(--brand-light, #ecfeff)",
+                            color: isPast ? "var(--text-secondary, #64748b)" : appt.token_number ? "#7c3aed" : "var(--brand, #0891b2)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1461,9 +2187,9 @@ export default function AppointmentManager({ navigate, user }) {
                         </div>
 
                         <span style={{
-                          background: statusStyle.bg,
-                          color: statusStyle.color,
-                          border: `1px solid ${statusStyle.border}`,
+                          background: appt.queue_status === 'in_consultation' ? "#dcfce7" : statusStyle.bg,
+                          color: appt.queue_status === 'in_consultation' ? "#15803d" : statusStyle.color,
+                          border: `1px solid ${appt.queue_status === 'in_consultation' ? '#86efac' : statusStyle.border}`,
                           borderRadius: 12,
                           padding: "2px 7px",
                           fontSize: 10,
@@ -1471,7 +2197,7 @@ export default function AppointmentManager({ navigate, user }) {
                           whiteSpace: "nowrap",
                           flexShrink: 0
                         }}>
-                          {statusLabelText}
+                          {appt.queue_status === 'in_consultation' ? "جاري الفحص" : appt.queue_status === 'absent' ? "غائب" : statusLabelText}
                         </span>
                       </div>
 
@@ -1485,9 +2211,9 @@ export default function AppointmentManager({ navigate, user }) {
                               {formattedDate}
                             </span>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--brand, #0891b2)", background: "var(--brand-light, #ecfeff)", padding: "1px 6px", borderRadius: 5, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 3, color: appt.token_number ? "#7c3aed" : "var(--brand, #0891b2)", background: appt.token_number ? "#ede9fe" : "var(--brand-light, #ecfeff)", padding: "1px 6px", borderRadius: 5, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
                             <Clock size={10} />
-                            <span>{formattedTime}</span>
+                            <span>{appt.estimated_time ? `${appt.estimated_time.slice(0, 5)} (تقديري)` : formattedTime}</span>
                           </div>
                         </div>
 
@@ -1515,8 +2241,66 @@ export default function AppointmentManager({ navigate, user }) {
                       </div>
                     </div>
 
-                    {/* Bottom Actions / Status */}
-                    {isPending ? (
+                    {/* Bottom Actions / Queue Status Controls */}
+                    {appt.token_number !== null && appt.token_number !== undefined ? (
+                      appt.queue_status === 'in_consultation' ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <button
+                            onClick={() => handleUpdateQueueStatus(appt.id, 'completed')}
+                            style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "none", background: "#10b981", color: "#fff", fontWeight: 800, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)" }}
+                          >
+                            <Check size={13} strokeWidth={3} /> إتمام الفحص وإنهاء الدور
+                          </button>
+                        </div>
+                      ) : (appt.queue_status === 'completed' || Number(appt.status) === 2) ? (
+                        <div style={{ padding: "4px 8px", borderRadius: 6, background: "#f1f5f9", color: "#475569", fontSize: 11, fontWeight: 700, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                          <Check size={12} /> تم الكشف بنجاح
+                        </div>
+                      ) : appt.queue_status === 'absent' ? (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <div style={{ flex: 1, background: "#fee2e2", color: "#991b1b", padding: "4px 6px", borderRadius: 6, fontSize: 11, fontWeight: 700, textAlign: "center" }}>
+                            ✕ غائب عن النداء
+                          </div>
+                          <button
+                            onClick={() => handleUpdateQueueStatus(appt.id, 'waiting')}
+                            title="إعادة المريض إلى قائمة الانتظار"
+                            style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            إعادة
+                          </button>
+                        </div>
+                      ) : Number(appt.status) === 1 ? (
+                        <div style={{ padding: "4px 8px", borderRadius: 6, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 700, textAlign: "center" }}>
+                          ✕ موعد ملغي
+                        </div>
+                      ) : (
+                        /* appt.queue_status === 'waiting' or unassigned */
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            onClick={() => handleUpdateQueueStatus(appt.id, 'in_consultation')}
+                            title="مناداة المريض للدخول إلى غرفة الفحص"
+                            style={{ flex: 2, padding: "5px 6px", borderRadius: 7, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 800, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                          >
+                            <Bell size={11} /> مناداة لدخول
+                          </button>
+                          <button
+                            onClick={() => handleUpdateQueueStatus(appt.id, 'completed')}
+                            title="إتمام الزيارة مباشرة"
+                            style={{ flex: 1, padding: "5px 4px", borderRadius: 7, border: "none", background: "#d1fae5", color: "#065f46", fontWeight: 700, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Check size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleUpdateQueueStatus(appt.id, 'absent')}
+                            title="تسجيل غياب المريض"
+                            style={{ flex: 1, padding: "5px 4px", borderRadius: 7, border: "none", background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )
+                    ) : isPending ? (
+                      /* Legacy Time Slot Controls */
                       isAbsent ? (
                         <div style={{
                           width: "100%",
@@ -1579,11 +2363,20 @@ export default function AppointmentManager({ navigate, user }) {
         </div>
       </div>
 
+      {/* Emergency Leave Modal */}
+      <QuickEmergencyLeaveModal
+        show={showEmergencyLeaveModal}
+        onClose={() => setShowEmergencyLeaveModal(false)}
+        onSuccess={() => fetchAppointments(true)}
+        clinicId={selectedClinicId}
+      />
+
       {/* Modal */}
       <NewAppointmentModal
         show={showModal}
         onClose={() => setShowModal(false)}
         onSuccess={() => fetchAppointments(true)}
+        settings={scheduleSettings}
       />
 
       <style>{`

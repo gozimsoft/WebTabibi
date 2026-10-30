@@ -450,6 +450,32 @@ class ClinicController
             }
         }
 
+        // Attach active/upcoming leave to doctors in search results
+        $doctorIds = array_values(array_filter(array_unique(array_column($results, 'doctor_id'))));
+        if (!empty($doctorIds)) {
+            $inClause = implode(',', array_fill(0, count($doctorIds), '?'));
+            $uStmt = $pdo->prepare("
+                SELECT doctor_id, leave_type, start_datetime, end_datetime, shift_type, reason, show_reason_to_patient
+                FROM doctor_unavailabilities
+                WHERE doctor_id IN ($inClause)
+                  AND DATE(end_datetime) >= CURDATE()
+                  AND DATE(start_datetime) <= DATE_ADD(CURDATE(), INTERVAL 14 DAY)
+                ORDER BY start_datetime ASC
+            ");
+            $uStmt->execute($doctorIds);
+            $unavailsByDoctor = [];
+            while ($uRow = $uStmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!isset($unavailsByDoctor[$uRow['doctor_id']])) {
+                    $unavailsByDoctor[$uRow['doctor_id']] = $uRow;
+                }
+            }
+            foreach ($results as &$r) {
+                if (!empty($r['doctor_id']) && isset($unavailsByDoctor[$r['doctor_id']])) {
+                    $r['active_unavailability'] = $unavailsByDoctor[$r['doctor_id']];
+                }
+            }
+        }
+
         Response::success([
             'items' => $results,
             'total' => $total,
@@ -616,6 +642,18 @@ class ClinicController
         ");
         $stmt5->execute([$doctor_id]);
         $doctor['Ratings'] = $stmt5->fetchAll();
+
+        // Active/Upcoming Unavailabilities / Leaves
+        $uStmt = $pdo->prepare("
+            SELECT id, clinic_id, leave_type, start_datetime, end_datetime, shift_type, reason, show_reason_to_patient
+            FROM doctor_unavailabilities
+            WHERE doctor_id = ?
+              AND (clinic_id = ? OR clinic_id IS NULL)
+              AND DATE(end_datetime) >= CURDATE()
+            ORDER BY start_datetime ASC
+        ");
+        $uStmt->execute([$doctor_id, $clinicid]);
+        $doctor['unavailabilities'] = $uStmt->fetchAll(PDO::FETCH_ASSOC);
 
         Response::success($doctor);
     }
@@ -828,6 +866,17 @@ class ClinicController
         ");
         $stmt3->execute([$doctor['pricing'] ?? null, $id]);
         $doctor['OtherClinics'] = $stmt3->fetchAll();
+
+        // 4. Active/Upcoming Unavailabilities / Leaves
+        $uStmt = $pdo->prepare("
+            SELECT id, clinic_id, leave_type, start_datetime, end_datetime, shift_type, reason, show_reason_to_patient
+            FROM doctor_unavailabilities
+            WHERE doctor_id = ?
+              AND DATE(end_datetime) >= CURDATE()
+            ORDER BY start_datetime ASC
+        ");
+        $uStmt->execute([$id]);
+        $doctor['unavailabilities'] = $uStmt->fetchAll(PDO::FETCH_ASSOC);
 
         Response::success($doctor);
     }

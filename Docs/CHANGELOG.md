@@ -2,6 +2,67 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-10-25
+
+### Added / Dual Booking Mode System (Time Slots vs. Numbered Queue) & Tabibi_Rect Clinic Integration
+- **نظام الحجز المزدوج (مواعيد بالساعة والدقيقة مقابل قائمة الانتظار والتذاكر المرقّمة)**:
+  - **خيارات فترات العمل للطبيب (Doctor Shift Configuration)**:
+    - إمكانية اختيار الطبيب بين نمط المواعيد المحددة بالساعة والدقيقة (`TIME_SLOTS`، قيمة `0`) أو نظام قائمة الدور والأرقام (`QUEUE_NUMBERS`، قيمة `1`).
+    - دعم فترة واحدة يومياً (`shift_mode = 1`) من 1 إلى السعة المحددة (مثلاً: 1 إلى 40)، أو فترتين في نفس اليوم (`shift_mode = 2`، فترة صباحية وفترة مسائية) مع تحديد ساعات العمل والطاقة الاستيعابية لكل فترة بشكل مستقل.
+    - خيار السماح بالسعة الزائدة وحالات الطوارئ (`allow_overbooking`).
+  - **قائمة واحدة مشتركة بنظام الأسبقية المطلقة (FIFO) مع منع التضارب المتزامن**:
+    - كل من يحجز سواء عبر المنصة الإلكترونية أو يحضر إلى العيادة وتسجل له السكرتيرة يأخذ الرقم التالي المتاح تلقائياً حتى اكتمال الطاقة الاستيعابية.
+    - حماية صارمة ضد التزامن والتضارب (Atomic Concurrency Protection) باستخدام معاملات قاعدة البيانات وقفل السجلات عبر `SELECT ... FOR UPDATE` لضمان عدم تكرار أرقام التذاكر تحت أي ضغط حجز متزامن.
+  - **حساب الوقت التقريبي التقديري للكشف**:
+    - حساب آلي للوقت التقديري المتوقع لكل مريض وفق المعادلة: $\text{وقت بداية الفترة} + (\text{رقم الدور} - 1) \times \text{متوسط مدة الكشف}$.
+    - إظهار التوقيت التقديري في خطوات الحجز، وفي التذكرة الرقمية، وفي قائمة مواعيد المريض.
+  - **مخطط قاعدة البيانات وبرنامج العيادة المكتبي (`Tabibi_Rect`)**:
+    - إضافة حقول `booking_mode`, `shift_mode`, `morning_start`, `morning_end`, `morning_capacity`, `evening_start`, `evening_end`, `evening_capacity`, `allow_overbooking` في جدول `doctorssettingapointements`.
+    - إضافة حقول `token_number`, `shift_type`, `estimated_time`, `is_emergency`, `queue_status` في جدول `apointements`.
+    - دمج التعديلات مباشرة في كود إنشاء قاعدة البيانات للتطبيق المكتبي عند التثبيت لأول مرة (`backend/sql/init_clinic_installer_schema.sql`).
+  - **واجهة إدارة الطابور الحي للعيادة ومكتب الاستقبال (`AppointmentManager.jsx`)**:
+    - شاشة تحكم حية تعرض التذكرة المفحوصة حالياً، المريض التالي، وعدد المنتظرين.
+    - أزرار تفاعلية: "إدخال المريض لقاعة الكشف"، "إنهاء الاستشارة"، "تسجيل غياب".
+    - نافذة تسجيل سريع للمرضى القادمين للعيادة (Walk-in Desk Registration) مع ترقيم آلي وخيار تسجيل حالات الطوارئ.
+  - **واجهة حجز المريض وتتبع الدور الحي (`Book.jsx` & `Appointments.jsx`)**:
+    - بطاقات فترات الصباح والمساء التفاعلية مع مؤشر السعة ورقم الدور المتوقع.
+    - تذكرة رقمية أنيقة تحتوي على رقم الدور، التوقيت التقديري، وتعليمات الحضور.
+    - أداة متابعة الدور المباشر لحظة بلحظة (Live Turn Tracker) مع تحديث دوري وتنبيه فوري عند حان دور المريض للدخول لقاعة الكشف.
+  - **توافق رجعي كامل 100% (Zero Breaking Changes)**:
+    - الأطباء الذين يعملون بنظام الساعات القديم يستمر عملهم دون أي تغيير.
+
+### Files Changed
+- `backend/sql/queue_booking_migration.sql`
+- `backend/sql/init_clinic_installer_schema.sql`
+- `backend/controllers/DoctorController.php`
+- `backend/controllers/AppointmentController.php`
+- `backend/controllers/PatientController.php`
+- `backend/index.php`
+- `frontend/src/api/client.js`
+- `frontend/src/components/DoctorAppointmentSettings.jsx`
+- `frontend/src/pages/AppointmentManager.jsx`
+- `frontend/src/pages/Book.jsx`
+- `frontend/src/pages/Appointments.jsx`
+- `Docs/DATABASE.md`
+- `Docs/API.md`
+- `Docs/BUSINESS_RULES.md`
+- `Docs/CHANGELOG.md`
+
+## 2026-10-23
+
+### Fixed / Arabic Email Templates Encoding (Mojibake Correction)
+- **إصلاح تشفير اللغة العربية في قوالب البريد الإلكتروني (UTF-8 Restoration)**:
+  - **السبب الجذري**: في تعديل سابق، تم حفظ ملف [`EmailHelper.php`](file:///d:/Application%20Web/WebTabibi/backend/helpers/EmailHelper.php) بتشفير Windows-1256 مدمج في UTF-8، مما أدى إلى ظهور النصوص العربية على هيئة رموز غير مفهومة (Mojibake مثل `طھط£ظƒظٹط¯`).
+  - **الإصلاح والتنظيف**:
+    - فحص كامل ملفات المشروع والتأكد من سلامتها؛ حيث تبيّن أن المشكلة محصورة في ملف [`EmailHelper.php`](file:///d:/Application%20Web/WebTabibi/backend/helpers/EmailHelper.php).
+    - إعادة فك واسترجاع كافة النصوص العربية الأصلية وتصحيح ترميزها إلى UTF-8 القياسي الصافي لجميع دوال وقوالب البريد (تأكيد الحجز، إلغاء الحجز، استعادة كلمة المرور، قبول بيانات الحساب، ورمز التحقق OTP).
+    - تنظيف وتحويل الكيانات الرقمية (`&#...;`) إلى نصوص عربية مباشرة وواضحة.
+    - اختبار عملي بالإرسال الفعلي للتأكد من وصول النصوص والرسائل باللغة العربية السليمة بنسبة 100%.
+
+### Files Changed
+- `backend/helpers/EmailHelper.php`
+- `backend/.env`
+
 ## 2026-10-06
 
 ### Added / Doctor Desktop Device Pairing Management & Multi-Clinic Sync

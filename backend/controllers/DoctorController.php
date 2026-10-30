@@ -61,6 +61,18 @@ class DoctorController {
         $stmt->execute([$doctor['id']]);
         $doctor['reasons'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Fetch active/upcoming unavailabilities / leaves
+        $uStmt = $pdo->prepare("
+            SELECT u.*, c.clinicname
+            FROM doctor_unavailabilities u
+            LEFT JOIN clinics c ON c.id = u.clinic_id
+            WHERE u.doctor_id = ?
+              AND DATE(u.end_datetime) >= CURDATE()
+            ORDER BY u.start_datetime ASC
+        ");
+        $uStmt->execute([$doctor['id']]);
+        $doctor['unavailabilities'] = $uStmt->fetchAll(PDO::FETCH_ASSOC);
+
         Response::success($doctor);
     }
 
@@ -327,21 +339,48 @@ class DoctorController {
             }
 
             // 6. Appointment settings
-            if (array_key_exists('time_scale', $data)) {
+            if (array_key_exists('time_scale', $data) || array_key_exists('timescale', $data)) {
                 $stmt = $pdo->prepare("SELECT id FROM doctorssettingapointements WHERE doctor_id=? AND clinic_id=? LIMIT 1");
                 $stmt->execute([$doctorId,$clinicId]);
                 $sId = $stmt->fetchColumn();
-                $sVals = [
-                    $data['time_scale']??30, $data['daytime_start']??null, $data['daytime_end']??null,
-                    $data['week_begin_day']??0, $data['working_days']??'1111111',
-                    $data['count_days']??30, isset($data['is_registered'])?($data['is_registered']?1:0):0,
-                ];
+                $bookingMode      = isset($data['booking_mode']) ? (int)$data['booking_mode'] : 0;
+                $shiftMode        = isset($data['shift_mode']) ? (int)$data['shift_mode'] : 1;
+                $morningStart     = trim($data['morning_start'] ?? '08:30:00');
+                $morningEnd       = trim($data['morning_end'] ?? '12:30:00');
+                $morningCapacity  = max(1, (int)($data['morning_capacity'] ?? 25));
+                $eveningStart     = trim($data['evening_start'] ?? '14:00:00');
+                $eveningEnd       = trim($data['evening_end'] ?? '17:30:00');
+                $eveningCapacity  = max(1, (int)($data['evening_capacity'] ?? 15));
+                $allowOverbooking = isset($data['allow_overbooking']) ? ((int)$data['allow_overbooking'] ? 1 : 0) : 1;
+                $timeScale        = $data['time_scale'] ?? ($data['timescale'] ?? 30);
+                $daytimeStart     = $data['daytime_start'] ?? ($data['daytimestart'] ?? null);
+                $daytimeEnd       = $data['daytime_end'] ?? ($data['daytimeend'] ?? null);
+                $weekBeginDay     = $data['week_begin_day'] ?? ($data['weekbeginday'] ?? 0);
+                $workingDays      = $data['working_days'] ?? ($data['workingdays'] ?? '1111111');
+                $countDays        = $data['count_days'] ?? ($data['countdays'] ?? 30);
+                $isRegistered     = isset($data['is_registered']) ? ($data['is_registered'] ? 1 : 0) : (isset($data['isregistered']) ? ($data['isregistered'] ? 1 : 0) : 0);
+
                 if ($sId) {
-                    $sVals[] = $sId;
-                    $pdo->prepare("UPDATE doctorssettingapointements SET timescale=?,daytimestart=?,daytimeend=?,weekbeginday=?,workingdays=?,countdays=?,isregistered=? WHERE id=?")->execute($sVals);
+                    $pdo->prepare("
+                        UPDATE doctorssettingapointements 
+                        SET timescale=?, daytimestart=?, daytimeend=?, weekbeginday=?, workingdays=?, countdays=?, isregistered=?,
+                            booking_mode=?, shift_mode=?, morning_start=?, morning_end=?, morning_capacity=?, evening_start=?, evening_end=?, evening_capacity=?, allow_overbooking=?
+                        WHERE id=?
+                    ")->execute([
+                        $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                        $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking,
+                        $sId
+                    ]);
                 } else {
-                    array_unshift($sVals, UUIDHelper::generate(), $doctorId, $clinicId);
-                    $pdo->prepare("INSERT INTO doctorssettingapointements (id,doctor_id,clinic_id,timescale,daytimestart,daytimeend,weekbeginday,workingdays,countdays,isregistered) VALUES (?,?,?,?,?,?,?,?,?,?)")->execute($sVals);
+                    $pdo->prepare("
+                        INSERT INTO doctorssettingapointements 
+                        (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered,
+                         booking_mode, shift_mode, morning_start, morning_end, morning_capacity, evening_start, evening_end, evening_capacity, allow_overbooking)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ")->execute([
+                        UUIDHelper::generate(), $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                        $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking
+                    ]);
                 }
             }
 
@@ -552,6 +591,10 @@ class DoctorController {
             } else {
                 $row['daytimeend_formatted'] = '16:00';
             }
+            $row['morning_start_formatted'] = !empty($row['morning_start']) ? substr($row['morning_start'], 0, 5) : '08:30';
+            $row['morning_end_formatted']   = !empty($row['morning_end'])   ? substr($row['morning_end'], 0, 5) : '12:30';
+            $row['evening_start_formatted'] = !empty($row['evening_start']) ? substr($row['evening_start'], 0, 5) : '14:00';
+            $row['evening_end_formatted']   = !empty($row['evening_end'])   ? substr($row['evening_end'], 0, 5) : '17:30';
         }
 
         Response::success($rows);
@@ -600,16 +643,28 @@ class DoctorController {
         $countDays = max(1, (int)($data['countdays'] ?? 30));
         $isRegistered = !empty($data['isregistered']) ? 1 : 0;
 
+        $bookingMode      = isset($data['booking_mode']) ? (int)$data['booking_mode'] : 0;
+        $shiftMode        = isset($data['shift_mode']) ? (int)$data['shift_mode'] : 1;
+        $morningStart     = trim($data['morning_start'] ?? '08:30:00');
+        $morningEnd       = trim($data['morning_end'] ?? '12:30:00');
+        $morningCapacity  = max(1, (int)($data['morning_capacity'] ?? 25));
+        $eveningStart     = trim($data['evening_start'] ?? '14:00:00');
+        $eveningEnd       = trim($data['evening_end'] ?? '17:30:00');
+        $eveningCapacity  = max(1, (int)($data['evening_capacity'] ?? 15));
+        $allowOverbooking = isset($data['allow_overbooking']) ? ((int)$data['allow_overbooking'] ? 1 : 0) : 1;
+
         require_once __DIR__ . '/../helpers/UUIDHelper.php';
         $id = UUIDHelper::generate();
 
         $ins = $pdo->prepare("
             INSERT INTO doctorssettingapointements 
-            (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered,
+             booking_mode, shift_mode, morning_start, morning_end, morning_capacity, evening_start, evening_end, evening_capacity, allow_overbooking)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $ins->execute([
-            $id, $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered
+            $id, $doctorId, $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+            $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking
         ]);
 
         Response::success(['id' => $id], 'تمت إضافة إعدادات المواعيد بنجاح.');
@@ -653,23 +708,39 @@ class DoctorController {
         $countDays = max(1, (int)($data['countdays'] ?? 30));
         $isRegistered = !empty($data['isregistered']) ? 1 : 0;
 
+        $bookingMode      = isset($data['booking_mode']) ? (int)$data['booking_mode'] : 0;
+        $shiftMode        = isset($data['shift_mode']) ? (int)$data['shift_mode'] : 1;
+        $morningStart     = trim($data['morning_start'] ?? '08:30:00');
+        $morningEnd       = trim($data['morning_end'] ?? '12:30:00');
+        $morningCapacity  = max(1, (int)($data['morning_capacity'] ?? 25));
+        $eveningStart     = trim($data['evening_start'] ?? '14:00:00');
+        $eveningEnd       = trim($data['evening_end'] ?? '17:30:00');
+        $eveningCapacity  = max(1, (int)($data['evening_capacity'] ?? 15));
+        $allowOverbooking = isset($data['allow_overbooking']) ? ((int)$data['allow_overbooking'] ? 1 : 0) : 1;
+
         if ($clinicId) {
             $upd = $pdo->prepare("
                 UPDATE doctorssettingapointements 
-                SET clinic_id = ?, timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                SET clinic_id = ?, timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?,
+                    booking_mode = ?, shift_mode = ?, morning_start = ?, morning_end = ?, morning_capacity = ?, evening_start = ?, evening_end = ?, evening_capacity = ?, allow_overbooking = ?
                 WHERE id = ? AND doctor_id = ?
             ");
             $upd->execute([
-                $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered, $id, $doctorId
+                $clinicId, $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking,
+                $id, $doctorId
             ]);
         } else {
             $upd = $pdo->prepare("
                 UPDATE doctorssettingapointements 
-                SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?,
+                    booking_mode = ?, shift_mode = ?, morning_start = ?, morning_end = ?, morning_capacity = ?, evening_start = ?, evening_end = ?, evening_capacity = ?, allow_overbooking = ?
                 WHERE id = ? AND doctor_id = ?
             ");
             $upd->execute([
-                $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered, $id, $doctorId
+                $timeScale, $daytimeStart, $daytimeEnd, $weekBeginDay, $workingDays, $countDays, $isRegistered,
+                $bookingMode, $shiftMode, $morningStart, $morningEnd, $morningCapacity, $eveningStart, $eveningEnd, $eveningCapacity, $allowOverbooking,
+                $id, $doctorId
             ]);
         }
 
@@ -862,6 +933,328 @@ class DoctorController {
         }
 
         Response::success(null, 'تم حذف فترة خارج العمل بنجاح.');
+    }
+
+    // =========================================================================
+    // ── Doctor Leaves & Unavailabilities (الإجازات والطلعات الطارئة) ─────────
+    // =========================================================================
+
+    // GET /doctor/unavailabilities
+    public static function getUnavailabilities(): void {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+
+        $session = AuthMiddleware::authenticate();
+        $doctorId = self::resolveDoctorIdFromSession($session);
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $pdo = Database::getInstance();
+        $clinicId = trim($_GET['clinic_id'] ?? '');
+
+        $sql = "
+            SELECT u.*, c.clinicname
+            FROM doctor_unavailabilities u
+            LEFT JOIN clinics c ON c.id = u.clinic_id
+            WHERE u.doctor_id = ?
+        ";
+        $params = [$doctorId];
+        if (!empty($clinicId) && $clinicId !== 'all') {
+            $sql .= " AND (u.clinic_id = ? OR u.clinic_id IS NULL OR u.clinic_id = '')";
+            $params[] = $clinicId;
+        }
+        $sql .= " ORDER BY u.start_datetime DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $now = date('Y-m-d H:i:s');
+        foreach ($rows as &$row) {
+            $row['is_past'] = ($row['end_datetime'] < $now);
+            $row['show_reason_to_patient'] = (bool)$row['show_reason_to_patient'];
+        }
+
+        Response::success($rows);
+    }
+
+    // POST /doctor/unavailabilities/check-conflicts
+    public static function checkUnavailabilityConflicts(): void {
+        $session = AuthMiddleware::authenticate();
+        $doctorId = self::resolveDoctorIdFromSession($session);
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinicId      = !empty($data['clinic_id']) && $data['clinic_id'] !== 'all' ? trim($data['clinic_id']) : null;
+        $startDatetime = trim($data['start_datetime'] ?? '');
+        $endDatetime   = trim($data['end_datetime'] ?? '');
+        $leaveType     = trim($data['leave_type'] ?? 'full_day');
+        $shiftType     = !empty($data['shift_type']) ? trim($data['shift_type']) : null;
+
+        if (!$startDatetime || !$endDatetime) {
+            Response::error('start_datetime و end_datetime مطلوبان.', 422);
+        }
+
+        $result = self::checkConflictsLogic($doctorId, $clinicId, $startDatetime, $endDatetime, $leaveType, $shiftType);
+        Response::success($result);
+    }
+
+    // POST /doctor/unavailabilities
+    public static function createUnavailability(): void {
+        $session = AuthMiddleware::authenticate();
+        $doctorId = self::resolveDoctorIdFromSession($session);
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $clinicId           = !empty($data['clinic_id']) && $data['clinic_id'] !== 'all' ? trim($data['clinic_id']) : null;
+        $clinicsdoctorId    = !empty($data['clinicsdoctor_id']) ? trim($data['clinicsdoctor_id']) : null;
+        $leaveType          = trim($data['leave_type'] ?? 'full_day');
+        $startDatetime      = trim($data['start_datetime'] ?? '');
+        $endDatetime        = trim($data['end_datetime'] ?? '');
+        $shiftType          = !empty($data['shift_type']) ? trim($data['shift_type']) : null;
+        $reason             = trim($data['reason'] ?? '');
+        $showReasonToPatient= !empty($data['show_reason_to_patient']) ? 1 : 0;
+        $resolutionAction   = trim($data['resolution_action'] ?? 'none');
+
+        if (!$startDatetime || !$endDatetime) {
+            Response::error('start_datetime و end_datetime مطلوبان.', 422);
+        }
+
+        $res = self::createUnavailabilityLogic(
+            $doctorId,
+            $clinicId,
+            $clinicsdoctorId,
+            $leaveType,
+            $startDatetime,
+            $endDatetime,
+            $shiftType,
+            $reason,
+            $showReasonToPatient,
+            $session['user_id'],
+            $resolutionAction
+        );
+
+        if (!$res['success']) {
+            Response::error($res['message'] ?? 'فشل في حفظ الغياب', 400);
+        }
+
+        Response::success($res, 'تم تسجيل الغياب ومعالجة المواعيد بنجاح.', 201);
+    }
+
+    // DELETE /doctor/unavailabilities/{id}
+    public static function deleteUnavailability(string $id): void {
+        $session = AuthMiddleware::authenticate();
+        $doctorId = self::resolveDoctorIdFromSession($session);
+        if (!$doctorId) Response::notFound('لم يتم العثور على حساب الطبيب.');
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("DELETE FROM doctor_unavailabilities WHERE id = ? AND doctor_id = ?");
+        $stmt->execute([$id, $doctorId]);
+
+        if ($stmt->rowCount() === 0) {
+            Response::notFound('لم يتم العثور على الغياب المطلوب حذفه.');
+        }
+
+        Response::success(null, 'تم حذف الغياب وإعادة إتاحة الأوقات بنجاح.');
+    }
+
+    public static function checkConflictsLogic(
+        string $doctorId,
+        ?string $clinicId,
+        string $startDatetime,
+        string $endDatetime,
+        string $leaveType = 'full_day',
+        ?string $shiftType = null
+    ): array {
+        $pdo = Database::getInstance();
+
+        $where = ["cd.doctor_id = ?"];
+        $params = [$doctorId];
+
+        if (!empty($clinicId)) {
+            $where[] = "cd.clinic_id = ?";
+            $params[] = $clinicId;
+        }
+
+        // Active appointments only
+        $where[] = "a.status != 2";
+        $where[] = "(a.queue_status IS NULL OR a.queue_status != 'cancelled')";
+
+        if ($leaveType === 'full_day') {
+            $startDate = substr($startDatetime, 0, 10);
+            $endDate   = substr($endDatetime, 0, 10);
+            $where[] = "DATE(a.apointementdate) >= ? AND DATE(a.apointementdate) <= ?";
+            $params[] = $startDate;
+            $params[] = $endDate;
+        } elseif ($leaveType === 'shift') {
+            $startDate = substr($startDatetime, 0, 10);
+            $where[] = "DATE(a.apointementdate) = ?";
+            $params[] = $startDate;
+            if (!empty($shiftType) && $shiftType !== 'full_day') {
+                $where[] = "(a.shift_type = ? OR a.shift_type IS NULL OR a.shift_type = 'full_day')";
+                $params[] = $shiftType;
+            }
+        } else {
+            // partial_hours
+            $where[] = "a.apointementdate >= ? AND a.apointementdate <= ?";
+            $params[] = $startDatetime;
+            $params[] = $endDatetime;
+        }
+
+        $sql = "
+            SELECT
+                a.id, a.apointementdate, a.patientname, a.phone, a.shift_type,
+                a.token_number, a.patient_id, a.status, a.queue_status,
+                c.clinicname, p.user_id as patient_user_id
+            FROM apointements a
+            JOIN clinicsdoctors cd ON cd.id = a.clinicsdoctor_id
+            LEFT JOIN clinics c ON c.id = cd.clinic_id
+            LEFT JOIN patients p ON p.id = a.patient_id
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY a.apointementdate ASC
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'has_conflicts' => count($appointments) > 0,
+            'count'         => count($appointments),
+            'appointments'  => $appointments
+        ];
+    }
+
+    public static function createUnavailabilityLogic(
+        string $doctorId,
+        ?string $clinicId,
+        ?string $clinicsdoctorId,
+        string $leaveType,
+        string $startDatetime,
+        string $endDatetime,
+        ?string $shiftType,
+        ?string $reason,
+        int $showReasonToPatient,
+        ?string $createdByUserId,
+        string $resolutionAction = 'none'
+    ): array {
+        require_once __DIR__ . '/../helpers/UUIDHelper.php';
+        require_once __DIR__ . '/../helpers/NotificationHelper.php';
+        $pdo = Database::getInstance();
+
+        // Check conflicts
+        $conflicts = self::checkConflictsLogic(
+            $doctorId,
+            $clinicId,
+            $startDatetime,
+            $endDatetime,
+            $leaveType,
+            $shiftType
+        );
+
+        $pdo->beginTransaction();
+        try {
+            // If resolution is cancel
+            if ($resolutionAction === 'cancel' && !empty($conflicts['appointments'])) {
+                $updateStmt = $pdo->prepare("
+                    UPDATE apointements 
+                    SET status = 2, queue_status = 'cancelled', 
+                        note = CONCAT(COALESCE(note, ''), ' [ملغى لظرف الطبيب]')
+                    WHERE id = ?
+                ");
+
+                foreach ($conflicts['appointments'] as $appt) {
+                    $updateStmt->execute([$appt['id']]);
+
+                    if (!empty($appt['patient_user_id'])) {
+                        $reasonText = !empty($reason) ? ": {$reason}" : '';
+                        $dateFormatted = date('Y/m/d H:i', strtotime($appt['apointementdate']));
+                        NotificationHelper::notify(
+                            $appt['patient_user_id'],
+                            'إلغاء الموعد الطبي',
+                            "نعتذر منكم، تم إلغاء موعدكم المقرر بتاريخ {$dateFormatted} نظراً لظرف طارئ لدى الطبيب{$reasonText}. يمكنكم حجز موعد جديد في أي وقت يناسبكم.",
+                            'appointment'
+                        );
+                    }
+                }
+            } elseif ($resolutionAction === 'reschedule' && !empty($conflicts['appointments'])) {
+                $shiftStmt = $pdo->prepare("
+                    UPDATE apointements
+                    SET apointementdate = DATE_ADD(apointementdate, INTERVAL 1 DAY),
+                        note = CONCAT(COALESCE(note, ''), ' [مرحل لظرف الطبيب]')
+                    WHERE id = ?
+                ");
+                foreach ($conflicts['appointments'] as $appt) {
+                    $shiftStmt->execute([$appt['id']]);
+                    if (!empty($appt['patient_user_id'])) {
+                        NotificationHelper::notify(
+                            $appt['patient_user_id'],
+                            'تعديل موعد الزيارة الطبية',
+                            "نظراً لظرف طارئ لدى الطبيب، تم تعديل موعدكم إلى اليوم التالي. يرجى مراجعة تفاصيل الموعد في حسابك.",
+                            'appointment'
+                        );
+                    }
+                }
+            }
+
+            // Insert unavailability record
+            $id = UUIDHelper::generate();
+            $stmt = $pdo->prepare("
+                INSERT INTO doctor_unavailabilities
+                (id, doctor_id, clinic_id, clinicsdoctor_id, leave_type, start_datetime, end_datetime, shift_type, reason, show_reason_to_patient, created_by_user_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $id,
+                $doctorId,
+                $clinicId,
+                $clinicsdoctorId,
+                $leaveType,
+                $startDatetime,
+                $endDatetime,
+                $shiftType,
+                $reason,
+                $showReasonToPatient,
+                $createdByUserId
+            ]);
+
+            $pdo->commit();
+            return [
+                'success'    => true,
+                'id'         => $id,
+                'conflicts'  => $conflicts,
+                'resolution' => $resolutionAction
+            ];
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    private static function resolveDoctorIdFromSession(array $session): ?string {
+        $pdo = Database::getInstance();
+        $usertype = (int)($session['usertype'] ?? 0);
+        if ($usertype === 1) {
+            $stmt = $pdo->prepare("SELECT id FROM doctors WHERE user_id = ? LIMIT 1");
+            $stmt->execute([$session['user_id']]);
+            return $stmt->fetchColumn() ?: null;
+        } elseif ($usertype === 2) {
+            // Clinic receptionist/manager
+            if (!empty($_GET['doctor_id'])) return trim($_GET['doctor_id']);
+            $postData = json_decode(file_get_contents('php://input'), true);
+            if (!empty($postData['doctor_id'])) return trim($postData['doctor_id']);
+            // Default to first doctor linked to this clinic
+            $stmt = $pdo->prepare("
+                SELECT cd.doctor_id FROM clinics c
+                JOIN clinicsdoctors cd ON cd.clinic_id = c.id
+                WHERE c.user_id = ? LIMIT 1
+            ");
+            $stmt->execute([$session['user_id']]);
+            return $stmt->fetchColumn() ?: null;
+        }
+        return null;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -1295,6 +1688,17 @@ class DoctorController {
                 $countdays    = (int)($as['countdays'] ?? 5);
                 $isregistered = !empty($as['isregistered']) ? 1 : 0;
 
+                // Queue & working system parameters
+                $bookingMode      = isset($as['booking_mode']) ? (int)$as['booking_mode'] : 0;
+                $shiftMode        = isset($as['shift_mode']) ? (int)$as['shift_mode'] : 1;
+                $morningCapacity  = max(1, (int)($as['morning_capacity'] ?? 25));
+                $eveningCapacity  = max(1, (int)($as['evening_capacity'] ?? 15));
+                $allowOverbooking = isset($as['allow_overbooking']) ? ((int)$as['allow_overbooking'] ? 1 : 0) : 0;
+                $morningStart     = !empty($as['morning_start']) ? trim($as['morning_start']) : $daytimestart;
+                $morningEnd       = !empty($as['morning_end']) ? trim($as['morning_end']) : $daytimeend;
+                $eveningStart     = !empty($as['evening_start']) ? trim($as['evening_start']) : '14:00:00';
+                $eveningEnd       = !empty($as['evening_end']) ? trim($as['evening_end']) : '17:30:00';
+
                 // Normalize time format to full datetime
                 $startDt = (strpos($daytimestart, ':') !== false && strlen($daytimestart) <= 8) ? "2000-01-01 $daytimestart" : $daytimestart;
                 $endDt   = (strpos($daytimeend, ':') !== false && strlen($daytimeend) <= 8) ? "2000-01-01 $daytimeend" : $daytimeend;
@@ -1306,17 +1710,30 @@ class DoctorController {
                 if ($existingId) {
                     $updAs = $pdo->prepare("
                         UPDATE doctorssettingapointements 
-                        SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?
+                        SET timescale = ?, daytimestart = ?, daytimeend = ?, weekbeginday = ?, workingdays = ?, countdays = ?, isregistered = ?,
+                            booking_mode = ?, shift_mode = ?, morning_capacity = ?, evening_capacity = ?, allow_overbooking = ?,
+                            morning_start = ?, morning_end = ?, evening_start = ?, evening_end = ?
                         WHERE id = ?
                     ");
-                    $updAs->execute([$timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered, $existingId]);
+                    $updAs->execute([
+                        $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered,
+                        $bookingMode, $shiftMode, $morningCapacity, $eveningCapacity, $allowOverbooking,
+                        $morningStart, $morningEnd, $eveningStart, $eveningEnd,
+                        $existingId
+                    ]);
                 } else {
                     $insAs = $pdo->prepare("
                         INSERT INTO doctorssettingapointements (
-                            id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            id, doctor_id, clinic_id, timescale, daytimestart, daytimeend, weekbeginday, workingdays, countdays, isregistered,
+                            booking_mode, shift_mode, morning_capacity, evening_capacity, allow_overbooking,
+                            morning_start, morning_end, evening_start, evening_end
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ");
-                    $insAs->execute([UUIDHelper::generate(), $doctorId, $clinicId, $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered]);
+                    $insAs->execute([
+                        UUIDHelper::generate(), $doctorId, $clinicId, $timescale, $startDt, $endDt, $weekbeginday, $workingdays, $countdays, $isregistered,
+                        $bookingMode, $shiftMode, $morningCapacity, $eveningCapacity, $allowOverbooking,
+                        $morningStart, $morningEnd, $eveningStart, $eveningEnd
+                    ]);
                 }
             }
 

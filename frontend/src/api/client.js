@@ -93,6 +93,7 @@ export const api = {
     // تغيير اسم المستخدم أو كلمة المرور — يتطلب كلمة المرور الحالية للتحقق من الهوية
     updateCredentials: (body) => request('PUT', '/patients/credentials', body),
     getAppointments: () => request('GET', '/patients/appointments'),
+    appointments: () => request('GET', '/patients/appointments'),
     getAttendingDoctor: () => request('GET', '/patients/attending-doctor'),
     setAttendingDoctor: (doctorId) => request('POST', '/patients/attending-doctor', { doctor_id: doctorId }),
     removeAttendingDoctor: () => request('DELETE', '/patients/attending-doctor'),
@@ -132,6 +133,15 @@ export const api = {
       notifyAppointmentSync({ action: 'status_update', id, status });
       return res;
     },
+    updateQueueStatus: async (id, queue_status) => {
+      const res = await request('PUT', `/appointments/${id}/queue-status`, { queue_status });
+      notifyAppointmentSync({ action: 'queue_status_update', id, queue_status });
+      return res;
+    },
+    getLiveQueueStatus: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/appointments/live-queue-status${qs ? '?' + qs : ''}`);
+    },
     getAppointmentSettings: () => request('GET', '/doctors/appointment-settings'),
     createAppointmentSetting: (body) => request('POST', '/doctors/appointment-settings', body),
     updateAppointmentSetting: (id, body) => request('PUT', `/doctors/appointment-settings/${id}`, body),
@@ -140,6 +150,13 @@ export const api = {
     createOffHour: (body) => request('POST', '/doctors/off-hours', body),
     updateOffHour: (id, body) => request('PUT', `/doctors/off-hours/${id}`, body),
     deleteOffHour: (id) => request('DELETE', `/doctors/off-hours/${id}`),
+    getUnavailabilities: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/doctor/unavailabilities${qs ? '?' + qs : ''}`);
+    },
+    checkUnavailabilityConflicts: (body) => request('POST', '/doctor/unavailabilities/check-conflicts', body),
+    addUnavailability: (body) => request('POST', '/doctor/unavailabilities', body),
+    deleteUnavailability: (id) => request('DELETE', `/doctor/unavailabilities/${encodeURIComponent(id)}`),
     getMyClinic: (clinicId) => request('GET', `/doctors/clinic${clinicId ? '?clinic_id=' + encodeURIComponent(clinicId) : ''}`),
     createClinic: (body) => request('POST', '/doctors/clinic', body),
     updateMyClinic: (body) => request('PUT', '/doctors/clinic', body),
@@ -164,6 +181,7 @@ export const api = {
   baladiyas: (wilayaId) => request('GET', `/baladiyas${wilayaId ? `?wilaya_id=${encodeURIComponent(wilayaId)}` : ''}`),
   appointments: {
     getSlots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
+    slots: (params) => request('GET', `/appointments/available-slots?${new URLSearchParams(params)}`),
     book: async (body) => {
       const res = await request('POST', '/appointments', body);
       notifyAppointmentSync({ action: 'book', body });
@@ -173,6 +191,15 @@ export const api = {
     cancel: async (id) => {
       const res = await request('DELETE', `/appointments/${id}`);
       notifyAppointmentSync({ action: 'cancel', id });
+      return res;
+    },
+    getLiveQueueStatus: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request('GET', `/appointments/live-queue-status${qs ? '?' + qs : ''}`);
+    },
+    updateQueueStatus: async (id, queue_status) => {
+      const res = await request('PUT', `/appointments/${id}/queue-status`, { queue_status });
+      notifyAppointmentSync({ action: 'queue_status_update', id, queue_status });
       return res;
     },
   },
