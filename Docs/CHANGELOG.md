@@ -2,6 +2,179 @@
 
 سجل تغييرات مشروع طبيبي.
 
+## 2026-10-31
+
+### Added / إنشاء ودمج مركز المساعدة المتكامل لمرضى طبيبي (TABIBI Patient Help Center)
+- **إطلاق مركز المساعدة الشامل `/aide` (Help Center)**:
+  - توفير مسار عام ومباشر `#/aide` و `/aide` متاح لكافة الزوار والمرضى بدون اشتراط تسجيل الدخول، مع دعم كامل للغات الثلاث (العربية `ar` مع RTL، الفرنسية `fr`، والإنجليزية `en` مع LTR).
+  - إضافة روابط الوصول السريع للمركز من:
+    - شريط التنقل العلوي (`Navbar`) لنسختي سطح المكتب والموبايل.
+    - قائمة حساب المريض المنسدلة (`User Dropdown`) مع أيقونة طوق النجاة `LifeBuoy`.
+    - تذييل الموقع (`Footer`) أسفل قسم الروابط الهامة.
+  - تغطية 8 فئات رئيسية شاملة ومطابقة 100% لوظائف الموقع الفعلية:
+    1. استكشاف طبيبي (Découvrir TABIBI)
+    2. حسابي الشخصي (Mon compte)
+    3. البحث عن طبيب وعيادة (Trouver un médecin)
+    4. حجز موعد طبي (Prendre un rendez-vous)
+    5. إدارة المواعيد وتتبعها (Gérer mes rendez-vous)
+    6. الإشعارات والتنبيهات (Notifications)
+    7. الخصوصية والأمان (Confidentialité et sécurité)
+    8. المساعدة والدعم الفني (Assistance)
+  - محرك بحث فوري وتفاعلي داخل المقالات والفئات مع إبراز الشروحات الأكثر طلباً (Tutoriels populaires).
+  - استعراض مفصل للمقالات مع خطوات مرقمة، تنبيهات نصائح مفيدة (`Tip Box`)، تحذيرات مهمة (`Warning Box`)، وقت القراءة التقديري، وأداة تصويت لتقييم فائدة الشرح (« Cet article vous a-t-il été utile ? »).
+- **تحسين وتنظيم أشرطة التنقل والقوائم (Navbar & Footer Simplification)**:
+  - إزالة زري المساعدة والدعم (`Aide` و `Support / Administration`) من شريط التنقل الرئيسي `Navbar` لتفادي الازدحام والحفاظ على مظهر انسيابي وأنيق.
+  - نقل زر التعريف بالمنصة (`حول طبيبي / À propos de TABIBI` - `/learn-more`) من تذييل الصفحة `Footer` إلى القائمة المنسدلة لملف المستخدم (`Profile Dropdown`) مع أيقونة `Info`.
+  - بقاء إمكانية الوصول لمركز المساعدة (`/aide`) والدعم الفني (`/support-tickets`) متاحة بسلاسة من القائمة المنسدلة لملف المستخدم والتذييل.
+- **إدراج الشروحات السياقية التفاعلية عبر منصة المرضى (Contextual Tutorials)**:
+  - صفحة البحث عن الأطباء `Search.jsx`: زر مساعدة سياقي `Comment trouver un médecin ?` يوجه مباشرة إلى مقال البحث المتقدم.
+  - صفحة الملف التعريفي للطبيب `DoctorDetail.jsx`: زر مساعدة سياقي `Comment prendre un rendez-vous ?` يوجه لمقال الحجز والعيادات.
+  - صفحة تأكيد الحجز `Book.jsx`: زر مساعدة سياقي `Comment prendre un rendez-vous ?`.
+  - صفحة مواعيد المريض `Appointments.jsx`: زر مساعدة سياقي `Comment gérer mes rendez-vous ?` يوجه لمقال إدارة وإلغاء وتعديل المواعيد.
+  - صفحة تسجيل الدخول `Login.jsx`: زر سياقي `Besoin d'aide pour vous connecter ?` يوجه لفئة إدارة الحساب.
+  - صفحة إنشاء الحساب `Register.jsx`: زر سياقي `Besoin d'aide pour créer un compte ?` يوجه لمقال التسجيل.
+- **الملفات المنشأة**:
+  - `frontend/src/pages/HelpCenter.jsx`
+  - `frontend/src/data/helpCenterData.js`
+- **الملفات المعدلة**:
+  - `frontend/src/hooks/useRoute.js`
+  - `frontend/src/App.jsx`
+  - `frontend/src/locales/fr.json`
+  - `frontend/src/locales/ar.json`
+  - `frontend/src/locales/en.json`
+  - `frontend/src/pages/Search.jsx`
+  - `frontend/src/pages/DoctorDetail.jsx`
+  - `frontend/src/pages/Book.jsx`
+  - `frontend/src/pages/Appointments.jsx`
+  - `frontend/src/pages/Login.jsx`
+  - `frontend/src/pages/Register.jsx`
+  - `Docs/CHANGELOG.md`
+  - `Docs/TASKS.md`
+
+## 2026-10-30
+
+### Improved / تدويل وترجمة التخصصات الطبية بالكامل في محرك وصفحة البحث (Specialties i18n in Search)
+- **دعم التعدد اللغوي الثلاثي للتخصصات الطبية (العربية، الفرنسية، والإنجليزية)**:
+  - إضافة حقل `nameen` لجدول التخصصات المعيارية `specialties` في قاعدة البيانات وتحديث كافة الـ 28 تخصصاً بالأسماء الطبية الإنجليزية الدقيقة.
+  - ترقية استعلام البحث في `ClinicController::search` لدعم البحث بالتخصصات الإنجليزية (`s.nameen LIKE ?`) وإرجاع حقل `specialtyen` في نتائج الأطباء.
+  - إنشاء وحدة مساعدة متخصصة `frontend/src/utils/specialty.js` توفر دالة `formatSpecialty(spec, lang)` مع معجم ترجمة شامل لجميع التخصصات الـ 28.
+  - تحديث قائمة التخصصات المنسدلة في صفحة البحث ومحرك البحث السريع لتظهر باللغة النشطة للمستخدم (العربية / الفرنسية / الإنجليزية) بدلاً من حصرها بالفرنسية في الواجهة الإنجليزية.
+  - ترجمة شارات التخصصات في بطاقات نتائج البحث، صفحة تفاصيل الطبيب، صفحة الحجز، بطاقة الطبيب المعالج، ونافذة الحجز السريع.
+- **الملفات المعدلة**:
+  - `frontend/src/utils/specialty.js`
+  - `frontend/src/App.jsx`
+  - `frontend/src/pages/Search.jsx`
+  - `frontend/src/pages/Home.jsx`
+  - `frontend/src/pages/DoctorDetail.jsx`
+  - `frontend/src/pages/Book.jsx`
+  - `frontend/src/components/PatientAttendingDoctorCard.jsx`
+  - `frontend/src/components/QuickAppointmentModal.jsx`
+  - `backend/controllers/ClinicController.php`
+  - `backend/sql/update_specialties.sql`
+  - `Docs/DATABASE.md`
+  - `Docs/CHANGELOG.md`
+
+### Added / دعم التعدد اللغوي الكامل لمكتب المناداة وإدارة الطابور اليومي مع تعبئة مواعيد يوم كامل (Calling Desk i18n & Full Day Queue Appointments)
+- **دعم التعدد اللغوي الشامل (i18n) لمكتب المناداة وإدارة الطابور الحي**:
+  - تدويل كافة النصوص والأزرار والعدادات والبطاقات التفاعلية في بانر مكتب المناداة (`# مكتب المناداة وإدارة الطابور اليومي / Calling Desk & Daily Queue Management / Guichet d'appel & Gestion de la file d'attente`).
+  - دعم الترجمة في اللغات الثلاث: العربية والفرنسية والإنجليزية في ملفات `ar.json` و `fr.json` و `en.json`.
+  - شملت الترجمة:
+    - عنوان البانر وشارة المباشر ووصف النظام: `live_queue_desk_title`, `live_queue_live_badge`, `live_queue_desk_subtitle`.
+    - عدادات الطابور: `إجمالي القائمة`، `في الانتظار`، `تم الفحص`، `غائب`.
+    - أزرار التحكم: `إضافة مريض حاضر`، `إعدادات فترات العمل والدور`.
+    - فلاتر الفترات: `جميع الفترات (طوال اليوم)`، `الفترة الصباحية`، `الفترة المسائية`.
+    - بطاقة المريض الحالي في غرفة الفحص (Card 1): حالة الكشف، التذكرة، التوقيت، الطوارئ، وزر `إتمام الكشف وإنهاء الدور ✓`.
+    - بطاقة المريض التالي في قاعة الانتظار (Card 2): حالة الجاهزية للدخول، التذكرة، الوقت التقديري، زر `مناداة المريض للدخول (#...)` وزر `✕ غائب`.
+- **تحسين واجهة برمجة التطبيقات الخلفية (`getLiveQueueStatus`)**:
+  - تصحيح الاستجابة البرمجية في `AppointmentController::getLiveQueueStatus` لإرجاع حقول `id` و `phone` و `is_emergency` لكل من المريض الحالي والمريض التالي، مما يتيح التفاعل الفوري مع أزرار المناداة وإتمام الكشف وتسجيل الغياب دون أي أخطاء `undefined id`.
+- **تعبئة يوم كامل من المواعيد الواقعية (15 موعداً لكل عيادة)**:
+  - تعبئة جدول مواعيد اليوم (`2026-10-30`) عبر عيادات الطبيب (عيادة الفتح و Clinic Ashifa):
+    - 5 مواعيد مكتملة الفحص (تم الكشف عليها في الفترة الصباحية من التذكرة #1 إلى #5).
+    - مريض حالي داخل غرفة الفحص (التذكرة #6، حالة طارئة: آلام صدرية حادة).
+    - 9 مواعيد في قائمة الانتظار (من التذكرة #7 إلى #15 موزعة بين الفترتين الصباحية والمسائية).
+- **الملفات المعدلة**:
+  - `frontend/src/locales/ar.json`
+  - `frontend/src/locales/fr.json`
+  - `frontend/src/locales/en.json`
+  - `frontend/src/pages/AppointmentManager.jsx`
+  - `backend/controllers/AppointmentController.php`
+  - `Docs/CHANGELOG.md`
+
+### Fixed / حل مشكلة الصفحة البيضاء الفارغة الزائدة عند الطباعة نهائياً (Portal-Based Print Isolation)
+- **معالجة مشكلة خروج ورقة ثانية فارغة (1 Page with Data & 1 Empty Page)**:
+  - **السبب الجذري الحقيقي (Root Cause)**:
+    - خاصية `visibility: hidden` تخفي العناصر بصرياً فقط لكنها **تُبقي على أبعادها وارتفاعاتها الفيزيائية الكاملة في تخطيط المستند** (Document Flow). وحيث إن شجرة React داخل `#root` تحتوي على حاويات بارتفاع شاشة كاملة (`min-height: 100vh`) وهوامش متعددة (`paddingBottom: 180px`)، كان المتصفح يُنشئ صفحة ثانية لاستيعاب ما تبقى من هيكل الصفحة الشفاف غير المرئي!
+  - **الحل الجذري الهندسي (Portal Isolation Architecture)**:
+    - نقل ورقة الطباعة بالكامل إلى الحاوية الرئيسية `document.body` مباشرة بواسطة بوابة رياكت (`createPortal(..., document.body)`).
+    - إخفاء حاوية التطبيق بالكامل `#root` وجميع العناصر المتصلة بالـ `body` عبر قاعدة `display: none !important;`:
+      ```css
+      body > *:not(#appt-daily-print-sheet) {
+        display: none !important;
+      }
+      ```
+    - بهذا أصبح العنصر الوحيد الموجود على الإطلاق في المستند أثناء الطباعة هو ورقة المواعيد المطبوعة بارتفاعها الطبيعي فقط (~380px)، مما يمنع رياضياً وهندسياً طباعة أي صفحة ثانية فارغة في متصفح Chrome أو أي متصفح آخر.
+- **الملفات المعدلة**:
+  - `frontend/src/pages/AppointmentManager.jsx`
+  - `frontend/src/pages/ClinicAppointmentManager.jsx`
+
+### Improved / تحسين وضوح ومسمى زر الخروج الطارئ وإزالة الأيقونة المزدوجة (Emergency Leave Button & i18n)
+- **سبب ظهور أيقونتين مكررتين وحل المشكلة**:
+  - **السبب**: كان الزر يحتوي على أيقونة SVG الخاصة بـ Lucide (`<Clock size={16} />`) مع وجود إيموجي برق إضافي (`⚡`) في بداية نص الترجمة، مما جعله يظهر بأيقونتين متجاورتين.
+  - **الحل**: إزالة إيموجي `⚡` من النصوص ومفاتيح الترجمة تماماً، والاكتفاء بأيقونة `<Clock />` الأنيقة.
+- **تعديل الصياغة اللغوية والترجمة الاحترافية**:
+  - تغيير الجملة في العربية من "طلعة طارئة" إلى **"خروج طارئ"** (وعنوان التلميح إلى: *"تسجيل خروج طارئ لإيقاف المواعيد اليوم"*).
+  - ضبط الترجمة الفرنسية الدقيقة: **"Sortie d'urgence"** (وعنوان التلميح: *"Enregistrer une sortie d'urgence pour suspendre les rendez-vous aujourd'hui"*).
+  - ضبط الترجمة الإنجليزية الدقيقة: **"Emergency Leave"** (وعنوان التلميح: *"Record an emergency leave to pause today's appointments"*).
+- **الملفات المعدلة**:
+  - `frontend/src/pages/AppointmentManager.jsx`
+  - `frontend/src/components/QuickEmergencyLeaveModal.jsx`
+  - `frontend/src/locales/ar.json`
+  - `frontend/src/locales/fr.json`
+  - `frontend/src/locales/en.json`
+
+### Added / ميزة طباعة جدول مواعيد اليوم لحالات انقطاع الإنترنت أو الكهرباء (Offline Continuity & Daily Print)
+- **إضافة زر ونافذة طباعة جدول مواعيد اليوم الورقية (`Imprimer la journée / طباعة اليوم`)**:
+  - **الهدف وحالة الاستخدام (Use Case)**: تمكين الطبيب أو السكرتيرة في العيادة من استخراج وطباعة قائمة مواعيد اليوم (أو الغد) بنقرة واحدة على ورق A4، لمواصلة استقبال المرضى وتنظيم الدور يدوياً في حال انقطاع التيار الكهربائي أو شبكة الإنترنت (Offline Continuity).
+  - **مواصفات ورقة العمل الطبية المطبوعة**:
+    - **ترويسة رسمية**: اسم الطبيب، التخصص، اسم العيادة والمقر، تاريخ اليوم، وإجمالي عدد المرضى المجدولين.
+    - **جدول تنظيمي دقيق**:
+      - رقم الدور / التذكرة (`#01`، `#02`...) في نظام الطابور، أو التوقيت الدقيق (`09:15`...).
+      - فترة العمل (صباحية / مسائية) ومؤشر حالات الطوارئ (`🚨 طارئ`).
+      - الاسم واللقب الكامل للمريض.
+      - رقم الهاتف بوضوح لإمكانية الاتصال بالمرضى يدوياً أثناء الانقطاع.
+      - سبب الزيارة أو الملاحظة الطبية المسجلة.
+      - **خانة التأشير والملاحظات اليدوية**: مساحة مخصصة للقلم تشمل مربعات اختيار `[ ] حاضر` و `[ ] سدد` وأسطر للملاحظات اليدوية.
+    - **تذييل وختم الطبيب**: مساحة مخصصة لختم وإمضاء الطبيب وتاريخ ووقت استخراج الوثيقة.
+  - **تنسيق الطباعة الذكي (`@media print`)**:
+    - إخفاء تام لجميع عناصر الشاشة وأزرار التصفح والقوائم تلقائياً عند الطباعة، مع ضبط المقاس على `A4 portrait` بنقاء عالي بدون هدر للأوراق أو الحبر.
+  - **تحسين تخطيط أزرار الترويسة في الوضع القياسي (Boxed Mode Layout)**:
+    - إعادة تنظيم الأزرار في الجانب الأيمن العلوي على مستويين متناسقين بدلاً من التراكم في سطر واحد:
+      - **الصف العلوي (أعلى اليمين)**: الأزرار الأساسية (`⚡ طلعة طارئة` و `+ New Appointment`) في موضع بارز ومستقل.
+      - **الصف السفلي**: أدوات المساعدة المدمجة (`طباعة اليوم`، `تحديث القائمة`، و `تبديل العرض الكامل/القياسي`).
+    - ضمان عدم كسر التخطيط أو النزول غير المنظم للأزرار عند تقليص الشاشة أو العمل في وضع العرض المربع/القياسي (1200px).
+  - **الملفات المعدلة**:
+    - `frontend/src/pages/AppointmentManager.jsx`
+    - `frontend/src/pages/ClinicAppointmentManager.jsx`
+
+### Fixed / حل مشكلة حفظ نمط عرض المواعيد والتخزين المؤقت للمتصفح (Chrome Cache-Busting)
+- **معالجة مشكلة عدم تغير نمط عرض المواعيد (Mode d'affichage) عند الحفظ**:
+  - **السبب الجذري (Root Cause)**: كان متصفح Chrome وخادم الويب يقومان بتخزين ردود طلبات `GET /api/doctors/clinic` تخزيناً مؤقتاً قوياً (HTTP GET Caching). فعند قيام الطبيب بالنقر على حفظ النمط الجديد، يتم إرسال طلب `PUT` بنجاح إلى قاعدة البيانات وتحديثها، ولكن عند إعادة جلب بيانات العيادة والإعدادات مباشرة عبر `loadClinic()`، كان المتصفح يُرجع الرد القديم المخزن مؤقتاً والذي يحتوي على النمط السابق (`booking_mode: 0`)، فتعود الواجهة فوراً للنمط القديم وكأنه لم يتغير.
+  - **منع التخزين المؤقت على مستوى الواجهة الأمامية (Frontend Anti-Caching)**:
+    - إضافة طابع زمني فريد (`_t=${Date.now()}`) تلقائياً لجميع طلبات `GET` في كل من `client.js` و `App.jsx`.
+    - تفعيل خيار `cache: 'no-store'` وترويسات `Cache-Control: no-cache, no-store, must-revalidate` و `Pragma: no-cache`.
+  - **منع التخزين المؤقت على مستوى الخادم (Backend Anti-Caching Headers)**:
+    - إضافة ترويسات `Cache-Control: no-store, no-cache, must-revalidate, max-age=0`، `Pragma: no-cache`، و `Expires: 0` في `Response::json()` وملف التوجيه العام `index.php`.
+  - **تحسين استجابة وتحديث الواجهة الفوري (`DoctorClinicManager.jsx`)**:
+    - تحديث حالة `bookingSystem` محلياً بشكل فوري من بيانات الرد `res?.appointment_settings` العائدة من الخادم.
+    - إضافة معرفات مميزة (`id="card-mode-slots"`, `id="card-mode-queue"`, `id="btn-save-booking-system"`).
+  - **ملفات التغيير**:
+    - `frontend/src/api/client.js`
+    - `frontend/src/App.jsx`
+    - `frontend/src/components/DoctorClinicManager.jsx`
+    - `backend/core/Response.php`
+    - `backend/index.php`
+    - `backend/controllers/DoctorController.php`
+
 ## 2026-10-25
 
 ### Added / Dual Booking Mode System (Time Slots vs. Numbered Queue) & Tabibi_Rect Clinic Integration

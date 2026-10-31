@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import {
@@ -322,47 +323,40 @@ export default function ClinicAppointmentManager({ navigate, user }) {
 
         @media print {
           @page {
-            size: A4 landscape;
-            margin: 8mm 10mm 10mm 10mm;
+            size: A4 portrait;
+            margin: 8mm 10mm 8mm 10mm;
           }
 
-          /* Hide global navigation, footer and interactive chrome */
-          nav, footer, .no-print, [data-no-print="true"] {
+          /* Hide ALL other elements attached to body (#root, modals, toasts, overlays, etc.) */
+          body > *:not(#clinic-daily-print-sheet) {
             display: none !important;
           }
 
-          body, html {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
             background: #ffffff !important;
             color: #0f172a !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            font-size: 10pt !important;
+            overflow: visible !important;
           }
 
-          .clinic-agenda-wrapper {
-            background: transparent !important;
-            padding: 0 !important;
-            min-height: auto !important;
-          }
-
-          .clinic-agenda-container {
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          .print-only {
+          #clinic-daily-print-sheet {
             display: block !important;
-          }
-
-          .clinic-print-sheet {
-            display: block !important;
+            position: static !important;
             width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
 
           .clinic-print-table {
             width: 100% !important;
             border-collapse: collapse !important;
+            margin-top: 4px !important;
           }
 
           .clinic-print-table th {
@@ -477,6 +471,33 @@ export default function ClinicAppointmentManager({ navigate, user }) {
                 <Plus size={18} />
                 {t("new_walkin_appointment", "Nouveau RDV au guichet")}
               </Btn>
+
+              {/* Print Daily Appointments Button (Offline / Outage Continuity) */}
+              <button
+                type="button"
+                id="btn-clinic-print-daily"
+                onClick={() => handleTriggerPrint(selectedDoctorObj)}
+                title={isRtl ? "طباعة مواعيد الطبيب المحدد لليوم للعمل بها عند انقطاع الكهرباء أو الإنترنت" : "Imprimer la journée de RDV du médecin (Secours hors-ligne)"}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.22)",
+                  border: "1.5px solid rgba(255,255,255,0.45)",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  backdropFilter: "blur(6px)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  transition: "all 0.15s"
+                }}
+              >
+                <Printer size={16} />
+                <span>{isRtl ? "طباعة اليوم" : "Imprimer la journée"}</span>
+              </button>
 
               {/* Full Width / Standard Width Toggle */}
               <button
@@ -1705,6 +1726,131 @@ export default function ClinicAppointmentManager({ navigate, user }) {
           </div>
         </div>
       )}
-    </div>
-  );
+
+      {/* ── CLINIC DEDICATED PRINT SHEET FOR DOCTOR'S DAILY APPOINTMENTS (Portal to document.body) ── */}
+      {typeof document !== "undefined" && createPortal(
+        <div id="clinic-daily-print-sheet" className="clinic-print-sheet print-only" dir={isRtl ? "rtl" : "ltr"}>
+        {/* Header */}
+        <div style={{ borderBottom: "2px solid #0f172a", paddingBottom: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a" }}>
+                {clinicData?.clinicname || "TABIBI.DZ — طبيبي"}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#0891b2", marginTop: 2 }}>
+                {isRtl ? "جدول واستقبال مواعيد المرضى (استخدام ورقي للطوارئ)" : "Feuille de route journalière des rendez-vous (Secours hors-ligne)"}
+              </div>
+            </div>
+            <div style={{ textAlign: isRtl ? "left" : "right" }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a" }}>
+                د. {activePrintDoctor?.doctor_name || selectedDoctorObj?.doctor_name || "—"}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>
+                {activePrintDoctor?.specialty_name || selectedDoctorObj?.specialty_name || (isRtl ? "طبيب ممارس" : "Médecin")}
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 8,
+            padding: "5px 10px",
+            background: "#f1f5f9",
+            borderRadius: 6,
+            fontSize: 9.5,
+            fontWeight: 700,
+            border: "1px solid #cbd5e1"
+          }}>
+            <div>
+              <span>{isRtl ? "تاريخ المواعيد: " : "Date : "}</span>
+              <strong>{dateFrom || new Date().toISOString().slice(0, 10)}</strong>
+            </div>
+            <div>
+              <span>{isRtl ? "العدد الإجمالي: " : "Total patients : "}</span>
+              <strong>{targetDoctorAppts.length} {isRtl ? "مريض" : "patient(s)"}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        {targetDoctorAppts.length === 0 ? (
+          <div style={{ padding: "30px 10px", textAlign: "center", color: "#64748b", fontSize: 12, border: "1px dashed #cbd5e1", borderRadius: 8 }}>
+            {isRtl ? "لا توجد مواعيد مسجلة لهذا الطبيب في هذا التاريخ." : "Aucun rendez-vous pour ce médecin à cette date."}
+          </div>
+        ) : (
+          <table className="clinic-print-table">
+            <thead>
+              <tr>
+                <th style={{ width: "9%", textAlign: "center" }}>{isRtl ? "الرقم" : "N°"}</th>
+                <th style={{ width: "12%", textAlign: "center" }}>{isRtl ? "التوقيت" : "Heure"}</th>
+                <th style={{ width: "26%" }}>{isRtl ? "اسم ولقب المريض" : "Nom & Prénom du Patient"}</th>
+                <th style={{ width: "17%" }}>{isRtl ? "الهاتف" : "Téléphone"}</th>
+                <th style={{ width: "18%" }}>{isRtl ? "سبب الزيارة" : "Motif / Remarque"}</th>
+                <th style={{ width: "18%", textAlign: "center" }}>{isRtl ? "التأشير والملاحظات" : "Pointage & Notes"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {targetDoctorAppts.map((appt, idx) => {
+                const apptTime = appt.estimated_time || (appt.apointementdate ? String(appt.apointementdate).slice(11, 16) : (appt.time || "—"));
+                const tokenDisplay = appt.token_number ? `#${String(appt.token_number).padStart(2, '0')}` : `#${String(idx + 1).padStart(2, '0')}`;
+
+                return (
+                  <tr key={appt.id || idx}>
+                    <td style={{ textAlign: "center", fontWeight: 900, fontSize: 10.5 }}>{tokenDisplay}</td>
+                    <td style={{ textAlign: "center", fontWeight: 700 }}>{apptTime}</td>
+                    <td><div style={{ fontWeight: 800, fontSize: 10 }}>{appt.patientname}</div></td>
+                    <td style={{ fontWeight: 700, fontSize: 9.5 }} dir="ltr">{appt.phone || "—"}</td>
+                    <td style={{ fontSize: 9, color: "#334155" }}>{appt.note || appt.reason_name || "—"}</td>
+                    <td style={{ padding: "4px 6px" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 3 }}>
+                        <span style={{ fontSize: 8.5, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ display: "inline-block", width: 9, height: 9, border: "1.2px solid #000" }} /> {isRtl ? "حاضر" : "Présent"}
+                        </span>
+                        <span style={{ fontSize: 8.5, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ display: "inline-block", width: 9, height: 9, border: "1.2px solid #000" }} /> {isRtl ? "سدد" : "Payé"}
+                        </span>
+                      </div>
+                      <div style={{ borderBottom: "1px dotted #94a3b8", height: 10 }} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* Footer */}
+        <div style={{
+          marginTop: 14,
+          paddingTop: 8,
+          borderTop: "1.5px solid #0f172a",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          fontSize: 8.5,
+          color: "#475569"
+        }}>
+          <div>
+            <div>{isRtl ? "تم استخراج هذا الجدول عبر منصة طبيبي للاستخدام الإداري والطبي." : "Feuille de travail générée par la plateforme Tabibi.dz pour la continuité des soins."}</div>
+            <div style={{ marginTop: 2 }}>{isRtl ? "تاريخ ووقت الطباعة: " : "Date d'impression : "}{new Date().toLocaleString(isRtl ? "ar-DZ" : "fr-FR")}</div>
+          </div>
+          <div style={{
+            border: "1px dashed #64748b",
+            borderRadius: 6,
+            padding: "6px 20px",
+            textAlign: "center",
+            minWidth: 140
+          }}>
+            <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: 18, fontSize: 9 }}>
+              {isRtl ? "إمضاء وختم العيادة" : "Cachet & Signature"}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+  </div>
+);
 }

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { 
   Info, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, 
-  Stethoscope, Building, Search, Hash, Activity, RefreshCw, CheckCircle2, AlertCircle, Sparkles, Sun, Moon
+  Stethoscope, Building, Search, Hash, Activity, RefreshCw, CheckCircle2, AlertCircle, Sparkles, Sun, Moon, HelpCircle
 } from "lucide-react";
 import { Btn, Card, Spinner, ListSkeleton, DoctorImage, Badge, useToast } from "../components/SharedUI";
 import GoogleCalendarButton from "../components/GoogleCalendarButton";
@@ -341,9 +341,35 @@ export default function AppointmentsPage({ navigate, user }) {
 
   return (
     <div className="tabibi-fullwidth-container" style={{ maxWidth: 780, margin: "0 auto", padding: "28px 24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{t("appointments_title")}</h1>
-        <Btn onClick={() => navigate("/search")} style={{ padding: "9px 18px", fontSize: 13 }}>{t("book_new")}</Btn>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", margin: 0 }}>{t("appointments_title")}</h1>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={() => navigate("/aide?article=retrouver-et-gerer-ses-rendez-vous")}
+            style={{
+              background: "rgba(0, 146, 162, 0.08)",
+              border: "1px solid rgba(0, 146, 162, 0.25)",
+              color: "var(--brand, #0092a2)",
+              borderRadius: 20,
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(0, 146, 162, 0.16)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(0, 146, 162, 0.08)"}
+          >
+            <HelpCircle size={14} />
+            <span>{t("help_link_manage_appts", "Comment gérer mes rendez-vous ?")}</span>
+          </button>
+          <Btn onClick={() => navigate("/search")} style={{ padding: "9px 18px", fontSize: 13 }}>{t("book_new")}</Btn>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>

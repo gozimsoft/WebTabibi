@@ -12,7 +12,7 @@ import {
   UserPlus, Building, Check, AlertTriangle, Send,
   FileText, HelpCircle, History, Briefcase, Plus, Trash2, Microscope, Syringe, Download, Globe, Printer, Ambulance, Hospital, Building2, WifiOff, Share2, Paperclip, Camera, Smartphone, Scale, Laptop,
   Archive, Copy, Filter, List, Grid, RotateCw, Snowflake, PlayCircle, BellOff, ExternalLink, Sliders,
-  Ticket, Hash
+  Ticket, Hash, LifeBuoy
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,6 +42,8 @@ import { useRoute } from "./hooks/useRoute";
 import AvatarCropModal from "./components/AvatarCropModal";
 import { AccountSecurityPill, AccountSecurityCard } from "./components/AccountSecuritySummary";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
+import HelpCenter from "./pages/HelpCenter";
+import { formatSpecialty } from "./utils/specialty";
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -52,11 +54,23 @@ const BASE = import.meta.env.DEV ? '/api' : `${_API_HOST}/api`;
 const getToken = () => localStorage.getItem("tabibi_token");
 
 async function req(method, path, body, auth = true) {
-  const headers = { "Content-Type": "application/json" };
+  const headers = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache"
+  };
   if (auth && getToken()) headers["Authorization"] = `Bearer ${getToken()}`;
+
+  let fullPath = path;
+  if (method === "GET") {
+    const sep = fullPath.includes("?") ? "&" : "?";
+    fullPath = `${fullPath}${sep}_t=${Date.now()}`;
+  }
+
   try {
-    const r = await fetch(`${BASE}${path}`, {
+    const r = await fetch(`${BASE}${fullPath}`, {
       method, headers,
+      cache: "no-store",
       body: body ? JSON.stringify(body) : undefined,
     });
     const d = await r.json();
@@ -1097,13 +1111,6 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
       path: "/admin/accounts",
       private: true
     }] : []),
-    ...(user ? [{
-      label: t("admin_support_nav", "Support / Administration"),
-      icon: <HelpCircle size={18} />,
-      path: (user.user_type === 3 || user.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets",
-      private: true,
-      iconOnly: true
-    }] : []),
     ...(user?.user_type === 1 ? [
       { label: t("nav_my_clinic", "عيادتي"), icon: <Building2 size={18} />, path: "/clinics", private: true },
       { label: t("nav_appointments", "المواعيد"), icon: <LayoutDashboard size={18} />, path: "/appointmanager", private: true, badge: pendingApptsCount }
@@ -1540,6 +1547,8 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
                         (user?.user_type === 1 || user?.user_type === 2) ? { icon: <Check size={16} />, label: t("join_requests", "طلبات الانضمام"), path: "/requests" } : null,
                         { icon: <MessageSquare size={16} />, label: t("messages", "الرسائل"), path: "/tickets", badge: unreadTicketsCount },
                         { icon: <HelpCircle size={16} />, label: t("admin_support_nav", "Support / Administration"), path: (user.user_type === 3 || user.user_type === 4) ? "/admin?tab=support_tickets" : "/support-tickets" },
+                        { icon: <LifeBuoy size={16} />, label: t("help_center_nav", "Centre d'aide"), path: "/aide" },
+                        { icon: <Info size={16} />, label: t("footer_learn_more", "حول طبيبي"), path: "/learn-more" },
                         { icon: <FileText size={16} />, label: t("guide_header_title"), path: "/guide" },
                         { icon: <Mail size={16} />, label: t("contact_title"), path: "/contact" },
                       ].filter(Boolean).map(item => (
@@ -2218,7 +2227,7 @@ function HomePage({ user, navigate }) {
                     overflow: "hidden",
                     textOverflow: "ellipsis"
                   }}>
-                    {i18n.language === 'ar' ? s.namear : s.namefr}
+                    {formatSpecialty(s, i18n.language)}
                   </div>
                   <div style={{
                     fontSize: isMobile ? 10 : 12,
@@ -2229,7 +2238,7 @@ function HomePage({ user, navigate }) {
                     overflow: "hidden",
                     textOverflow: "ellipsis"
                   }}>
-                    {i18n.language === 'ar' ? s.namefr : s.namear}
+                    {i18n.language === 'ar' ? formatSpecialty(s, 'fr') : formatSpecialty(s, 'ar')}
                   </div>
                 </div>
               </div>
@@ -3432,7 +3441,7 @@ function SearchPage({ navigate, qs, user }) {
             <select value={sp} onChange={e => setSP(e.target.value)}
               style={{ flex: 1, padding: isMobile ? "12px 4px" : "12px 8px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box", minWidth: 0 }}>
               <option value="">{t("all_specialties")}</option>
-              {spList.map(s => <option key={s.id} value={s.id}>{i18n.language === 'ar' ? s.namear : s.namefr}</option>)}
+              {spList.map(s => <option key={s.id} value={s.id}>{formatSpecialty(s, i18n.language)}</option>)}
             </select>
           </div>
           <Btn onClick={() => doSearch(q, sp, wi)} style={{ padding: "12px 24px", justifyContent: "center" }}>{t("search_btn")}</Btn>
@@ -3482,8 +3491,8 @@ function SearchPage({ navigate, qs, user }) {
               const address = isDoctor ? (r.DoctorAddress || r.doctoraddress || r.ClinicAddress || r.clinicaddress) : (r.address || r.ClinicAddress || r.clinicaddress || r.clinic_address || r.location);
               const avgRating = r.AvgRating || r.avg_rating || r.rating || r.avgRating || r.clinic_avg_rating || 0;
               const ratingCount = r.RatingCount || r.rating_count || r.reviews_count || r.ratingCount || 0;
-              const specialty = isDoctor ? ((i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) || (i18n.language === 'ar' ? 'طب عام' : 'Médecine générale')) : (r.activitysector || t("medical_center"));
-              const specialtyColor = getSpecialtyColor(isDoctor ? (r.specialtyfr || r.specialtyar || specialty) : null, isDoctor);
+              const specialty = isDoctor ? (formatSpecialty(r, i18n.language) || (i18n.language === 'ar' ? 'طب عام' : i18n.language === 'en' ? 'General Medicine' : 'Médecine générale')) : (r.activitysector || t("medical_center"));
+              const specialtyColor = getSpecialtyColor(isDoctor ? (r.specialtyfr || r.specialtyar || r.specialtyen || specialty) : null, isDoctor);
               const wilaya = i18n.language === 'ar' ? r.WilayaNameAr : r.WilayaNameFr;
               const baladiya = i18n.language === 'ar' ? r.BaladiyaNameAr : r.BaladiyaNameFr;
 
@@ -3989,7 +3998,7 @@ function ClinicDetailsPage({ navigate, clinicid, user }) {
                 <DoctorImage photo={d.photoprofile} size={80} borderRadius={18} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 18, fontWeight: 900, color: "#0c4a6e", marginBottom: 4 }}>{d.doctorname}</div>
-                  <Badge color="var(--brand)">{i18n.language === 'ar' ? d.specialtyar : d.specialtyfr}</Badge>
+                  <Badge color="var(--brand)">{formatSpecialty(d, i18n.language)}</Badge>
                 </div>
                 <div style={{ color: "var(--brand)", opacity: 0.5 }}>
                   {i18n.language === 'ar' ? <ArrowLeft size={24} /> : <ArrowRight size={24} />}
@@ -4322,7 +4331,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
   const shareDoctor = () => {
     const url = window.location.href;
     const name = data.fullname || data.doctorname;
-    const spec = i18n.language === 'ar' ? data.specialtyar : data.specialtyfr;
+    const spec = formatSpecialty(data, i18n.language);
     const text = `طبيبي - منصة حجز المواعيد: ${name} (${spec})\n${url}`;
 
     if (navigator.share) {
@@ -4364,7 +4373,7 @@ function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user
           <DoctorImage photo={data.photoprofile} size={isMobile ? 140 : 200} borderRadius={isMobile ? 24 : 32} />
           <div style={{ flex: 1, minWidth: 180, textAlign: isMobile ? "center" : (i18n.language === 'ar' ? "right" : "left") }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, justifyContent: isMobile ? "center" : "flex-start" }}>
-              <Badge color="var(--brand)">{i18n.language === 'ar' ? data.specialtyar : data.specialtyfr}</Badge>
+              <Badge color="var(--brand)">{formatSpecialty(data, i18n.language)}</Badge>
               {data.degrees && <Badge color="#7c3aed">{data.degrees}</Badge>}
               {+data.Cnas === 1 && <Badge color="#059669"><Check size={12} style={{ marginLeft: 4 }} /> CNAS</Badge>}
               {+data.casnos === 1 && <Badge color="var(--brand)"><Check size={12} style={{ marginLeft: 4 }} /> casnos</Badge>}
@@ -12337,13 +12346,28 @@ function ProfilePage({ user, navigate, qs }) {
           setLoadingSystemStatus(false);
         }
       } else {
-        p = await api.patient.profile();
+        const [profileData, wList] = await Promise.all([
+          api.patient.profile(),
+          wilayasList.length === 0 ? api.wilayas().catch(() => []) : Promise.resolve(null)
+        ]);
+        p = profileData;
+        if (wList && wList.length > 0) {
+          setWilayasList(wList);
+        }
         if (p?.wilaya_id) {
-          api.baladiyas(p.wilaya_id).then(b => setBaladiyasList(b || [])).catch(() => {});
+          try {
+            const b = await api.baladiyas(p.wilaya_id);
+            setBaladiyasList(b || []);
+          } catch {
+            setBaladiyasList([]);
+          }
         }
       }
 
       if (p) {
+        if (p.birthdate === '0000-00-00') p.birthdate = '';
+        if (p.postcode === 0 || p.postcode === '0') p.postcode = '';
+        if (p.bloodgroup && !p.bloodtype) p.bloodtype = p.bloodgroup;
         if (typeof p.latitude === 'string') p.latitude = p.latitude.trim();
         if (typeof p.longitude === 'string') p.longitude = p.longitude.trim();
       }
@@ -12573,7 +12597,12 @@ function ProfilePage({ user, navigate, qs }) {
       }
       if (user?.user_type === 1) await api.doctor.update(cleanForm);
       else if (user?.user_type === 2) await api.clinics.update(cleanForm);
-      else await api.patient.update(cleanForm);
+      else {
+        if (!cleanForm.bloodtype && cleanForm.bloodgroup) {
+          cleanForm.bloodtype = cleanForm.bloodgroup;
+        }
+        await api.patient.update(cleanForm);
+      }
       show(t("save_success"));
       await load();
     }
@@ -13727,9 +13756,9 @@ function ProfilePage({ user, navigate, qs }) {
               </div>
               <div style={{ marginBottom: 16, gridColumn: isMobile ? "auto" : "1/-1" }}>
                 <label style={{ display: "block", marginBottom: 6, fontSize: 14, fontWeight: 600, color: "#374151" }}>{t("blood_type")}</label>
-                <select value={form.bloodtype || ""} onChange={e => f("bloodtype", e.target.value)} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
+                <select value={form.bloodtype || form.bloodgroup || ""} onChange={e => { f("bloodtype", e.target.value); f("bloodgroup", e.target.value); }} style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", boxSizing: "border-box" }}>
                   <option value="">{t("not_specified")}</option>
-                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
+                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
 
@@ -15929,20 +15958,6 @@ function Footer({ navigate, show, user }) {
               ]}
             />
 
-            {/* 4. About */}
-            <button
-              onClick={() => navigate("/learn-more")}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
-                transition: "color 0.2s", padding: "4px 6px"
-              }}
-              onMouseEnter={e => e.target.style.color = "var(--brand)"}
-              onMouseLeave={e => e.target.style.color = "var(--text-secondary)"}
-            >
-              {t("footer_learn_more", "حول طبيبي")}
-            </button>
-
             {/* 5. Support & Réclamations */}
             <button
               onClick={() => {
@@ -15970,6 +15985,24 @@ function Footer({ navigate, show, user }) {
             >
               <HelpCircle size={15} style={{ color: "var(--brand)" }} />
               <span>{t("footer_support", "Support")}</span>
+            </button>
+
+            {/* 6. Centre d'aide */}
+            <button
+              onClick={() => navigate("/aide")}
+              title={t("help_center_nav", "Centre d'aide")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 12, color: "var(--text-secondary)", fontWeight: 600,
+                transition: "all 0.2s", padding: "4px 8px",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                borderRadius: 8
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = "var(--brand)"; e.currentTarget.style.background = "var(--brand-light)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-secondary)"; e.currentTarget.style.background = "none"; }}
+            >
+              <LifeBuoy size={15} style={{ color: "var(--brand)" }} />
+              <span>{t("help_center_nav", "Centre d'aide")}</span>
             </button>
           </div>
         </div>
@@ -16303,6 +16336,8 @@ function MainApp() {
         return <RegisterPage key="register" onRegister={register} onRegisterConfirm={registerConfirm} onGoogleLogin={googleLogin} navigate={navigate} />;
       case "/search":
         return <SearchPage key={route + qs} navigate={navigate} qs={qs} user={user} />;
+      case "/aide":
+        return <HelpCenter key="aide" navigate={navigate} qs={qs} user={user} />;
       case "/knowledge":
         return <KnowledgeBasePage key="knowledge" />;
       case "/about":

@@ -9,6 +9,7 @@ import {
 import { api } from "../api/client";
 import { Card, Btn, Spinner, DoctorImage, VerifiedBadge } from "./SharedUI";
 import QuickAppointmentModal from "./QuickAppointmentModal";
+import { formatSpecialty } from "../utils/specialty";
 
 const STATUS_CONFIG = {
   0: { labelFr: "Confirmé", labelAr: "مؤكد", labelEn: "Confirmed", bg: "#cffafe", color: "#0891b2" },
@@ -127,9 +128,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
     }
   };
 
-  const specialtyName = isRtl
-    ? (doctor?.specialtyar || doctor?.specialtyfr || "")
-    : (doctor?.specialtyfr || doctor?.specialtyar || "");
+  const specialtyName = formatSpecialty(doctor, i18n.language);
 
   const primaryClinic = doctor?.clinics?.[0];
 
@@ -680,7 +679,7 @@ export default function PatientAttendingDoctorCard({ showToast, isMobile }) {
                   {searchResults.map((d) => {
                     const isSelected = doctor?.id === d.id;
                     const isAssigning = assigningId === d.id;
-                    const spec = isRtl ? (d.specialtyar || d.specialtyfr) : (d.specialtyfr || d.specialtyar);
+                    const spec = formatSpecialty(d, i18n.language);
 
                     return (
                       <div

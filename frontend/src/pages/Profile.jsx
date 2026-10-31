@@ -38,17 +38,33 @@ export default function ProfilePage({ user }) {
   });
   const [savingCreds, setSavingCreds] = useState(false);
 
-  const fetch = () =>
-    api.patient
-      .getProfile()
-      .then(p => {
-        setData(p);
-        if (p?.wilaya_id) {
-          api.baladiyas(p.wilaya_id).then(b => setBaladiyasList(b || [])).catch(() => {});
+  const fetch = async () => {
+    try {
+      const [p, w] = await Promise.all([
+        api.patient.getProfile(),
+        wilayasList.length === 0 ? api.wilayas().catch(() => []) : Promise.resolve(null)
+      ]);
+      if (w && w.length > 0) setWilayasList(w);
+      if (p) {
+        if (p.birthdate === '0000-00-00') p.birthdate = '';
+        if (p.postcode === 0 || p.postcode === '0') p.postcode = '';
+        if (p.bloodgroup && !p.bloodtype) p.bloodtype = p.bloodgroup;
+      }
+      if (p?.wilaya_id) {
+        try {
+          const b = await api.baladiyas(p.wilaya_id);
+          setBaladiyasList(b || []);
+        } catch {
+          setBaladiyasList([]);
         }
-      })
-      .catch(e => show(e.message, "error"))
-      .finally(() => setL(false));
+      }
+      setData(p);
+    } catch (e) {
+      show(e.message, "error");
+    } finally {
+      setL(false);
+    }
+  };
 
   useEffect(() => {
     fetch();
@@ -129,6 +145,7 @@ export default function ProfilePage({ user }) {
     try {
       await api.patient.updateProfile(data);
       show(t("save_success"));
+      await fetch();
     } catch (e) { show(e.message, "error"); }
     finally { setSav(false); }
   };

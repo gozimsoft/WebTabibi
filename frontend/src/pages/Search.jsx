@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, ListSkeleton, DoctorImage, Stars, Badge, useToast, VerifiedBadge, AvailabilityPulse } from "../components/SharedUI";
-import { MapPin, Phone, Building, Globe, Activity, Heart, Shield, Mail, Clock, CreditCard } from "lucide-react";
+import { MapPin, Phone, Building, Globe, Activity, Heart, Shield, Mail, Clock, CreditCard, HelpCircle } from "lucide-react";
 import analytics from "../utils/analytics";
+import { formatSpecialty } from "../utils/specialty";
 
 
 export default function SearchPage({ navigate, qs }) {
@@ -39,8 +40,34 @@ export default function SearchPage({ navigate, qs }) {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", direction: i18n.language === 'ar' ? 'rtl' : 'ltr', padding: "28px 24px" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", marginBottom: 6 }}>{t("search_title")}</h1>
-        <p style={{ color: "#6b7280", marginBottom: 20, fontSize: 13 }}>{t("search_subtitle")}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: "#0c4a6e", marginBottom: 6 }}>{t("search_title")}</h1>
+            <p style={{ color: "#6b7280", margin: 0, fontSize: 13 }}>{t("search_subtitle")}</p>
+          </div>
+          <button
+            onClick={() => navigate("/aide?article=rechercher-un-medecin")}
+            style={{
+              background: "rgba(0, 146, 162, 0.08)",
+              border: "1px solid rgba(0, 146, 162, 0.25)",
+              color: "var(--brand, #0092a2)",
+              borderRadius: 20,
+              padding: "7px 16px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(0, 146, 162, 0.16)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(0, 146, 162, 0.08)"}
+          >
+            <HelpCircle size={15} />
+            <span>{t("help_link_find_doctor", "Comment trouver un médecin ?")}</span>
+          </button>
+        </div>
 
         <Card style={{ marginBottom: 20, padding: 14 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -52,7 +79,7 @@ export default function SearchPage({ navigate, qs }) {
             <select value={sp} onChange={e => setSP(e.target.value)}
               style={{ flex: 1, minWidth: 150, padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 13, background: "var(--bg)", boxSizing: "border-box" }}>
               <option value="">{t("all_specialties")}</option>
-              {spList.map(s => <option key={s.id} value={s.id}>{i18n.language === 'ar' ? s.namear : s.namefr}</option>)}
+              {spList.map(s => <option key={s.id} value={s.id}>{formatSpecialty(s, i18n.language)}</option>)}
             </select>
             <Btn onClick={() => doSearch(q, sp)} style={{ padding: "10px 24px", whiteSpace: "nowrap" }}>{t("search_btn")}</Btn>
           </div>
@@ -78,7 +105,7 @@ export default function SearchPage({ navigate, qs }) {
                 const address = isDoctor ? r.ClinicAddress : (r.address || r.ClinicAddress || r.clinic_address || r.location);
                 const avgRating = r.AvgRating || r.avg_rating || r.rating || r.avgRating || r.clinic_avg_rating || 0;
                 const ratingCount = r.RatingCount || r.rating_count || r.reviews_count || r.ratingCount || 0;
-                const specialty = isDoctor ? (i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) : (r.activitysector || t("medical_center"));
+                const specialty = isDoctor ? (formatSpecialty(r, i18n.language) || (i18n.language === 'ar' ? 'طب عام' : i18n.language === 'en' ? 'General Medicine' : 'Médecine générale')) : (r.activitysector || t("medical_center"));
 
                 return (
                   <div key={type + r.ResultId}

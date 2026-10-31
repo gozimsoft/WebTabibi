@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import {
@@ -7,7 +8,8 @@ import {
   Activity, ClipboardList, Plus, X, FileText,
   LayoutList, CalendarDays, ChevronLeft, ChevronRight, MapPin,
   Maximize, Minimize, ArrowUpDown, Check,
-  Hash, Sun, Moon, Bell, Volume2, Zap, Users, Sliders
+  Hash, Sun, Moon, Bell, Volume2, Zap, Users, Sliders,
+  Printer
 } from "lucide-react";
 import { Btn, Spinner, useToast } from "../components/SharedUI";
 import QuickEmergencyLeaveModal from "../components/QuickEmergencyLeaveModal";
@@ -731,6 +733,30 @@ export default function AppointmentManager({ navigate, user }) {
     return localStorage.getItem("tabibi_appt_sort_by") || "date_asc";
   });
 
+  // Print Daily State & Handlers (Secours hors-ligne en cas de panne)
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printDate, setPrintDate] = useState(() => formatDateYMD(new Date()));
+  const [printClinicId, setPrintClinicId] = useState("all");
+  const [printShiftFilter, setPrintShiftFilter] = useState("all");
+
+  const handleOpenPrintModal = () => {
+    if (dateFrom && dateFrom === dateTo) {
+      setPrintDate(dateFrom);
+    } else {
+      setPrintDate(formatDateYMD(new Date()));
+    }
+    setPrintClinicId(selectedClinicId || "all");
+    setPrintShiftFilter(shiftFilter || "all");
+    setShowPrintModal(true);
+  };
+
+  const handleExecutePrint = () => {
+    setShowPrintModal(false);
+    setTimeout(() => {
+      window.print();
+    }, 180);
+  };
+
   const toggleFullscreen = () => {
     const el = document.getElementById("appt-manager-fullscreen-container");
     if (!el) return;
@@ -1091,6 +1117,29 @@ export default function AppointmentManager({ navigate, user }) {
     return matchesClinic && matchesSearch && matchesFilter;
   });
 
+  // قائمة المواعيد المجهزة للطباعة على ورقة A4 لمتابعة المرضى في حالة الطوارئ وانقطاع الإنترنت أو الكهرباء
+  const printAppointments = useMemo(() => {
+    return appointments.filter(a => {
+      const aDate = String(a.apointementdate || a.date || "").slice(0, 10);
+      const matchesDate = !printDate || aDate === printDate;
+      const matchesClinic = printClinicId === "all" || !printClinicId || String(a.clinic_id) === String(printClinicId);
+      const matchesShift = !isQueueMode || !isDoubleShift || printShiftFilter === "all" || (a.shift_type || "morning") === printShiftFilter;
+      // استبعاد المواعيد الملغاة من قائمة العمل الورقية
+      const isNotCancelled = Number(a.status) !== 1;
+      return matchesDate && matchesClinic && matchesShift && isNotCancelled;
+    }).sort((a, b) => {
+      if (isQueueMode) {
+        if (a.shift_type !== b.shift_type) {
+          return a.shift_type === 'morning' ? -1 : 1;
+        }
+        return (Number(a.token_number) || 0) - (Number(b.token_number) || 0);
+      }
+      const da = new Date(String(a.apointementdate || a.date || "").trim().replace(" ", "T")).getTime() || 0;
+      const db = new Date(String(b.apointementdate || b.date || "").trim().replace(" ", "T")).getTime() || 0;
+      return da - db;
+    });
+  }, [appointments, printDate, printClinicId, printShiftFilter, isQueueMode, isDoubleShift]);
+
   const stats = {
     total: appointments.filter(clinicFilter).length,
     booked: appointments.filter(a => clinicFilter(a) && Number(a.status) === 0).length,
@@ -1170,9 +1219,9 @@ export default function AppointmentManager({ navigate, user }) {
             <div style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: "flex-start",
               flexWrap: "wrap",
-              gap: 20,
+              gap: 16,
               position: "relative",
               zIndex: 2
             }}>
@@ -1207,102 +1256,154 @@ export default function AppointmentManager({ navigate, user }) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => setShowEmergencyLeaveModal(true)}
-                  title="تسجيل طلعة طارئة لإيقاف المواعيد اليوم"
-                  style={{
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    fontWeight: 800,
-                    fontSize: 13,
-                    border: "1.5px solid rgba(239, 68, 68, 0.35)",
-                    cursor: "pointer",
-                    transition: "0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "rgba(239, 68, 68, 0.12)",
-                    color: "#ef4444"
-                  }}
-                >
-                  <Clock size={16} />
-                  <span>⚡ طلعة طارئة</span>
-                </button>
+              {/* Action Buttons: 2-row layout (Primary Top-Right & Utilities below) */}
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: isRtl ? "flex-start" : "flex-end",
+                gap: 10,
+                flexShrink: 0
+              }}>
+                {/* Row 1: Primary Actions (خروج طارئ + New Appointment) */}
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: isRtl ? "flex-start" : "flex-end" }}>
+                  <button
+                    type="button"
+                    id="btn-emergency-leave-trigger"
+                    onClick={() => setShowEmergencyLeaveModal(true)}
+                    title={t("appt_mgr_emergency_leave_title", "تسجيل خروج طارئ لإيقاف المواعيد اليوم")}
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: 10,
+                      fontWeight: 800,
+                      fontSize: 13.5,
+                      border: "1.5px solid rgba(220, 38, 38, 0.25)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease-in-out",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      background: "#ffffff",
+                      color: "#dc2626",
+                      boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 14px"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#fef2f2";
+                      e.currentTarget.style.borderColor = "#dc2626";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#ffffff";
+                      e.currentTarget.style.borderColor = "rgba(220, 38, 38, 0.25)";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                  >
+                    <Clock size={16} />
+                    <span>{t("appt_mgr_emergency_leave", "خروج طارئ")}</span>
+                  </button>
 
-                <button
-                  onClick={() => setShowModal(true)}
-                  style={{
-                    padding: "10px 18px",
-                    borderRadius: 10,
-                    fontWeight: 800,
-                    fontSize: 14,
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    background: "rgb(255, 255, 255)",
-                    color: "rgb(8, 145, 178)",
-                    boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 14px"
-                  }}
-                >
-                  <Plus size={18} />
-                  {t("appt_mgr_new_appointment", "Nouveau RDV")}
-                </button>
+                  <button
+                    onClick={() => setShowModal(true)}
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: 10,
+                      fontWeight: 800,
+                      fontSize: 14,
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "rgb(255, 255, 255)",
+                      color: "rgb(8, 145, 178)",
+                      boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 14px"
+                    }}
+                  >
+                    <Plus size={18} />
+                    {t("appt_mgr_new_appointment", "Nouveau RDV")}
+                  </button>
+                </div>
 
-                <button
-                  onClick={() => fetchAppointments(true)}
-                  disabled={refreshing || loading}
-                  title={t("refresh", "Actualiser")}
-                  style={{
-                    background: "rgba(255, 255, 255, 0.15)",
-                    border: "1px solid rgba(255, 255, 255, 0.25)",
-                    color: "rgb(255, 255, 255)",
-                    borderRadius: 12,
-                    padding: "10px 14px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "0.15s"
-                  }}
-                >
-                  <RefreshCw size={16} className={refreshing ? "spin-anim" : ""} />
-                </button>
+                {/* Row 2: Secondary Utilities (Print Day, Refresh, Fullwidth Toggle) */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: isRtl ? "flex-start" : "flex-end" }}>
+                  {/* Print Day Button (Emergency Offline Workflow) */}
+                  <button
+                    type="button"
+                    id="btn-print-daily-appointments"
+                    onClick={handleOpenPrintModal}
+                    title={isRtl ? "طباعة مواعيد اليوم للعمل بها عند انقطاع الكهرباء أو الإنترنت" : "Imprimer la journée de RDV (Secours hors-ligne)"}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      border: "1.5px solid rgba(255, 255, 255, 0.4)",
+                      cursor: "pointer",
+                      transition: "0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "rgba(255, 255, 255, 0.22)",
+                      color: "#ffffff",
+                      backdropFilter: "blur(6px)",
+                      boxShadow: "rgba(0, 0, 0, 0.08) 0px 2px 8px"
+                    }}
+                  >
+                    <Printer size={15} />
+                    <span>{isRtl ? "طباعة اليوم" : "Imprimer la journée"}</span>
+                  </button>
 
-                {/* Full Width Mode Button */}
-                <button
-                  onClick={toggleFullWidth}
-                  title={isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
-                  style={{
-                    background: isFullWidth ? "rgba(255, 255, 255, 0.32)" : "rgba(255, 255, 255, 0.15)",
-                    border: isFullWidth ? "1.5px solid rgba(255, 255, 255, 0.6)" : "1px solid rgba(255, 255, 255, 0.25)",
-                    color: "rgb(255, 255, 255)",
-                    borderRadius: 12,
-                    padding: "10px 14px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    transition: "0.2s"
-                  }}
-                >
-                  {isFullWidth ? (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
-                    </svg>
-                  ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
-                    </svg>
-                  )}
-                  <span>{isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
-                </button>
+                  <button
+                    onClick={() => fetchAppointments(true)}
+                    disabled={refreshing || loading}
+                    title={t("refresh", "Actualiser")}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.15)",
+                      border: "1px solid rgba(255, 255, 255, 0.25)",
+                      color: "rgb(255, 255, 255)",
+                      borderRadius: 10,
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "0.15s"
+                    }}
+                  >
+                    <RefreshCw size={15} className={refreshing ? "spin-anim" : ""} />
+                  </button>
+
+                  {/* Full Width Mode Button */}
+                  <button
+                    onClick={toggleFullWidth}
+                    title={isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran (tableaux & statistiques)")}
+                    style={{
+                      background: isFullWidth ? "rgba(255, 255, 255, 0.32)" : "rgba(255, 255, 255, 0.15)",
+                      border: isFullWidth ? "1.5px solid rgba(255, 255, 255, 0.6)" : "1px solid rgba(255, 255, 255, 0.25)",
+                      color: "rgb(255, 255, 255)",
+                      borderRadius: 10,
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      transition: "0.2s"
+                    }}
+                  >
+                    {isFullWidth ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                      </svg>
+                    )}
+                    <span>{isFullWidth ? t("standard_width_mode", "Largeur standard") : t("full_width_mode", "Plein écran")}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1615,7 +1716,7 @@ export default function AppointmentManager({ navigate, user }) {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
-                        مكتب المناداة وإدارة الطابور اليومي
+                        {t("live_queue_desk_title", "مكتب المناداة وإدارة الطابور اليومي")}
                       </h2>
                       <span style={{
                         background: "rgba(16, 185, 129, 0.25)",
@@ -1630,11 +1731,11 @@ export default function AppointmentManager({ navigate, user }) {
                         gap: 4
                       }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
-                        مباشر (Live)
+                        {t("live_queue_live_badge", "مباشر (Live)")}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>
-                      نظام القوائم والتذاكر بالأسبقية · سقف المرضى والتحديث التلقائي
+                      {t("live_queue_desk_subtitle", "نظام القوائم والتذاكر بالأسبقية · سقف المرضى والتحديث التلقائي")}
                     </div>
                   </div>
                 </div>
@@ -1642,17 +1743,17 @@ export default function AppointmentManager({ navigate, user }) {
                 {/* Quick Counters Pills */}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                   <div style={{ background: "rgba(255, 255, 255, 0.12)", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                    إجمالي القائمة: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.total_in_queue || appointments.filter(a => a.token_number).length}</strong>
+                    {t("live_queue_total_in_queue", "إجمالي القائمة:")} <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.total_in_queue || appointments.filter(a => a.token_number).length}</strong>
                   </div>
                   <div style={{ background: "rgba(245, 158, 11, 0.25)", border: "1px solid rgba(245, 158, 11, 0.4)", color: "#fef08a", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                    في الانتظار: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.waiting_count ?? appointments.filter(a => a.queue_status === 'waiting' && Number(a.status) === 0).length}</strong>
+                    {t("live_queue_waiting", "في الانتظار:")} <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.waiting_count ?? appointments.filter(a => a.queue_status === 'waiting' && Number(a.status) === 0).length}</strong>
                   </div>
                   <div style={{ background: "rgba(16, 185, 129, 0.25)", border: "1px solid rgba(16, 185, 129, 0.4)", color: "#a7f3d0", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                    تم الفحص: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.completed_count ?? appointments.filter(a => a.queue_status === 'completed' || Number(a.status) === 2).length}</strong>
+                    {t("live_queue_completed", "تم الفحص:")} <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.completed_count ?? appointments.filter(a => a.queue_status === 'completed' || Number(a.status) === 2).length}</strong>
                   </div>
                   {Number(liveQueue?.absent_count) > 0 && (
                     <div style={{ background: "rgba(239, 68, 68, 0.25)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fecaca", padding: "6px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                      غائب: <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.absent_count}</strong>
+                      {t("live_queue_absent", "غائب:")} <strong style={{ fontSize: 14, color: "#fff" }}>{liveQueue?.absent_count}</strong>
                     </div>
                   )}
                   <button
@@ -1672,7 +1773,7 @@ export default function AppointmentManager({ navigate, user }) {
                       boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
                     }}
                   >
-                    <Plus size={14} /> إضافة مريض حاضر
+                    <Plus size={14} /> {t("live_queue_add_walkin", "إضافة مريض حاضر")}
                   </button>
                   <button
                     onClick={() => navigate("/clinics?tab=booking_system")}
@@ -1690,9 +1791,9 @@ export default function AppointmentManager({ navigate, user }) {
                       gap: 6,
                       transition: "all 0.2s"
                     }}
-                    title="ضبط نظام المواعيد (ساعات أو طابور مرقم)"
+                    title={t("live_queue_settings_tooltip", "ضبط نظام المواعيد (ساعات أو طابور مرقم)")}
                   >
-                    <Sliders size={14} /> إعدادات فترات العمل والدور
+                    <Sliders size={14} /> {t("live_queue_settings", "إعدادات فترات العمل والدور")}
                   </button>
                 </div>
               </div>
@@ -1710,9 +1811,9 @@ export default function AppointmentManager({ navigate, user }) {
                   border: "1px solid rgba(255, 255, 255, 0.15)"
                 }}>
                   {[
-                    { key: "all", label: isRtl ? "جميع الفترات (طوال اليوم)" : "Toutes les périodes", icon: <Users size={14} />, count: appointments.filter(clinicFilter).length },
-                    { key: "morning", label: isRtl ? "الفترة الصباحية" : "Période du matin", icon: <Sun size={14} />, count: appointments.filter(a => clinicFilter(a) && (a.shift_type || 'morning') === 'morning').length },
-                    { key: "evening", label: isRtl ? "الفترة المسائية" : "Période du soir", icon: <Moon size={14} />, count: appointments.filter(a => clinicFilter(a) && a.shift_type === 'evening').length },
+                    { key: "all", label: t("live_queue_all_shifts", "جميع الفترات (طوال اليوم)"), icon: <Users size={14} />, count: appointments.filter(clinicFilter).length },
+                    { key: "morning", label: t("live_queue_morning_shift", "الفترة الصباحية"), icon: <Sun size={14} />, count: appointments.filter(a => clinicFilter(a) && (a.shift_type || 'morning') === 'morning').length },
+                    { key: "evening", label: t("live_queue_evening_shift", "الفترة المسائية"), icon: <Moon size={14} />, count: appointments.filter(a => clinicFilter(a) && a.shift_type === 'evening').length },
                   ].map(({ key, label, icon, count }) => {
                     const active = shiftFilter === key;
                     return (
@@ -1772,7 +1873,7 @@ export default function AppointmentManager({ navigate, user }) {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255, 255, 255, 0.8)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        🩺 المريض الحالي في غرفة الفحص
+                        🩺 {t("live_queue_current_patient", "المريض الحالي في غرفة الفحص")}
                       </span>
                       {liveQueue?.current_serving && (
                         <span style={{
@@ -1786,7 +1887,7 @@ export default function AppointmentManager({ navigate, user }) {
                           alignItems: "center",
                           gap: 4
                         }}>
-                          <Check size={12} strokeWidth={3} /> جاري الكشف
+                          <Check size={12} strokeWidth={3} /> {t("live_queue_in_consultation", "جاري الكشف")}
                         </span>
                       )}
                     </div>
@@ -1806,7 +1907,7 @@ export default function AppointmentManager({ navigate, user }) {
                           boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
                           flexShrink: 0
                         }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>تذكرة</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{t("live_queue_ticket", "تذكرة")}</span>
                           <span style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>#{liveQueue.current_serving.token_number}</span>
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
@@ -1815,14 +1916,14 @@ export default function AppointmentManager({ navigate, user }) {
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, opacity: 0.85, marginTop: 4 }}>
                             {liveQueue.current_serving.phone && <span>📞 {liveQueue.current_serving.phone}</span>}
-                            <span>{liveQueue.current_serving.shift_type === 'evening' ? '🌓 مسائي' : '☀️ صباحي'}</span>
-                            {liveQueue.current_serving.is_emergency == 1 && <span style={{ color: "#fca5a5", fontWeight: 800 }}>🚨 طارئ</span>}
+                            <span>{liveQueue.current_serving.shift_type === 'evening' ? `🌓 ${t("live_queue_evening", "مسائي")}` : `☀️ ${t("live_queue_morning", "صباحي")}`}</span>
+                            {liveQueue.current_serving.is_emergency == 1 && <span style={{ color: "#fca5a5", fontWeight: 800 }}>🚨 {t("live_queue_emergency", "طارئ")}</span>}
                           </div>
                         </div>
                       </div>
                     ) : (
                       <div style={{ padding: "24px 0", textAlign: "center", color: "rgba(255, 255, 255, 0.65)", fontSize: 14 }}>
-                        لا يوجد مريض حالياً داخل غرفة الكشف
+                        {t("live_queue_no_current_patient", "لا يوجد مريض حالياً داخل غرفة الكشف")}
                       </div>
                     )}
                   </div>
@@ -1849,7 +1950,7 @@ export default function AppointmentManager({ navigate, user }) {
                       }}
                     >
                       <Check size={16} strokeWidth={3} />
-                      إتمام الكشف وإنهاء الدور ✓
+                      {t("live_queue_complete_consultation", "إتمام الكشف وإنهاء الدور ✓")}
                     </button>
                   )}
                 </div>
@@ -1868,7 +1969,7 @@ export default function AppointmentManager({ navigate, user }) {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255, 255, 255, 0.8)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        ⏳ التالي في قاعة الانتظار
+                        ⏳ {t("live_queue_next_patient", "التالي في قاعة الانتظار")}
                       </span>
                       {liveQueue?.next_waiting && (
                         <span style={{
@@ -1879,7 +1980,7 @@ export default function AppointmentManager({ navigate, user }) {
                           fontSize: 11,
                           fontWeight: 800
                         }}>
-                          جاهز للدخول
+                          {t("live_queue_ready_to_enter", "جاهز للدخول")}
                         </span>
                       )}
                     </div>
@@ -1899,7 +2000,7 @@ export default function AppointmentManager({ navigate, user }) {
                           boxShadow: "0 4px 14px rgba(245, 158, 11, 0.4)",
                           flexShrink: 0
                         }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>تذكرة</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{t("live_queue_ticket", "تذكرة")}</span>
                           <span style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>#{liveQueue.next_waiting.token_number}</span>
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
@@ -1908,14 +2009,14 @@ export default function AppointmentManager({ navigate, user }) {
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, opacity: 0.85, marginTop: 4 }}>
                             {liveQueue.next_waiting.phone && <span>📞 {liveQueue.next_waiting.phone}</span>}
-                            {liveQueue.next_waiting.estimated_time && <span>⏰ {liveQueue.next_waiting.estimated_time.slice(0, 5)} (تقديري)</span>}
-                            <span>{liveQueue.next_waiting.shift_type === 'evening' ? '🌓 مسائي' : '☀️ صباحي'}</span>
+                            {liveQueue.next_waiting.estimated_time && <span>⏰ {liveQueue.next_waiting.estimated_time.slice(0, 5)} {t("live_queue_estimated", "(تقديري)")}</span>}
+                            <span>{liveQueue.next_waiting.shift_type === 'evening' ? `🌓 ${t("live_queue_evening", "مسائي")}` : `☀️ ${t("live_queue_morning", "صباحي")}`}</span>
                           </div>
                         </div>
                       </div>
                     ) : (
                       <div style={{ padding: "24px 0", textAlign: "center", color: "rgba(255, 255, 255, 0.65)", fontSize: 14 }}>
-                        لا يوجد مرضى في قائمة الانتظار حالياً
+                        {t("live_queue_no_next_patient", "لا يوجد مرضى في قائمة الانتظار حالياً")}
                       </div>
                     )}
                   </div>
@@ -1943,11 +2044,11 @@ export default function AppointmentManager({ navigate, user }) {
                         }}
                       >
                         <Bell size={16} />
-                        مناداة المريض للدخول (#{liveQueue.next_waiting.token_number})
+                        {t("live_queue_call_patient", "مناداة المريض للدخول (#{{num}})", { num: liveQueue.next_waiting.token_number })}
                       </button>
                       <button
                         onClick={() => handleUpdateQueueStatus(liveQueue.next_waiting.id, 'absent')}
-                        title="تسجيل غياب المريض عن النداء"
+                        title={t("live_queue_mark_absent_tooltip", "تسجيل غياب المريض عن النداء")}
                         style={{
                           flex: 1,
                           padding: "10px 10px",
@@ -1964,7 +2065,7 @@ export default function AppointmentManager({ navigate, user }) {
                           gap: 4
                         }}
                       >
-                        ✕ غائب
+                        {t("live_queue_mark_absent_btn", "✕ غائب")}
                       </button>
                     </div>
                   )}
@@ -2379,6 +2480,378 @@ export default function AppointmentManager({ navigate, user }) {
         settings={scheduleSettings}
       />
 
+      {/* Print Daily Appointments Modal (Emergency Offline Continuity) */}
+      {showPrintModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(6px)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 16
+        }}>
+          <div style={{
+            background: "var(--card-bg, #ffffff)",
+            borderRadius: 20,
+            width: "100%",
+            maxWidth: 480,
+            padding: "24px 26px",
+            boxShadow: "0 20px 40px -10px rgba(0,0,0,0.25)",
+            border: "1px solid var(--border, #cbd5e1)",
+            direction: isRtl ? "rtl" : "ltr"
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 42, height: 42, borderRadius: 12,
+                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                  color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                  <Printer size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "var(--heading-color, #0f172a)" }}>
+                    {isRtl ? "طباعة مواعيد اليوم (للطوارئ وانقطاع الشبكة)" : "Imprimer la journée de RDV"}
+                  </h3>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary, #64748b)" }}>
+                    {isRtl ? "ورقة متابعة جاهزة للاستخدام اليدوي عند انقطاع الإنترنت أو الكهرباء" : "Feuille de travail pour assurer la continuité en cas de panne"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPrintModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Date selection */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "var(--heading-color)" }}>
+                {isRtl ? "تاريخ اليوم المراد طباعته:" : "Date à imprimer :"}
+              </label>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setPrintDate(formatDateYMD(new Date()))}
+                  style={{
+                    flex: 1, padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    border: printDate === formatDateYMD(new Date()) ? "1.5px solid #0284c7" : "1px solid var(--border)",
+                    background: printDate === formatDateYMD(new Date()) ? "rgba(2,132,199,0.12)" : "var(--bg)",
+                    color: printDate === formatDateYMD(new Date()) ? "#0284c7" : "var(--text-secondary)"
+                  }}
+                >
+                  {isRtl ? "اليوم" : "Aujourd'hui"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tmr = new Date();
+                    tmr.setDate(tmr.getDate() + 1);
+                    setPrintDate(formatDateYMD(tmr));
+                  }}
+                  style={{
+                    flex: 1, padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    border: (() => {
+                      const tmr = new Date();
+                      tmr.setDate(tmr.getDate() + 1);
+                      return printDate === formatDateYMD(tmr);
+                    })() ? "1.5px solid #0284c7" : "1px solid var(--border)",
+                    background: (() => {
+                      const tmr = new Date();
+                      tmr.setDate(tmr.getDate() + 1);
+                      return printDate === formatDateYMD(tmr);
+                    })() ? "rgba(2,132,199,0.12)" : "var(--bg)",
+                    color: (() => {
+                      const tmr = new Date();
+                      tmr.setDate(tmr.getDate() + 1);
+                      return printDate === formatDateYMD(tmr);
+                    })() ? "#0284c7" : "var(--text-secondary)"
+                  }}
+                >
+                  {isRtl ? "غداً" : "Demain"}
+                </button>
+              </div>
+              <input
+                type="date"
+                value={printDate}
+                onChange={e => setPrintDate(e.target.value)}
+                style={{
+                  width: "100%", padding: "9px 12px", borderRadius: 10,
+                  border: "1.5px solid var(--border)", fontSize: 14, outline: "none",
+                  background: "var(--card-bg)", color: "var(--heading-color)", boxSizing: "border-box"
+                }}
+              />
+            </div>
+
+            {/* Clinic selector */}
+            {clinics.length > 1 && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "var(--heading-color)" }}>
+                  {isRtl ? "مقر العيادة:" : "Lieu d'exercice / Clinique :"}
+                </label>
+                <select
+                  value={printClinicId}
+                  onChange={e => setPrintClinicId(e.target.value)}
+                  style={{
+                    width: "100%", padding: "9px 12px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", fontSize: 13, outline: "none",
+                    background: "var(--card-bg)", color: "var(--heading-color)", boxSizing: "border-box"
+                  }}
+                >
+                  <option value="all">{isRtl ? "جميع المقرات" : "Tous les lieux"}</option>
+                  {clinics.map(c => (
+                    <option key={c.clinic_id || c.id} value={c.clinic_id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Shift selector */}
+            {isQueueMode && isDoubleShift && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "var(--heading-color)" }}>
+                  {isRtl ? "الفترة:" : "Période :"}
+                </label>
+                <select
+                  value={printShiftFilter}
+                  onChange={e => setPrintShiftFilter(e.target.value)}
+                  style={{
+                    width: "100%", padding: "9px 12px", borderRadius: 10,
+                    border: "1.5px solid var(--border)", fontSize: 13, outline: "none",
+                    background: "var(--card-bg)", color: "var(--heading-color)", boxSizing: "border-box"
+                  }}
+                >
+                  <option value="all">{isRtl ? "كامل اليوم (صباحية + مسائية)" : "Toute la journée"}</option>
+                  <option value="morning">{isRtl ? "الفترة الصباحية فقط" : "Matin uniquement"}</option>
+                  <option value="evening">{isRtl ? "الفترة المسائية فقط" : "Soirée uniquement"}</option>
+                </select>
+              </div>
+            )}
+
+            {/* Patients Count Preview */}
+            <div style={{
+              background: "rgba(2,132,199,0.06)",
+              border: "1.5px dashed rgba(2,132,199,0.3)",
+              borderRadius: 12,
+              padding: "10px 14px",
+              marginBottom: 18,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <div style={{ fontSize: 13, color: "var(--heading-color)", fontWeight: 700 }}>
+                {isRtl ? "المرضى المجدولون للطباعة:" : "Nombre de patients prévus :"}
+              </div>
+              <span style={{
+                background: "#0284c7", color: "#fff",
+                padding: "3px 12px", borderRadius: 20, fontWeight: 900, fontSize: 13
+              }}>
+                {printAppointments.length} {isRtl ? "مريض" : "patient(s)"}
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(false)}
+                style={{
+                  padding: "9px 16px", borderRadius: 10, border: "1px solid var(--border)",
+                  background: "var(--card-bg)", color: "var(--text-secondary)", fontWeight: 700,
+                  cursor: "pointer", fontSize: 13
+                }}
+              >
+                {isRtl ? "إلغاء" : "Annuler"}
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-print-daily"
+                onClick={handleExecutePrint}
+                style={{
+                  padding: "9px 20px", borderRadius: 10, border: "none",
+                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                  color: "#ffffff", fontWeight: 800, cursor: "pointer", fontSize: 13,
+                  display: "flex", alignItems: "center", gap: 7,
+                  boxShadow: "0 4px 14px rgba(2,132,199,0.3)"
+                }}
+              >
+                <Printer size={16} />
+                <span>{isRtl ? "طباعة الآن" : "Imprimer maintenant"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DEDICATED PRINT SHEET FOR EMERGENCY OFFLINE CONTINUITY (Portal directly into document.body) ── */}
+      {typeof document !== "undefined" && createPortal(
+        <div id="appt-daily-print-sheet" className="appt-daily-print-sheet" dir={isRtl ? "rtl" : "ltr"}>
+        {/* Header */}
+        <div style={{ borderBottom: "1.5px solid #0f172a", paddingBottom: 4, marginBottom: 5 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.5px" }}>
+                TABIBI.DZ — طبيبي
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#0369a1", marginTop: 1 }}>
+                {isRtl ? "جدول واستقبال مواعيد المرضى (استخدام ورقي للطوارئ)" : "Feuille de route journalière des rendez-vous (Secours hors-ligne)"}
+              </div>
+            </div>
+            <div style={{ textAlign: isRtl ? "left" : "right" }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "#0f172a" }}>
+                د. {cleanDoctorName || doctorFullName}
+              </div>
+              <div style={{ fontSize: 10, color: "#475569" }}>
+                {user?.profile?.specialty_name || user?.specialty || (isRtl ? "طبيب ممارس" : "Médecin praticien")}
+              </div>
+            </div>
+          </div>
+
+          {/* Subheader summary bar */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 4,
+            padding: "3px 8px",
+            background: "#f1f5f9",
+            borderRadius: 5,
+            fontSize: "8.5pt",
+            fontWeight: 700,
+            color: "#1e293b",
+            border: "1px solid #cbd5e1"
+          }}>
+            <div>
+              <span>{isRtl ? "تاريخ اليوم: " : "Date : "}</span>
+              <strong>
+                {printDate ? new Date(printDate + "T00:00:00").toLocaleDateString(isRtl ? "ar-DZ" : "fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : printDate}
+              </strong>
+            </div>
+            <div>
+              <span>{isRtl ? "المقر: " : "Lieu : "}</span>
+              <strong>
+                {clinics.find(c => String(c.clinic_id) === String(printClinicId))?.name || (selectedClinicId && clinics.find(c => String(c.clinic_id) === String(selectedClinicId))?.name) || (isRtl ? "العيادة" : "Cabinet")}
+              </strong>
+            </div>
+            <div>
+              <span>{isRtl ? "العدد الإجمالي: " : "Total prévu : "}</span>
+              <strong>{printAppointments.length} {isRtl ? "مريض" : "patient(s)"}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Appointments Table */}
+        {printAppointments.length === 0 ? (
+          <div style={{ padding: "20px 10px", textAlign: "center", color: "#64748b", fontSize: 11, border: "1px dashed #cbd5e1", borderRadius: 8 }}>
+            {isRtl ? "لا توجد مواعيد مسجلة لهذا التاريخ." : "Aucun rendez-vous enregistré pour cette journée."}
+          </div>
+        ) : (
+          <table className="appt-daily-print-table">
+            <thead>
+              <tr>
+                <th style={{ width: "9%", textAlign: "center" }}>
+                  {isRtl ? "الرقم / الدور" : "N°"}
+                </th>
+                <th style={{ width: "11%", textAlign: "center" }}>
+                  {isRtl ? "التوقيت" : "Heure"}
+                </th>
+                <th style={{ width: "26%" }}>
+                  {isRtl ? "اسم ولقب المريض" : "Nom & Prénom du Patient"}
+                </th>
+                <th style={{ width: "18%" }}>
+                  {isRtl ? "الهاتف" : "Téléphone"}
+                </th>
+                <th style={{ width: "18%" }}>
+                  {isRtl ? "سبب الزيارة" : "Motif / Remarque"}
+                </th>
+                <th style={{ width: "18%", textAlign: "center" }}>
+                  {isRtl ? "التأشير والملاحظات" : "Pointage & Notes"}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {printAppointments.map((appt, idx) => {
+                const apptTime = appt.estimated_time || (appt.apointementdate ? String(appt.apointementdate).slice(11, 16) : (appt.time || "—"));
+                const isEmergency = Boolean(Number(appt.is_emergency));
+                const tokenDisplay = appt.token_number ? `#${String(appt.token_number).padStart(2, '0')}` : `#${String(idx + 1).padStart(2, '0')}`;
+                const shiftBadge = appt.shift_type === 'evening' ? (isRtl ? "مساء" : "Soir") : (isRtl ? "صباح" : "Matin");
+
+                return (
+                  <tr key={appt.id || idx}>
+                    <td style={{ textAlign: "center", fontWeight: 900, fontSize: "9.5pt" }}>
+                      {tokenDisplay}
+                      {isEmergency && <span style={{ display: "block", color: "#dc2626", fontSize: "7.5pt" }}>🚨 {isRtl ? "طارئ" : "Urgence"}</span>}
+                    </td>
+                    <td style={{ textAlign: "center", fontWeight: 700, fontSize: "8.5pt" }}>
+                      <div>{apptTime}</div>
+                      {isDoubleShift && <div style={{ fontSize: "7.5pt", color: "#64748b" }}>{shiftBadge}</div>}
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 800, fontSize: "8.5pt" }}>{appt.patientname}</div>
+                    </td>
+                    <td style={{ fontWeight: 700, fontSize: "8.5pt", letterSpacing: "0.4px" }} dir="ltr">
+                      {appt.phone || "—"}
+                    </td>
+                    <td style={{ fontSize: "7.8pt", color: "#334155" }}>
+                      {appt.reason_name || appt.notes || appt.note || "—"}
+                    </td>
+                    <td style={{ padding: "2px 4px" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
+                        <span style={{ fontSize: "7.8pt", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ display: "inline-block", width: 8, height: 8, border: "1.2px solid #000" }} /> {isRtl ? "حاضر" : "Présent"}
+                        </span>
+                        <span style={{ fontSize: "7.8pt", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ display: "inline-block", width: 8, height: 8, border: "1.2px solid #000" }} /> {isRtl ? "سدد" : "Payé"}
+                        </span>
+                      </div>
+                      <div style={{ borderBottom: "1px dotted #94a3b8", height: 6 }} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* Footer */}
+        <div style={{
+          marginTop: 6,
+          paddingTop: 4,
+          borderTop: "1.2px solid #0f172a",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          fontSize: "7.8pt",
+          color: "#475569"
+        }}>
+          <div>
+            <div>{isRtl ? "تم استخراج هذا الجدول عبر منصة طبيبي للاستخدام الطبي في العيادة." : "Feuille de travail générée par la plateforme Tabibi.dz pour la continuité des soins."}</div>
+            <div style={{ marginTop: 1 }}>{isRtl ? "تاريخ ووقت الطباعة: " : "Date d'impression : "}{new Date().toLocaleString(isRtl ? "ar-DZ" : "fr-FR")}</div>
+          </div>
+          <div style={{
+            border: "1px dashed #64748b",
+            borderRadius: 5,
+            padding: "3px 14px",
+            textAlign: "center",
+            minWidth: 120
+          }}>
+            <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: 10, fontSize: "8pt" }}>
+              {isRtl ? "إمضاء وختم الطبيب" : "Cachet & Signature"}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+
       <style>{`
         .spin-anim { animation: spin 1s linear infinite; }
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
@@ -2428,6 +2901,83 @@ export default function AppointmentManager({ navigate, user }) {
           --stat-cancelled-text: #f87171;
 
           --appt-manager-bg: linear-gradient(135deg, #0a0f16 0%, #030712 100%);
+        }
+
+        /* ── PRINT MEDIA RULES FOR EMERGENCY OFFLINE CONTINUITY ── */
+        @media screen {
+          #appt-daily-print-sheet {
+            display: none !important;
+          }
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm 8mm 10mm;
+          }
+
+          /* Hide ALL other elements attached to body (#root, modals, toasts, overlays, etc.) */
+          body > *:not(#appt-daily-print-sheet) {
+            display: none !important;
+          }
+
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            overflow: visible !important;
+          }
+
+          #appt-daily-print-sheet {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+
+          .appt-daily-print-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            margin-top: 5px !important;
+          }
+
+          .appt-daily-print-table th {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            font-weight: 800 !important;
+            border: 1px solid #475569 !important;
+            padding: 3px 5px !important;
+            font-size: 8pt !important;
+            text-align: inherit !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .appt-daily-print-table td {
+            border: 1px solid #94a3b8 !important;
+            padding: 2.5px 5px !important;
+            font-size: 7.8pt !important;
+            color: #0f172a !important;
+            vertical-align: middle !important;
+            line-height: 1.15 !important;
+          }
+
+          .appt-daily-print-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
         }
       `}</style>
       <Toast />

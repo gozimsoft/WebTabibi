@@ -334,9 +334,9 @@ class ClinicController
         $doctorParams = [];
         $whereDoctor = "1=1";
         if ($q) {
-            $whereDoctor = "(c.clinicname LIKE ? OR d.fullname LIKE ? OR s.namefr LIKE ? OR s.namear LIKE ?)";
+            $whereDoctor = "(c.clinicname LIKE ? OR d.fullname LIKE ? OR s.namefr LIKE ? OR s.namear LIKE ? OR s.nameen LIKE ?)";
             $like = "%$q%";
-            $doctorParams = [$like, $like, $like, $like];
+            $doctorParams = [$like, $like, $like, $like, $like];
         }
         if ($specialty) {
             $whereDoctor .= " AND (cd.specialtie_id = ? OR d.specialtie_id = ?)";
@@ -374,6 +374,7 @@ class ClinicController
                     NULL as specialtyid,
                     NULL as specialtyfr,
                     NULL as specialtyar,
+                    NULL as specialtyen,
                     0 as AvgRating,
                     0 as RatingCount,
                     (SELECT status FROM clinicsdoctors WHERE clinic_id = c.id AND doctor_id = " . ($myDoctorId ? $pdo->quote($myDoctorId) : "NULL") . " LIMIT 1) as relationstatus,
@@ -407,6 +408,7 @@ class ClinicController
                     MAX(s.id) as specialtyid,
                     MAX(s.namefr) as specialtyfr,
                     MAX(s.namear) as specialtyar,
+                    MAX(s.nameen) as specialtyen,
                     COALESCE(AVG(dr2.rating), 0) as AvgRating,
                     COUNT(dr2.id) as RatingCount,
                     (SELECT status FROM clinicsdoctors WHERE doctor_id = d.id AND clinic_id = " . ($myClinicId ? $pdo->quote($myClinicId) : "NULL") . " LIMIT 1) as relationstatus,

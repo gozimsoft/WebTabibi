@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { api } from "../api/client";
 import { Btn, Spinner, DoctorImage } from "./SharedUI";
+import { formatSpecialty } from "../utils/specialty";
 
 export default function QuickAppointmentModal({ doctor, onClose, onSuccess, showToast }) {
   const { t, i18n } = useTranslation();
@@ -145,9 +146,7 @@ export default function QuickAppointmentModal({ doctor, onClose, onSuccess, show
     }
   };
 
-  const specialtyName = isRtl
-    ? (doctor.specialtyar || doctor.specialtyfr || "")
-    : (doctor.specialtyfr || doctor.specialtyar || "");
+  const specialtyName = formatSpecialty(doctor, i18n.language);
 
   return (
     <div style={{

@@ -354,7 +354,7 @@ class AppointmentController
 
         // 1. Current serving patient (in_consultation)
         $stmt = $pdo->prepare("
-            SELECT id, token_number, patientname, estimated_time, shift_type, updatedat
+            SELECT id, token_number, patientname, phone, is_emergency, estimated_time, shift_type, updatedat
             FROM apointements
             WHERE clinicsdoctor_id = ?
               AND DATE(apointementdate) = ?
@@ -369,7 +369,7 @@ class AppointmentController
 
         // 2. Next waiting patient
         $stmt = $pdo->prepare("
-            SELECT id, token_number, patientname, estimated_time, shift_type
+            SELECT id, token_number, patientname, phone, is_emergency, estimated_time, shift_type
             FROM apointements
             WHERE clinicsdoctor_id = ?
               AND DATE(apointementdate) = ?
@@ -401,14 +401,20 @@ class AppointmentController
         Response::success([
             'date'            => $date,
             'current_serving' => $currentServing ? [
+                'id'             => $currentServing['id'],
                 'token_number'   => (int)$currentServing['token_number'],
                 'patientname'    => $currentServing['patientname'],
+                'phone'          => $currentServing['phone'] ?? null,
+                'is_emergency'   => (int)($currentServing['is_emergency'] ?? 0),
                 'estimated_time' => !empty($currentServing['estimated_time']) ? substr($currentServing['estimated_time'], 0, 5) : null,
                 'shift_type'     => $currentServing['shift_type']
             ] : null,
             'next_waiting'    => $nextWaiting ? [
+                'id'             => $nextWaiting['id'],
                 'token_number'   => (int)$nextWaiting['token_number'],
                 'patientname'    => $nextWaiting['patientname'],
+                'phone'          => $nextWaiting['phone'] ?? null,
+                'is_emergency'   => (int)($nextWaiting['is_emergency'] ?? 0),
                 'estimated_time' => !empty($nextWaiting['estimated_time']) ? substr($nextWaiting['estimated_time'], 0, 5) : null,
                 'shift_type'     => $nextWaiting['shift_type']
             ] : null,

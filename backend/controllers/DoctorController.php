@@ -1655,6 +1655,12 @@ class DoctorController {
             $checkRel->execute([$doctorId, $targetClinicId]);
             if ($checkRel->fetch()) {
                 $clinicId = $targetClinicId;
+            } else {
+                $checkOwner = $pdo->prepare("SELECT id FROM clinics WHERE id = ? AND (owner_doctor_id = ? OR user_id = ?) LIMIT 1");
+                $checkOwner->execute([$targetClinicId, $doctorId, $session['user_id']]);
+                if ($checkOwner->fetch()) {
+                    $clinicId = $targetClinicId;
+                }
             }
         }
 
@@ -1756,7 +1762,15 @@ class DoctorController {
             }
 
             $pdo->commit();
-            Response::success(['clinic_id' => $clinicId], 'تم تحديث إعدادات وأوقات دوام العيادة بنجاح.');
+
+            $sStmt = $pdo->prepare("SELECT * FROM doctorssettingapointements WHERE doctor_id = ? AND clinic_id = ? LIMIT 1");
+            $sStmt->execute([$doctorId, $clinicId]);
+            $updatedSettings = $sStmt->fetch(PDO::FETCH_ASSOC);
+
+            Response::success([
+                'clinic_id' => $clinicId,
+                'appointment_settings' => $updatedSettings
+            ], 'تم تحديث إعدادات وأوقات دوام العيادة بنجاح.');
 
         } catch (\Exception $e) {
             $pdo->rollBack();

@@ -4,8 +4,9 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, useToast } from "../components/SharedUI";
 import GoogleCalendarButton from "../components/GoogleCalendarButton";
-import { MapPin, Phone, User, Building, HeartPulse, Calendar as CalendarIcon, CheckCircle, Award, Stethoscope, Clock, CreditCard, UserPlus, Hash, Sun, Moon, Sparkles } from "lucide-react";
+import { MapPin, Phone, User, Building, HeartPulse, Calendar as CalendarIcon, CheckCircle, Award, Stethoscope, Clock, CreditCard, UserPlus, Hash, Sun, Moon, Sparkles, HelpCircle } from "lucide-react";
 import analytics from "../utils/analytics";
+import { formatSpecialty } from "../utils/specialty";
 
 
 export default function BookPage({ clinicid, doctor_id, navigate, user }) {
@@ -44,7 +45,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       step_name: stepObj?.label,
       doctor_id: doctor_id,
       clinic_id: selectedClinicId,
-      specialty: doctor ? (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) : null
+      specialty: doctor ? formatSpecialty(doctor, i18n.language) : null
     });
   }, [step, doctor]);
 
@@ -267,7 +268,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
       <DoctorImage photo={doctor.photoprofile} size={50} borderRadius={12} style={{ background: "rgba(255,255,255,0.18)", fontSize: 24 }} />
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 0.3 }}>{doctor.fullname}</div>
-        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr}</div>
+        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{formatSpecialty(doctor, i18n.language)}</div>
       </div>
       {+doctor.pricing > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 800 }}>💰 {doctor.pricing} DA</div>}
     </div>
@@ -299,8 +300,29 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px" }}>
-      <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
-        style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, marginBottom: 18, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>{t("back_to_doctor")}</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+        <button onClick={() => navigate(selectedClinicId ? `/clinic/${selectedClinicId}/doctor/${doctor_id}` : `/doctor/${doctor_id}`)}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 700, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>{t("back_to_doctor")}</button>
+        <button
+          onClick={() => navigate("/aide?article=choisir-un-medecin-et-reserver")}
+          style={{
+            background: "rgba(0, 146, 162, 0.08)",
+            border: "1px solid rgba(0, 146, 162, 0.25)",
+            color: "var(--brand, #0092a2)",
+            borderRadius: 20,
+            padding: "5px 12px",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5
+          }}
+        >
+          <HelpCircle size={14} />
+          <span>{t("help_link_how_to_book", "Comment prendre un rendez-vous ?")}</span>
+        </button>
+      </div>
 
       <DoctorBanner />
 
@@ -603,7 +625,7 @@ export default function BookPage({ clinicid, doctor_id, navigate, user }) {
           <div style={{ background: "#f0fdfa", border: "1px solid #a5f3fc", borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
             {[
               [<User size={18} />, t("doctor"), doctor.fullname],
-              [<Stethoscope size={18} />, t("specialty"), (i18n.language === 'ar' ? doctor.specialtyar : doctor.specialtyfr) || "—"],
+              [<Stethoscope size={18} />, t("specialty"), formatSpecialty(doctor, i18n.language) || "—"],
               [<UserPlus size={18} />, t("patient"), `${activePat.name}${activePat.isSelf ? ` (${t("self")})` : ` — ${t("family_member")}`}`],
               [<HeartPulse size={18} />, t("step_reason"), reason?.reason_name || "—"],
               [<CalendarIcon size={18} />, t("date"), date],

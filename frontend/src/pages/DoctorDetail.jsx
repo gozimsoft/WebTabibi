@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Btn, Card, Spinner, DoctorImage, Stars, Badge, useToast } from "../components/SharedUI";
-import { MapPin, Phone, Building, Clock, CreditCard, Mail, Languages, Calendar, History, Activity, AlertCircle, User, Info } from "lucide-react";
+import { MapPin, Phone, Building, Clock, CreditCard, Mail, Languages, Calendar, History, Activity, AlertCircle, User, Info, HelpCircle } from "lucide-react";
+import { formatSpecialty } from "../utils/specialty";
 
 
 export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id, navigate, user }) {
@@ -70,9 +71,30 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 24px" }}>
-      <button onClick={() => navigate("/search")} style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 5, fontSize: 14 }}>
-        {t("back_to_search")}
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+        <button onClick={() => navigate("/search")} style={{ background: "none", border: "none", cursor: "pointer", color: "#0891b2", fontWeight: 600, display: "flex", alignItems: "center", gap: 5, fontSize: 14 }}>
+          {t("back_to_search")}
+        </button>
+        <button
+          onClick={() => navigate("/aide?article=choisir-un-medecin-et-reserver")}
+          style={{
+            background: "rgba(0, 146, 162, 0.08)",
+            border: "1px solid rgba(0, 146, 162, 0.25)",
+            color: "var(--brand, #0092a2)",
+            borderRadius: 20,
+            padding: "6px 14px",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6
+          }}
+        >
+          <HelpCircle size={15} />
+          <span>{t("help_link_how_to_book", "Comment prendre un rendez-vous ?")}</span>
+        </button>
+      </div>
 
       {/* Doctor header */}
       <Card style={{ marginBottom: 20 }}>
@@ -80,7 +102,7 @@ export default function DoctorDetailPage({ clinicid: initialClinicId, doctor_id,
           <DoctorImage photo={data.photoprofile} size={90} borderRadius={16} style={{ fontSize: 38 }} />
           <div style={{ flex: 1, minWidth: 180 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-              <Badge color="#0891b2">{i18n.language === 'ar' ? data.specialtyar : data.specialtyfr}</Badge>
+              <Badge color="#0891b2">{formatSpecialty(data, i18n.language)}</Badge>
               {data.degrees && <Badge color="#7c3aed">{data.degrees}</Badge>}
               {+data.Cnas === 1 && <Badge color="#059669">CNAS ✓</Badge>}
               {+data.casnos === 1 && <Badge color="#0891b2">casnos ✓</Badge>}

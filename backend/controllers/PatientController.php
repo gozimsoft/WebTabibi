@@ -121,10 +121,11 @@ class PatientController {
 
         require_once __DIR__ . '/../helpers/UserValidationHelper.php';
 
-        // التحقق من عدم تكرار رقم الهاتف
+        // التحقق من عدم تكرار رقم الهاتف إذا تم تعديله
         if (!empty($data['phone'])) {
             $newPhone = trim($data['phone']);
-            if (UserValidationHelper::isPhoneDuplicate($newPhone, $patient['id'])) {
+            $currentPhone = trim($patient['phone'] ?? '');
+            if ($newPhone !== $currentPhone && UserValidationHelper::isPhoneDuplicate($newPhone, $patient['id'])) {
                 Response::error("رقم الهاتف مستخدم مسبقًا في حساب آخر.", 409);
             }
         }
@@ -132,9 +133,15 @@ class PatientController {
         // التحقق من عدم تكرار البريد الإلكتروني إذا تم تعديله
         if (!empty($data['email'])) {
             $newEmail = trim($data['email']);
-            if (UserValidationHelper::isEmailDuplicate($newEmail, $patient['id'])) {
+            $currentEmail = trim($patient['email'] ?? '');
+            if (strtolower($newEmail) !== strtolower($currentEmail) && UserValidationHelper::isEmailDuplicate($newEmail, $patient['id'])) {
                 Response::error("البريد الإلكتروني مستخدم مسبقًا في حساب آخر.", 409);
             }
+        }
+
+        // دعم التوافق مع bloodgroup و bloodtype
+        if (empty($data['bloodtype']) && !empty($data['bloodgroup'])) {
+            $data['bloodtype'] = $data['bloodgroup'];
         }
 
         $allowed = ['fullname','phone','email','birthdate','address','gender','baladiya_id',
@@ -145,15 +152,31 @@ class PatientController {
         $values = [];
         foreach ($allowed as $field) {
             if (array_key_exists($field, $data)) {
+                $val = $data[$field];
+                if (is_string($val)) {
+                    $val = trim($val);
+                }
+                if (in_array($field, ['birthdate', 'baladiya_id', 'bloodtype', 'address', 'nin', 'birthplace', 'birthcountry', 'country', 'speakinglanguage', 'emergancyphone', 'emergancyemail', 'emergancynote'])) {
+                    if ($val === '' || $val === '0000-00-00') {
+                        $val = null;
+                    }
+                }
+                if ($field === 'postcode') {
+                    if ($val === '' || $val === null || $val === '0' || $val === 0) {
+                        $val = null;
+                    } elseif (is_numeric($val)) {
+                        $val = (int)$val;
+                    }
+                }
                 $fields[] = "`$field` = ?";
-                $values[] = $data[$field];
+                $values[] = $val;
             }
         }
 
         if (empty($fields)) Response::error('لا توجد حقول لتحديثها.', 422);
 
-        // عند إدخال أو تعديل رقم الهاتف، يتم تعيينه كمؤكد مباشرة (phonevalidation = 1)
-        if (!empty($data['phone'])) {
+        // عند تعديل رقم الهاتف برقم جديد، يتم تعيينه كمؤكد (phonevalidation = 1)
+        if (!empty($data['phone']) && trim($data['phone']) !== trim($patient['phone'] ?? '')) {
             $fields[] = "`phonevalidation` = 1";
         }
 

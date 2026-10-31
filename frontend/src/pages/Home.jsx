@@ -7,6 +7,7 @@ import {
   Stethoscope, Heart, Baby, Brain, Activity, Droplets,
   ShieldCheck, Zap, HeartPulse, User, Building, Users, Building2
 } from "lucide-react";
+import { formatSpecialty } from "../utils/specialty";
 
 export default function HomePage({ user, navigate }) {
   const { t, i18n } = useTranslation();
@@ -72,7 +73,7 @@ export default function HomePage({ user, navigate }) {
               />
               
               {/* Quick Search Suggestions */}
-              {showSug && q.trim().length >= 2 && (suggestions.length > 0 || specialties.filter(s => s.namear.includes(q) || s.namefr.toLowerCase().includes(q.toLowerCase())).length > 0) && (
+              {showSug && q.trim().length >= 2 && (suggestions.length > 0 || specialties.filter(s => (s.namear && s.namear.includes(q)) || (s.namefr && s.namefr.toLowerCase().includes(q.toLowerCase())) || (s.nameen && s.nameen.toLowerCase().includes(q.toLowerCase()))).length > 0) && (
                 <div style={{
                   position: "absolute", top: "calc(100% + 15px)", left: 0, right: 0,
                   background: "#fff", borderRadius: 16, boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
@@ -80,7 +81,7 @@ export default function HomePage({ user, navigate }) {
                   maxHeight: 400, overflowY: "auto", border: "1px solid #0891b2"
                 }}>
                   {/* Specialty Suggestions */}
-                  {specialties.filter(s => s.namear.includes(q) || s.namefr.toLowerCase().includes(q.toLowerCase())).slice(0, 3).map(s => (
+                  {specialties.filter(s => (s.namear && s.namear.includes(q)) || (s.namefr && s.namefr.toLowerCase().includes(q.toLowerCase())) || (s.nameen && s.nameen.toLowerCase().includes(q.toLowerCase()))).slice(0, 3).map(s => (
                     <div key={s.id} onClick={() => navigate(`/search?specialty=${s.id}`)}
                       style={{ padding: "10px 16px", borderRadius: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "0.2s" }}
                       className="hover-sug"
@@ -90,7 +91,7 @@ export default function HomePage({ user, navigate }) {
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--brand-light)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {icons[s.namefr] || <Stethoscope size={18} />}
                       </div>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{i18n.language === 'ar' ? s.namear : s.namefr}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{formatSpecialty(s, i18n.language)}</span>
                     </div>
                   ))}
                   
@@ -108,7 +109,7 @@ export default function HomePage({ user, navigate }) {
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{isDoc ? r.doctorname : r.clinicname}</div>
-                          <div style={{ fontSize: 12, color: "#64748b" }}>{isDoc ? (i18n.language === 'ar' ? r.specialtyar : r.specialtyfr) : r.activitysector}</div>
+                          <div style={{ fontSize: 12, color: "#64748b" }}>{isDoc ? formatSpecialty(r, i18n.language) : r.activitysector}</div>
                         </div>
                       </div>
                     );
@@ -199,7 +200,7 @@ export default function HomePage({ user, navigate }) {
                 <div style={{ color: "var(--brand)", marginBottom: 8, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {icons[s.namefr] || <Stethoscope size={32} />}
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", lineHeight: 1.3 }}>{s.namear}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", lineHeight: 1.3 }}>{formatSpecialty(s, i18n.language)}</div>
               </div>
             ))
           )}

@@ -5,15 +5,27 @@ const BASE_URL = import.meta.env.DEV ? '/api' : `${API_BASE}/api`;
 const getToken = () => localStorage.getItem('tabibi_token');
 
 async function request(method, path, body = null, auth = true) {
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache'
+  };
   if (auth) {
     const token = getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
+
+  let fullPath = path;
+  if (method === 'GET') {
+    const sep = fullPath.includes('?') ? '&' : '?';
+    fullPath = `${fullPath}${sep}_t=${Date.now()}`;
+  }
+
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(`${BASE_URL}${fullPath}`, {
       method,
       headers,
+      cache: 'no-store',
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json();

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Btn, Card, Input, useToast } from "../components/SharedUI";
 import { api } from "../api/client";
+import { HelpCircle } from "lucide-react";
 
 export default function LoginPage({ onLogin, onGoogleLogin, navigate }) {
   const { t } = useTranslation();
@@ -316,6 +317,25 @@ export default function LoginPage({ onLogin, onGoogleLogin, navigate }) {
             </div>
           )}
         </Card>
+        <div style={{ textAlign: "center", marginTop: 18 }}>
+          <button
+            onClick={() => navigate("/aide?category=mon-compte")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--brand, #0092a2)",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6
+            }}
+          >
+            <HelpCircle size={15} />
+            <span>{t("help_link_login_help", "Besoin d'aide pour vous connecter ?")}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

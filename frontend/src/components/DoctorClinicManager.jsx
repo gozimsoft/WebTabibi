@@ -508,11 +508,15 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
   // 4b. Save Booking System (Queue vs Time Slots, Shifts & Capacities)
   const handleSaveBookingSystem = async (e) => {
     e?.preventDefault();
-    if (!selectedClinicId) return;
+    const activeClinicId = selectedClinicId || clinicData?.id || clinicData?.private_clinic_id;
+    if (!activeClinicId) {
+      showToast?.(isRtl ? "لم يتم تحديد العيادة" : "Aucun lieu d'exercice sélectionné", "error");
+      return;
+    }
     setSavingBookingSystem(true);
     try {
-      await api.doctors.updateClinicSettings({
-        clinic_id: selectedClinicId,
+      const res = await api.doctors.updateClinicSettings({
+        clinic_id: activeClinicId,
         appointment_settings: {
           ...schedule,
           ...bookingSystem,
@@ -520,7 +524,22 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
         off_hours: offHours
       });
       showToast?.(isRtl ? "تم حفظ نظام إدارة المواعيد لهذا المقر بنجاح" : "Mode de gestion des RDV enregistré avec succès", "success");
-      await loadClinic(selectedClinicId);
+
+      // Update state directly from response if available to guarantee instant reactivity
+      if (res?.appointment_settings) {
+        const s = res.appointment_settings;
+        setBookingSystem(prev => ({
+          ...prev,
+          booking_mode: s.booking_mode !== undefined && s.booking_mode !== null ? parseInt(s.booking_mode, 10) : prev.booking_mode,
+          shift_mode: s.shift_mode !== undefined && s.shift_mode !== null ? parseInt(s.shift_mode, 10) : prev.shift_mode,
+          morning_capacity: s.morning_capacity !== undefined && s.morning_capacity !== null ? parseInt(s.morning_capacity, 10) : prev.morning_capacity,
+          evening_capacity: s.evening_capacity !== undefined && s.evening_capacity !== null ? parseInt(s.evening_capacity, 10) : prev.evening_capacity,
+          allow_overbooking: Boolean(parseInt(s.allow_overbooking, 10)),
+          timescale: s.timescale ? parseInt(s.timescale, 10) : prev.timescale
+        }));
+      }
+
+      await loadClinic(activeClinicId);
     } catch (err) {
       showToast?.(err.message || (isRtl ? "حدث خطأ أثناء حفظ نظام إدارة المواعيد" : "Erreur"), "error");
     } finally {
@@ -2765,6 +2784,7 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
                 }}>
                   {/* Mode 0: Time Slots */}
                   <div
+                    id="card-mode-slots"
                     onClick={() => setBookingSystem(prev => ({ ...prev, booking_mode: 0 }))}
                     style={{
                       padding: "18px 20px",
@@ -2821,6 +2841,7 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
 
                   {/* Mode 1: Queue Numbers */}
                   <div
+                    id="card-mode-queue"
                     onClick={() => setBookingSystem(prev => ({ ...prev, booking_mode: 1 }))}
                     style={{
                       padding: "18px 20px",
@@ -3116,6 +3137,7 @@ export default function DoctorClinicManager({ api, doctor, showToast, isMobile, 
 
                 {/* Save Button */}
                 <Btn
+                  id="btn-save-booking-system"
                   type="submit"
                   loading={savingBookingSystem}
                   style={{

@@ -122,7 +122,7 @@ export default function QuickEmergencyLeaveModal({ show, onClose, onSuccess, cli
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "var(--text-main, #0f172a)" }}>
-                ⚡ تسجيل طلعة طارئة اليوم
+                تسجيل خروج طارئ اليوم
               </h3>
               <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary, #64748b)" }}>
                 إيقاف حجز المواعيد فجأة لساعات محددة أثناء الدوام
