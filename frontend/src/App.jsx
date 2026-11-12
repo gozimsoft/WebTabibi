@@ -1,6 +1,4 @@
-import PairDevicePage from "./pages/PairDevice";
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { jsPDF } from "jspdf";
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import {
   Search, Calendar, MessageSquare, User, LogOut, Sun, Moon,
   ChevronDown, ChevronRight, ChevronLeft, Menu, X, Bell, LayoutDashboard,
@@ -17,33 +15,36 @@ import {
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { App as CapacitorApp } from '@capacitor/app';
-import confetti from "canvas-confetti";
 import {
   Spinner, Skeleton, CardSkeleton, ListSkeleton,
   DoctorDetailSkeleton, AppointmentSkeleton,
   useToast, Stars, VerifiedBadge, AvailabilityPulse,
   DoctorImage, Badge, Card, Input, PasswordInput, Btn
 } from "./components/SharedUI.jsx";
-import ContactPage from "./pages/Contact";
 import GoogleCalendarButton from "./components/GoogleCalendarButton";
 import analytics from "./utils/analytics";
-import AppointmentManager from "./pages/AppointmentManager";
-import UserGuide from "./pages/UserGuide";
-import AppDownloadPage from "./pages/AppDownload";
-import InstallPage from "./pages/InstallPage";
-import DoctorAppointmentSettings from "./components/DoctorAppointmentSettings";
-import PatientAttendingDoctorCard from "./components/PatientAttendingDoctorCard";
-import { AdminSupportUserTicketsPage, AdminSupportBackoffice } from "./pages/AdminSupportTickets";
-import SuperAdminAccountManagement from "./pages/SuperAdminAccountManagement";
-import ClinicAppointmentManager from "./pages/ClinicAppointmentManager";
-import RequestsPage from "./pages/RequestsPage";
-import DoctorClinicsPage from "./pages/DoctorClinicsPage";
 import { useRoute } from "./hooks/useRoute";
-import AvatarCropModal from "./components/AvatarCropModal";
 import { AccountSecurityPill, AccountSecurityCard } from "./components/AccountSecuritySummary";
-import KnowledgeBasePage from "./pages/KnowledgeBasePage";
-import HelpCenter from "./pages/HelpCenter";
 import { formatSpecialty } from "./utils/specialty";
+
+// ── Lazy Loaded External Pages & Heavy Components ──
+const PairDevicePage = lazy(() => import("./pages/PairDevice"));
+const ContactPage = lazy(() => import("./pages/Contact"));
+const AppointmentManager = lazy(() => import("./pages/AppointmentManager"));
+const UserGuide = lazy(() => import("./pages/UserGuide"));
+const AppDownloadPage = lazy(() => import("./pages/AppDownload"));
+const InstallPage = lazy(() => import("./pages/InstallPage"));
+const PatientAttendingDoctorCard = lazy(() => import("./components/PatientAttendingDoctorCard"));
+const AdminSupportUserTicketsPage = lazy(() => import("./pages/AdminSupportTickets").then(m => ({ default: m.AdminSupportUserTicketsPage })));
+const AdminSupportBackoffice = lazy(() => import("./pages/AdminSupportTickets").then(m => ({ default: m.AdminSupportBackoffice })));
+const SuperAdminAccountManagement = lazy(() => import("./pages/SuperAdminAccountManagement"));
+const ClinicAppointmentManager = lazy(() => import("./pages/ClinicAppointmentManager"));
+const RequestsPage = lazy(() => import("./pages/RequestsPage"));
+const DoctorClinicsPage = lazy(() => import("./pages/DoctorClinicsPage"));
+const AvatarCropModal = lazy(() => import("./components/AvatarCropModal"));
+const KnowledgeBasePage = lazy(() => import("./pages/KnowledgeBasePage"));
+const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -195,9 +196,33 @@ const api = {
     addUnavailability: b => req("POST", "/doctor/unavailabilities", b),
     deleteUnavailability: id => req("DELETE", `/doctor/unavailabilities/${encodeURIComponent(id)}`),
   },
-  specialties: () => req("GET", "/specialties"),
+  specialties: () => {
+    try {
+      const cached = sessionStorage.getItem("tabibi_specialties");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return Promise.resolve(parsed);
+      }
+    } catch (_) {}
+    return req("GET", "/specialties").then(data => {
+      try { sessionStorage.setItem("tabibi_specialties", JSON.stringify(data)); } catch (_) {}
+      return data;
+    });
+  },
   reasons: specId => req("GET", `/reasons${specId ? '?specialty_id=' + specId : ''}`, null, false),
-  wilayas: () => req("GET", "/wilayas"),
+  wilayas: () => {
+    try {
+      const cached = sessionStorage.getItem("tabibi_wilayas");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return Promise.resolve(parsed);
+      }
+    } catch (_) {}
+    return req("GET", "/wilayas").then(data => {
+      try { sessionStorage.setItem("tabibi_wilayas", JSON.stringify(data)); } catch (_) {}
+      return data;
+    });
+  },
   baladiyas: wilayaId => req("GET", `/baladiyas${wilayaId ? '?wilaya_id=' + encodeURIComponent(wilayaId) : ''}`),
   appointments: {
     slots: p => req("GET", `/appointments/available-slots?${new URLSearchParams(p)}`, null, true),
@@ -621,7 +646,8 @@ function Navbar({ user, navigate, onLogout, theme, toggleTheme, show }) {
   const animClass = useRandomAnimation(30);
 
   // ─── Shared PDF export helper (Loi 18-07 Art. 34) ───────────────────────────
-  const generateTabibiPDF = (dataObj, filename) => {
+  const generateTabibiPDF = async (dataObj, filename) => {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -2190,59 +2216,78 @@ function HomePage({ user, navigate }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, 1fr)", gap: isMobile ? 8 : 14 }}>
-            {specialties.slice(0, 8).map((s, i) => (
-              <div key={s.id}
-                onClick={() => navigate(`/search?specialty=${s.id}`)}
-                onMouseEnter={() => setHoveredSpec(i)}
-                onMouseLeave={() => setHoveredSpec(null)}
-                style={{
+            {specialties.length === 0 ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={`skel_${i}`} style={{
                   background: "var(--card-bg)",
                   borderRadius: "var(--radius-lg)",
                   padding: isMobile ? "12px 10px" : "20px 18px",
                   display: "flex", alignItems: "center", gap: isMobile ? 8 : 14,
-                  border: hoveredSpec === i ? "1.5px solid var(--brand)" : "1px solid #0891b2",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  transform: hoveredSpec === i ? "translateY(-2px)" : "none",
-                  boxShadow: hoveredSpec === i ? "0 8px 24px rgba(0,146,162,0.12)" : "none",
-                  overflow: "hidden"
-                }}
-              >
-                <div style={{
-                  width: isMobile ? 36 : 46, height: isMobile ? 36 : 46, borderRadius: isMobile ? 10 : 13,
-                  background: hoveredSpec === i ? "var(--brand)" : "var(--brand-light)",
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  transition: "background 0.2s",
+                  border: "1px solid var(--border)",
+                  boxSizing: "border-box"
                 }}>
-                  <div style={{ filter: hoveredSpec === i ? "brightness(0) invert(1)" : "none", transition: "filter 0.2s", display: "flex" }}>
-                    {getIcon(s.namefr)}
+                  <Skeleton width={isMobile ? 36 : 46} height={isMobile ? 36 : 46} borderRadius={isMobile ? 10 : 13} style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <Skeleton width="75%" height={14} style={{ marginBottom: 6 }} />
+                    <Skeleton width="45%" height={10} />
                   </div>
                 </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
+              ))
+            ) : (
+              specialties.slice(0, 8).map((s, i) => (
+                <div key={s.id}
+                  onClick={() => navigate(`/search?specialty=${s.id}`)}
+                  onMouseEnter={() => setHoveredSpec(i)}
+                  onMouseLeave={() => setHoveredSpec(null)}
+                  style={{
+                    background: "var(--card-bg)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: isMobile ? "12px 10px" : "20px 18px",
+                    display: "flex", alignItems: "center", gap: isMobile ? 8 : 14,
+                    border: hoveredSpec === i ? "1.5px solid var(--brand)" : "1px solid #0891b2",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    transform: hoveredSpec === i ? "translateY(-2px)" : "none",
+                    boxShadow: hoveredSpec === i ? "0 8px 24px rgba(0,146,162,0.12)" : "none",
+                    overflow: "hidden"
+                  }}
+                >
                   <div style={{
-                    fontSize: isMobile ? 12 : 14,
-                    fontWeight: 700,
-                    color: "var(--text-main)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis"
+                    width: isMobile ? 36 : 46, height: isMobile ? 36 : 46, borderRadius: isMobile ? 10 : 13,
+                    background: hoveredSpec === i ? "var(--brand)" : "var(--brand-light)",
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    transition: "background 0.2s",
                   }}>
-                    {formatSpecialty(s, i18n.language)}
+                    <div style={{ filter: hoveredSpec === i ? "brightness(0) invert(1)" : "none", transition: "filter 0.2s", display: "flex" }}>
+                      {getIcon(s.namefr)}
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize: isMobile ? 10 : 12,
-                    color: "var(--text-muted)",
-                    fontWeight: 500,
-                    marginTop: 2,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis"
-                  }}>
-                    {i18n.language === 'ar' ? formatSpecialty(s, 'fr') : formatSpecialty(s, 'ar')}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{
+                      fontSize: isMobile ? 12 : 14,
+                      fontWeight: 700,
+                      color: "var(--text-main)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}>
+                      {formatSpecialty(s, i18n.language)}
+                    </div>
+                    <div style={{
+                      fontSize: isMobile ? 10 : 12,
+                      color: "var(--text-muted)",
+                      fontWeight: 500,
+                      marginTop: 2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}>
+                      {i18n.language === 'ar' ? formatSpecialty(s, 'fr') : formatSpecialty(s, 'ar')}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -5376,12 +5421,14 @@ function BookPage({ clinicid, doctor_id, navigate, user }) {
     }
     // Success Celebration
     if (step === 7) {
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#0dd9c4', '#0e7490', '#ffffff']
-      });
+      import("canvas-confetti").then(({ default: confetti }) => {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#0dd9c4', '#0e7490', '#ffffff']
+        });
+      }).catch(() => {});
     }
   }, [step]);
 
@@ -16512,7 +16559,13 @@ function MainApp() {
             transition={{ duration: 0.3, ease: "easeOut" }}
             style={{ width: "100%" }}
           >
-            {renderPage()}
+            <Suspense fallback={
+              <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Spinner size={34} />
+              </div>
+            }>
+              {renderPage()}
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </div>
