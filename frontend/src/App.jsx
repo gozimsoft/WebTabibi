@@ -3441,13 +3441,16 @@ function SearchPage({ navigate, qs, user }) {
     ]).then(([s, w]) => { setSPL(s); setWIL(w); }).catch(() => { });
   }, []);
 
-  const doSearch = useCallback(async (qv, spv, wiv) => {
+  const doSearch = useCallback(async (qv, spv, wiv, pageNum = 1) => {
     setL(true);
-    analytics.track("search_performed", { query: qv, specialty_id: spv, wilaya_id: wiv });
+    analytics.track("search_performed", { query: qv, specialty_id: spv, wilaya_id: wiv, page: pageNum });
     try {
-      const d = await api.clinics.search({ q: qv, specialty: spv, wilaya_id: wiv, limit: 24 });
-      setR(d.items || []); setT(d.total || 0);
-      analytics.track("search_results", { count: (d.items || []).length, total: d.total });
+      const d = await api.clinics.search({ q: qv, specialty: spv, wilaya_id: wiv, page: pageNum, limit: itemsPerPage });
+      const items = d.items || [];
+      setR(items);
+      const serverTotal = d.total || 0;
+      setT(serverTotal);
+      analytics.track("search_results", { count: items.length, total: serverTotal });
     } catch (e) {
       analytics.track("search_failed", { error: e.message });
       show(e.message, "error"); setR([]);
@@ -3455,15 +3458,23 @@ function SearchPage({ navigate, qs, user }) {
     finally { setL(false); }
   }, [show]);
 
-  useEffect(() => { doSearch(q, sp, wi); }, [sp, wi]);
+  useEffect(() => {
+    doSearch(q, sp, wi, currentPage);
+  }, [sp, wi, currentPage]);
 
   const filteredResults = results.filter(r => {
     const type = (r.ResultType || "").toUpperCase();
     return showOnlyClinics ? type === 'CLINIC' : type === 'DOCTOR';
   });
 
-  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
-  const paginatedResults = filteredResults.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+  const paginatedResults = filteredResults;
+
+  const handlePageChange = (newPage) => {
+    if (newPage === currentPage) return;
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div style={{ maxWidth: 1200, width: "100%", margin: "0 auto", padding: isMobile ? "16px 16px" : "24px 24px", boxSizing: "border-box" }}>
@@ -3473,7 +3484,7 @@ function SearchPage({ navigate, qs, user }) {
       <Card style={{ marginBottom: 20, padding: isMobile ? 12 : 14, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
           <input value={q} onChange={e => setQ(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && doSearch(q, sp, wi)}
+            onKeyDown={e => e.key === "Enter" && (currentPage === 1 ? doSearch(q, sp, wi, 1) : setCurrentPage(1))}
             placeholder={t("search_placeholder")}
             style={{ flex: 2, padding: "12px 14px", border: "1.5px solid var(--border)", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }}
           />
@@ -3489,7 +3500,7 @@ function SearchPage({ navigate, qs, user }) {
               {spList.map(s => <option key={s.id} value={s.id}>{formatSpecialty(s, i18n.language)}</option>)}
             </select>
           </div>
-          <Btn onClick={() => doSearch(q, sp, wi)} style={{ padding: "12px 24px", justifyContent: "center" }}>{t("search_btn")}</Btn>
+          <Btn onClick={() => (currentPage === 1 ? doSearch(q, sp, wi, 1) : setCurrentPage(1))} style={{ padding: "12px 24px", justifyContent: "center" }}>{t("search_btn")}</Btn>
         </div>
       </Card>
 
@@ -3730,7 +3741,7 @@ function SearchPage({ navigate, qs, user }) {
               <div style={{ flex: 1, height: 2, background: "rgba(8, 145, 178, 0.2)", borderRadius: 2 }}></div>
 
               <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
                 style={{
                   width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
@@ -3755,7 +3766,7 @@ function SearchPage({ navigate, qs, user }) {
                     return (
                       <button
                         key={i}
-                        onClick={() => setCurrentPage(i + 1)}
+                        onClick={() => handlePageChange(i + 1)}
                         style={{
                           width: 40, height: 40, borderRadius: 12,
                           background: currentPage === i + 1 ? "linear-gradient(135deg, var(--brand, #0891b2), #0891b2)" : "#fff",
@@ -3779,7 +3790,7 @@ function SearchPage({ navigate, qs, user }) {
               </div>
 
               <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
                 style={{
                   width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
